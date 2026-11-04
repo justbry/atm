@@ -9,7 +9,10 @@ export type AtmCommandType =
 	| "finalize"
 	| "confirmExpiredLock"
 	| "reset"
-	| "recalculateBalance";
+	| "recalculateBalance"
+	| "track"
+	| "updateBalance"
+	| "deleteBalance";
 
 export type AtmIdentity = {
 	orgId: string;
@@ -71,7 +74,7 @@ export type AtmMutation = {
 
 export type AtmResultFor<T extends AtmCommandType> = T extends "check"
 	? AtmCheckResult
-	: T extends "reset"
+	: T extends "reset" | "updateBalance"
 		? AtmMutation | null
 		: T extends "recalculateBalance"
 			? Record<string, unknown>

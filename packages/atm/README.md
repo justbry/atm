@@ -2,7 +2,7 @@
 
 Autumn's balance engine (`@autumn/balance-engine`) as a local CLI and a TypeScript library. It runs one engine command against a subject and returns what the engine decides; it reads and writes nothing else.
 
-Commands it runs: `check`, `finalize`, `confirmExpiredLock`, `reset`, `recalculateBalance`.
+Commands it runs: `check`, `finalize`, `confirmExpiredLock`, `reset`, `recalculateBalance`, `track`, `updateBalance`, `deleteBalance`. Not run: `evict`, `initialize` and `applyBillingPlan` take a `SubjectState` (and a catalog or entities), not a subject.
 
 ## CLI
 
@@ -23,7 +23,7 @@ import { runEngineCommand, type AtmCheckResult } from "atm";
 const decision: AtmCheckResult = runEngineCommand({ subject, command }); // command.type === "check"
 ```
 
-- The result type follows `command.type`: `AtmCheckResult` for `check`, `AtmMutation` (row changes guarded by `revision.before`) for `finalize` and `confirmExpiredLock`, `AtmMutation | null` for `reset`.
+- The result type follows `command.type`: `AtmCheckResult` for `check`, `AtmMutation` (row changes guarded by `revision.before`) for `finalize` and `confirmExpiredLock`, `AtmMutation | null` for `reset` and `updateBalance` (null when nothing moves), `AtmMutation` for `track` and `deleteBalance`.
 - Inside this workspace, Bun imports the source (`exports` condition `bun`); anywhere else, the built files.
 
 ## Build

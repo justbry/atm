@@ -1,14 +1,20 @@
 import {
 	computeCheck,
 	computeConfirmExpiredLock,
+	computeDeleteBalance,
 	computeFinalize,
 	computeRecalculateBalance,
 	computeReset,
+	computeTrack,
+	computeUpdateBalance,
 	parseCheckCommand,
 	parseConfirmExpiredLockCommand,
+	parseDeleteBalanceCommand,
 	parseFinalizeCommand,
 	parseRecalculateBalanceCommand,
 	parseResetCommand,
+	parseTrackCommand,
+	parseUpdateBalanceCommand,
 	type WorkerFullSubject,
 } from "@autumn/balance-engine";
 
@@ -29,6 +35,18 @@ const runners = {
 		computeRecalculateBalance({
 			fullSubject,
 			command: parseRecalculateBalanceCommand({ input }),
+		}),
+	track: (fullSubject: WorkerFullSubject, input: unknown) =>
+		computeTrack({ fullSubject, command: parseTrackCommand({ input }) }),
+	updateBalance: (fullSubject: WorkerFullSubject, input: unknown) =>
+		computeUpdateBalance({
+			fullSubject,
+			command: parseUpdateBalanceCommand({ input }),
+		}),
+	deleteBalance: (fullSubject: WorkerFullSubject, input: unknown) =>
+		computeDeleteBalance({
+			fullSubject,
+			command: parseDeleteBalanceCommand({ input }),
 		}),
 } as const;
 
