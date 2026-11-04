@@ -3,13 +3,24 @@
 	"version": "0.0.1",
 	"private": true,
 	"type": "module",
-	"description": "Autumn's balance engine as a local CLI: run engine commands against a subject, and (next) build, check and replay a school's ledger.",
+	"description": "Autumn's balance engine as a local CLI and a TypeScript library: run engine commands against a subject; next, build, check and replay a school's ledger.",
 	"bin": {
 		"atm": "./src/bin.ts"
 	},
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"bun": "./src/index.ts",
+			"default": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"src"
+	],
 	"scripts": {
 		"atm": "bun ./src/bin.ts",
-		"build": "bun build ./src/bin.ts --target=bun --outfile=dist/atm.js",
+		"build": "bun ./build.ts",
 		"test": "bun test tests",
 		"ts": "tsc --noEmit"
 	},

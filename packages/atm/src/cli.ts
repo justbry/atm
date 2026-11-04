@@ -4,7 +4,9 @@ import { Command } from "commander";
 import { engineCommandTypes, runEngineCommand } from "./engine.js";
 
 const readJson = async (path: string) =>
-	JSON.parse(path === "-" ? await Bun.stdin.text() : await readFile(path, "utf8"));
+	JSON.parse(
+		path === "-" ? await Bun.stdin.text() : await readFile(path, "utf8"),
+	);
 
 export const program = new Command()
 	.name("atm")

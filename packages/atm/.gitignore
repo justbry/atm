@@ -1,1 +1,3 @@
 dist/
+# the repository root ignores tests/; atm keeps its tests
+!tests/
