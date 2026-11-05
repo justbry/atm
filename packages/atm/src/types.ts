@@ -1195,7 +1195,7 @@ export type BookingCost =
  * - `booking_conflict`: the booking id is known and this call differs from what it held or paid (a replay of the same call is not an error).
  * - `no_hold`: nothing is held for this booking id.
  * - `already_settled`: the booking was already spent, released or paid and this call would undo that.
- * - `hold_expired`: the hold's expiry has passed and its expiry action already decided (`confirm`: spent; `release`: use `settleExpiredHold`).
+ * - `hold_expired`: the hold's expiry has passed and this call would do the opposite of its expiry action (a release or a free cancel of a `confirm` hold, a spend of a `release` hold): use `settleExpiredHold`. A call that does what the expiry action does still works.
  * - `not_credits`: the call is for credits and the booking's cost is free or a price.
  */
 export type BookingRefusalReason =
@@ -1330,8 +1330,11 @@ export type SettleBookingInput = BookingContext & { bookingId: string };
 
 /**
  * `rowChanges` is one write for the subject (the engine's rows and the grants row under one revision), null when the call
- * changes nothing (a replay). `events` are the ledger events: `credit.held`, `credit.released`, `credit.spent`, and a
- * `credit.low` or `credit.depleted` when a spend takes the holder's balance to the policy's `lowCreditThreshold` or to zero.
+ * changes nothing (a replay). `events` are the ledger events: a hold is `credit.held`; a release `credit.released`; a
+ * `confirmBooking` is `credit.spent`; a no-show, a late cancel and an expired hold that confirms are `credit.forfeited` (the
+ * credits leave `credits:held` for `credits:forfeited`, not for a service); and a hold that takes the holder's balance to
+ * the policy's `lowCreditThreshold` or to zero adds `credit.low` or `credit.depleted` (the balance falls when the credits are
+ * held, so that is where the alert is made). A command that moves no credits is a `plan.changed`.
  */
 export type BookingResult =
 	| {
