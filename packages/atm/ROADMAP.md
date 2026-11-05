@@ -2,7 +2,7 @@
 
 Status as of 2026-11-05. `- [x]` is built and tested; `- [ ]` is not. What is built is described in `README.md`; what a caller of 0.1.0 has to change is in `UPGRADING.md`. Competitor behaviour comes from the vendors' public docs as read on 2026-11-04, not from running their products.
 
-**Where the work is.** Eight branches stacked on `dev`, built locally and each gated on its own (lint, `tsc`, tests, build, knip). Nothing is pushed yet. Bottom to top: `claude/atm-membership`, `claude/atm-engine-expiry-order`, `claude/atm-deduction-policy`, `claude/atm-store`, `claude/atm-real-payloads`, `claude/atm-webhook-handler`, `claude/atm-credit-alerts`, `claude/atm-release-prep`. Tier quantities are in their own branch on `dev`.
+**Where the work is.** Everything through tier quantities is merged into `dev` (PRs #9 to #16, merge commits, bottom-up, on 2026-11-05; tier quantities in #17). The version bump to 0.3.0 is in #18; only `atm-v0.1.0` is tagged. What is left for 0.3.0 is the release itself and the verification items below.
 
 ## Priority: the B4 Uni update and Vibes of Light membership
 
@@ -10,11 +10,11 @@ The critical path. Simulation, corrections, the Parquet export, decoupling and t
 
 ### In atm
 - [x] The billing layer, the reference webhook handler, the real-payload fixes, refund and dispute linkage, `credit.low` and `credit.depleted`, and the deduction order (details under Done).
-- [ ] Review each slice, then push the branches, open the PRs (`gh --repo justbry/atm`; base chain, first base `dev`), and merge bottom-up with merge commits (not squash, which would orphan the child PRs), retargeting each child to `dev` after its parent merges. All eight slices have been reviewed (see Review below); the findings are fixed in each slice.
+- [x] Review each slice, push the branches, open the PRs, and merge bottom-up with merge commits (PRs #9 to #16). All eight slices were reviewed (see Review below); the findings are fixed in each slice.
 - [x] **Tier quantities.** Vibes of Light sells three tiers at 1, 2 or 4 sessions a month; as separate tiers that is 9, past `MAX_TIERS = 4`. A tier gets `quantities` with its price and grants per unit (details in `UPGRADING.md`). Built from real quantity payloads captured in the sandbox (`fixtures/billing/stripe/recorded/`). Left out of 0.3.0: a quantity member in the replay fixture year (`fixtures/vibes-year`); the grants tests cover raise, decrease, renewal, yearly refund and the two-item subscription.
   - [ ] Verify with real data: a tier change and a quantity change in one update; a raise on a yearly plan (grants 0 today); a decrease through a subscription schedule.
   - [ ] Align with the family service's stopgap, justbry/buzz-school#1285.
-- [ ] **Release 0.3.0**: bump `package.json` (0.2.0 on `dev`; no 0.2.0 tag or release exists), `just release-dry`, then `just release` from a clean, pushed `HEAD`; hand the tarball URL and sha512 to `buzz-school`'s `bun.lock`. `release.ts` has no draft mode.
+- [ ] **Release 0.3.0**: bump `package.json` (0.3.0 in #18; no 0.2.0 tag or release exists), `just release-dry`, then `just release` from a clean, pushed `HEAD`; hand the tarball URL and sha512 to `buzz-school`'s `bun.lock`. `release.ts` has no draft mode.
 - [ ] Verify webhook delivery at the pinned version: create a sandbox webhook endpoint with `api_version: "2025-10-29.clover"` that reaches a URL we control (the CLI's `listen` offers only the account default or the newest version), subscribed to the eight events in `UPGRADING.md`.
 - [ ] An atm test workflow in `.github/workflows`. Today no workflow runs atm's tests on a PR: `knip.yml` runs on PRs to main, staging and dev; `build.yml` runs on pushes to main, staging and dev (it type-checks, and builds the server image only on main or a manual dispatch); `release-atm.yml` runs on an `atm-v*` tag push and calls `release --ci`, which builds the package and runs `tests/dist.test.ts` against the built output.
 - [ ] The contract suite under Node (only Bun has run) and against staging R2 (never run).
@@ -104,6 +104,10 @@ All eight slices were reviewed by sub-agents and the findings fixed slice by sli
 ### Webhook delivery
 - [ ] Not decided: a reference deliverer beside the webhook handler that signs and sends webhooks from the outbox, with retries and a dedupe key per event.
 
+### Referral codes and reconciliation
+- [ ] The ledger has `referral.qualified` and `referral.rewarded` events and postings, but no referral-code table or rules (single use, no self-referral). The B4 Uni purpose-built estimate counts gift and referral codes (220 to 380 lines).
+- [ ] A reconciliation query: atm's balances and grants against Stripe's paid invoices, run nightly by the caller. Nothing in `src/` does this yet.
+
 ## Possible directions, not planned
 
 ### Usage invoicing
@@ -113,6 +117,19 @@ All eight slices were reviewed by sub-agents and the findings fixed slice by sli
 
 ### Credit ledger depth (from the Orb, Metronome and OpenMeter comparison)
 - Not built: drawdown by priority and by cost basis, and a `pending_payment`-style hold on credits whose invoice is unpaid. atm draws by expiry then oldest grant.
+
+### Compared with open-source billing (Lago, OpenMeter, Flexprice, Kill Bill, Polar)
+Written 2026-11-05 from memory of their public docs, not read or run; check a row before acting on it. What atm lacks that they have, and where it stands here:
+- Metered usage rating and invoicing: ruled out above.
+- Prepaid wallets and auto top-up (Lago, Flexprice): not built. The Autumn monorepo has an `auto-topup` package that atm does not use.
+- Other payment providers (Lago, Kill Bill, Flexprice): atm is Stripe only. Not planned.
+- Own subscription lifecycle (proration, trials, dunning, coupons): left to Stripe, see Ruled out.
+- Tax, invoice PDFs, customer portal, admin UI, REST API, multi-tenant auth: left to Stripe and the caller.
+- Revenue analytics (MRR and similar): only the ledger export; the Parquet export and any dashboard are not built.
+- Expiry alerts by the clock: see Alerts above.
+- Replay and rebuild from the log: see Review above; the largest functional gap against any engine that is event-sourced.
+- Reuse outside B4 Uni: see "Decouple, the cheap parts" (prefix, `family_id`, `env`, menu limits), and the Worker handler blocked on `ajv`.
+- SOC 2, a DPA and subprocessor list: none; the caller writes them.
 
 ## Ruled out
 - Per-subject compare-and-swap on R2 (owner decision).
