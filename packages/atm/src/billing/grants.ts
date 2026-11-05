@@ -340,6 +340,52 @@ export const addUtcMonths = (ms: number, months: number): number => {
 	);
 };
 
+const WALL_PARTS = {
+	hourCycle: "h23",
+	year: "numeric",
+	month: "numeric",
+	day: "numeric",
+	hour: "numeric",
+	minute: "numeric",
+	second: "numeric",
+} as const;
+
+/** The wall clock of `ms` in `timeZone` as if it were UTC: the number to add months to and to turn back into an instant. */
+const wallMs = (ms: number, timeZone: string): number => {
+	const parts = Object.fromEntries(
+		new Intl.DateTimeFormat("en-US", { ...WALL_PARTS, timeZone })
+			.formatToParts(new Date(ms))
+			.map((p) => [p.type, Number(p.value)]),
+	);
+	return (
+		Date.UTC(
+			parts.year,
+			parts.month - 1,
+			parts.day,
+			parts.hour,
+			parts.minute,
+			parts.second,
+		) +
+		(ms % 1000)
+	);
+};
+
+/**
+ * `ms` plus whole months on the calendar of `timeZone` (same wall-clock time, day clamped to the end of a shorter
+ * month): a gift bought at noon in Denver in January lapses at noon in Denver six months on, across the clocks changing.
+ */
+export const addZonedMonths = (
+	ms: number,
+	months: number,
+	timeZone: string,
+): number => {
+	const target = addUtcMonths(wallMs(ms, timeZone), months);
+	// Wall time back to an instant: guess with the zone's offset at the wall time, then correct with the offset at the guess.
+	let guess = target - (wallMs(target, timeZone) - target);
+	guess = target - (wallMs(guess, timeZone) - guess);
+	return guess;
+};
+
 const labelsOf = (source: FactSource, v: Versions): GrantLabels => ({
 	menu_version: String(v.menuVersion),
 	policy_version: String(v.policyVersion),
@@ -596,8 +642,9 @@ const identityFrom = (
  *   Nothing is granted for an unpaid cycle because nothing runs for it.
  * - `subscription_update` with a positive proration line for another tier (an upgrade): the allowance
  *   difference x share of the cycle left, rounded up, per `policy.upgradeGrant`. A lower tier grants nothing.
- * - Session gift certificate (`metadata.gift === "sessions"`, optional `gift_feature`): one-off row with
- *   `expires_at` = `policy.giftSessionMonths` after `paidAt`. A dollar gift grants no credits.
+ * - Gift certificate (an add-on with `gift`, or a line whose Stripe price says so): `sessions` is a one-off row per
+ *   grant with `expires_at` = `policy.giftSessionMonths` after `paidAt` on the menu's calendar (`menu.timeZone`);
+ *   `dollars` grants no credits.
  *
  * A replayed invoice (already in `state.invoices`) gives no commands.
  */
@@ -641,6 +688,11 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 	const once = lines.filter(
 		(l) => l.kind === "addon" && !l.proration && l.addonId && !l.interval,
 	);
+	/** A line's gift kind: the Stripe price's own metadata when the line shows it, else the menu's add-on. */
+	const giftOf = (l: InvoiceLine) =>
+		l.gift ?? addonOf(menu, l.addonId as string).gift ?? null;
+	// A dollar certificate is a coupon the family service issues: it grants no credits.
+	const credited = once.filter((l) => giftOf(l) !== "dollars");
 	// The engine refills rows whose reset is strictly before the command's time, so the reset runs 1 ms after the anchor.
 	const anchorAt =
 		(policy.cycleFromPeriodStart
@@ -875,34 +927,41 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 	}
 
 	// ---- one-time add-ons and gifts, on any invoice ----------------------------------------------------------
-	if (
-		state.identity === null &&
-		!created &&
-		(once.length > 0 || invoice.metadata.gift === "sessions")
-	) {
+	if (state.identity === null && !created && credited.length > 0) {
 		ops.push({
 			op: "insert",
 			table: "customer",
 			row: customerRow(who.customerId),
 		});
 	}
-	for (const l of once) {
+	for (const l of credited) {
 		const addon = addonOf(menu, l.addonId as string);
+		// A session gift lives `giftSessionMonths` on the school's calendar; other one-time grants lapse by their own rollover months.
+		const gift = giftOf(l) === "sessions";
 		for (const g of addon.grants) {
-			const rowId = `ce_once_${invoice.id}_${addon.id}_${g.featureId}`;
+			const rowId = `ce_${gift ? "gift" : "once"}_${invoice.id}_${addon.id}_${g.featureId}`;
 			const units = g.amount * (l.quantity || 1);
+			const expiresAt = gift
+				? addZonedMonths(
+						invoice.paidAt,
+						policy.giftSessionMonths,
+						menu.timeZone,
+					)
+				: g.rollover
+					? addUtcMonths(invoice.paidAt, g.rollover.months)
+					: null;
 			ops.push(
 				rowOp({
 					rowId,
 					cpId: null,
-					entitlementId: onceEntId(addon.id, g.featureId),
+					entitlementId: gift
+						? giftEntId(g.featureId)
+						: onceEntId(addon.id, g.featureId),
 					feature: g.featureId,
 					customerId: who.customerId,
 					balance: units,
 					nextResetAt: null,
-					expiresAt: g.rollover
-						? addUtcMonths(invoice.paidAt, g.rollover.months)
-						: null,
+					expiresAt,
 					t: now,
 				}),
 			);
@@ -916,42 +975,6 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 			});
 			state.rows[rowId] = 1;
 		}
-	}
-	if (invoice.metadata.gift === "sessions") {
-		const feature = invoice.metadata.gift_feature ?? menu.features[0]?.id;
-		if (!feature || !menu.features.some((f) => f.id === feature))
-			throw new Error(
-				`gift invoice ${invoice.id} names no feature on the menu`,
-			);
-		const units = Math.max(
-			1,
-			invoice.lines
-				.filter((l) => !l.proration)
-				.reduce((n, l) => n + (l.quantity || 0), 0),
-		);
-		const rowId = `ce_gift_${invoice.id}_${feature}`;
-		ops.push(
-			rowOp({
-				rowId,
-				cpId: null,
-				entitlementId: giftEntId(feature),
-				feature,
-				customerId: who.customerId,
-				balance: units,
-				nextResetAt: null,
-				expiresAt: addUtcMonths(invoice.paidAt, policy.giftSessionMonths),
-				t: now,
-			}),
-		);
-		record.granted.push({
-			invoiceId: invoice.id,
-			rowId,
-			feature,
-			units,
-			epoch: 1,
-			rolloverExpiresAt: null,
-		});
-		state.rows[rowId] = 1;
 	}
 
 	b.plan(now, ops);

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import type { SubjectState } from "@autumn/balance-engine";
 import {
 	addUtcMonths,
+	addZonedMonths,
 	disputeToCommands,
 	EMPTY_GRANTS_STATE,
 	type GrantCommand,
@@ -543,11 +544,51 @@ describe("add-ons and gifts", () => {
 		expect(w.avail(D("2026-09-12T18:31:00Z"))).toBe(0);
 	});
 
-	test("the gift length is the policy's", () => {
-		const w = world({ ...DEFAULT_POLICY, giftSessionMonths: 2 });
-		w.invoice(invoice("inv-gift-sessions"));
-		expect(w.avail(D("2026-05-12T18:29:00Z"))).toBe(1);
-		expect(w.avail(D("2026-05-12T18:31:00Z"))).toBe(0);
+	test("the gift expires on the school's calendar: noon in Denver in January is noon in Denver in July", () => {
+		const bought = D("2026-01-12T19:30:00Z"); // 12:30 MST
+		const w = world();
+		w.invoice({ ...invoice("inv-gift-sessions"), paidAt: bought });
+		const noon = D("2026-07-12T18:30:00Z"); // 12:30 MDT, an hour before UTC arithmetic says
+		expect(w.avail(noon - 1)).toBe(1);
+		expect(w.avail(noon + 1)).toBe(0);
+		expect(noon).toBeLessThan(addUtcMonths(bought, 6));
+	});
+
+	test("the gift kind can come from the Stripe price on the line alone", () => {
+		const w = world();
+		const base = invoice("inv-gift-sessions");
+		w.invoice({
+			...base,
+			lines: [
+				{
+					...(base.lines[0] as BillingInvoice["lines"][number]),
+					addonId: "pack",
+					gift: "sessions",
+				},
+			],
+		});
+		// the pack's own 3-month rollover is not used: a gift lasts the policy's six months
+		expect(w.avail(D("2026-09-12T18:29:00Z"))).toBe(1);
+		expect(w.avail(D("2026-09-12T18:31:00Z"))).toBe(0);
+	});
+
+	test("a metadata gift flag on an invoice no longer grants anything", () => {
+		const w = world();
+		const base = invoice("inv-gift-sessions");
+		const r = w.invoice({
+			...base,
+			lines: [
+				{
+					kind: "unknown",
+					interval: null,
+					quantity: 1,
+					proration: false,
+					amount: 13000,
+				},
+			],
+			metadata: { ...base.metadata, gift: "sessions", gift_feature: "visit" },
+		});
+		expect(r.commands).toEqual([]);
 	});
 
 	test("a dollar gift grants no credits", () => {
@@ -664,5 +705,31 @@ describe("cancellation", () => {
 		const retreatAt = D("2027-01-15T18:00:00Z");
 		expect(w.avail(retreatAt - 1, "retreat")).toBe(1);
 		expect(w.avail(addUtcMonths(retreatAt, 1) + 1, "retreat")).toBe(0);
+	});
+});
+
+describe("addZonedMonths", () => {
+	test("the same wall clock months on, across the clocks changing", () => {
+		expect(addZonedMonths(D("2026-01-12T19:30:00Z"), 6, "America/Denver")).toBe(
+			D("2026-07-12T18:30:00Z"),
+		);
+		expect(addZonedMonths(D("2026-07-12T18:30:00Z"), 6, "America/Denver")).toBe(
+			D("2027-01-12T19:30:00Z"),
+		);
+	});
+	test("the day is clamped to a shorter month", () => {
+		expect(addZonedMonths(D("2026-08-31T12:00:00Z"), 6, "America/Denver")).toBe(
+			D("2027-02-28T13:00:00Z"),
+		);
+	});
+	test("UTC gives the UTC calendar", () => {
+		const t = D("2026-03-12T18:30:45.123Z");
+		expect(addZonedMonths(t, 6, "UTC")).toBe(addUtcMonths(t, 6));
+	});
+	test("a zone ahead of UTC across midnight keeps its own local day", () => {
+		// 2026-01-31 23:30 in Auckland (+13) is 10:30Z; one month on is 2026-02-28 23:30 Auckland (+13) = 10:30Z
+		expect(
+			addZonedMonths(D("2026-01-31T10:30:00Z"), 1, "Pacific/Auckland"),
+		).toBe(D("2026-02-28T10:30:00Z"));
 	});
 });

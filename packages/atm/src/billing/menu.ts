@@ -115,6 +115,11 @@ function crossProblems(m: Menu): string[] {
 	});
 	m.addons.forEach((a, i) => {
 		grants(`addons.${i}.grants`, a.grants);
+		if (!a.gift) return;
+		// A gift is one purchase: sessions are the grants, a dollar certificate holds none.
+		if (a.price.every !== "once") bad.push(`addons.${i}.gift`);
+		if ((a.gift === "sessions") === (a.grants.length === 0))
+			bad.push(`addons.${i}.grants`);
 	});
 	return bad;
 }

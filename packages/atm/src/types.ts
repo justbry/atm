@@ -316,11 +316,15 @@ export type MenuTier = {
 	prices: TierPrice[];
 	grants: MenuGrant[];
 };
+/** What a gift certificate holds: `sessions` (credits that lapse after `giftSessionMonths`) or `dollars` (a coupon the family service issues; no credits). */
+export type GiftKind = "sessions" | "dollars";
 export type MenuAddon = {
 	id: string;
 	name: string;
 	price: { amount: number; every: AddonEvery };
 	grants: MenuGrant[];
+	/** Makes the add-on a gift certificate. Needs a one-time price; `sessions` needs grants, `dollars` has none. */
+	gift?: GiftKind;
 };
 
 /** A school's menu (lowercase ISO currency, IANA time zone). Same shape as the family service's and the web's. */
@@ -374,6 +378,8 @@ export type InvoiceLine = {
 	priceId?: string | null;
 	tierId?: string;
 	addonId?: string;
+	/** The gift kind on the Stripe price's metadata (`b4u_gift`), when the invoice line shows it. The menu's add-on says the same. */
+	gift?: GiftKind | null;
 	/** null for a one-time price. */
 	interval: Interval | null;
 	quantity: number;

@@ -49,6 +49,13 @@
 				"optional": true,
 				"default": null
 			},
+			"gift": {
+				"path": "$.price.metadata.b4u_gift",
+				"type": "string",
+				"optional": true,
+				"values": { "sessions": "sessions", "dollars": "dollars" },
+				"fallback": null
+			},
 			"interval": {
 				"path": "$.price.recurring.interval",
 				"type": "string",

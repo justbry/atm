@@ -312,6 +312,32 @@ describe("validateMenu", () => {
 		expect(problems(m)).toEqual(["tiers.1.grants"]);
 	});
 
+	test("gifts: a one-time add-on; sessions need grants, dollars have none", () => {
+		const check = (over: Record<string, unknown>): string[] => {
+			const m = menu();
+			m.addons = [
+				{
+					id: "gift",
+					name: "Gift",
+					price: { amount: 9000, every: "once" },
+					grants: [{ featureId: m.features[0].id, amount: 1, every: "month" }],
+					gift: "sessions",
+					...over,
+				},
+			];
+			const r = validateMenu(m);
+			return r.ok ? [] : r.problems;
+		};
+		expect(check({})).toEqual([]);
+		expect(check({ gift: "dollars", grants: [] })).toEqual([]);
+		expect(check({ price: { amount: 9000, every: "month" } })).toEqual([
+			"addons.0.gift",
+		]);
+		expect(check({ grants: [] })).toEqual(["addons.0.grants"]);
+		expect(check({ gift: "dollars" })).toEqual(["addons.0.grants"]);
+		expect(check({ gift: "voucher" })).toEqual(["addons.0.gift"]);
+	});
+
 	test("web rules: names are unique (case-insensitive) among credits and among tiers", () => {
 		let m = menu();
 		m.features[1].name = "MASSAGE";

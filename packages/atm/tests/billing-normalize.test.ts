@@ -115,6 +115,23 @@ describe("mapping files", () => {
 });
 
 describe("fixtures normalize to their facts", () => {
+	test("invoice.paid: a line's gift kind is read from the price metadata, an unknown kind is null, none is absent", () => {
+		const raw = load("invoice.paid.json");
+		const giftOf = (metadata?: Record<string, string>) => {
+			const event = clone(raw);
+			event.data.object.lines.data[0].price.metadata = metadata;
+			const inv = expectOk(
+				normalize(event, mapping("invoice.paid"), { eventId: raw.id }),
+			) as BillingInvoice;
+			return inv.lines[0]?.gift;
+		};
+		expect(giftOf({ b4u_gift: "sessions" })).toBe("sessions");
+		expect(giftOf({ b4u_gift: "dollars" })).toBe("dollars");
+		expect(giftOf({ b4u_gift: "other" })).toBeNull();
+		expect(giftOf({ b4u_key: "a:x:once" })).toBeUndefined();
+		expect(giftOf(undefined)).toBeUndefined();
+	});
+
 	test("invoice.paid: a monthly join with a tier line and an add-on line", () => {
 		const raw = load("invoice.paid.json");
 		const r = expectOk(

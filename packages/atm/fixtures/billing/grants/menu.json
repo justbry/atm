@@ -132,6 +132,32 @@
 					"every": "month"
 				}
 			]
+		},
+		{
+			"id": "gift-visit",
+			"name": "Gift visit",
+			"price": {
+				"amount": 13000,
+				"every": "once"
+			},
+			"grants": [
+				{
+					"featureId": "visit",
+					"amount": 1,
+					"every": "month"
+				}
+			],
+			"gift": "sessions"
+		},
+		{
+			"id": "gift-dollars",
+			"name": "Gift card",
+			"price": {
+				"amount": 5000,
+				"every": "once"
+			},
+			"grants": [],
+			"gift": "dollars"
 		}
 	]
 }
