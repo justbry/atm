@@ -12,3 +12,11 @@
 # Docker files
 Dockerfile* text eol=lf
 docker-compose*.yml text eol=lf 
+# atm: generated or recorded output. GitHub collapses these in a diff; review the generator or the test that checks them.
+packages/atm/fixtures/vibes-year/** linguist-generated=true
+packages/atm/fixtures/billing/rows/vibes-year.rows.json linguist-generated=true
+packages/atm/tests/golden/** linguist-generated=true
+packages/atm/schema/stripe/objects.clover.json linguist-generated=true
+packages/atm/schema/mapping/index.ts linguist-generated=true
+packages/atm/schema/duckdb/*.sql linguist-generated=true
+packages/atm/src/ledger/schemas.ts linguist-generated=true
