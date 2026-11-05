@@ -234,11 +234,14 @@ export function resolveLines(
 			(line.lookupKey ? itemByKey.get(line.lookupKey) : undefined) ??
 			(line.priceId ? itemByKey.get(line.priceId) : undefined);
 		if (!item) return { ...rest, kind: "unknown" };
-		// What the line lacks, the menu's item gives: its price's lookup key and interval.
+		// What the line lacks, the menu's item gives: its price's lookup key, interval and gift kind.
 		const known = {
 			...rest,
 			lookupKey: line.lookupKey ?? item.lookupKey ?? null,
 			interval: line.interval ?? item.interval,
+			...(item.kind === "addon" && item.gift
+				? { gift: line.gift ?? item.gift }
+				: {}),
 		};
 		return item.kind === "tier"
 			? { ...known, kind: "tier", tierId: item.tierId }

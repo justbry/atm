@@ -21,6 +21,7 @@ import type {
 	CheckoutParamsWithPrices,
 	CheckoutRefusal,
 	CheckoutResult,
+	GiftKind,
 	Interval,
 	Menu,
 	MenuToStripeInput,
@@ -37,6 +38,7 @@ type Wanted = {
 		lookupKey: string;
 		amount: number;
 		every: AddonEvery;
+		gift?: GiftKind;
 	}[];
 };
 
@@ -55,8 +57,12 @@ export const lookupKeyOf = (
 /** `t:<tierId>:<interval>` or `a:<addonId>:<every>`: the menu's name for a price, before the amount and currency are added. */
 export const tierPriceKey = (tierId: string, interval: Interval): string =>
 	`t:${tierId}:${interval}`;
-export const addonPriceKey = (addonId: string, every: AddonEvery): string =>
-	`a:${addonId}:${every}`;
+/** A gift add-on's key names the gift kind: flipping the flag is a new price (prices are immutable), not a stale one. */
+export const addonPriceKey = (
+	addonId: string,
+	every: AddonEvery,
+	gift?: GiftKind,
+): string => `a:${addonId}:${every}${gift ? `:gift-${gift}` : ""}`;
 
 /** What the menu asks Stripe to hold, in menu order: a product per public tier and per add-on that has a usable price. */
 function wantedOf(schoolId: string, menu: Menu): Wanted[] {
@@ -90,7 +96,7 @@ function wantedOf(schoolId: string, menu: Menu): Wanted[] {
 	}
 	for (const a of menu.addons) {
 		if (!usable(a.price.amount)) continue;
-		const priceKey = addonPriceKey(a.id, a.price.every);
+		const priceKey = addonPriceKey(a.id, a.price.every, a.gift);
 		out.push({
 			key: `a:${a.id}`,
 			name: a.name,
@@ -112,6 +118,7 @@ function wantedOf(schoolId: string, menu: Menu): Wanted[] {
 					),
 					amount: a.price.amount,
 					every: a.price.every,
+					...(a.gift ? { gift: a.gift } : {}),
 				},
 			],
 		});
@@ -199,7 +206,11 @@ export function menuToStripe(input: MenuToStripeInput): StripeOp[] {
 					currency: menu.currency,
 					unitAmount: p.amount,
 					recurring: p.every === "once" ? null : { interval: p.every },
-					metadata: { b4u_school: schoolId, b4u_key: p.priceKey },
+					metadata: {
+						b4u_school: schoolId,
+						b4u_key: p.priceKey,
+						...(p.gift ? { b4u_gift: p.gift } : {}),
+					},
 				}),
 			);
 		}
@@ -287,7 +298,7 @@ export function checkoutParams(input: CheckoutInput): CheckoutResult {
 		lines.push(
 			lookupKeyOf(
 				schoolId,
-				addonPriceKey(a.id, a.price.every),
+				addonPriceKey(a.id, a.price.every, a.gift),
 				a.price.amount,
 				menu.currency,
 			),

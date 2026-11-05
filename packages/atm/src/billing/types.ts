@@ -16,6 +16,7 @@ export type {
 	FactSource,
 	FieldSpec,
 	FieldType,
+	GiftKind,
 	GrantCommand,
 	GrantedRow,
 	GrantLabels,

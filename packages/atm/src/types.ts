@@ -316,11 +316,15 @@ export type MenuTier = {
 	prices: TierPrice[];
 	grants: MenuGrant[];
 };
+/** What a gift certificate holds: `sessions` (credits that lapse after `giftSessionMonths`) or `dollars` (a coupon the family service issues; no credits). */
+export type GiftKind = "sessions" | "dollars";
 export type MenuAddon = {
 	id: string;
 	name: string;
 	price: { amount: number; every: AddonEvery };
 	grants: MenuGrant[];
+	/** Makes the add-on a gift certificate. Needs a one-time price; `sessions` needs grants, `dollars` has none. */
+	gift?: GiftKind;
 };
 
 /** A school's menu (lowercase ISO currency, IANA time zone). Same shape as the family service's and the web's. */
@@ -344,8 +348,6 @@ export type BillingPolicy = {
 	removeOnFullRefund: boolean;
 	/** On a lost dispute, remove that payment's unused credits. */
 	removeOnLostDispute: boolean;
-	/** Cycles and rollover expiry count from the invoice's period start (true) or the payment time (false). */
-	cycleFromPeriodStart: boolean;
 	/** A session gift certificate lasts this many months from purchase. */
 	giftSessionMonths: number;
 	/** Smallest dollar gift certificate, in cents. */
@@ -374,6 +376,8 @@ export type InvoiceLine = {
 	priceId?: string | null;
 	tierId?: string;
 	addonId?: string;
+	/** The gift kind, from the matched add-on (or the Stripe price's metadata, when a line shows it). */
+	gift?: GiftKind | null;
 	/** null for a one-time price. */
 	interval: Interval | null;
 	quantity: number;
@@ -772,6 +776,8 @@ export type LineItem = (
 	lookupKey?: string;
 	/** The price's interval (null: one-time), likewise not on the line. Required: "not given" must not read as one-time. */
 	interval: Interval | null;
+	/** An add-on that is a gift certificate. */
+	gift?: GiftKind;
 };
 
 // ---- Storage rows ----
