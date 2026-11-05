@@ -6,11 +6,16 @@ import packageJson from "../package.json";
 import { engineCommandTypes, runEngineCommand } from "./engine.js";
 import { bunSqlite } from "./handler/bun-sqlite.js";
 import { journalMonth } from "./ledger/files.js";
+import { ReconcileInputError } from "./ledger/reconcile.js";
+import { formatReconcile, reconcileFolder } from "./ledger/reconcile-files.js";
 import { shipOutbox } from "./ledger/ship.js";
 import { FolderStore } from "./store/folder-store.js";
 
 /** How long `atm ship` waits for the handler's write lock on a busy database. */
 const BUSY_TIMEOUT_MS = 5000;
+
+/** Exit status of `atm reconcile` for input it cannot use; 1 is for differences found. */
+const RECONCILE_BAD_INPUT = 2;
 
 const readJson = async (path: string) =>
 	JSON.parse(
@@ -114,3 +119,86 @@ program
 			database.close();
 		}
 	});
+
+program
+	.command("reconcile")
+	.description(
+		"compare a school's events for a month (or a range of days) with Stripe's records for the same period: paid invoices, refunds, disputes, payouts, fees and the net. Prints a summary, or --json; exits 0 when nothing differs, 1 when something does, 2 for input it cannot use",
+	)
+	.option("--root <folder>", "the folder that holds schools/<id>/")
+	.option("--school <id>", "school id, as in schools/<id>/")
+	.option("--month <YYYY-MM>", "the period, by the school's calendar")
+	.option("--from <YYYY-MM-DD>", "first day of a range, instead of --month")
+	.option("--to <YYYY-MM-DD>", "last day of a range (inclusive)")
+	.option(
+		"--stripe <folder>",
+		"folder of the JSON that `stripe <resource> list` prints: invoices.json, refunds.json, disputes.json, payouts.json, balance_transactions.json (a missing file is reported as not supplied)",
+	)
+	.option(
+		"--time-zone <iana>",
+		"the school's zone for dating Stripe's records (default: the latest event's)",
+	)
+	.option(
+		"--mode <live|test>",
+		"ignore Stripe objects of the other mode",
+		"live",
+	)
+	.option("--json", "print the result as JSON")
+	.exitOverride((error) => {
+		// Commander's own errors (an unknown option) exit 1, which here would read as "differences found".
+		process.exit(error.exitCode === 0 ? 0 : RECONCILE_BAD_INPUT);
+	})
+	.action(
+		async (opts: {
+			root?: string;
+			school?: string;
+			month?: string;
+			from?: string;
+			to?: string;
+			stripe?: string;
+			timeZone?: string;
+			mode: string;
+			json?: boolean;
+		}) => {
+			try {
+				const { root, school, stripe } = opts;
+				if (!root || !school || !stripe)
+					throw new ReconcileInputError(
+						"--root, --school and --stripe are required",
+					);
+				if (opts.mode !== "live" && opts.mode !== "test")
+					throw new ReconcileInputError("--mode must be live or test");
+				const range = opts.from !== undefined || opts.to !== undefined;
+				if (opts.month !== undefined && range)
+					throw new ReconcileInputError(
+						"give --month, or --from and --to, not both",
+					);
+				if (opts.month === undefined && !(opts.from && opts.to))
+					throw new ReconcileInputError(
+						"give --month YYYY-MM, or both --from and --to",
+					);
+				const period =
+					opts.month !== undefined
+						? { month: opts.month }
+						: { from: opts.from as string, to: opts.to as string };
+				const result = await reconcileFolder({
+					root,
+					school,
+					period,
+					stripeDirectory: stripe,
+					timeZone: opts.timeZone,
+					mode: opts.mode,
+				});
+				process.stdout.write(
+					opts.json
+						? `${JSON.stringify(result, null, 2)}\n`
+						: formatReconcile(result),
+				);
+				if (result.differences.length > 0) process.exitCode = 1;
+			} catch (error) {
+				if (!(error instanceof ReconcileInputError)) throw error;
+				process.stderr.write(`atm reconcile: ${error.message}\n`);
+				process.exitCode = RECONCILE_BAD_INPUT;
+			}
+		},
+	);

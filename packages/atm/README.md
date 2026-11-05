@@ -163,3 +163,27 @@ Local development: `bun link` here and `bun link atm` in the family service. `bu
 - The engine reads the process time zone for rollover expiry; ledger runs pin UTC around each engine call.
 
 Next, from the B4 Uni ledger spec: `parity`, `verify`, `plans push`, `inbox check`, `load`. Provenance and changes to upstream: `../../UPSTREAM.md`.
+
+### Reconciling with Stripe
+
+Stripe is the system of record for money. `reconcile({ events, stripe, period, timeZone?, mode? })` (pure, no Stripe call) and `atm reconcile` compare a school's events with Stripe's records for one period and report every difference, so a nightly job can alert on a non-empty `differences` (the CLI exits 1).
+
+- **Stripe's side** is the `data` of each `stripe <resource> list` for the school's connected account, as plain arrays: `invoices`, `refunds`, `disputes`, `payouts`, `balanceTransactions` (the fields read are `StripeInvoiceRecord` and its siblings in `types.ts`; a whole Stripe object is fine). A list left out is `notSupplied` and its checks do not run. Charges are not read: on API `2025-10-29.clover` a charge names neither its invoice nor an event, so nothing in the log can be matched to one.
+- **Period**: `{ month: "2026-02" }` or `{ from, to }` (inclusive days), in the school's zone. An event is in the period by its own `date` (the one `buildJournal` uses); a Stripe record by its instant in the school's zone (`timeZone`, default the latest event's `tz`): an invoice's `status_transitions.paid_at` (else `created`), a refund's, dispute's and payout's `created`. A pair is compared when either side is in the period; an invoice, refund or dispute the two sides date either side of the boundary is `period_differs`.
+- **What is compared**, matching by Stripe's id (the event's `payload.id`, else its `idem` without `stripe:`): paid invoices with `payment.succeeded` (`amount_paid`, currency, once); refunds with `payment.refunded`; disputes with `payment.disputed` (amount) and `dispute.closed` (won or lost against Stripe's `status`, else `outcome_differs`; an open dispute needs no closing event); payouts with `payout.paid`. Then two totals: the balance transactions' fees against the `expenses:billing:stripe-fees` postings (a total, since a fee cannot be tied to its invoice), and the net of Stripe's balance transactions against the `assets:stripe` postings, payouts apart (their own check). A `net` difference carries `stripeNetByType` to show where the gap is: a dispute fee atm does not book shows there.
+- **Kinds**: `missing_in_log`, `missing_in_stripe`, `amount_differs`, `duplicate_in_log` (two events with one Stripe id), `outcome_differs`, `period_differs`, `not_in_log`. A log with no fee postings in the period (or no `payout.paid` at all) gets one `not_in_log` record for the class, not one per payment; the net is then compared before fees. Each record has the Stripe id, the event ids, both sides' amounts and dates, and the period.
+- **Ignored, and counted in `ignored`**: Stripe objects whose `livemode` disagrees with `mode` (default `live`; refunds and balance transactions carry no `livemode`, so the key that listed them decides); invoices not `paid`, or paid for 0; refunds `failed`, `canceled` or `requires_action`; disputes still a `warning_*` inquiry or `prevented` (no money moved); payouts not `paid`; balance transactions not in USD.
+
+```bash
+# One school's files. The Stripe CLI reference documents `stripe <resource> list`, --limit, --starting-after, --stripe-account
+# and --live. `created[gte]` and `created[lte]` are the API's list filters, passed with -d (not run against Stripe here).
+# The window starts a month early: an invoice's `created` is when it was made, and reconcile keeps only those paid in the period.
+ACCOUNT=acct_...   # the school's connected account
+for resource in invoices refunds disputes payouts balance_transactions; do
+  stripe "$resource" list --live --stripe-account "$ACCOUNT" --limit 100 \
+    -d "created[gte]=1767225600" -d "created[lte]=1772323199" > "stripe/$resource.json"
+done
+atm reconcile --root <folder> --school <id> --month 2026-02 --stripe stripe   # --json for JSON; --from/--to for a range
+```
+
+`atm reconcile` reads each `stripe/<resource>.json` as a bare array or as the list object the CLI prints. A page with `has_more: true` is refused (exit 2): past 100 records, page with `--starting-after <last id>` and join the `data` arrays (`jq -s '{object:"list", data: (map(.data) | add), has_more:false}'`). Not confirmed: that the CLI has no auto-pagination flag (none is in its reference). Exit 0 when nothing differs, 1 when something does, 2 with a one-line message for input it cannot use (a missing option, a bad month or zone, an unreadable file). `--mode test` reads test-mode objects instead; `--time-zone` is needed when the school has no events.

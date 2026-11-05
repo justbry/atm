@@ -170,3 +170,12 @@ Additive: nothing changes for a caller that does not call it. Until now the hand
 ### Not in this release
 
 The `day.jsonl` combine, the R2 shipper and manifest, simulation, corrections, the Parquet export and webhook delivery. See `ROADMAP.md`.
+
+### Reconciling the log with Stripe (after 0.5.0)
+
+Additive: nothing changes for a caller that does not call it. `reconcile({ events, stripe, period, timeZone?, mode? })` and `atm reconcile --root <folder> --school <id> --month YYYY-MM --stripe <dir>` compare a school's events with the arrays `stripe <resource> list` prints (invoices, refunds, disputes, payouts, balance transactions) and return typed differences (`missing_in_log`, `missing_in_stripe`, `amount_differs`, `duplicate_in_log`, `outcome_differs`, `period_differs`, `not_in_log`). The CLI exits 0 when nothing differs, 1 when something does and 2 for input it cannot use.
+
+- **What a caller changes.** To be told of a lost or wrong event, run the `stripe` commands for the school's connected account (README, "Reconciling with Stripe") and call `reconcile` or `atm reconcile` nightly; alert when `differences` is not empty (or the exit is 1). Nothing is written.
+- **It reads the log's conventions.** An event is matched by Stripe's id in `payload.id` (an invoice id on `payment.succeeded`, a refund `re_` on `payment.refunded`, a dispute `dp_` on `payment.disputed` and `dispute.closed`, a payout `po_` on `payout.paid`), as `schema/payload/` describes. A log whose events carry another id (a refund event's `evt_`, say) reports every one as missing.
+- **A log without fees or payouts reports them once**: one `not_in_log` record for the fees (or the payouts) of the period, not one per payment; the net is then compared before fees.
+- **Not built**: no Stripe call (the caller fetches), no schedule, no per-payment fee match (a charge cannot be tied to its invoice on API `2025-10-29.clover`), no alert delivery.
