@@ -8,17 +8,19 @@
  *   "a" is a file, and `putIfAbsent("a")` while "a/b" exists, throw `StoreError` (never `AlreadyExists`). An empty
  *   directory left behind by a delete is removed when a key needs its name.
  * - Keys are validated before they touch the disk: no empty key, no leading or trailing "/", no empty, "." or ".."
- *   segment, no backslash, no NUL byte, nothing that resolves outside `root`.
+ *   segment, no backslash, no NUL byte, no lone surrogate, nothing that resolves outside `root`.
  * - Two names are reserved because the store keeps its own files beside the keys: a segment that ends in ".lock"
- *   (the writer lock `<key>.lock`) and a segment that starts with ".atm-tmp-" (temp files and takeover markers). They
- *   are rejected as keys and never listed, so a crash can leave junk behind but never a phantom object.
+ *   (the writer lock `<key>.lock`) and a segment that starts with ".atm-tmp-" (temp files and takeover markers),
+ *   compared ignoring case, because on a case-insensitive filesystem "x.LOCK" is the file "x.lock". They are rejected
+ *   as keys and never listed, so a crash can leave junk behind but never a phantom object.
  * - A case-insensitive or Unicode-normalizing filesystem (the macOS default) folds keys that S3 keeps apart.
- * - Symbolic links are not followed by `list`.
+ * - Symbolic links are not followed by `list`, and a key with a symbolic link anywhere on its path is refused, so no
+ *   read or write leaves `root` through one.
  * - Hard links must work on the volume (`putIfAbsent` uses `link`); FAT and some network mounts refuse them.
  *
  * Atomicity:
  *
- * - `putIfAbsent` writes the bytes to a temp file in the key's directory, then `link()`s the temp file to the key and
+ * - `putIfAbsent` writes the bytes to a temp file in the key's directory and fsyncs it, then `link()`s the temp file to the key and
  *   unlinks the temp file. `link` fails with EEXIST when the key exists, atomically, and the key appears with all its
  *   bytes at once. The ADR's `open(path, "wx")` is also create-only, but it makes the key visible empty and then
  *   fills it, so a concurrent reader (or a crash) would see a partial object. Link-after-write cannot.
@@ -43,11 +45,13 @@
  *   taken over on a later call.
  */
 import { randomUUID } from "node:crypto";
-import type { Dirent } from "node:fs";
+import type { Dirent, Stats } from "node:fs";
 import {
+	type FileHandle,
 	link,
 	lstat,
 	mkdir,
+	open,
 	readdir,
 	readFile,
 	rename,
@@ -73,6 +77,8 @@ export type { FolderStoreOptions } from "../types.js";
 
 import {
 	AlreadyExists,
+	checkRange,
+	isWellFormed,
 	NotFound,
 	ShaMismatch,
 	Stale,
@@ -100,8 +106,35 @@ const hasErrorCode = (error: unknown, ...codes: string[]): boolean =>
 	typeof error.code === "string" &&
 	codes.includes(error.code);
 
-const isReservedName = (name: string): boolean =>
-	name.endsWith(LOCK_SUFFIX) || name.startsWith(TEMP_PREFIX);
+/** Ignoring case: on a case-insensitive filesystem "x.LOCK" is the same file as the lock "x.lock". */
+const isReservedName = (name: string): boolean => {
+	const lowered = name.toLowerCase();
+	return lowered.endsWith(LOCK_SUFFIX) || lowered.startsWith(TEMP_PREFIX);
+};
+
+/** Creates the file and flushes its bytes, so a `link` or `rename` that follows never exposes a partial object. */
+const writeDurably = async (path: string, body: Uint8Array): Promise<void> => {
+	const handle = await open(path, "wx");
+	try {
+		await handle.writeFile(body);
+		await handle.sync();
+	} finally {
+		await handle.close();
+	}
+};
+
+/** Flushes a directory's entries (a new link or rename). Best effort: not every platform can sync a directory. */
+const syncDirectory = async (directory: string): Promise<void> => {
+	let handle: FileHandle | undefined;
+	try {
+		handle = await open(directory, "r");
+		await handle.sync();
+	} catch {
+		// The file itself is durable; only the name may be lost on a crash, which a retry repairs.
+	} finally {
+		await handle?.close().catch(() => undefined);
+	}
+};
 
 const compareUtf8 = (left: Uint8Array, right: Uint8Array): number =>
 	Buffer.compare(left, right);
@@ -155,15 +188,37 @@ export class FolderStore implements Store {
 
 	// ---- Keys ----
 
-	/** Validates the key and returns its absolute path. */
-	private pathOf(key: string): string {
+	/** Validates the key, refuses a symbolic link on its path, and returns its absolute path. */
+	private async pathOf(key: string): Promise<string> {
 		const problem = this.keyProblem(key);
 		if (problem !== null) throw new StoreError(`invalid key: ${problem}`, key);
 		const path = resolve(this.root, key);
 		if (!path.startsWith(this.root + sep)) {
 			throw new StoreError("invalid key: resolves outside the root", key);
 		}
+		await this.refuseSymbolicLinks(key);
 		return path;
+	}
+
+	/** `resolve` does not see symbolic links, so a linked directory under the root would lead outside it. */
+	private async refuseSymbolicLinks(key: string): Promise<void> {
+		let current = this.root;
+		for (const segment of key.split("/")) {
+			current = join(current, segment);
+			let entry: Stats;
+			try {
+				entry = await lstat(current);
+			} catch (error) {
+				if (hasErrorCode(error, "ENOENT", "ENOTDIR")) return;
+				throw error;
+			}
+			if (entry.isSymbolicLink()) {
+				throw new StoreError(
+					"invalid key: a symbolic link is on its path",
+					key,
+				);
+			}
+		}
 	}
 
 	private keyProblem(key: string): string | null {
@@ -172,6 +227,7 @@ export class FolderStore implements Store {
 		if (key.endsWith("/")) return 'ends with "/"';
 		if (key.includes("\\")) return "contains a backslash";
 		if (key.includes("\0")) return "contains a NUL byte";
+		if (!isWellFormed(key)) return "contains a lone surrogate";
 		for (const segment of key.split("/")) {
 			if (segment === "") return "empty segment";
 			if (segment === "." || segment === "..") {
@@ -201,16 +257,8 @@ export class FolderStore implements Store {
 		const whole = { key, size: bytes.length, etag: digest, sha256: digest };
 		if (range === undefined) return { ...whole, body: bytes };
 
+		checkRange(key, range);
 		const { start } = range;
-		if (!Number.isInteger(start) || start < 0) {
-			throw new StoreError("range not satisfiable: bad start", key);
-		}
-		if (range.end !== undefined && !Number.isInteger(range.end)) {
-			throw new StoreError("range not satisfiable: bad end", key);
-		}
-		if (range.end !== undefined && range.end < start) {
-			throw new StoreError("range not satisfiable: end before start", key);
-		}
 		if (start >= bytes.length) {
 			throw new StoreError("range not satisfiable", key);
 		}
@@ -224,7 +272,7 @@ export class FolderStore implements Store {
 
 	/** The object's bytes, or `NotFound` (also when the path is a directory or a parent is a file). */
 	private async readObject(key: string): Promise<Uint8Array> {
-		const path = this.pathOf(key);
+		const path = await this.pathOf(key);
 		try {
 			return await readFile(path);
 		} catch (error) {
@@ -238,12 +286,13 @@ export class FolderStore implements Store {
 	// ---- Writes ----
 
 	async putIfAbsent(key: string, body: Uint8Array): Promise<PutResult> {
-		const path = this.pathOf(key);
+		const path = await this.pathOf(key);
 		await this.makeParentDirectory(key, path);
 		const tempPath = this.tempPathBeside(path);
 		try {
-			await writeFile(tempPath, body, { flag: "wx" });
+			await writeDurably(tempPath, body);
 			await this.linkCreateOnly(key, tempPath, path);
+			await syncDirectory(dirname(path));
 		} finally {
 			await unlink(tempPath).catch(ignoreMissing);
 		}
@@ -256,12 +305,12 @@ export class FolderStore implements Store {
 		body: Uint8Array,
 		etag: string,
 	): Promise<PutResult> {
-		const path = this.pathOf(key);
+		const path = await this.pathOf(key);
 		if (!(await this.isFile(path))) throw new NotFound(key);
 
 		const tempPath = this.tempPathBeside(path);
 		try {
-			await writeFile(tempPath, body, { flag: "wx" });
+			await writeDurably(tempPath, body);
 			const lockPath = `${path}${LOCK_SUFFIX}`;
 			const token = await this.acquireLock(key, lockPath);
 			try {
@@ -269,6 +318,7 @@ export class FolderStore implements Store {
 				if (sha256Hex(current) !== etag) throw new Stale(key);
 				await this.assertLockHeld(key, lockPath, token);
 				await rename(tempPath, path);
+				await syncDirectory(dirname(path));
 			} finally {
 				await this.releaseLock(lockPath, token);
 			}
@@ -280,7 +330,7 @@ export class FolderStore implements Store {
 	}
 
 	async delete(key: string, expectedSha256: string): Promise<boolean> {
-		const path = this.pathOf(key);
+		const path = await this.pathOf(key);
 		if (!(await this.isFile(path))) return false;
 
 		const lockPath = `${path}${LOCK_SUFFIX}`;

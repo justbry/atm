@@ -31,6 +31,8 @@ type Fault = {
 	| { kind: "stall" }
 	/** The server applies the request, then the connection dies before the answer arrives. */
 	| { kind: "commit-then-network-error" }
+	/** The server answers normally once `before` has run. */
+	| { kind: "pass" }
 );
 
 type Recorded = {
@@ -64,6 +66,12 @@ class FakeS3 {
 	escapeNonAscii = false;
 	/** SeaweedFS answers 412 where AWS and R2 answer 404 for If-Match on a missing key. */
 	missingIfMatchStatus = 404;
+	/** AWS and R2 answer 204 to a DELETE of a missing key; some S3 servers answer 404. */
+	missingDeleteStatus = 204;
+	/** A 200 to a PUT carries the ETag unless this is off. */
+	putReturnsEtag = true;
+	/** A truncated list leaves out its NextContinuationToken: a broken server. */
+	omitContinuationToken = false;
 	private version = 0;
 
 	constructor(readonly bucket: string) {}
@@ -124,6 +132,8 @@ class FakeS3 {
 			case "commit-then-network-error":
 				this.serve(method, url, request.headers, body);
 				throw new TypeError("fetch failed");
+			case "pass":
+				return this.serve(method, url, request.headers, body);
 			default:
 				throw new Error("unknown fault");
 		}
@@ -151,6 +161,9 @@ class FakeS3 {
 			case "HEAD":
 				return this.read(method, headers, existing);
 			case "DELETE":
+				if (!existing && this.missingDeleteStatus === 404) {
+					return errorResponse(404, "NoSuchKey");
+				}
 				this.objects.delete(key);
 				return new Response(null, { status: 204 });
 			default:
@@ -183,7 +196,10 @@ class FakeS3 {
 			}
 		}
 		const stored = this.store(key, body, meta);
-		return new Response(null, { status: 200, headers: { ETag: stored.etag } });
+		const answer: Record<string, string> = this.putReturnsEtag
+			? { ETag: stored.etag }
+			: {};
+		return new Response(null, { status: 200, headers: answer });
 	}
 
 	private read(
@@ -276,7 +292,7 @@ class FakeS3 {
 		xml += `<Name>${this.bucket}</Name><Prefix>${this.escape(prefix)}</Prefix>`;
 		xml += `<KeyCount>${page.length}</KeyCount><MaxKeys>${maxKeys}</MaxKeys>`;
 		xml += `<IsTruncated>${truncated}</IsTruncated>`;
-		if (truncated && lastItem) {
+		if (truncated && lastItem && !this.omitContinuationToken) {
 			const marker =
 				lastItem.kind === "key" ? `k:${lastItem.key}` : `p:${lastItem.value}`;
 			xml += `<NextContinuationToken>${Buffer.from(marker).toString("base64url")}</NextContinuationToken>`;
@@ -493,6 +509,44 @@ describe("R2Store puts", () => {
 		expect(s3.requestsFor("HEAD")).toHaveLength(1);
 	});
 
+	it("reads the ETag back when a put's 200 carries none", async () => {
+		const { s3, store } = setup();
+		s3.putReturnsEtag = false;
+		const result = await store.putIfAbsent("a.txt", utf8("one"));
+		expect(result).toEqual({
+			etag: s3.objects.get(`${ROOT}a.txt`)?.etag as string,
+			sha256: sha256Hex(utf8("one")),
+		});
+		expect(s3.requestsFor("HEAD")).toHaveLength(1);
+	});
+
+	it("never pairs a later writer's ETag with this put's sha256", async () => {
+		const { s3, store } = setup();
+		s3.putReturnsEtag = false;
+		s3.faults.push({
+			kind: "pass",
+			on: "HEAD",
+			before: () => {
+				s3.seed(`${ROOT}a.txt`, utf8("a later writer"));
+			},
+		});
+		const created = await failureOf(store.putIfAbsent("a.txt", utf8("one")));
+		expect(created).toBeInstanceOf(AlreadyExists);
+
+		const first = s3.seed(`${ROOT}b.txt`, utf8("one"));
+		s3.faults.push({
+			kind: "pass",
+			on: "HEAD",
+			before: () => {
+				s3.seed(`${ROOT}b.txt`, utf8("a later writer"));
+			},
+		});
+		const replaced = await failureOf(
+			store.putIfMatch("b.txt", utf8("two"), first.etag),
+		);
+		expect(replaced).toBeInstanceOf(Stale);
+	});
+
 	it("throws AlreadyExists when a retry's 412 finds an object without sha256", async () => {
 		const { s3, store } = setup();
 		s3.faults.push({
@@ -576,6 +630,60 @@ describe("R2Store retries", () => {
 		expect(sleeps).toEqual([100, 200, 400, 800]);
 	});
 
+	it("retries a 409 ConditionalRequestConflict through the 412 rules", async () => {
+		const { s3, store, sleeps } = setup();
+		s3.faults.push({
+			kind: "status",
+			status: 409,
+			code: "ConditionalRequestConflict",
+			on: "PUT",
+		});
+		const result = await store.putIfAbsent("a.txt", utf8("one"));
+		expect(result.sha256).toBe(sha256Hex(utf8("one")));
+		expect(s3.requestsFor("PUT")).toHaveLength(2);
+		expect(sleeps).toEqual([200]);
+
+		s3.faults.push({
+			kind: "status",
+			status: 409,
+			code: "ConditionalRequestConflict",
+			on: "PUT",
+			before: () => {
+				s3.seed(`${ROOT}b.txt`, utf8("the concurrent writer's bytes"));
+			},
+		});
+		const error = await failureOf(store.putIfAbsent("b.txt", utf8("one")));
+		expect(error).toBeInstanceOf(AlreadyExists);
+		expect(text(s3.objects.get(`${ROOT}b.txt`)?.body as Uint8Array)).toBe(
+			"the concurrent writer's bytes",
+		);
+	});
+
+	it("does not retry a 409 with another S3 code", async () => {
+		const { s3, store, sleeps } = setup();
+		s3.faults.push({
+			kind: "status",
+			status: 409,
+			code: "OperationAborted",
+			on: "PUT",
+		});
+		const error = await failureOf(store.putIfAbsent("a.txt", utf8("one")));
+		expect(error).toBeInstanceOf(StoreError);
+		expect(error).not.toBeInstanceOf(Transient);
+		expect(s3.requestsFor("PUT")).toHaveLength(1);
+		expect(sleeps).toEqual([]);
+	});
+
+	it("refuses maxTries and timeoutMs that cannot run a request", () => {
+		for (const maxTries of [0, -1, 1.5, Number.NaN]) {
+			expect(() => setup({ maxTries })).toThrow(StoreError);
+		}
+		for (const timeoutMs of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+			expect(() => setup({ timeoutMs })).toThrow(StoreError);
+		}
+		expect(() => setup({ maxTries: 1, timeoutMs: 1 })).not.toThrow();
+	});
+
 	it("does not retry a 403 and reports it as a StoreError with the S3 code", async () => {
 		const { s3, store, sleeps } = setup();
 		s3.faults.push({ kind: "status", status: 403, code: "AccessDenied" });
@@ -637,6 +745,23 @@ describe("R2Store reads", () => {
 		expect(tail.range).toEqual({ start: 7, end: 9 });
 		const ranges = s3.requestsFor("GET").map((r) => r.headers.get("range"));
 		expect(ranges).toEqual(["bytes=2-5", "bytes=7-"]);
+	});
+
+	it("refuses a bad range before sending anything", async () => {
+		const { s3, store } = setup();
+		s3.seed(`${ROOT}digits`, utf8("0123456789"));
+		for (const range of [
+			{ start: -1 },
+			{ start: 1.5 },
+			{ start: Number.NaN },
+			{ start: 0, end: 2.5 },
+			{ start: 5, end: 2 },
+		]) {
+			const error = await failureOf(store.get("digits", range));
+			expect(error).toBeInstanceOf(StoreError);
+			expect((error as Error).message).toContain("range not satisfiable");
+		}
+		expect(s3.requests).toHaveLength(0);
 	});
 });
 
@@ -700,7 +825,48 @@ describe("R2Store delete", () => {
 		await store.putIfAbsent("a.txt", utf8("one"));
 		s3.faults.push({ kind: "commit-then-network-error", on: "DELETE" });
 		expect(await store.delete("a.txt", sha256Hex(utf8("one")))).toBe(true);
-		expect(s3.requestsFor("DELETE")).toHaveLength(2);
+		expect(s3.requestsFor("DELETE")).toHaveLength(1);
+		expect(s3.requestsFor("HEAD")).toHaveLength(2);
+	});
+
+	it("compares the sha256 again before retrying a delete", async () => {
+		const { s3, store } = setup();
+		await store.putIfAbsent("a.txt", utf8("one"));
+		s3.faults.push({
+			kind: "status",
+			status: 503,
+			on: "DELETE",
+			before: () => {
+				s3.seed(`${ROOT}a.txt`, utf8("a new writer's bytes"));
+			},
+		});
+		const error = await failureOf(
+			store.delete("a.txt", sha256Hex(utf8("one"))),
+		);
+		expect(error).toBeInstanceOf(ShaMismatch);
+		expect(text(s3.objects.get(`${ROOT}a.txt`)?.body as Uint8Array)).toBe(
+			"a new writer's bytes",
+		);
+		expect(s3.requestsFor("DELETE")).toHaveLength(1);
+	});
+
+	it("reads a 404 to a DELETE as gone, true only after a retry", async () => {
+		const { s3, store } = setup();
+		s3.missingDeleteStatus = 404;
+		const vanish = () => {
+			s3.objects.delete(`${ROOT}a.txt`);
+		};
+		await store.putIfAbsent("a.txt", utf8("one"));
+		s3.faults.push({ kind: "pass", on: "DELETE", before: vanish });
+		expect(await store.delete("a.txt", sha256Hex(utf8("one")))).toBe(false);
+
+		await store.putIfAbsent("a.txt", utf8("one"));
+		s3.faults.push(
+			{ kind: "status", status: 503, on: "DELETE" },
+			{ kind: "pass", on: "DELETE", before: vanish },
+		);
+		expect(await store.delete("a.txt", sha256Hex(utf8("one")))).toBe(true);
+		expect(s3.requestsFor("DELETE")).toHaveLength(3);
 	});
 });
 
@@ -816,6 +982,15 @@ describe("R2Store list", () => {
 		]);
 	});
 
+	it("refuses a truncated list without a continuation token", async () => {
+		const { s3, store } = setup();
+		await seedTree(store);
+		s3.omitContinuationToken = true;
+		const error = await failureOf(store.list({ maxKeys: 2 }));
+		expect(error).toBeInstanceOf(StoreError);
+		expect((error as Error).message).toContain("NextContinuationToken");
+	});
+
 	it("puts the S3 error code in the message of a failed list", async () => {
 		const { s3, store } = setup();
 		s3.faults.push({ kind: "status", status: 403, code: "AccessDenied" });
@@ -899,6 +1074,15 @@ describe("R2Store urls", () => {
 		expect(s3.requests).toHaveLength(0);
 	});
 
+	it("rejects a key with a lone surrogate as a StoreError, not a URIError", async () => {
+		const { s3, store } = setup();
+		for (const key of ["a\uD800", "\uDC00b/c"]) {
+			const error = await failureOf(store.head(key));
+			expect(error).toBeInstanceOf(StoreError);
+		}
+		expect(s3.requests).toHaveLength(0);
+	});
+
 	it("presigns a GET url with a signature and the requested expiry", async () => {
 		const { s3, store } = setup();
 		const url = new URL(
@@ -969,5 +1153,16 @@ describe("xml", () => {
 		expect(() => parseXml("<A>")).toThrow();
 		expect(() => parseXml("not xml")).toThrow();
 		expect(() => parseXml("")).toThrow();
+	});
+
+	it("throws a StoreError on input no token matches instead of skipping it", () => {
+		for (const xml of [
+			"<A>< </A>",
+			"<!DOCTYPE A><A/>",
+			"<A></A><",
+			"<A><B>1</B> < </A>",
+		]) {
+			expect(() => parseXml(xml)).toThrow(StoreError);
+		}
 	});
 });

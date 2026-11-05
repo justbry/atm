@@ -118,6 +118,29 @@ export const sha256Hex = (bytes: Uint8Array): string =>
 export const utf8 = (text: string): Uint8Array =>
 	new TextEncoder().encode(text);
 
+const LONE_SURROGATE = /\p{Surrogate}/u;
+
+/** False for a string with a lone surrogate, which has no UTF-8 form (`String.prototype.isWellFormed`, pre-ES2024). */
+export const isWellFormed = (text: string): boolean =>
+	!LONE_SURROGATE.test(text);
+
+/** A byte range both stores accept: `start` a non-negative integer, `end` (inclusive) an integer not before it. */
+export const checkRange = (
+	key: string,
+	range: { start: number; end?: number },
+): void => {
+	const { start, end } = range;
+	if (!Number.isInteger(start) || start < 0) {
+		throw new StoreError("range not satisfiable: bad start", key);
+	}
+	if (end !== undefined && !Number.isInteger(end)) {
+		throw new StoreError("range not satisfiable: bad end", key);
+	}
+	if (end !== undefined && end < start) {
+		throw new StoreError("range not satisfiable: end before start", key);
+	}
+};
+
 /**
  * The object's sha256: the stored `x-amz-meta-sha256`, else the hash of its body (an object written by hand or by a
  * school has none). Throws `NotFound`.

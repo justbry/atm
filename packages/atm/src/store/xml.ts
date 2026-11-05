@@ -3,6 +3,7 @@
  * knows nothing else: no attributes, namespaces, doctypes or schema. Text keeps its whitespace, because an object key
  * may begin or end with a space.
  */
+import { StoreError } from "./store.js";
 
 export type XmlElement = {
 	name: string;
@@ -39,11 +40,17 @@ export const decodeEntities = (text: string): string =>
 		}
 	});
 
-/** The root element. Throws on text that is not one well-formed element. */
+/** The root element. Throws `StoreError` on text that is not one well-formed element. */
 export const parseXml = (xml: string): XmlElement => {
 	const document: XmlElement = { name: "", text: "", children: [] };
 	const stack: XmlElement[] = [document];
+	let position = 0;
 	for (const match of xml.matchAll(TOKEN)) {
+		// matchAll skips what no token matches (a stray "<", a doctype): that is malformed, not ignorable.
+		if (match.index !== position) {
+			throw new StoreError(`malformed XML: unexpected input at ${position}`);
+		}
+		position += match[0].length;
 		const [, cdata, closing, name, selfClosing, text] = match;
 		const current = stack[stack.length - 1] as XmlElement;
 		if (cdata !== undefined) {
@@ -52,7 +59,7 @@ export const parseXml = (xml: string): XmlElement => {
 			current.text += decodeEntities(text);
 		} else if (name !== undefined && closing) {
 			if (stack.length < 2 || current.name !== name) {
-				throw new Error(`malformed XML: unexpected </${name}>`);
+				throw new StoreError(`malformed XML: unexpected </${name}>`);
 			}
 			stack.pop();
 		} else if (name !== undefined) {
@@ -61,9 +68,14 @@ export const parseXml = (xml: string): XmlElement => {
 			if (!selfClosing) stack.push(element);
 		}
 	}
+	if (position !== xml.length) {
+		throw new StoreError(`malformed XML: unexpected input at ${position}`);
+	}
 	const [root] = document.children;
 	if (stack.length !== 1 || document.children.length !== 1 || !root) {
-		throw new Error("malformed XML: expected exactly one closed root element");
+		throw new StoreError(
+			"malformed XML: expected exactly one closed root element",
+		);
 	}
 	return root;
 };

@@ -3,9 +3,11 @@
  * Store (R2)). Requests are signed with `aws4fetch` and sent through a `fetch` of our own, so tests can pass a fake S3
  * and so the library's built-in retry loop never competes with ours.
  *
- * Retries: 429, 5xx, a network error and a timeout are retried with exponential backoff and full jitter, at most
- * `maxTries` tries, each with its own timeout. A 412 on a retry may mean an earlier try landed: the object is read
- * back, and when it holds the bytes this call sent, the call succeeded.
+ * Retries: 429, 5xx, a 409 `ConditionalRequestConflict` (S3's answer to concurrent conditional writes; assumed of R2,
+ * not verified against it), a network error and a timeout are retried with exponential backoff and full jitter, at
+ * most `maxTries` tries, each with its own timeout. A 412 on a retry may mean an earlier try landed: the object is read
+ * back, and when it holds the bytes this call sent, the call succeeded. A retried DELETE compares the sha256 again
+ * first, since a writer may have put new bytes under the key while this call waited.
  */
 import { AwsClient } from "aws4fetch";
 import type { R2StoreOptions } from "../types.js";
@@ -21,6 +23,8 @@ import type {
 } from "./store.js";
 import {
 	AlreadyExists,
+	checkRange,
+	isWellFormed,
 	NotFound,
 	ShaMismatch,
 	Stale,
@@ -40,6 +44,9 @@ const MAX_PRESIGN_SECONDS = 7 * 24 * 60 * 60;
 const SHA256_HEADER = "x-amz-meta-sha256";
 const PRECONDITION_FAILED = 412;
 const NOT_FOUND = 404;
+const CONFLICT = 409;
+const CONDITIONAL_REQUEST_CONFLICT = "ConditionalRequestConflict";
+const NO_CONTENT = 204;
 const TOO_MANY_REQUESTS = 429;
 const SERVER_ERROR_FROM = 500;
 const PARTIAL_CONTENT = 206;
@@ -71,8 +78,25 @@ export const encodeKey = (key: string): string =>
 		)
 		.join("/");
 
-const isTransientStatus = (status: number): boolean =>
-	status === TOO_MANY_REQUESTS || status >= SERVER_ERROR_FROM;
+/** The S3 `<Code>` and `<Message>` of an error body; empty when the body is not S3 XML (a proxy's HTML page, say). */
+const errorDetail = (raw: Raw): { code?: string; message?: string } => {
+	if (raw.body.length === 0) return {};
+	try {
+		const root = parseXml(new TextDecoder().decode(raw.body));
+		return {
+			code: childText(root, "Code"),
+			message: childText(root, "Message"),
+		};
+	} catch {
+		return {};
+	}
+};
+
+const isTransient = (raw: Raw): boolean =>
+	raw.status === TOO_MANY_REQUESTS ||
+	raw.status >= SERVER_ERROR_FROM ||
+	(raw.status === CONFLICT &&
+		errorDetail(raw).code === CONDITIONAL_REQUEST_CONFLICT);
 
 const sha256Of = (headers: Headers): string | null => {
 	const value = headers.get(SHA256_HEADER)?.trim().toLowerCase();
@@ -84,19 +108,18 @@ const messageOf = (error: unknown): string =>
 
 /** "HTTP 403 AccessDenied: Access Denied", the S3 code and message taken from an `<Error>` body when there is one. */
 const describe = (raw: Raw): string => {
+	const { code, message } = errorDetail(raw);
 	let detail = "";
-	if (raw.body.length > 0) {
-		try {
-			const root = parseXml(new TextDecoder().decode(raw.body));
-			const code = childText(root, "Code");
-			const message = childText(root, "Message");
-			if (code) detail += ` ${code}`;
-			if (message) detail += `: ${message}`;
-		} catch {
-			// Not XML (a proxy's HTML page, say): the status alone has to do.
-		}
-	}
+	if (code) detail += ` ${code}`;
+	if (message) detail += `: ${message}`;
 	return `HTTP ${raw.status}${detail}`;
+};
+
+/** Stands in for a retried DELETE when the object is already gone. */
+const GONE: Raw = {
+	status: NOT_FOUND,
+	headers: new Headers(),
+	body: new Uint8Array(),
 };
 
 export class R2Store implements Store {
@@ -125,8 +148,14 @@ export class R2Store implements Store {
 			options.sleep ??
 			((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
 		this.random = options.random ?? Math.random;
-		this.maxTries = Math.max(1, options.maxTries ?? DEFAULT_MAX_TRIES);
+		this.maxTries = options.maxTries ?? DEFAULT_MAX_TRIES;
+		if (!Number.isInteger(this.maxTries) || this.maxTries < 1) {
+			throw new StoreError("maxTries must be a whole number of at least 1");
+		}
 		this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+		if (!(Number.isFinite(this.timeoutMs) && this.timeoutMs > 0)) {
+			throw new StoreError("timeoutMs must be a positive number");
+		}
 	}
 
 	async putIfAbsent(key: string, body: Uint8Array): Promise<PutResult> {
@@ -157,6 +186,7 @@ export class R2Store implements Store {
 	): Promise<StoreGet> {
 		const spec: Spec = { method: "GET", url: this.objectUrl(key) };
 		if (range) {
+			checkRange(key, range);
 			spec.headers = { Range: `bytes=${range.start}-${range.end ?? ""}` };
 		}
 		const { raw } = await this.execute(key, spec);
@@ -235,10 +265,33 @@ export class R2Store implements Store {
 		);
 		const truncated = childText(root, "IsTruncated")?.trim() === "true";
 		const token = childText(root, "NextContinuationToken");
+		if (truncated && !token) {
+			// Returning `next: null` here would pass a partial listing off as complete.
+			throw new StoreError("LIST: truncated without a NextContinuationToken");
+		}
 		return { objects, prefixes, next: truncated && token ? token : null };
 	}
 
 	async delete(key: string, expectedSha256: string): Promise<boolean> {
+		if (!(await this.holds(key, expectedSha256))) return false;
+		// No If-Match: R2 documents no conditional DELETE. This guards against a wrong key, not a race. Every retry
+		// compares again, so a writer that put new bytes during the backoff keeps them.
+		const spec: Spec = { method: "DELETE", url: this.objectUrl(key) };
+		const { raw, retried } = await this.execute(key, spec, async () =>
+			(await this.holds(key, expectedSha256)) ? null : GONE,
+		);
+		if (raw.status === NOT_FOUND) {
+			// After a retry the earlier try probably removed it.
+			return retried;
+		}
+		if (raw.status !== OK && raw.status !== NO_CONTENT) {
+			throw this.failure(key, spec, raw);
+		}
+		return true;
+	}
+
+	/** Whether the key holds these bytes: false when it is gone, `ShaMismatch` when it holds others. */
+	private async holds(key: string, expectedSha256: string): Promise<boolean> {
 		const head = await this.headOrNull(key);
 		if (!head) return false;
 		let actual = head.sha256;
@@ -253,16 +306,6 @@ export class R2Store implements Store {
 		}
 		if (actual !== expectedSha256) {
 			throw new ShaMismatch(key, expectedSha256, actual);
-		}
-		// No If-Match: R2 documents no conditional DELETE. This guards against a wrong key, not a race.
-		const spec: Spec = { method: "DELETE", url: this.objectUrl(key) };
-		const { raw, retried } = await this.execute(key, spec);
-		if (raw.status === NOT_FOUND) {
-			// After a retry the earlier try probably removed it.
-			return retried;
-		}
-		if (raw.status !== OK && raw.status !== 204) {
-			throw this.failure(key, spec, raw);
 		}
 		return true;
 	}
@@ -306,8 +349,18 @@ export class R2Store implements Store {
 		};
 		const { raw, retried } = await this.execute(key, spec);
 		if (raw.status === OK) {
-			const etag = raw.headers.get("etag") ?? (await this.head(key)).etag;
-			return { etag, sha256 };
+			const etag = raw.headers.get("etag");
+			if (etag) return { etag, sha256 };
+			// No ETag in the answer: read it back, but only trust it while the object still holds our bytes.
+			const head = await this.headOrNull(key);
+			if (head?.sha256 === sha256) return { etag: head.etag, sha256 };
+			if (head === null) {
+				throw new Transient(
+					key,
+					`PUT ${key}: the object vanished before its ETag was read`,
+				);
+			}
+			throw conflict();
 		}
 		if (raw.status === PRECONDITION_FAILED) {
 			if (retried) {
@@ -338,16 +391,24 @@ export class R2Store implements Store {
 
 	// ---- Requests ----
 
-	/** Send with retries. Returns the first answer that is not transient, and whether an earlier try failed. */
+	/**
+	 * Send with retries. Returns the first answer that is not transient, and whether an earlier try failed.
+	 * `beforeRetry` runs before each retry: an answer it returns stands in for the retry, which is then not sent.
+	 */
 	private async execute(
 		key: string | null,
 		spec: Spec,
+		beforeRetry?: () => Promise<Raw | null>,
 	): Promise<{ raw: Raw; retried: boolean }> {
 		let cause: unknown;
 		for (let attempt = 1; attempt <= this.maxTries; attempt++) {
+			if (attempt > 1 && beforeRetry) {
+				const answer = await beforeRetry();
+				if (answer) return { raw: answer, retried: true };
+			}
 			try {
 				const raw = await this.attempt(spec);
-				if (!isTransientStatus(raw.status)) {
+				if (!isTransient(raw)) {
 					return { raw, retried: attempt > 1 };
 				}
 				cause = new Error(describe(raw));
@@ -411,7 +472,7 @@ export class R2Store implements Store {
 		const unsafe = key
 			.split("/")
 			.some((segment) => segment === "." || segment === "..");
-		if (!key || unsafe) {
+		if (!key || unsafe || !isWellFormed(key)) {
 			throw new StoreError(`invalid key ${JSON.stringify(key)}`, key);
 		}
 		return `${this.baseUrl}/${encodeKey(this.rootPrefix + key)}`;

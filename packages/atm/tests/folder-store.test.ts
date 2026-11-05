@@ -1,5 +1,15 @@
-import { afterEach, describe, expect, test } from "bun:test";
-import { mkdir, readdir, rm, stat, utimes, writeFile } from "node:fs/promises";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import { existsSync } from "node:fs";
+import {
+	mkdir,
+	open,
+	readdir,
+	rm,
+	stat,
+	symlink,
+	utimes,
+	writeFile,
+} from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { FolderStore } from "../src/store/folder-store.js";
 import {
@@ -56,6 +66,10 @@ describe("key validation", () => {
 		["lone dot-dot", ".."],
 		["lock suffix", "a/b.lock"],
 		["temp prefix", "a/.atm-tmp-1"],
+		["lock suffix in another case", "a/b.LOCK"],
+		["temp prefix in another case", "a/.ATM-tmp-1"],
+		["lone high surrogate", "a\uD800"],
+		["lone low surrogate", "\uDC00/b"],
 	];
 
 	for (const [label, key] of invalidKeys) {
@@ -120,6 +134,41 @@ describe("key validation", () => {
 		expect(await store.delete("c/d", sha256Hex(body))).toBe(true);
 		await store.putIfAbsent("c", utf8("now a file"));
 		expect((await store.get("c")).body).toEqual(utf8("now a file"));
+	});
+
+	test("a key never names another key's lock, whatever its case", async () => {
+		const { store } = await makeStore(1);
+		const body = utf8("keep me");
+		await store.putIfAbsent("x", body);
+		const error = await settle(store.putIfAbsent("x.LOCK", utf8("lock-ish")));
+		expect(error).toBeInstanceOf(StoreError);
+		expect((error as StoreError).message).toContain("invalid key");
+		// Had "x.LOCK" been accepted, this write would find it as a stale lock on a case-insensitive disk and unlink it.
+		await store.putIfMatch("x", utf8("new"), sha256Hex(body));
+		expect((await store.get("x")).body).toEqual(utf8("new"));
+	});
+
+	test("refuses a key whose path runs through a symbolic link", async () => {
+		const { root, store } = await makeStore();
+		const outside = await tmp("folder-store-outside");
+		directories.push(outside);
+		await writeFile(join(outside, "secret"), "outside the root");
+		await symlink(outside, join(root, "linked"));
+		await symlink(join(outside, "secret"), join(root, "secret-link"));
+		const body = utf8("x");
+		const attempts: (() => Promise<unknown>)[] = [
+			() => store.putIfAbsent("linked/new.txt", body),
+			() => store.get("linked/secret"),
+			() => store.get("secret-link"),
+			() => store.putIfMatch("linked/secret", body, sha256Hex(body)),
+			() => store.delete("linked/secret", sha256Hex(body)),
+		];
+		for (const attempt of attempts) {
+			const error = await settle(attempt());
+			expect(error).toBeInstanceOf(StoreError);
+			expect((error as StoreError).message).toContain("symbolic link");
+		}
+		expect(await readdir(outside)).toEqual(["secret"]);
 	});
 
 	test("presign is unsupported", async () => {
@@ -368,6 +417,35 @@ describe("concurrency", () => {
 		await writing;
 		sizesSeen.add((await stat(join(root, "k"))).size);
 		expect([...sizesSeen].sort()).toEqual([100, size].sort());
+	});
+});
+
+describe("durability", () => {
+	test("putIfAbsent and putIfMatch flush the bytes before the key shows them", async () => {
+		const { root, store } = await makeStore();
+		const probe = await open(join(root, "probe"), "w");
+		const fileHandle = Object.getPrototypeOf(probe);
+		await probe.close();
+		await rm(join(root, "probe"));
+		const path = join(root, "k");
+		const keyVisibleAtSync: boolean[] = [];
+		const original = fileHandle.sync;
+		const spy = spyOn(fileHandle, "sync").mockImplementation(function (
+			this: unknown,
+		) {
+			keyVisibleAtSync.push(existsSync(path));
+			return original.call(this);
+		});
+		try {
+			const created = await store.putIfAbsent("k", utf8("one"));
+			expect(keyVisibleAtSync[0]).toBe(false);
+			const synced = keyVisibleAtSync.length;
+			await store.putIfMatch("k", utf8("two"), created.etag);
+			expect(keyVisibleAtSync.length).toBeGreaterThan(synced);
+		} finally {
+			spy.mockRestore();
+		}
+		expect((await store.get("k")).body).toEqual(utf8("two"));
 	});
 });
 
