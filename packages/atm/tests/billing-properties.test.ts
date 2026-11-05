@@ -384,7 +384,9 @@ describe("random histories of one family", () => {
 				// a refund says its money line again, with the same idem: the log already holds it (the outbox drops it)
 				expect([
 					id,
-					again.events.filter((e) => !store.events.some((k) => k.idem === e.idem)),
+					again.events.filter(
+						(e) => !store.events.some((k) => k.idem === e.idem),
+					),
 				]).toEqual([id, []]);
 			}
 			expect(

@@ -89,6 +89,8 @@ export const paymentEvents = ({
 				id: invoice.id,
 				amount_paid: invoice.amountPaid,
 				fee: taken,
+				// false: the caller gave no fee, so the books hold the gross amount, which is not the same as a fee of 0
+				fee_known: fee !== undefined,
 				currency: invoice.currency,
 				customer: invoice.customerId,
 			},

@@ -20,6 +20,7 @@ import type {
 	BillingDispute,
 	BillingInvoice,
 	BillingRefund,
+	StripePayout,
 	SubscriptionFact,
 	SubscriptionItem,
 } from "../src/billing/types.js";
@@ -315,6 +316,24 @@ describe("fixtures normalize to their facts", () => {
 			currency: "usd",
 			full: true,
 			at: 1793495100000,
+		});
+	});
+
+	test("payout.paid: the payout's id, its net amount and the event's time", () => {
+		const raw = load("payout.paid.json");
+		const payout = expectOk(
+			normalize(raw, mapping("payout.paid"), { eventId: raw.id }),
+		) as StripePayout;
+		expect(payout).toEqual({
+			source: {
+				eventId: "evt_SYNTH_0009",
+				mapping: "stripe/payout.paid@v1",
+				stripeApiVersion: API,
+			},
+			id: "po_SYNTH_0001",
+			amount: 24500,
+			currency: "usd",
+			at: 1793580000000,
 		});
 	});
 

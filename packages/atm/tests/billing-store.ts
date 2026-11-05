@@ -88,7 +88,11 @@ export const createStore = ({
 		events,
 		results,
 		/** One raw Stripe event at `at`; the stored input event's id is a ULID decided by the event. */
-		handle(event: unknown, at: number) {
+		handle(
+			event: unknown,
+			at: number,
+			extra: { fee?: number; school?: string } = {},
+		) {
 			const raw = event as {
 				id: string;
 				type: string;
@@ -113,6 +117,7 @@ export const createStore = ({
 				now: at,
 				priceIds,
 				invoiceIds,
+				...extra,
 			});
 			results.push(result);
 			if (result.rowChanges)

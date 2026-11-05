@@ -1033,9 +1033,9 @@ describe("what the reviews found", () => {
 		// A full refund takes all four back over the three plans: the rules' take-back, not a draw, so no alert.
 		const refund = s.handle(refundOf("in_multi"), T1);
 		expect(refund.refused).toBeUndefined();
-		expect(new Set(creditEvents(refund.events).map((e) => e.event_type))).toEqual(
-			new Set(["credit.adjusted"]),
-		);
+		expect(
+			new Set(creditEvents(refund.events).map((e) => e.event_type)),
+		).toEqual(new Set(["credit.adjusted"]));
 		expect(s.avail(T1 + 3_700_000)).toBe(0);
 	});
 

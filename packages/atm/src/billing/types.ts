@@ -59,6 +59,7 @@ export type {
 	StripeEventRefusal,
 	StripeEventResult,
 	StripeOp,
+	StripePayout,
 	SubjectRows,
 	SubscriptionEndInput,
 	SubscriptionFact,

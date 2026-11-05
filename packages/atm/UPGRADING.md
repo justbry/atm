@@ -1,5 +1,15 @@
 # Upgrading atm
 
+## Stripe fees, refunds and payouts in the log (after 0.5.0, on `dev`)
+
+A log made by `handleStripeEvent` or the reference handler used to hold only credit events: `hledger is` and `bs` over it showed no money at all. It now holds the money lines too (`README.md`, "Money lines"). Caller changes:
+
+- **Subscribe the endpoint to `payout.paid`** (a ninth event; the other eight are listed under "Events to subscribe to" below). Without it no payout is booked and the cash stays in `assets:stripe`. Not needed, and ignored if sent: `payout.failed`, `payout.created`, `payout.reconciliation_completed`. A payout carries no family or school, so it is booked to `deps.schoolId`: keep one endpoint per school, on the school's own Stripe account.
+- **Pass the fee, if you want it booked.** Add `paymentFee(event)` to `WebhookDeps` (or `fee` to `StripeEventInput`): the Stripe fee in cents of the payment an `invoice.paid` is, which is the `fee` of its charge's balance transaction (invoice payment, then its charge, then `balance_transaction`; for a direct charge on a connected account, as that account). No webhook event carries it. The handler is synchronous, so read Stripe before calling it and answer from what you hold. Without it the payment is booked at its gross amount with no fee line, and its payload says `fee_known: false`. A fee not known at the first delivery is not added later.
+- **Every `invoice.paid` now makes a `payment.succeeded`, and every `charge.refunded` of a handled invoice a `payment.refunded`.** A test that counted the events of an invoice or a refund sees one more. `handleStripeEvent` gives the refund's line again when it is handled again (same id and idem; the outbox drops it), so its `events` is no longer empty on that replay; the rows still are `null`.
+- **Shapes.** The `charge.refunded` mapping reads `currency` and `previous_attributes.amount_refunded`; there is a `payout.paid` mapping and a `StripePayout` fact. `StripeEventInput` has two optional fields, `fee` and `school` (needed for a payout).
+- Not built: money lines for disputes, a reversal of a payout that fails after `payout.paid`, and a fee added after the payment was booked.
+
 ## Moving to 0.5.0 from 0.4.0
 
 A review of 0.4.0 found four ways it could grant or alert wrongly, and five smaller problems. This is a minor release, not a patch, because the handler now refuses a test-mode event sent to a default (`env: "live"`) handler. Two of the fixes change what a caller has to do (`drawnAfter`, and `env: "test"` on a test endpoint):
@@ -30,7 +40,7 @@ Everything is additive: a 0.3.0 caller that changes nothing gets the same rows, 
 ### Stripe
 
 - **API version.** The mappings read Stripe API `2025-10-29.clover`; an event from any other version is refused (`unknown_mapping`), with a message that names the endpoint's version (`event.api_version`) and the fix, which is to recreate the endpoint with `api_version: "2025-10-29.clover"`. atm does not read a second layout (an older endpoint sends `line.price.id` and `line.proration`): the mappings are checked against the pinned version's OpenAPI spec, and a second shape would be unchecked. A school's webhook endpoint must be created with `api_version: "2025-10-29.clover"` (the endpoint's version, not the request header, decides the shape of the events it receives), and every API call should send the same `Stripe-Version`.
-- **Events to subscribe to:** `invoice.paid`, `invoice_payment.paid`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `charge.refunded`, `charge.dispute.created`, `charge.dispute.closed`. Without `invoice_payment.paid` a refund or dispute cannot find its invoice and answers 409 until Stripe gives up.
+- **Events to subscribe to:** `invoice.paid`, `invoice_payment.paid`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `charge.refunded`, `charge.dispute.created`, `charge.dispute.closed`, and since the section at the top `payout.paid`. Without `invoice_payment.paid` a refund or dispute cannot find its invoice and answers 409 until Stripe gives up.
 - **Checkout metadata.** Put `b4u_school` and `family_id` in `subscription_data.metadata`. On the invoice they arrive at `parent.subscription_details.metadata`; atm reads both and the invoice's own keys win.
 - Shapes were checked against real payloads from a Stripe sandbox (`fixtures/billing/stripe/recorded/`). The pin is still unverified against a school's own account.
 

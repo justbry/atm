@@ -244,7 +244,8 @@ const decide = (
 			const result = refundToCommands({ ...common, refund });
 			// Only a refund of a payment this holder was paid is the school's money: a charge that names no handled invoice
 			// may be another product's on the same Stripe account.
-			const ours = refund.invoiceId != null && grants.invoices[refund.invoiceId];
+			const ours =
+				refund.invoiceId != null && grants.invoices[refund.invoiceId];
 			return {
 				ok: true,
 				result,
