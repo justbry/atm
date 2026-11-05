@@ -64,6 +64,10 @@ Additive: nothing changes for a caller that does not call it. `reconcile({ event
 - **A log without fees or payouts reports them once**: one `not_in_log` record for the fees (or the payouts) of the period, not one per payment; the net is then compared before fees.
 - **Not built**: no Stripe call (the caller fetches), no schedule, no per-payment fee match (a charge cannot be tied to its invoice on API `2025-10-29.clover`), no alert delivery.
 
+### What-if replay with `simulate` (after 0.6.0)
+
+Additive: nothing changes for a caller that does not use it. A new export, `simulate`, and a new command, `atm simulate --root <folder> --school <id> --current-menu <file> --menu <file> [--policy <file>]`, run the log's commands again under a candidate menu, catalog or policy and diff balances, posting totals and decisions against the log (exit 0 no difference, 1 differences, 2 bad input). It writes nothing. It re-decides credits only: it cannot change what Stripe charged, and the grant rules are not in the log's commands (README, "What if (simulate)"). `replayEvents` is unchanged.
+
 ## Moving to 0.5.0 from 0.4.0
 
 A review of 0.4.0 found four ways it could grant or alert wrongly, and five smaller problems. This is a minor release, not a patch, because the handler now refuses a test-mode event sent to a default (`env: "live"`) handler. Two of the fixes change what a caller has to do (`drawnAfter`, and `env: "test"` on a test endpoint):

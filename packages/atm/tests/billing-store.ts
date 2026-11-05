@@ -18,7 +18,7 @@ import { mutationToEvents } from "../src/ledger/postings.js";
 import { balancesOf } from "../src/ledger/replay.js";
 import { runOnState, toCatalog } from "../src/ledger/run.js";
 import { canonicalize } from "../src/ledger/util.js";
-import type { AtmEvent } from "../src/types.js";
+import type { AtmEvent, AtmEventContext } from "../src/types.js";
 import { paymentIntentOf, priceIdOf } from "./stripe-events.js";
 
 /**
@@ -169,6 +169,55 @@ export const createStore = ({
 				revision,
 			});
 			({ rows, revision } = applyRowChanges({ rows, revision, changes }));
+		},
+		/**
+		 * Any other command the family service runs (a hold, a finalize, a refund), recorded as `recordEngineCommand` does:
+		 * the engine decides it, the rows are written and the mutation's events join the log. Returns the mutation.
+		 */
+		serviceCommand({
+			type,
+			at,
+			fields,
+			context = {},
+		}: {
+			type: string;
+			at: number;
+			fields: Record<string, unknown>;
+			context?: Partial<AtmEventContext>;
+		}) {
+			spends += 1;
+			const command = {
+				schemaVersion: 1,
+				type,
+				org: { config: {} },
+				commandId: `${type}_${spends}`,
+				requestId: `${type}_${spends}`,
+				identity,
+				occurredAt: at,
+				...fields,
+			};
+			const before = state();
+			const { mutation } = runOnState({ state: before, catalog, command });
+			if (!mutation) throw new Error(`${type} decided nothing`);
+			events.push(
+				...mutationToEvents({
+					mutation,
+					context: {
+						school,
+						tz: menu.timeZone,
+						feature: "visit",
+						before: before as never,
+						...context,
+					},
+				}),
+			);
+			const changes = rowChangesFromMutation({
+				mutation: mutation as never,
+				rows,
+				revision,
+			});
+			({ rows, revision } = applyRowChanges({ rows, revision, changes }));
+			return mutation;
 		},
 		/** Units of `feature` the engine counts as available at `asOf`. */
 		avail(asOf: number, feature = "visit") {
