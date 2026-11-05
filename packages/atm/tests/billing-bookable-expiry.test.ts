@@ -130,7 +130,7 @@ describe("settleExpiredHold", () => {
 			held: 1,
 			command: { type: "confirmExpiredLock", commandId: "bk:b1:expiry" },
 		});
-		expect(result.events[0]?.labels.booking).toBe("bk_b1");
+		expect(result.events[0]?.labels.booking).toBe("b1");
 		expect(validateEvent(result.events[0] as never)).toEqual({
 			ok: true,
 			errors: [],
@@ -198,13 +198,13 @@ describe("a call on a hold whose expiry has passed", () => {
 		expect(call(releaseBooking, spend, "b1", late)).toMatchObject({
 			message: expect.stringContaining("settleExpiredHold"),
 		});
-		// a cancel after the cutoff on a policy that releases would undo what the expiry confirms
+		// a cancel after the session started (the hold lapses after the start) is refused whatever the policy
 		const mixed = member({
 			policy: { ...DEFAULT_POLICY, lateCancel: "release" },
 		});
 		ok(hold(mixed, "b1"));
 		expect(call(cancelBooking, mixed, "b1", late)).toMatchObject({
-			reason: "hold_expired",
+			reason: "session_started",
 		});
 		expect(mixed.engine.openLocks).toHaveLength(1);
 		expect(call(confirmBooking, spend, "b1", late)).toMatchObject({
@@ -215,10 +215,10 @@ describe("a call on a hold whose expiry has passed", () => {
 		const cancelled = member();
 		ok(hold(cancelled, "b1"));
 		expect(call(cancelBooking, cancelled, "b1", late)).toMatchObject({
-			ok: true,
-			late: true,
-			booking: { state: "spent", settledBy: "late_cancel" },
+			ok: false,
+			reason: "session_started",
 		});
+		expect(cancelled.engine.openLocks).toHaveLength(1);
 		const noShow = member();
 		ok(hold(noShow, "b1"));
 		expect(call(noShowBooking, noShow, "b1", late)).toMatchObject({
