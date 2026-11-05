@@ -172,6 +172,35 @@ describe("fixtures normalize to their facts", () => {
 		expect(inv.lines.map((l) => l.quantity)).toEqual([1, 1]);
 	});
 
+	test("invoice.paid: the subscription's metadata and the invoice's own are merged, the invoice's own keys winning", () => {
+		const metadataOf = (own: object, subscription: object | undefined) => {
+			const raw = load("invoice.paid.json");
+			raw.data.object.metadata = own;
+			if (subscription === undefined)
+				delete raw.data.object.parent.subscription_details.metadata;
+			else raw.data.object.parent.subscription_details.metadata = subscription;
+			const inv = expectOk(
+				normalize(raw, mapping("invoice.paid"), { eventId: raw.id }),
+			) as BillingInvoice & { subscriptionMetadata?: unknown };
+			expect(inv.subscriptionMetadata).toBeUndefined();
+			return inv.metadata;
+		};
+		expect(metadataOf({}, { b4u_school: "s", family_id: "f" })).toEqual({
+			b4u_school: "s",
+			family_id: "f",
+		});
+		expect(
+			metadataOf(
+				{ family_id: "own", extra: "x" },
+				{ b4u_school: "s", family_id: "f" },
+			),
+		).toEqual({ b4u_school: "s", family_id: "own", extra: "x" });
+		expect(metadataOf({ b4u_school: "s" }, undefined)).toEqual({
+			b4u_school: "s",
+		});
+		expect(metadataOf({}, {})).toEqual({});
+	});
+
 	test("invoice.paid: a monthly join with a tier line and an add-on line", () => {
 		const raw = load("invoice.paid.json");
 		const r = expectOk(
@@ -275,7 +304,8 @@ describe("fixtures normalize to their facts", () => {
 				mapping: "stripe/charge.refunded@v1",
 				stripeApiVersion: API,
 			},
-			id: "re_SYNTH_0001",
+			// A real charge.refunded event carries no refund object: the id is the event's, the amount the charge's total refunded.
+			id: "evt_SYNTH_0003",
 			paymentIntentId: "pi_SYNTH_0001",
 			chargeId: "ch_SYNTH_0001",
 			amount: 26000,
@@ -467,7 +497,6 @@ describe("values", () => {
 	test("a full refund is amount_refunded equal to amount; a partial one is not", () => {
 		const raw = load("charge.refunded.json");
 		raw.data.object.amount_refunded = 10000;
-		raw.data.object.refunds.data[0].amount = 10000;
 		const r = expectOk(
 			normalize(raw, mapping("charge.refunded"), { eventId: raw.id }),
 		) as BillingRefund;

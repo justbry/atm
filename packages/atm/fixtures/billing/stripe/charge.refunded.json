@@ -30,22 +30,10 @@
 			},
 			"receipt_email": "synthetic.parent@example.test",
 			"shipping": null,
-			"refunds": {
-				"object": "list",
-				"has_more": false,
-				"data": [
-					{
-						"object": "refund",
-						"id": "re_SYNTH_0001",
-						"amount": 26000,
-						"currency": "usd",
-						"charge": "ch_SYNTH_0001",
-						"status": "succeeded",
-						"created": 1793495090
-					}
-				]
-			},
 			"metadata": {}
+		},
+		"previous_attributes": {
+			"amount_refunded": 0
 		}
 	}
 }

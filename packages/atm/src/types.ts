@@ -417,12 +417,20 @@ export type BillingInvoice = {
 	periodStart: number;
 	periodEnd: number;
 	lines: InvoiceLine[];
-	/** Our metadata from checkout (`b4u_school`, `family_id`, `tier_id`, `profile_id`, `menu_version`, …). */
+	/**
+	 * Our metadata from checkout (`b4u_school`, `family_id`, `tier_id`, `profile_id`, `menu_version`, …). Checkout's
+	 * `subscription_data.metadata` sits on the invoice at `parent.subscription_details.metadata`; it is merged with the
+	 * invoice's own `metadata`, the invoice's own keys winning.
+	 */
 	metadata: Record<string, string>;
 };
 
 export type BillingRefund = {
 	source: FactSource;
+	/**
+	 * Identifies the refund EVENT: the Stripe event id (`evt_…`). A real `charge.refunded` event carries the charge, not
+	 * the refund object (`re_…`), so there is no refund id to read. Nothing reads it for logic: it only labels the fact.
+	 */
 	id: string;
 	/**
 	 * The invoice the refunded charge paid. Stripe's charge (API 2025-10-29.clover) does not name it: the mapping gives
@@ -431,7 +439,12 @@ export type BillingRefund = {
 	invoiceId?: string | null;
 	paymentIntentId?: string | null;
 	chargeId: string;
+	/**
+	 * The charge's total refunded amount after this event (`amount_refunded`), not this one refund's amount: the charge
+	 * has no refund list. The rules use only `full`.
+	 */
 	amount: number;
+	/** The charge is refunded in full (`amount_refunded` equals the charge's `amount`); a partial refund is false. */
 	full: boolean;
 	at: number;
 };

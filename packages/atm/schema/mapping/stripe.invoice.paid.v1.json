@@ -53,6 +53,12 @@
 		"metadata": {
 			"path": "$.data.object.metadata",
 			"type": "map"
+		},
+		"subscriptionMetadata": {
+			"path": "$.data.object.parent.subscription_details.metadata",
+			"type": "map",
+			"optional": true,
+			"default": {}
 		}
 	},
 	"lines": {

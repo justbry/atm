@@ -1111,6 +1111,7 @@ describe("refusals", () => {
 	test("an invoice without the checkout metadata is refused, not guessed", () => {
 		const event = paid();
 		event.data.object.metadata = {};
+		event.data.object.parent.subscription_details.metadata = {};
 		expect(refusedAs(event)).toBe("missing_metadata");
 	});
 

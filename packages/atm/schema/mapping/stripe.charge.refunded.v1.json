@@ -6,7 +6,7 @@
 	"stripeApiVersion": "2025-10-29.clover",
 	"fields": {
 		"id": {
-			"path": "$.data.object.refunds.data[0].id",
+			"path": "$.id",
 			"type": "string"
 		},
 		"paymentIntentId": {
@@ -20,7 +20,7 @@
 			"type": "string"
 		},
 		"amount": {
-			"path": "$.data.object.refunds.data[0].amount",
+			"path": "$.data.object.amount_refunded",
 			"type": "int"
 		},
 		"full": {
