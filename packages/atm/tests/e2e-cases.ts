@@ -135,6 +135,16 @@ const FIRST_CHARGE = charge("in_1", SPARKLE_2, 784, FIRST_AT);
 const FIRST_INVOICE = stripeInvoice("in_1", SPARKLE_2, JAN15);
 const JAN: string[] = [];
 const ONLY_JANUARY = { "2026-01": JAN };
+
+/** The first payment, for a price the menu does not list: refused `unmatched_line`. */
+const unlistedInvoice = () =>
+	invoice({
+		id: "in_1",
+		at: FIRST_AT,
+		lines: [
+			{ lookupKey: "b4u_unlisted", amount: SPARKLE_2, interval: "month" },
+		],
+	});
 const FEES_26 = { in_1: 784 };
 
 /** The opening of the dispute on `in_1`, with Stripe's withdrawal (260.00 and the 15.00 dispute fee). */
@@ -1997,37 +2007,31 @@ export const CASES: Case[] = [
 	{
 		id: "refused-invoice",
 		title: "a paid invoice the menu does not know",
-		path: "invoice.paid -> 422 unmatched_line, claim released, nothing booked",
+		path: "invoice.paid -> 422 unmatched_line, claim released, payment.succeeded booked once (the retry is refused again)",
 		fees: FEES_26,
 		steps: [
+			deliver(FIRST_AT, unlistedInvoice(), 422, "refused", "unmatched_line"),
+			// Stripe retries a minute later and the menu is still wrong: the same answer, and the payment is not booked again
 			deliver(
-				FIRST_AT,
-				invoice({
-					id: "in_1",
-					at: FIRST_AT,
-					lines: [
-						{ lookupKey: "b4u_unlisted", amount: SPARKLE_2, interval: "month" },
-					],
-				}),
+				FIRST_AT + 60_000,
+				unlistedInvoice(),
 				422,
 				"refused",
 				"unmatched_line",
 			),
 		],
-		verdict: "DISCREPANCY",
-		discrepancies: ["D4"],
+		verdict: "OK",
 		books: [
 			{
 				school: SCHOOL,
-				// the family paid 260.00 and Stripe kept 7.84: a human has to fix the menu and re-send the event
+				// the family paid 260.00 and Stripe kept 7.84: that is in the books although the credits are refused (none are
+				// granted, so no visits); a person still has to fix the menu for the credits
 				hand: {
 					"income:other": 26_000,
 					fees: 784,
 					stripe: 25_216,
 					net: 25_216,
 				},
-				// DISCREPANCY: D4 refused by design (the answer is the alarm): the books hold nothing until the event is re-sent
-				pinned: { "income:other": 0, fees: 0, stripe: 0, net: 0 },
 				stripe: {
 					invoices: [FIRST_INVOICE],
 					refunds: [],
@@ -2035,14 +2039,7 @@ export const CASES: Case[] = [
 					payouts: [],
 					balanceTransactions: [FIRST_CHARGE],
 				},
-				reconcile: {
-					"2026-01": [
-						// DISCREPANCY: D4 reconcile is what notices it
-						"missing_in_log invoice in_1",
-						"not_in_log fees -",
-						"amount_differs net -",
-					],
-				},
+				reconcile: ONLY_JANUARY,
 			},
 		],
 	},

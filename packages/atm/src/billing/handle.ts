@@ -7,8 +7,9 @@
  *     -> row changes (engine rows and the grants row, one revision) and decision events (credit.*)
  *
  * Nothing is written and no clock is read. Replaying an event gives no changes and no events. An event atm cannot
- * decide (unknown shape, a line not on the menu, an engine rejection) comes back `refused`: nothing is to be written,
- * keep the event and retry once the cause is fixed.
+ * decide (unknown shape, a line not on the menu, an engine rejection) comes back `refused`: no rows and no credit
+ * events are to be written, keep the event and retry once the cause is fixed. The one thing to write is the money of a
+ * paid invoice whose credits were refused: `refused.payment` (see `withCertainPayment`).
  */
 import type {
 	SubjectState,
@@ -44,6 +45,7 @@ import {
 	disputeToCommands,
 	invoiceHolder,
 	invoiceToCommands,
+	labelsOf,
 	refundToCommands,
 	subscriptionHolder,
 	subscriptionToCommands,
@@ -201,7 +203,7 @@ const addonOnlyMessage = (
 	{ lines, why, fix }: ReturnType<typeof ungrantedRecurringAddons>,
 ): string => {
 	const addons = [...new Set(lines.map((l) => l.addonId))].join(", ");
-	return `invoice ${invoice.id} (subscription ${invoice.subscriptionId ?? "none"}) charges for the recurring add-on ${addons}, which atm grants only on the member's tier subscription, and ${why}: nothing was granted or recorded. ${fix}`;
+	return `invoice ${invoice.id} (subscription ${invoice.subscriptionId ?? "none"}) charges for the recurring add-on ${addons}, which atm grants only on the member's tier subscription, and ${why}: no credits were granted and the invoice is not recorded as decided. ${fix}`;
 };
 
 /** Names the invoice, the subscription it is on and the holder's own, and what to change in Stripe. */
@@ -211,7 +213,7 @@ const otherTierMessage = (
 	holderSubscriptionId: string | null,
 ): string => {
 	const tiers = [...new Set(lines.map((l) => l.tierId))].join(", ");
-	return `invoice ${invoice.id} (${invoice.reason}) is for subscription ${invoice.subscriptionId ?? "none"} and has a tier line (${tiers}), but this member's tier subscription is ${holderSubscriptionId ?? "none"}: the membership follows one subscription, so nothing was granted or recorded. Cancel the other subscription in Stripe (and refund this invoice if the member should not keep it), or change the member's own subscription instead; re-sending this event gives the same refusal`;
+	return `invoice ${invoice.id} (${invoice.reason}) is for subscription ${invoice.subscriptionId ?? "none"} and has a tier line (${tiers}), but this member's tier subscription is ${holderSubscriptionId ?? "none"}: the membership follows one subscription, so no credits were granted and the invoice is not recorded as decided. Cancel the other subscription in Stripe (and refund this invoice if the member should not keep it), or change the member's own subscription instead; re-sending this event gives the same refusal`;
 };
 
 const decide = (
@@ -633,14 +635,93 @@ export const handleStripeEvent = (
 	if (!normalized.ok)
 		return refuse("bad_event", describeNormalizeError(normalized.error));
 
+	let result: StripeEventResult;
 	try {
-		return decideAndRun(input, env, mapping.value.target, normalized.value);
+		result = decideAndRun(input, env, mapping.value.target, normalized.value);
 	} catch (error) {
-		return refuse(
+		result = refuse(
 			"rejected",
 			error instanceof Error ? error.message : String(error),
 		);
 	}
+	return mapping.value.target === "BillingInvoice"
+		? withCertainPayment(input, result, normalized.value as BillingInvoice)
+		: result;
+};
+
+/**
+ * The refusals of a paid invoice after which the money is certain anyway: the invoice is Stripe's, it normalised, its
+ * holder is named by its metadata (the handler has checked the school before this), and what was refused is only what
+ * to grant for it. Not here, because booking would be wrong or impossible: `unknown_mapping` and the `bad_event` of an
+ * event that does not normalise (the amount cannot be read), the `bad_event` of a fee the invoice cannot have paid
+ * (the caller's bug), `missing_metadata` (no holder), and the refusals of other events (`unmatched_invoice`,
+ * `unknown_subscription`, `unmatched_booking`), which are not an invoice.
+ */
+const PAID_INVOICE_REFUSALS: ReadonlySet<StripeEventRefusal["reason"]> =
+	new Set([
+		"unmatched_line",
+		"tier_on_other_subscription",
+		"addon_only_subscription",
+		"rejected",
+	]);
+
+const TRAILING_FULL_STOP = /\.$/;
+
+/**
+ * The payment of a refused paid invoice, made as `decide` makes it for an applied one (same events, same idem
+ * `stripe:<invoice id>`), from the menu's reading of the lines (an unknown line is `other`). Total: whatever cannot be
+ * read (a holder, a menu, a fee the invoice cannot have paid) gives nothing, which is the refusal as it always was.
+ */
+const certainPayment = (
+	input: StripeEventInput,
+	invoice: BillingInvoice,
+): AtmEvent[] => {
+	try {
+		const grants = grantsFromRows(input.rows);
+		const holder = grants.identity ?? grants.holder ?? invoiceHolder(invoice);
+		if (feeProblem(input.fee, invoice.amountPaid) !== null) return [];
+		const resolved = resolveInvoice(
+			invoice,
+			menuLineItems(
+				invoice.metadata.b4u_school ?? holder.orgId,
+				input.menu,
+				input.priceIds,
+			),
+		);
+		return paymentEvents({
+			invoice: resolved,
+			fee: input.fee,
+			labels: labelsOf(invoice.source, input),
+			booker: bookerOf(input, holder),
+			holder,
+		});
+	} catch {
+		return [];
+	}
+};
+
+/** A refusal in `PAID_INVOICE_REFUSALS` with the money line of its invoice, and a sentence that says so. */
+const withCertainPayment = (
+	input: StripeEventInput,
+	result: StripeEventResult,
+	invoice: BillingInvoice,
+): StripeEventResult => {
+	const { refused } = result;
+	if (!refused || !PAID_INVOICE_REFUSALS.has(refused.reason)) return result;
+	const payment = certainPayment(input, invoice);
+	if (payment.length === 0) return result;
+	const booked = payment.some((e) => e.event_type === "payment.succeeded");
+	const note = booked
+		? `The payment itself is booked (payment.succeeded, idem stripe:${invoice.id}) because Stripe has collected it; the delivery that is applied after the cause is fixed does not book it again. A refund or dispute of it waits (409) until then.`
+		: "The payment is not in USD, so it is not booked as money; a money.skipped marker says so.";
+	return {
+		...result,
+		refused: {
+			...refused,
+			message: `${refused.message.replace(TRAILING_FULL_STOP, "")}. ${note}`,
+			payment,
+		},
+	};
 };
 
 /** A payout belongs to no family: it is booked for the school the caller names, and writes no rows. */

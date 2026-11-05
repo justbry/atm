@@ -17,6 +17,7 @@ On `dev` after `atm-v0.8.0`, not released.
 | PR | Merge commit | What |
 |---|---|---|
 | #77 | `534a55f52` | a non-USD dispute that moved money is answered 200 `non_usd` and leaves a `money.skipped` marker (`kind: "dispute"`) |
+| (PR for e2e finding D4) | `pending` | a paid invoice refused after the claim (`unmatched_line`, `tier_on_other_subscription`, `addon_only_subscription`, `rejected`) is still answered 422, and now books its `payment.succeeded` as the claim is released (once: the retry that applies makes the same idem); `StripeEventRefusal` gains `payment` |
 
 ## 0.8.0
 
