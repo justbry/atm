@@ -41,7 +41,8 @@ export function trimSpec(spec: Json): Json {
 		name !== "line_item" &&
 		name !== "subscription_item" &&
 		name !== "price" &&
-		name !== "refund";
+		name !== "refund" &&
+		name !== "balance_transaction";
 	const kept = new Map<string, unknown>();
 	const visit = (name: string) => {
 		if (kept.has(name) || cut(name) || !schemas[name]) return;
@@ -82,6 +83,7 @@ export function trimSpec(spec: Json): Json {
 		"subscription_item",
 		"price",
 		"refund",
+		"balance_transaction",
 	])
 		visit(name);
 	const defs = Object.fromEntries(

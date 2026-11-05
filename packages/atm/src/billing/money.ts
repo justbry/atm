@@ -1,6 +1,7 @@
 /**
  * The money lines a Stripe event leaves in the books: a paid invoice is a `payment.succeeded` (gross, the Stripe fee and
- * the net that reaches `assets:stripe`), a refund is a `payment.refunded` and a payout is a `payout.paid`. The postings
+ * the net that reaches `assets:stripe`), a refund is a `payment.refunded`, a payout is a `payout.paid`, and a dispute that
+ * moved money is a `payment.disputed` (the amount withdrawn and Stripe's dispute fee) and, when it closes, a `dispute.closed`. The postings
  * and their signs are `moneyPostings` in `../ledger/postings.ts`; this only says which event to make from a fact.
  * USD only, as the postings are: a fact in another currency makes no money line.
  *
@@ -10,6 +11,7 @@
 import { ledgerEvent } from "../ledger/postings.js";
 import type {
 	AtmEvent,
+	BillingDispute,
 	BillingInvoice,
 	BillingRefund,
 	GrantLabels,
@@ -180,3 +182,84 @@ export const payoutEvents = ({
 				}),
 			]
 		: [];
+
+/**
+ * A dispute that moved money: `payment.disputed` for what Stripe withdrew when it opened (the disputed amount, and the
+ * dispute fee it took with it: both are in the dispute's own `balance_transactions`, so nothing is asked of the caller), and
+ * for a `charge.dispute.closed` also `dispute.closed`. A closed event carries the same withdrawal, so it makes the opening
+ * line too, with the same idem and the same instant (the dispute's `created`) as the created event's: whichever Stripe
+ * delivers first books it and the outbox drops the other, which also covers a dispute whose created event never came.
+ * Won, the amount comes back and the fee does not: the recorded won dispute reverses `amount` with a fee of 0 and no
+ * transaction gives the dispute fee back. Lost, `dispute.closed` has no postings.
+ *
+ * Nothing for a dispute with no withdrawal (an inquiry, `warning_*`: Stripe takes nothing from the balance), for one with
+ * no amount, or in another currency.
+ */
+export const disputeEvents = ({
+	dispute,
+	closing,
+	labels,
+	booker,
+	holder,
+}: {
+	dispute: BillingDispute;
+	/** The event is `charge.dispute.closed`. */
+	closing: boolean;
+	labels: GrantLabels;
+	booker: Booker;
+	holder: { customerId: string };
+}): AtmEvent[] => {
+	const { amount, fee, withdrawn } = dispute;
+	if (
+		amount === undefined ||
+		amount <= 0 ||
+		fee === undefined ||
+		withdrawn === undefined ||
+		withdrawn >= 0 ||
+		(dispute.currency ?? USD) !== USD
+	)
+		return [];
+	const opened = ledgerEvent({
+		type: "payment.disputed",
+		school: booker.school,
+		tz: booker.tz,
+		eventTime: dispute.openedAt ?? dispute.at,
+		key: holder.customerId,
+		idem: `stripe:${dispute.id}`,
+		cause: booker.cause,
+		labels,
+		amount,
+		fee,
+		text: `dispute opened on ${amount / CENTS_PER_DOLLAR} USD of charge ${dispute.chargeId}, dispute fee ${fee / CENTS_PER_DOLLAR} USD`,
+		payload: {
+			id: dispute.id,
+			amount,
+			fee,
+			currency: USD,
+			charge: dispute.chargeId,
+			...(dispute.paymentIntentId
+				? { payment_intent: dispute.paymentIntentId }
+				: {}),
+			...(dispute.invoiceId ? { invoice: dispute.invoiceId } : {}),
+		},
+	});
+	if (!closing) return [opened];
+	if (dispute.status === "open") return [];
+	return [
+		opened,
+		ledgerEvent({
+			type: "dispute.closed",
+			school: booker.school,
+			tz: booker.tz,
+			eventTime: dispute.at,
+			key: holder.customerId,
+			idem: `stripe:${dispute.id}:closed`,
+			cause: booker.cause,
+			labels,
+			amount,
+			won: dispute.status === "won",
+			text: `dispute ${dispute.status}`,
+			payload: { id: dispute.id, status: dispute.status },
+		}),
+	];
+};

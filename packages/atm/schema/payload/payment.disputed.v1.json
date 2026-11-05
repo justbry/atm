@@ -2,7 +2,7 @@
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
 	"$id": "https://b4uni.com/_schema/payload/payment.disputed.v1.json",
 	"title": "payment.disputed payload v1",
-	"description": "A Stripe dispute opened.",
+	"description": "A Stripe dispute opened. Its postings take the disputed amount and, when `fee` is on the event, Stripe's dispute fee out of assets:stripe.",
 	"type": "object",
 	"required": ["id", "amount"],
 	"properties": {
@@ -13,6 +13,27 @@
 		"amount": {
 			"type": "integer",
 			"minimum": 1
+		},
+		"fee": {
+			"description": "Stripe's dispute fee in cents, from the dispute's own balance transaction. Absent in logs written before the handler booked disputes.",
+			"type": "integer",
+			"minimum": 0
+		},
+		"currency": {
+			"type": "string",
+			"minLength": 1
+		},
+		"charge": {
+			"type": "string",
+			"minLength": 1
+		},
+		"payment_intent": {
+			"type": "string",
+			"minLength": 1
+		},
+		"invoice": {
+			"type": "string",
+			"minLength": 1
 		},
 		"reason": {
 			"type": "string"

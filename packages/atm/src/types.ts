@@ -222,7 +222,7 @@ export type AtmLedgerEventInput = {
 	labels?: Record<string, string>;
 	/** Integer cents for USD events; whole units for credit events. */
 	amount?: number;
-	/** Stripe fee in cents, on `payment.succeeded`. */
+	/** Stripe fee in cents, on `payment.succeeded`; on `payment.disputed`, Stripe's dispute fee (`expenses:billing:dispute-fees`). */
 	fee?: number;
 	/** Income account tail on `payment.succeeded`: `membership:sparkle-2` -> `income:billing:membership:sparkle-2`. */
 	incomeKind?: string;
@@ -669,6 +669,19 @@ export type BillingDispute = {
 	chargeId: string;
 	status: "open" | "won" | "lost";
 	at: number;
+	/** The dispute's amount in minor units (`data.object.amount`). Absent when the event has none. */
+	amount?: number;
+	/** The dispute's currency, as Stripe sends it (lowercase). */
+	currency?: string;
+	/** When the dispute was opened (`data.object.created`), in ms: the instant its money lines are dated. */
+	openedAt?: number;
+	/**
+	 * What Stripe withdrew for the dispute, from the first of the dispute's own `balance_transactions`: its `amount`
+	 * (negative) and its `fee` (the dispute fee, 1500 cents in the recorded events). Both absent when the list is empty,
+	 * as for an inquiry (`warning_*`), which moves no money.
+	 */
+	withdrawn?: number;
+	fee?: number;
 };
 
 /**
@@ -1279,7 +1292,8 @@ export type StripeEventResult = {
 	/**
 	 * The decision events, each with `cause` = the event id and the menu, policy and mapping labels: `credit.*` and
 	 * `plan.changed`, and the money lines of a payment (`payment.succeeded`), a refund (`payment.refunded`) and a payout
-	 * (`payout.paid`). A dispute books no money line yet.
+	 * (`payout.paid`), and of a dispute that moved money: `payment.disputed` when it opens (the withdrawal and Stripe's
+	 * dispute fee) and `dispute.closed` when it closes.
 	 */
 	events: AtmEvent[];
 	refused?: StripeEventRefusal;

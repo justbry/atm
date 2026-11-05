@@ -207,13 +207,25 @@ export const moneyPostings = (i: AtmLedgerEventInput): AtmPosting[] => {
 				usd("assets:stripe", -positive()),
 				usd("income:billing:refunds", amount),
 			];
-		case "payment.disputed":
-			return [
-				usd("assets:stripe", -positive()),
-				usd("expenses:billing:disputes", amount),
+		case "payment.disputed": {
+			// Stripe withdraws the disputed amount and its dispute fee together, when the dispute opens: the cash falls by
+			// both, the amount is the disputes expense and the fee is its own line.
+			const disputed = positive();
+			const fee = i.fee ?? 0;
+			if (!Number.isInteger(fee) || fee < 0)
+				throw new Error(
+					"payment.disputed needs a whole, non-negative fee in cents",
+				);
+			const lines = [
+				usd("assets:stripe", -(disputed + fee)),
+				usd("expenses:billing:disputes", disputed),
 			];
+			if (fee !== 0) lines.push(usd("expenses:billing:dispute-fees", fee));
+			return lines;
+		}
 		case "dispute.closed":
-			// Won: the money comes back. Lost: the dispute's own debit already stands.
+			// Won: the amount comes back, the fee does not (nothing here books the fee back). Lost: the dispute's own debit
+			// already stands.
 			return i.won
 				? [
 						usd("assets:stripe", positive()),

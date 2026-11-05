@@ -15,6 +15,9 @@ import { decimalToUnits, localDate } from "./util.js";
 
 const STRIPE_ACCOUNT = "assets:stripe";
 const FEES_ACCOUNT = "expenses:billing:stripe-fees";
+/** Stripe's dispute fee is a fee in its balance transactions, so it is compared with the payment fees. */
+const DISPUTE_FEES_ACCOUNT = "expenses:billing:dispute-fees";
+const FEE_ACCOUNTS: readonly string[] = [FEES_ACCOUNT, DISPUTE_FEES_ACCOUNT];
 const CENTS = 2;
 const MS_PER_SECOND = 1000;
 const MONTH = /^(\d{4})-(\d{2})$/;
@@ -367,10 +370,13 @@ const sum = (numbers: readonly number[]): number =>
 	numbers.reduce((total, n) => total + n, 0);
 
 /** Cents of every posting to `account` in USD, as an integer. */
-const postedCents = (events: readonly AtmEvent[], account: string): number[] =>
+const postedCents = (
+	events: readonly AtmEvent[],
+	accounts: readonly string[],
+): number[] =>
 	events.flatMap((event) =>
 		event.postings
-			.filter((p) => p.account === account && p.commodity === "USD")
+			.filter((p) => accounts.includes(p.account) && p.commodity === "USD")
 			.map((p) => Number(decimalToUnits(p.amount, CENTS))),
 	);
 
@@ -579,7 +585,7 @@ export const reconcile = (input: ReconcileInput): ReconcileResult => {
 	const balanceTransactions = stripe.balanceTransactions?.filter(
 		(transaction) => scope.has(dayOf(transaction.created)),
 	);
-	const feePostings = postedCents(events.filter(inScope), FEES_ACCOUNT);
+	const feePostings = postedCents(events.filter(inScope), FEE_ACCOUNTS);
 	const notSupplied = (
 		[
 			"invoices",
@@ -683,7 +689,7 @@ const money = ({
 	});
 	const found: ReconcileDifference[] = [];
 	const stripeFees = sum(counted.map((transaction) => transaction.fee));
-	const feePostings = postedCents(events, FEES_ACCOUNT);
+	const feePostings = postedCents(events, FEE_ACCOUNTS);
 	const logFees = sum(feePostings);
 	const feesInLog = feePostings.length > 0;
 	if (!feesInLog && stripeFees !== 0) {
@@ -696,7 +702,7 @@ const money = ({
 			stripe: totalSide(stripeFees),
 			log: null,
 			period: scope.label,
-			message: `fees: Stripe took ${stripeFees} cents in fees; the log has no ${FEES_ACCOUNT} postings`,
+			message: `fees: Stripe took ${stripeFees} cents in fees; the log has no ${FEES_ACCOUNT} or ${DISPUTE_FEES_ACCOUNT} postings`,
 		});
 	} else if (stripeFees !== logFees) {
 		found.push({
@@ -706,7 +712,7 @@ const money = ({
 			eventType: null,
 			eventIds: events
 				.filter((event) =>
-					event.postings.some((p) => p.account === FEES_ACCOUNT),
+					event.postings.some((p) => FEE_ACCOUNTS.includes(p.account)),
 				)
 				.map((event) => event.id),
 			stripe: totalSide(stripeFees),
@@ -723,7 +729,7 @@ const money = ({
 	const logNet = sum(
 		events
 			.filter(movesStripeBalance)
-			.flatMap((event) => postedCents([event], STRIPE_ACCOUNT)),
+			.flatMap((event) => postedCents([event], [STRIPE_ACCOUNT])),
 	);
 	if (stripeNet !== logNet) {
 		const stripeNetByType: Record<string, number> = {};
