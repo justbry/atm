@@ -1,5 +1,5 @@
 import { rmSync } from "node:fs";
-import * as h from "/Users/jmac/repos/atm/.claude/worktrees/agent-a679a6723a047cebe/packages/atm/tests/spikes/usage-track-harness.ts";
+import * as h from "<spike-branch-checkout>/packages/atm/tests/spikes/usage-track-harness.ts";
 
 const open = (name: string) => {
 	const p = `/tmp/atm-usage-track/${name}.db`;

@@ -1,6 +1,6 @@
-import * as h from "/Users/jmac/repos/atm/.claude/worktrees/agent-a679a6723a047cebe/packages/atm/tests/spikes/usage-track-harness.ts";
-import { stateFromRows } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a679a6723a047cebe/packages/atm/src/billing/rows.ts";
-import { mutationToEvents } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a679a6723a047cebe/packages/atm/src/ledger/postings.ts";
+import * as h from "<spike-branch-checkout>/packages/atm/tests/spikes/usage-track-harness.ts";
+import { stateFromRows } from "<spike-branch-checkout>/packages/atm/src/billing/rows.ts";
+import { mutationToEvents } from "<spike-branch-checkout>/packages/atm/src/ledger/postings.ts";
 
 const T = Date.UTC(2026, 0, 5, 17, 0, 0);
 const DAY = 86_400_000;

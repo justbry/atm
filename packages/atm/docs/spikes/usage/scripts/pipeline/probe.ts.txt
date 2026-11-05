@@ -1,8 +1,8 @@
-import { buildJournal } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/src/ledger/journal.ts";
-import { validateEvent } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/src/ledger/validate.ts";
-import { replayEvents } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/src/ledger/replay.ts";
-import { generateUsage } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/tests/spikes/usage-events.ts";
-import type { AtmEvent } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/src/types.ts";
+import { buildJournal } from "<spike-branch-checkout>/packages/atm/src/ledger/journal.ts";
+import { validateEvent } from "<spike-branch-checkout>/packages/atm/src/ledger/validate.ts";
+import { replayEvents } from "<spike-branch-checkout>/packages/atm/src/ledger/replay.ts";
+import { generateUsage } from "<spike-branch-checkout>/packages/atm/tests/spikes/usage-events.ts";
+import type { AtmEvent } from "<spike-branch-checkout>/packages/atm/src/types.ts";
 
 const g = [...generateUsage({ events: 3, holders: 3, duplicateRate: 0, lateRate: 0 })];
 const events = g.map((e) => JSON.parse(e.line) as AtmEvent);

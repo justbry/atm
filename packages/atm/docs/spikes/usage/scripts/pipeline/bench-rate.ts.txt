@@ -6,7 +6,7 @@ import {
 	dedupeSql,
 	invoiceLinesSql,
 	rawEventsSql,
-} from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/tests/spikes/usage-sql.ts";
+} from "<spike-branch-checkout>/packages/atm/tests/spikes/usage-sql.ts";
 import { fmt, runSql } from "./lib.ts";
 
 const tag = process.argv[2] ?? "1m";
