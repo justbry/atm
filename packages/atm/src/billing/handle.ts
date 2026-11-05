@@ -30,9 +30,11 @@ import type {
 	GrantsState,
 	InvoiceLine,
 	Menu,
+	NormalizedStripeEvent,
 	StripeEventInput,
 	StripeEventRefusal,
 	StripeEventResult,
+	StripeFactInput,
 	StripePayout,
 	SubscriptionFact,
 } from "../types.js";
@@ -53,6 +55,7 @@ import {
 	ungrantedRecurringAddons,
 } from "./grants.js";
 import {
+	bookerOf,
 	disputeEvents,
 	feeProblem,
 	paymentEvents,
@@ -64,6 +67,7 @@ import {
 import {
 	describeNormalizeError,
 	mappingFor,
+	mappingLabel,
 	normalize,
 	resolveInvoice,
 	resolveSubscriptionPlan,
@@ -79,6 +83,7 @@ import {
 	subjectFromRows,
 	subjectKey,
 } from "./rows.js";
+import { accrueShare, reverseShare } from "./share.js";
 import { menuLineItems } from "./stripe-menu.js";
 
 export type {
@@ -101,6 +106,9 @@ const nothing = (): StripeEventResult => ({ rowChanges: null, events: [] });
 
 const ULID = new RegExp(ULID_PATTERN);
 
+/** What the rules read from the caller's input: everything but the raw event, which they never see. */
+type FactInput = Omit<StripeEventInput, "event">;
+
 /** What the grant rules decide for a normalized fact, or why not. */
 type Decision =
 	| {
@@ -117,7 +125,7 @@ const BILLING_LINE_PREFIX = "b4u_";
 /** The menu applied to the invoice's lines; refuses one of ours that the menu does not know. */
 const resolve = (
 	invoice: BillingInvoice,
-	input: StripeEventInput,
+	input: FactInput,
 	holder: { orgId: string } | null,
 ): { ok: true; invoice: BillingInvoice } | { ok: false; message: string } => {
 	// Once the holder is known (an earlier invoice named it) the checkout metadata is not needed again.
@@ -149,7 +157,9 @@ const resolve = (
 };
 
 type Rules = {
-	input: StripeEventInput;
+	input: FactInput;
+	/** The event's `type`, which the raw event no longer carries here. */
+	type: string;
 	/** The input's `env`, resolved once at `handleStripeEvent`. */
 	env: AtmEnv;
 	/** Whose credits these are: the subject's holder, else the one the event names. */
@@ -161,7 +171,7 @@ type Rules = {
 /** A refund or dispute with the invoice its payment paid, found by the payment intent, else the charge. */
 const withInvoiceId = <T extends BillingRefund | BillingDispute>(
 	fact: T,
-	input: StripeEventInput,
+	input: FactInput,
 ): T => {
 	if (fact.invoiceId) return fact;
 	const invoiceId =
@@ -190,13 +200,6 @@ const unlinkedInvoice = (
 	);
 };
 
-/** Who books the money lines: the holder's school, in the menu's time zone, caused by the stored input event. */
-const bookerOf = (input: StripeEventInput, holder: { orgId: string }) => ({
-	school: holder.orgId,
-	tz: input.menu.timeZone,
-	cause: input.eventId,
-});
-
 /** Names the invoice, the subscription and the add-on(s), says why atm grants none, and what to change in Stripe. */
 const addonOnlyMessage = (
 	invoice: BillingInvoice,
@@ -219,7 +222,7 @@ const otherTierMessage = (
 const decide = (
 	target: string,
 	fact: unknown,
-	{ input, env, grants, holder, subject }: Rules,
+	{ input, type, env, grants, holder, subject }: Rules,
 ): Decision | null => {
 	const common = {
 		menu: input.menu,
@@ -283,19 +286,35 @@ const decide = (
 				...common,
 				invoice: resolved.invoice,
 			});
-			const money = paymentEvents({
+			const payment = paymentEvents({
 				invoice: resolved.invoice,
 				fee: input.fee,
 				labels: result.labels,
 				booker: bookerOf(input, holder),
 				holder,
 			});
+			// The school's revenue share on what the invoice collected, booked right after the payment.
+			const share = accrueShare({
+				policy: input.policy,
+				kind: "invoice",
+				collected: resolved.invoice.amountPaid,
+				money: payment,
+				paymentId: resolved.invoice.id,
+				labels: result.labels,
+				booker: bookerOf(input, holder),
+				holder,
+			});
+			const money = [...payment, ...share.events];
 			// Remember that the books hold this payment: a refund takes back only a payment that was booked. `result.state` is
 			// this decision's own copy.
 			const record = result.state.invoices[resolved.invoice.id];
 			// Only a payment line is a payment the books took: the `money.skipped` marker of a non-USD invoice is not one.
-			if (record && money.some((e) => e.event_type === "payment.succeeded"))
+			if (record && payment.some((e) => e.event_type === "payment.succeeded")) {
 				record.paid = resolved.invoice.amountPaid;
+				// And what the share accrued on it, which its refunds reverse in proportion (absent when the school has no rate).
+				if (share.accrued > 0)
+					record.share = { accrued: share.accrued, reversed: 0 };
+			}
 			return { ok: true, result, reason: "invoice", money };
 		}
 		case "BillingRefund": {
@@ -313,17 +332,52 @@ const decide = (
 			const ours =
 				refund.invoiceId != null &&
 				grants.invoices[refund.invoiceId]?.paid !== undefined;
+			// A refund in another currency is no line either way; a marker says so (it is of a payment the books never held)
+			const refunded = (ours ? refundEvents : skippedRefundEvents)({
+				refund,
+				labels: result.labels,
+				booker: bookerOf(input, holder),
+				holder,
+			});
+			const invoiceId = refund.invoiceId;
+			const record = invoiceId ? grants.invoices[invoiceId] : undefined;
+			if (!ours || !invoiceId || !record?.paid)
+				return { ok: true, result, reason: "refund", money: refunded };
+			// The part of the invoice's share this refund takes back, from the charge's running total refunded.
+			const share = reverseShare({
+				record: record.share,
+				collected: record.paid,
+				refundedTotal: refund.amount,
+				refundId: refund.id,
+				refundAt: refund.at,
+				money: refunded,
+				paymentId: invoiceId,
+				labels: result.labels,
+				booker: bookerOf(input, holder),
+				holder,
+			});
+			const reversed = share.share;
 			return {
 				ok: true,
-				result,
+				// `result.state` can be the caller's own state (a refund that removes nothing): copied, never changed in place.
+				result:
+					reversed && reversed !== record.share
+						? {
+								...result,
+								state: {
+									...result.state,
+									invoices: {
+										...result.state.invoices,
+										[invoiceId]: {
+											...(result.state.invoices[invoiceId] ?? record),
+											share: reversed,
+										},
+									},
+								},
+							}
+						: result,
 				reason: "refund",
-				// A refund in another currency is no line either way; a marker says so (it is of a payment the books never held)
-				money: (ours ? refundEvents : skippedRefundEvents)({
-					refund,
-					labels: result.labels,
-					booker: bookerOf(input, holder),
-					holder,
-				}),
+				money: [...refunded, ...share.events],
 			};
 		}
 		case "BillingDispute": {
@@ -348,9 +402,7 @@ const decide = (
 				money: ours
 					? disputeEvents({
 							dispute,
-							closing:
-								(input.event as { type?: unknown }).type ===
-								"charge.dispute.closed",
+							closing: type === "charge.dispute.closed",
 							labels: result.labels,
 							booker: bookerOf(input, holder),
 							holder,
@@ -467,7 +519,7 @@ const eventsOf = ({
 	mutation: SubjectStateMutation;
 	before: SubjectState | null;
 	catalog: ReturnType<typeof toCatalog>;
-	input: StripeEventInput;
+	input: FactInput;
 	grants: GrantsState;
 	labels: Record<string, string>;
 	reason: string;
@@ -589,7 +641,7 @@ const planChangedOf = ({
 	labels,
 }: {
 	mutation: SubjectStateMutation;
-	input: StripeEventInput;
+	input: FactInput;
 	labels: Record<string, string>;
 }): AtmEvent =>
 	planChangedEvent({
@@ -606,46 +658,114 @@ const sameJson = (a: unknown, b: unknown) =>
 	JSON.stringify(a) === JSON.stringify(b);
 
 /**
+ * The mapping and normalization step of `handleStripeEvent`: reads the event's `type` and `api_version`, finds the mapping
+ * and normalizes the event into the fact the rules decide on. `eventId` becomes the fact's `source.eventId`. Pure.
+ */
+export const normalizeStripeEvent = (
+	event: unknown,
+	eventId: string,
+): NormalizedStripeEvent => {
+	const type = (event as { type?: unknown } | null)?.type;
+	const apiVersion = (event as { api_version?: unknown } | null)?.api_version;
+	if (typeof type !== "string" || typeof apiVersion !== "string")
+		return {
+			ok: false,
+			refusal: {
+				reason: "bad_event",
+				message: "the event has no type or api_version",
+			},
+		};
+	const mapping = mappingFor(type, apiVersion);
+	if (!mapping.ok)
+		return {
+			ok: false,
+			refusal: {
+				reason: "unknown_mapping",
+				message: describeNormalizeError(mapping.error),
+			},
+		};
+	const normalized = normalize(event, mapping.value, { eventId });
+	if (!normalized.ok)
+		return {
+			ok: false,
+			refusal: {
+				reason: "bad_event",
+				message: describeNormalizeError(normalized.error),
+			},
+		};
+	return {
+		ok: true,
+		target: mapping.value.target,
+		mappingLabel: mappingLabel(mapping.value),
+		apiVersion,
+		type,
+		fact: normalized.value,
+	};
+};
+
+const badEventId = (eventId: string): StripeEventResult =>
+	refuse(
+		"bad_event",
+		`eventId must be the stored input event's id, a ULID; got ${JSON.stringify(eventId)} (dedupe on Stripe's own id before this, do not pass it)`,
+	);
+
+/**
  * Handles one Stripe event for one subject. The caller passes the subject's rows and revision as stored and writes
- * `rowChanges` (when not null) and appends `events` in one transaction, after checking the revision.
+ * `rowChanges` (when not null) and appends `events` in one transaction, after checking the revision. It is
+ * `normalizeStripeEvent` and then `handleStripeFact`.
  */
 export const handleStripeEvent = (
 	input: StripeEventInput,
 ): StripeEventResult => {
+	const { event, ...rest } = input;
+	// Same order as before the split: a bad env throws, then the id is checked, then the event is read.
+	resolveEnv(input.env);
+	if (!ULID.test(input.eventId)) return badEventId(input.eventId);
+	const normalized = normalizeStripeEvent(event, input.eventId);
+	if (!normalized.ok)
+		return { rowChanges: null, events: [], refused: normalized.refusal };
+	return handleStripeFact({
+		...rest,
+		// A full fact is a ReplayFact with members the rules do not read.
+		fact: normalized.fact,
+		target: normalized.target,
+		type: normalized.type,
+		apiVersion: normalized.apiVersion,
+		mapping: normalized.mappingLabel,
+	});
+};
+
+/**
+ * `handleStripeEvent` from the step "decide" on, for a fact already normalized (or stored as a `ReplayFact`): the same
+ * rules, engine and result. `source` is rebuilt from `eventId`, `mapping` and `apiVersion`, so a stored fact need not
+ * keep it. The event `type` is passed because the dispute rule reads it and there is no raw event.
+ */
+export const handleStripeFact = (input: StripeFactInput): StripeEventResult => {
+	const { fact, target, type, apiVersion, mapping, ...rest } = input;
 	// Thrown, not refused: a bad env is the caller's code, not an event to retry. Resolved here once; the helpers below
 	// take the `AtmEnv`, never the raw option.
 	const env = resolveEnv(input.env);
 	// Every decision event names its input as `cause`, and the ledger's envelope takes only a ULID there.
-	if (!ULID.test(input.eventId))
-		return refuse(
-			"bad_event",
-			`eventId must be the stored input event's id, a ULID; got ${JSON.stringify(input.eventId)} (dedupe on Stripe's own id before this, do not pass it)`,
-		);
-	const type = (input.event as { type?: unknown } | null)?.type;
-	const apiVersion = (input.event as { api_version?: unknown } | null)
-		?.api_version;
-	if (typeof type !== "string" || typeof apiVersion !== "string")
-		return refuse("bad_event", "the event has no type or api_version");
-	const mapping = mappingFor(type, apiVersion);
-	if (!mapping.ok)
-		return refuse("unknown_mapping", describeNormalizeError(mapping.error));
-	const normalized = normalize(input.event, mapping.value, {
-		eventId: input.eventId,
-	});
-	if (!normalized.ok)
-		return refuse("bad_event", describeNormalizeError(normalized.error));
-
+	if (!ULID.test(input.eventId)) return badEventId(input.eventId);
+	const whole = {
+		source: {
+			eventId: input.eventId,
+			mapping,
+			stripeApiVersion: apiVersion,
+		},
+		...fact,
+	};
 	let result: StripeEventResult;
 	try {
-		result = decideAndRun(input, env, mapping.value.target, normalized.value);
+		result = decideAndRun(rest, env, type, target, whole);
 	} catch (error) {
 		result = refuse(
 			"rejected",
 			error instanceof Error ? error.message : String(error),
 		);
 	}
-	return mapping.value.target === "BillingInvoice"
-		? withCertainPayment(input, result, normalized.value as BillingInvoice)
+	return target === "BillingInvoice"
+		? withCertainPayment(rest, result, whole as BillingInvoice)
 		: result;
 };
 
@@ -671,7 +791,7 @@ const PAID_INVOICE_REFUSALS: ReadonlySet<StripeEventRefusal["reason"]> =
  * read (a holder, a menu, a fee the invoice cannot have paid) gives nothing, which is the refusal as it always was.
  */
 const certainPayment = (
-	input: StripeEventInput,
+	input: FactInput,
 	invoice: BillingInvoice,
 ): AtmEvent[] => {
 	try {
@@ -703,7 +823,7 @@ const certainPayment = (
  * payment is booked is the caller's doing (the reference handler appends it and says so in its answer).
  */
 const withCertainPayment = (
-	input: StripeEventInput,
+	input: FactInput,
 	result: StripeEventResult,
 	invoice: BillingInvoice,
 ): StripeEventResult => {
@@ -716,7 +836,7 @@ const withCertainPayment = (
 
 /** A payout belongs to no family: it is booked for the school the caller names, and writes no rows. */
 const decidePayout = (
-	input: StripeEventInput,
+	input: FactInput,
 	payout: StripePayout,
 ): StripeEventResult => {
 	if (!input.school)
@@ -738,8 +858,9 @@ const decidePayout = (
 };
 
 const decideAndRun = (
-	input: StripeEventInput,
+	input: FactInput,
 	env: AtmEnv,
+	type: string,
 	target: string,
 	fact: unknown,
 ): StripeEventResult => {
@@ -795,6 +916,7 @@ const decideAndRun = (
 
 	const decision = decide(target, fact, {
 		input,
+		type,
 		env,
 		grants,
 		holder,

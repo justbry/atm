@@ -1,6 +1,7 @@
 /**
  * The money lines a Stripe event leaves in the books: a paid invoice is a `payment.succeeded` (gross, the Stripe fee and
- * the net that reaches `assets:stripe`), a refund is a `payment.refunded`, a payout is a `payout.paid`, and a dispute that
+ * the net that reaches `assets:stripe`), and so is a paid booking's one-time payment (`bookingPaymentEvents`, income
+ * `income:billing:booking`, no invoice), a refund is a `payment.refunded`, a payout is a `payout.paid`, and a dispute that
  * moved money is a `payment.disputed` (the amount withdrawn and Stripe's dispute fee) and, when it closes, a `dispute.closed`. The postings
  * and their signs are `moneyPostings` in `../ledger/postings.ts`; this only says which event to make from a fact.
  * USD only, as the postings are: a fact in another currency makes no money line, but it does make a `money.skipped` event
@@ -8,7 +9,8 @@
  * credits, answer 200 `non_usd`) is in `docs/financial-reports.md`, "Non-USD".
  *
  * Pure. Each event's idem is the Stripe object's id (`stripe:in_...`, `stripe:evt_...`, `stripe:po_...`), so the same
- * fact decided twice makes the same event, which the outbox's (school, idem) key drops.
+ * fact decided twice makes the same event, which the outbox's (school, idem) key drops. A booking's payment is keyed by its
+ * payment intent (`stripe:pi_...`).
  */
 import { ledgerEvent } from "../ledger/postings.js";
 import type {
@@ -23,8 +25,13 @@ import type {
 const USD = "usd";
 const CENTS_PER_DOLLAR = 100;
 const PAYOUT_KEY = "stripe:payouts";
+/** The income account tail of a paid booking: `income:billing:booking`. */
+const BOOKING_INCOME_KIND = "booking";
 
-type Booker = {
+/** The labels a decision event carries: the menu, policy and mapping versions, and a booking's id on its own events. */
+type Labels = Record<string, string>;
+
+export type Booker = {
 	school: string;
 	tz: string;
 	/** The ULID of the stored input event, which is every decision event's `cause`. */
@@ -45,7 +52,7 @@ const skippedNonUsd = ({
 	labels,
 	booker,
 }: {
-	kind: "invoice" | "refund" | "payout" | "dispute";
+	kind: "invoice" | "booking" | "refund" | "payout" | "dispute";
 	id: string;
 	amount: number;
 	currency: string;
@@ -67,14 +74,25 @@ const skippedNonUsd = ({
 		payload: { id, kind, reason: "non_usd", currency, amount },
 	});
 
-/** Why a fee cannot be booked, or null when it can: a whole number of cents, from 0 to what the invoice paid. */
+/** Who books the money lines: the holder's school, in the menu's time zone, caused by the stored input event. */
+export const bookerOf = (
+	input: { menu: { timeZone: string }; eventId: string },
+	holder: { orgId: string },
+): Booker => ({
+	school: holder.orgId,
+	tz: input.menu.timeZone,
+	cause: input.eventId,
+});
+
+/** Why a fee cannot be booked, or null when it can: a whole number of cents, from 0 to what the invoice (or booking) paid. */
 export const feeProblem = (
 	fee: number | undefined,
 	amountPaid: number,
+	payer: "invoice" | "booking" = "invoice",
 ): string | null =>
 	fee === undefined || (Number.isInteger(fee) && fee >= 0 && fee <= amountPaid)
 		? null
-		: `fee must be a whole number of cents from 0 to the ${amountPaid} the invoice paid, got ${String(fee)}`;
+		: `fee must be a whole number of cents from 0 to the ${amountPaid} the ${payer} paid, got ${String(fee)}`;
 
 /**
  * Which income account a payment goes to, from the lines the menu named: the tier's (`membership:<tier>`), else the first
@@ -97,6 +115,49 @@ const incomeKindOf = (invoice: BillingInvoice): string => {
 	return addon?.addonId ? `addon:${addon.addonId}` : "other";
 };
 
+/** A payment of cents in USD with the fee taken out of the cash: the one `payment.succeeded` shape, whatever paid. */
+const paymentSucceeded = ({
+	id,
+	amount,
+	fee,
+	at,
+	incomeKind,
+	text,
+	payload,
+	labels,
+	booker,
+	holder,
+}: {
+	id: string;
+	amount: number;
+	fee: number | undefined;
+	at: number;
+	incomeKind: string;
+	text: string;
+	/** What follows `amount_paid`, `fee` and `fee_known` in the payload. */
+	payload: (taken: number) => Record<string, unknown>;
+	labels: Labels;
+	booker: Booker;
+	holder: { customerId: string };
+}): AtmEvent => {
+	const taken = fee ?? 0;
+	return ledgerEvent({
+		type: "payment.succeeded",
+		school: booker.school,
+		tz: booker.tz,
+		eventTime: at,
+		key: holder.customerId,
+		idem: `stripe:${id}`,
+		cause: booker.cause,
+		labels,
+		amount,
+		fee: taken,
+		incomeKind,
+		text,
+		payload: payload(taken),
+	});
+};
+
 /**
  * A paid invoice: `payment.succeeded` for what it paid, with `fee` taken out of the cash and booked as an expense. No
  * event for an invoice that paid nothing (a free trial, a fully credited invoice); one that paid in another currency makes
@@ -111,7 +172,7 @@ export const paymentEvents = ({
 }: {
 	invoice: BillingInvoice;
 	fee: number | undefined;
-	labels: GrantLabels;
+	labels: Labels;
 	booker: Booker;
 	holder: { customerId: string };
 }): AtmEvent[] => {
@@ -129,23 +190,16 @@ export const paymentEvents = ({
 				booker,
 			}),
 		];
-	const taken = fee ?? 0;
 	const dollars = invoice.amountPaid / CENTS_PER_DOLLAR;
 	return [
-		ledgerEvent({
-			type: "payment.succeeded",
-			school: booker.school,
-			tz: booker.tz,
-			eventTime: invoice.paidAt,
-			key: holder.customerId,
-			idem: `stripe:${invoice.id}`,
-			cause: booker.cause,
-			labels,
+		paymentSucceeded({
+			id: invoice.id,
 			amount: invoice.amountPaid,
-			fee: taken,
+			fee,
+			at: invoice.paidAt,
 			incomeKind: incomeKindOf(invoice),
 			text: `payment ${dollars} USD for invoice ${invoice.id}`,
-			payload: {
+			payload: (taken) => ({
 				id: invoice.id,
 				amount_paid: invoice.amountPaid,
 				fee: taken,
@@ -153,7 +207,84 @@ export const paymentEvents = ({
 				fee_known: fee !== undefined,
 				currency: invoice.currency,
 				customer: invoice.customerId,
-			},
+			}),
+			labels,
+			booker,
+			holder,
+		}),
+	];
+};
+
+/** A booking's one-time payment, as its paid Checkout Session says it (no invoice). */
+export type BookingPayment = {
+	bookingId: string;
+	sessionId: string;
+	/** The payment intent (`pi_...`); null only for a session that names none, which then stands for the payment by its own id. */
+	paymentIntentId: string | null;
+	/** What the session collected (`amount_total`), minor units: the gross. */
+	amount: number;
+	currency: string;
+	at: number;
+};
+
+/**
+ * A paid booking: `payment.succeeded` for what the session collected, to `income:billing:booking`, with `fee` taken out of
+ * the cash as for an invoice. Keyed by the payment intent (`stripe:pi_...`), the id `reconcile` pairs with Stripe's
+ * payment intents; the payload also names the booking and the session. One in another currency makes a `money.skipped`
+ * (kind `booking`) and no payment. The event's `customer` is the holder's id in atm (the session names no Stripe customer).
+ */
+export const bookingPaymentEvents = ({
+	payment,
+	fee,
+	labels,
+	booker,
+	holder,
+}: {
+	payment: BookingPayment;
+	fee: number | undefined;
+	labels: Labels;
+	booker: Booker;
+	holder: { customerId: string };
+}): AtmEvent[] => {
+	const id = payment.paymentIntentId ?? payment.sessionId;
+	if (payment.amount <= 0) return [];
+	if (payment.currency !== USD)
+		return [
+			skippedNonUsd({
+				kind: "booking",
+				id,
+				amount: payment.amount,
+				currency: payment.currency,
+				at: payment.at,
+				key: holder.customerId,
+				labels,
+				booker,
+			}),
+		];
+	return [
+		paymentSucceeded({
+			id,
+			amount: payment.amount,
+			fee,
+			at: payment.at,
+			incomeKind: BOOKING_INCOME_KIND,
+			text: `payment ${payment.amount / CENTS_PER_DOLLAR} USD for booking ${payment.bookingId}`,
+			payload: (taken) => ({
+				id,
+				amount_paid: payment.amount,
+				fee: taken,
+				fee_known: fee !== undefined,
+				currency: payment.currency,
+				customer: holder.customerId,
+				booking: payment.bookingId,
+				session: payment.sessionId,
+				...(payment.paymentIntentId
+					? { payment_intent: payment.paymentIntentId }
+					: {}),
+			}),
+			labels,
+			booker,
+			holder,
 		}),
 	];
 };
@@ -170,7 +301,7 @@ export const skippedRefundEvents = ({
 	holder,
 }: {
 	refund: BillingRefund;
-	labels: GrantLabels;
+	labels: Labels;
 	booker: Booker;
 	holder: { customerId: string };
 }): AtmEvent[] => {
@@ -200,11 +331,14 @@ export const refundEvents = ({
 	labels,
 	booker,
 	holder,
+	bookingId,
 }: {
 	refund: BillingRefund;
-	labels: GrantLabels;
+	labels: Labels;
 	booker: Booker;
 	holder: { customerId: string };
+	/** The booking whose payment this refunds, named in the payload (no invoice does). */
+	bookingId?: string;
 }): AtmEvent[] => {
 	const refunded = refund.amount - (refund.previousAmount ?? 0);
 	if (refunded <= 0) return [];
@@ -233,6 +367,7 @@ export const refundEvents = ({
 					? { payment_intent: refund.paymentIntentId }
 					: {}),
 				...(refund.invoiceId ? { invoice: refund.invoiceId } : {}),
+				...(bookingId ? { booking: bookingId } : {}),
 				amount_refunded: refund.amount,
 			},
 		}),

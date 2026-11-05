@@ -255,6 +255,21 @@ export const moneyPostings = (i: AtmLedgerEventInput): AtmPosting[] => {
 				usd("expenses:billing:b4uni-share", positive()),
 				usd("liabilities:b4uni", -amount),
 			];
+		case "share.accrued":
+			return [
+				usd("expenses:billing:b4uni-share", positive()),
+				usd("liabilities:b4uni", -amount),
+			];
+		case "share.reversed":
+			return [
+				usd("expenses:billing:b4uni-share", -positive()),
+				usd("liabilities:b4uni", amount),
+			];
+		case "share.settled":
+			return [
+				usd("liabilities:b4uni", positive()),
+				usd("assets:clearing:b4uni-payments", -amount),
+			];
 		case "plan.attached":
 		case "money.skipped":
 		case "plan.changed":

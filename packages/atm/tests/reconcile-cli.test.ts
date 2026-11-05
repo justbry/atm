@@ -10,7 +10,8 @@ import { stripeSideOf } from "./stripe-side.js";
 const FIXTURE = join(import.meta.dir, "../fixtures/vibes-year");
 const BIN = join(import.meta.dir, "../src/bin.ts");
 const SCHOOL = "sch_vol";
-const FILE_NAMES: Record<keyof ReconcileStripe, string> = {
+type FiveLists = Omit<ReconcileStripe, "paymentIntents">;
+const FILE_NAMES: Record<keyof FiveLists, string> = {
 	invoices: "invoices.json",
 	refunds: "refunds.json",
 	disputes: "disputes.json",
@@ -20,7 +21,7 @@ const FILE_NAMES: Record<keyof ReconcileStripe, string> = {
 
 let root: string;
 let scratch: string;
-let stripe: Required<ReconcileStripe>;
+let stripe: Required<FiveLists>;
 
 beforeAll(async () => {
 	root = await tmp("reconcile-root");
@@ -44,7 +45,7 @@ const stripeFolder = async (
 		const data =
 			list in lists
 				? lists[list as keyof ReconcileStripe]
-				: stripe[list as keyof ReconcileStripe];
+				: stripe[list as keyof FiveLists];
 		if (data === null) continue;
 		await writeFile(join(folder, file), JSON.stringify(data));
 	}

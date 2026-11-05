@@ -228,10 +228,9 @@ export type MultiBoundary = {
 
 type Listed<T> = T extends readonly (infer Item)[] | undefined ? Item[] : never;
 /** Stripe's lists in the shape `reconcile` reads, each record checked against its type. */
+type FiveLists = Required<Omit<ReconcileStripe, "paymentIntents">>;
 type StripeSide = {
-	[List in keyof Required<ReconcileStripe>]: Listed<
-		Required<ReconcileStripe>[List]
-	>;
+	[List in keyof FiveLists]: Listed<FiveLists[List]>;
 };
 
 export type MultiFixture = {

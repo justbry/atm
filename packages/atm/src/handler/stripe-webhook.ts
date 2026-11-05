@@ -140,9 +140,7 @@ import {
 	normalize,
 } from "../billing/normalize.js";
 import { type BillingRow, StaleRevision, subjectKey } from "../billing/rows.js";
-import { deterministicUlid } from "../ledger/ids.js";
 import { appendToOutbox } from "../ledger/outbox.js";
-import { canonicalize } from "../ledger/util.js";
 import type {
 	AtmEnv,
 	AtmEvent,
@@ -151,6 +149,7 @@ import type {
 	RowChanges,
 	StripeEventRefusal,
 } from "../types.js";
+import { inputCauseId } from "./inputs.js";
 import { assertCurrentSchema as assertCurrentTables } from "./schema.js";
 import { verifyStripeSignature } from "./stripe-signature.js";
 import type {
@@ -645,10 +644,10 @@ const applyOnce = ({
 	const fee = feeOf(deps, event);
 	const result = handleStripeEvent({
 		event: event.raw,
-		eventId: deterministicUlid({
-			timeMs: event.created * 1000,
-			revision: 0,
-			seed: canonicalize([school, event.id]),
+		eventId: inputCauseId({
+			school,
+			eventId: event.id,
+			stripeCreated: event.created,
 		}),
 		menu: context.menu,
 		menuVersion: context.menuVersion,

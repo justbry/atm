@@ -1,0 +1,34 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://b4uni.com/_schema/payload/share.accrued.v1.json",
+	"title": "share.accrued payload v1",
+	"description": "B4 Uni's revenue share on one payment the school collected, booked when the payment is: share is the amount collected times percent over 100, rounded half up to whole cents. The rate in force is written here, so a later change of the rate leaves this event as it was.",
+	"type": "object",
+	"required": ["payment_id", "kind", "collected", "percent", "share"],
+	"properties": {
+		"payment_id": {
+			"description": "The id of the payment.succeeded this is for: an invoice id (in_...) or a booking's payment intent id (pi_...).",
+			"type": "string",
+			"minLength": 1
+		},
+		"kind": {
+			"enum": ["invoice", "booking"]
+		},
+		"collected": {
+			"description": "What the payment collected, before Stripe's fee (cents).",
+			"type": "integer",
+			"minimum": 1
+		},
+		"percent": {
+			"description": "The school's rate when the payment was booked, at most two decimals.",
+			"type": "number",
+			"exclusiveMinimum": 0,
+			"maximum": 100
+		},
+		"share": {
+			"description": "The share accrued (cents): at least 1 and at most collected.",
+			"type": "integer",
+			"minimum": 1
+		}
+	}
+}

@@ -18,6 +18,8 @@ On `dev` after `atm-v0.8.0`, not released.
 |---|---|---|
 | #77 | `534a55f52` | a non-USD dispute that moved money is answered 200 `non_usd` and leaves a `money.skipped` marker (`kind: "dispute"`) |
 | #87 | `pending` | a paid invoice refused after the claim (`unmatched_line`, `tier_on_other_subscription`, `addon_only_subscription`, `rejected`) is still answered 422, and now books its `payment.succeeded` as the claim is released (once: the retry that applies makes the same idem); `StripeEventRefusal` gains `payment` |
+| #72 | `d186b73fc` | an end-to-end reconciliation matrix (tests and `docs/e2e-reconciliation.md` only, no source change): each case runs the handler, journal and `atm reconcile` against hand-computed numbers, and records six open discrepancies, D1 to D6 |
+| #85 | pending | no behaviour change: `handleStripeEvent` is now `normalizeStripeEvent` and `handleStripeFact`, with `replayFactOf` and `inputCauseId` beside them (internal; the first step of the stored-inputs work in `docs/simulate-from-inputs.md`); proved against the old path by 300 seeded histories and every recorded event |
 
 ## 0.8.0
 

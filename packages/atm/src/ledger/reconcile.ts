@@ -51,6 +51,7 @@ const DISPUTE_STATES_WITHOUT_MONEY = new Set([
 
 const OBJECT_ORDER: ReconcileObject[] = [
 	"invoice",
+	"payment",
 	"refund",
 	"dispute",
 	"payout",
@@ -165,6 +166,14 @@ const itemOfEvent = (event: AtmEvent): Item => {
 /** The text of a payload field when it is a non-empty string. */
 const textOf = (value: unknown): string | null =>
 	typeof value === "string" && value !== "" ? value : null;
+
+/**
+ * A booking's one-time payment, as the handler books it: a `payment.succeeded` that names its booking (and whose id is the
+ * payment intent). It has no invoice, so it is paired with Stripe's payment intents, never with its invoices.
+ */
+const isBookingPayment = (event: AtmEvent): boolean =>
+	event.event_type === "payment.succeeded" &&
+	textOf(event.payload.booking) !== null;
 
 /**
  * A refund event the handler made is labelled with the Stripe event id (`evt_...`, a `charge.refunded` delivers a Charge,
@@ -468,6 +477,30 @@ export const reconcile = (input: ReconcileInput): ReconcileResult => {
 			}),
 		);
 	const refundEvents = ofType("payment.refunded");
+	const bookingPayments = ofType("payment.succeeded").filter(isBookingPayment);
+	const invoicePayments = ofType("payment.succeeded").filter(
+		(event) => !isBookingPayment(event),
+	);
+	// A payment intent counts only when it is a booking's (`bookingCheckoutParams` puts `booking_id` on it): the list holds
+	// the intents that paid invoices too.
+	const payments = stripe.paymentIntents
+		?.filter(inMode)
+		.filter((intent) => {
+			if (!textOf(intent.metadata?.booking_id))
+				return ignore("payment_intent_not_booking");
+			if (intent.status !== "succeeded")
+				return ignore("payment_intent_not_succeeded");
+			return true;
+		})
+		.map(
+			(intent): Item => ({
+				id: intent.id,
+				amount: intent.amount,
+				currency: lower(intent.currency),
+				date: dayOf(intent.created),
+				status: null,
+			}),
+		);
 	const tiedRefunds = refunds
 		? tieRefunds(refundEvents, refunds, scope)
 		: new Map<string, string>();
@@ -512,8 +545,21 @@ export const reconcile = (input: ReconcileInput): ReconcileResult => {
 				object: "invoice",
 				eventType: "payment.succeeded",
 				stripe: invoices,
-				events: ofType("payment.succeeded"),
+				events: invoicePayments,
 				flagPeriodShift: true,
+			},
+			scope,
+			scope.label,
+		),
+		// The intent is created when the customer pays, and a delayed payment method books the log's line days later (its
+		// `async_payment_succeeded`), so the two sides' dates are not one instant: the date only picks the period.
+		...pair(
+			{
+				object: "payment",
+				eventType: "payment.succeeded",
+				stripe: payments,
+				events: bookingPayments,
+				flagPeriodShift: false,
 			},
 			scope,
 			scope.label,
@@ -594,7 +640,7 @@ export const reconcile = (input: ReconcileInput): ReconcileResult => {
 		skipped[reason] = (skipped[reason] ?? 0) + 1;
 	}
 	const feePostings = postedCents(events.filter(inScope), FEE_ACCOUNTS);
-	const notSupplied = (
+	const notSupplied: ReconcileStripeList[] = (
 		[
 			"invoices",
 			"refunds",
@@ -603,6 +649,9 @@ export const reconcile = (input: ReconcileInput): ReconcileResult => {
 			"balanceTransactions",
 		] as const
 	).filter((list: ReconcileStripeList) => stripe[list] === undefined);
+	// Payment intents are asked for only of a school whose log holds a booking's payment: for any other the list is not needed.
+	if (stripe.paymentIntents === undefined && bookingPayments.length > 0)
+		notSupplied.push("paymentIntents");
 	return {
 		period: {
 			from: scope.from,
@@ -616,7 +665,7 @@ export const reconcile = (input: ReconcileInput): ReconcileResult => {
 		counts: {
 			invoice: {
 				stripe: inPeriod(invoices),
-				log: logCount("payment.succeeded"),
+				log: invoicePayments.filter(inScope).length,
 			},
 			refund: { stripe: inPeriod(refunds), log: logCount("payment.refunded") },
 			dispute: {
@@ -634,6 +683,14 @@ export const reconcile = (input: ReconcileInput): ReconcileResult => {
 				stripe: balanceTransactions?.length ?? null,
 				log: events.filter(inScope).filter(movesStripeBalance).length,
 			},
+			...(payments !== undefined || bookingPayments.length > 0
+				? {
+						payment: {
+							stripe: inPeriod(payments),
+							log: bookingPayments.filter(inScope).length,
+						},
+					}
+				: {}),
 		},
 		ignored,
 		skipped,

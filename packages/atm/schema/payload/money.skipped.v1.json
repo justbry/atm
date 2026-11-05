@@ -7,12 +7,12 @@
 	"required": ["id", "kind", "reason", "currency", "amount"],
 	"properties": {
 		"id": {
-			"description": "Stripe's id of the object: the invoice, the payout, the dispute, or (for a refund) the event that delivered it.",
+			"description": "Stripe's id of the object: the invoice, a booking's payment intent, the payout, the dispute, or (for a refund) the event that delivered it.",
 			"type": "string",
 			"minLength": 1
 		},
 		"kind": {
-			"enum": ["invoice", "refund", "payout", "dispute"]
+			"enum": ["invoice", "booking", "refund", "payout", "dispute"]
 		},
 		"reason": {
 			"enum": ["non_usd"]
@@ -23,7 +23,7 @@
 			"minLength": 1
 		},
 		"amount": {
-			"description": "In the currency's minor units: what the invoice paid, the refund moved, the payout sent, or the dispute was for.",
+			"description": "In the currency's minor units: what the invoice or booking paid, the refund moved, the payout sent, or the dispute was for.",
 			"type": "integer",
 			"minimum": 0
 		}

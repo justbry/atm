@@ -117,6 +117,14 @@ export type AtmEventType =
 	| "referral.rewarded"
 	| "catalog.published"
 	| "policy.published"
+	/**
+	 * B4 Uni's revenue share on a school's collected payments, in the school's books: `share.accrued` (a payment's share),
+	 * `share.reversed` (the part of it a refund takes back) and `share.settled` (the school paid B4 Uni). A log that holds
+	 * one is rejected by a reader built before they existed.
+	 */
+	| "share.accrued"
+	| "share.reversed"
+	| "share.settled"
 	/** A Stripe money fact the books did not take (a payment, refund, payout or dispute in a currency other than USD): no postings, a count. */
 	| "money.skipped";
 
@@ -226,7 +234,7 @@ export type AtmLedgerEventInput = {
 	amount?: number;
 	/** Stripe fee in cents, on `payment.succeeded`; on `payment.disputed`, Stripe's dispute fee (`expenses:billing:dispute-fees`). */
 	fee?: number;
-	/** Income account tail on `payment.succeeded`: `membership:sparkle-2` -> `income:billing:membership:sparkle-2`. */
+	/** Income account tail on `payment.succeeded`: `membership:sparkle-2` -> `income:billing:membership:sparkle-2`; a paid booking's is `booking`. */
 	incomeKind?: string;
 	campaign?: string;
 	won?: boolean;
@@ -407,6 +415,46 @@ export type AtmJournalBuild = {
 	inputsHash: string;
 };
 
+/**
+ * One payment's line on a school's revenue-share statement. Amounts are whole cents (USD). `accrued` and `reversed` are
+ * what was booked in the statement's month: a payment accrued in an earlier month and refunded in this one has `accrued`
+ * 0, and `date`, `collected` and `percent` are those of its accrual (null when the log holds no accrual for it).
+ */
+export type ShareStatementRow = {
+	/** The payment's id: an invoice id, or a booking's payment intent id. */
+	paymentId: string;
+	kind: "invoice" | "booking" | null;
+	/** The payment's date in the school's time zone (`YYYY-MM-DD`); the first reversal's when there is no accrual. */
+	date: string;
+	collected: number | null;
+	/** The rate in force when the payment was booked. */
+	percent: number | null;
+	accrued: number;
+	reversed: number;
+};
+
+/** What a school owes B4 Uni for one month, from its events alone (`shareStatement`). */
+export type ShareStatement = {
+	school: string;
+	/** `YYYY-MM`, by each event's date in the school's time zone. */
+	month: string;
+	rows: ShareStatementRow[];
+	/** `share.settled` payments dated in the month. */
+	settlements: { date: string; amount: number; reference: string | null }[];
+	totals: {
+		accrued: number;
+		reversed: number;
+		settled: number;
+		/** `accrued - reversed - settled`, all in the month: what the month adds to what is owed. */
+		owed: number;
+	};
+	/**
+	 * What `liabilities:b4uni` holds at the end of the month, over every event dated up to it (also a `share.charged`):
+	 * what the school owes B4 Uni in all, whichever month it accrued in. 0 when everything is paid.
+	 */
+	balanceOwed: number;
+};
+
 /** A grant or rollover row past its expiry that still holds a balance: the engine drops it by the clock, the cron books `credit.expired`. */
 export type AtmLapsedRow = {
 	table: "customerEntitlements" | "rollovers";
@@ -547,6 +595,14 @@ export type BillingPolicy = {
 	noShow: "spend" | "release";
 	/** What a cancel after the cutoff costs: `spend` keeps the held credits spent, `release` gives them back. */
 	lateCancel: "spend" | "release";
+	/**
+	 * B4 Uni's revenue share, negotiated per school: a percentage (0 to 100, at most two decimals) of each payment the
+	 * handler books, taken on the amount collected before Stripe's fee. `null` is no share (the default), and so is 0. A
+	 * policy stored before 0.9.0 has none: read it with `?? null`. A change applies to payments booked after it; a share
+	 * already accrued stays as it was. A policy must pass `resolvePolicy`, which refuses a rate outside 0 to 100 or with more
+	 * than two decimals; a hand-built one with such a rate (or NaN) makes no share and never blocks a payment or its credits.
+	 */
+	revenueShare: { percent: number } | null;
 };
 
 /**
@@ -939,6 +995,13 @@ export type InvoiceRecord = {
 	 * it to take back from.
 	 */
 	paid?: number;
+	/**
+	 * The revenue share accrued on this payment (`share.accrued`) and the part of it a refund has taken back
+	 * (`share.reversed`), in cents. Absent when no share was accrued (the school had no rate when the payment was booked,
+	 * the share was 0, or the payment is not in USD), so a state with no share is written as before; a refund of such a
+	 * payment reverses nothing. The rate in force at payment is not kept here: the event's payload has it.
+	 */
+	share?: { accrued: number; reversed: number };
 	/**
 	 * Units of this invoice that an open booking held when a refund or a lost dispute removed it, by credit row id: they were
 	 * not in the balance, so the removal could not take them back. The release that frees them takes them back instead (a
@@ -1370,6 +1433,17 @@ export type BookingRecord = {
 		currency: string;
 		/** The charge's total refunded so far (minor units). */
 		refunded: number;
+		/**
+		 * The books took this payment (its `payment.succeeded`), as `InvoiceRecord.paid` says for an invoice. Absent when none
+		 * was booked: a payment decided before payments were booked, or one in another currency (its `money.skipped` marker is
+		 * not a payment). A refund of such a payment makes no `payment.refunded`: there is no payment for it to take back from.
+		 */
+		booked?: boolean;
+		/**
+		 * The revenue share accrued on this payment and the part a refund has taken back, as `InvoiceRecord.share` says for an
+		 * invoice. Absent when none was accrued, so a state with no share is written as before.
+		 */
+		share?: { accrued: number; reversed: number };
 	};
 };
 
@@ -1807,7 +1881,9 @@ export type StripeEventInput = {
 	 * webhook event carries it, so the caller reads it from Stripe (see `WebhookDeps.paymentFee`) and passes it in, which
 	 * keeps this function pure. It becomes the `fee` of the `payment.succeeded` event. Absent: no fee line is booked
 	 * (the books then hold the gross amount in `assets:stripe`). Anything but a whole number from 0 to the amount paid
-	 * comes back `refused` as `bad_event`. Read only for `invoice.paid`.
+	 * comes back `refused` as `bad_event`. Read only for `invoice.paid` and for the paid `checkout.session.completed` (or
+	 * `async_payment_succeeded`) of a booking, where it is the fee of the payment intent's charge; read from the first
+	 * delivery only, as a replay decides nothing.
 	 */
 	fee?: number;
 	/**
@@ -1854,7 +1930,7 @@ export type StripeEventResult = {
 	rowChanges: RowChanges | null;
 	/**
 	 * The decision events, each with `cause` = the event id and the menu, policy and mapping labels: `credit.*` and
-	 * `plan.changed`, and the money lines of a payment (`payment.succeeded`), a refund (`payment.refunded`) and a payout
+	 * `plan.changed`, and the money lines of a payment (`payment.succeeded`, also of a paid booking's), a refund (`payment.refunded`) and a payout
 	 * (`payout.paid`), and of a dispute that moved money: `payment.disputed` when it opens (the withdrawal and Stripe's
 	 * dispute fee) and `dispute.closed` when it closes.
 	 */
@@ -1866,6 +1942,55 @@ export type StripeEventResult = {
 	 */
 	booking?: BookingPaymentOutcome;
 	refused?: StripeEventRefusal;
+};
+
+/**
+ * A `BillingFact` without what the grant rules never read: its `source` (rebuilt from the event id, the mapping and the API
+ * version), the invoice's number and its bearer links. A fact's `metadata` is cut to the keys the rules read
+ * (`REPLAY_METADATA_KEYS`; a checkout session also keeps `booking_id`). Built by `replayFactOf`.
+ */
+export type ReplayFact =
+	| Omit<
+			BillingInvoice,
+			"source" | "number" | "hostedInvoiceUrl" | "invoicePdf"
+	  >
+	| Omit<BillingRefund, "source">
+	| Omit<BillingDispute, "source">
+	| Omit<SubscriptionFact, "source">
+	| Omit<InvoicePaymentFact, "source">
+	| Omit<StripePayout, "source">
+	| Omit<CheckoutSessionFact, "source">;
+
+/** The shape of a stored fact body. `v` is the version of this shape. */
+export type StoredFactBody = { v: 1; fact: ReplayFact };
+
+/** The mapping and normalization step of `handleStripeEvent`: the fact the rules will decide on, or why there is none. */
+export type NormalizedStripeEvent =
+	| {
+			ok: true;
+			target: MappingTarget;
+			/** `stripe/invoice.paid@v1`: the label the fact's `source.mapping` carries. */
+			mappingLabel: string;
+			apiVersion: string;
+			/** The event's `type`. */
+			type: string;
+			fact: BillingFact;
+	  }
+	| { ok: false; refusal: StripeEventRefusal };
+
+/** `handleStripeEvent` from the step "decide" on: an already normalized fact in place of the raw event. */
+export type StripeFactInput = Omit<StripeEventInput, "event"> & {
+	/** The fact, or the stored replay fact (`replayFactOf`); `source` is rebuilt from `eventId`, `mapping` and `apiVersion`. */
+	fact: ReplayFact;
+	target: MappingTarget;
+	/**
+	 * The event type. The dispute rule reads it to tell `charge.dispute.closed` from `charge.dispute.created`; there is
+	 * no raw event here to read it from.
+	 */
+	type: string;
+	apiVersion: string;
+	/** `stripe/invoice.paid@v1` */
+	mapping: string;
 };
 
 // ---- Storage rows ----
@@ -2491,6 +2616,21 @@ export type StripePayoutRecord = {
 	livemode?: boolean;
 };
 
+/**
+ * The fields `reconcile` reads of a Stripe payment intent, for a booking's one-time payment (no invoice). Only a `succeeded`
+ * intent whose `metadata.booking_id` is set is compared (`bookingCheckoutParams` puts it there); the rest of the list, the
+ * intents that paid invoices, is ignored.
+ */
+export type StripePaymentIntentRecord = {
+	id: string;
+	status?: string | null;
+	amount: number;
+	currency: string;
+	created: number;
+	livemode?: boolean;
+	metadata?: Record<string, string> | null;
+};
+
 export type StripeBalanceTransactionRecord = {
 	id: string;
 	amount: number;
@@ -2508,6 +2648,11 @@ export type ReconcileStripe = {
 	disputes?: readonly StripeDisputeRecord[];
 	payouts?: readonly StripePayoutRecord[];
 	balanceTransactions?: readonly StripeBalanceTransactionRecord[];
+	/**
+	 * `stripe payment_intents list`: needed only by a school whose log holds a booking's `payment.succeeded`. When the log
+	 * holds one and this is left out it is `notSupplied`; for a school with no booking payment it is never required.
+	 */
+	paymentIntents?: readonly StripePaymentIntentRecord[];
 };
 
 export type ReconcileStripeList = keyof ReconcileStripe;
@@ -2532,7 +2677,9 @@ export type ReconcileObject =
 	| "dispute"
 	| "payout"
 	| "fees"
-	| "net";
+	| "net"
+	/** A booking's one-time payment (a payment intent, no invoice). */
+	| "payment";
 
 export type ReconcileKind =
 	| "missing_in_log"
@@ -2559,7 +2706,7 @@ export type ReconcileSide = {
 export type ReconcileDifference = {
 	kind: ReconcileKind;
 	object: ReconcileObject;
-	/** Stripe's id (`in_`, `re_`, `dp_`, `po_`); null for the totals. */
+	/** Stripe's id (`in_`, `re_`, `dp_`, `po_`, `pi_` for a booking's payment); null for the totals. */
 	id: string | null;
 	/** The log event type compared against, null for the totals. */
 	eventType: AtmEventType | null;
@@ -2582,7 +2729,13 @@ export type ReconcileResult = {
 	/** Lists of `stripe` that were undefined: their checks did not run. */
 	notSupplied: ReconcileStripeList[];
 	/** Records each side has in the period, after ignoring. Stripe's count is null for a list not supplied. */
-	counts: Record<ReconcileObject, { stripe: number | null; log: number }>;
+	counts: Record<
+		Exclude<ReconcileObject, "payment">,
+		{ stripe: number | null; log: number }
+	> & {
+		/** A booking's payments; present only when `paymentIntents` was supplied or the log holds one, so a school with none reconciles as before. */
+		payment?: { stripe: number | null; log: number };
+	};
 	/** Stripe records skipped, by reason (only reasons that applied). */
 	ignored: Record<string, number>;
 	/**
