@@ -39,7 +39,7 @@ check: lint ts test build knip
 
 # Rewrite the committed goldens after an intended change (replay decisions, rows, journal), then review the diff
 golden:
-    UPDATE_GOLDEN=1 bun test tests/replay-inputs.test.ts tests/billing-rows.test.ts tests/journal.test.ts
+    UPDATE_GOLDEN=1 bun test tests/replay-inputs.test.ts tests/billing-rows.test.ts tests/journal.test.ts tests/scenario-parity.test.ts
 
 # Regenerate the fixture year: just fixtures --seed 1
 fixtures *args:
