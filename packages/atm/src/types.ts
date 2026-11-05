@@ -760,7 +760,10 @@ export type LineItem =
 
 // ---- Storage rows ----
 
-/** The state tables, in the order rows are listed. */
+/**
+ * The tables a subject's rows live in, in the order rows are listed: the engine's state tables, then `atm_grants`,
+ * the one JSON row (id `grants`) holding the billing rules' `GrantsState`. Both change under the one revision.
+ */
 export type RowTable =
 	| "customer"
 	| "entity"
@@ -772,7 +775,8 @@ export type RowTable =
 	| "usageWindows"
 	| "openLocks"
 	| "pooledBalances"
-	| "customerLicenses";
+	| "customerLicenses"
+	| "atm_grants";
 
 /** A JSON-safe object: what is stored in `atm_rows.data`. */
 export type RowData = Record<string, unknown>;

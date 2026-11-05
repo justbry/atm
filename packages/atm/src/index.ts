@@ -303,8 +303,20 @@ export const redactPersonal = (payload: unknown, mapping: Mapping): unknown =>
 /** Every mapping file this package ships. */
 export const MAPPINGS: readonly Mapping[] = normalizer.MAPPINGS;
 
-/** The state tables, in the order rows are listed. */
+/** The engine's state tables, in the order rows are listed. The grants row (`atm_grants`) follows them. */
 export const ROW_TABLES: readonly RowTable[] = rows.ROW_TABLES;
+
+/** The table (`atm_grants`) and row id of the one row that holds a subject's billing-rules state. */
+export const GRANTS_TABLE: "atm_grants" = rows.GRANTS_TABLE;
+export const GRANTS_ROW_ID: string = rows.GRANTS_ROW_ID;
+
+/** The `GrantsState` stored with a subject's rows; no grants row is `EMPTY_GRANTS_STATE`. */
+export const grantsFromRows = (rows_: readonly BillingRow[]): GrantsState =>
+	rows.grantsFromRows(rows_);
+
+/** The grants row for a `GrantsState`: write it with the engine rows, under the same revision. */
+export const grantsRow = (state: GrantsState): BillingRow =>
+	rows.grantsRow(state);
 
 /** Thrown when the stored revision is not the one a mutation was computed against: re-read, recompute, retry. */
 export const StaleRevision: StaleRevisionConstructor = rows.StaleRevision;

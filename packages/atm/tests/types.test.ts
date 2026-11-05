@@ -50,7 +50,10 @@ const stateFits = (s: SubjectState): AtmSubjectState => s;
 const stateFitsBack = (s: AtmSubjectState): SubjectState =>
 	s as unknown as SubjectState;
 const rowTablesFit = (t: (typeof ROW_TABLES)[number]): RowTable => t;
-const rowTablesFitBack = (t: RowTable): (typeof ROW_TABLES)[number] => t;
+// Every engine table is a RowTable; the one other table is the grants row.
+const rowTablesFitBack = (
+	t: Exclude<RowTable, "atm_grants">,
+): (typeof ROW_TABLES)[number] => t;
 const staleRevisionFits = (
 	c: typeof StaleRevisionImpl,
 ): StaleRevisionConstructor => c;
