@@ -154,6 +154,47 @@ export const disputeEvent = (e: {
 	return event;
 };
 
+export const subscriptionEvent = (e: {
+	type:
+		| "customer.subscription.created"
+		| "customer.subscription.updated"
+		| "customer.subscription.deleted";
+	eventId: string;
+	subscriptionId: string;
+	status: string;
+	/** The subscription's items, each named by its price's lookup key (`priceIdOf` gives the price id). */
+	items: { lookupKey: string; interval: "month" | "year" }[];
+	periodStart: number;
+	periodEnd: number;
+	cancelAtPeriodEnd?: boolean;
+	at: number;
+	/** What the checkout wrote; null leaves it out (a subscription made outside the family service). */
+	metadata?: Record<string, string> | null;
+}): RawEvent => {
+	const event = template(`${e.type}.json`);
+	const sub = event.data.object;
+	event.id = e.eventId;
+	event.created = seconds(e.at);
+	sub.id = e.subscriptionId;
+	sub.status = e.status;
+	sub.cancel_at_period_end = e.cancelAtPeriodEnd ?? false;
+	if (e.metadata !== undefined) sub.metadata = e.metadata ?? {};
+	const base = sub.items.data[0];
+	sub.items.data = e.items.map((item, i) => ({
+		...base,
+		id: `si_${e.subscriptionId}_${i}`,
+		current_period_start: seconds(e.periodStart),
+		current_period_end: seconds(e.periodEnd),
+		price: {
+			...base.price,
+			id: priceIdOf(item.lookupKey),
+			lookup_key: item.lookupKey,
+			recurring: { interval: item.interval, interval_count: 1 },
+		},
+	}));
+	return event;
+};
+
 export const subscriptionDeleted = (e: {
 	eventId: string;
 	subscriptionId: string;

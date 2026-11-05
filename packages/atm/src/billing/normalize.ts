@@ -12,12 +12,14 @@ import type {
 	FactSource,
 	FieldSpec,
 	FieldType,
+	Interval,
 	InvoiceLine,
 	LineItem,
 	Mapping,
 	NormalizeContext,
 	NormalizeError,
 	NormalizeResult as Result,
+	SubscriptionItem,
 } from "./types.js";
 
 export type PathToken = string | number;
@@ -204,9 +206,19 @@ export function normalize(
 				path: mapping.lines.path,
 			});
 		const lines: InvoiceLine[] = [];
+		const items: SubscriptionItem[] = [];
 		for (const raw of rawLines) {
 			const line = buildFields(raw, mapping.lines.fields);
 			if (!line.ok) return line;
+			// A subscription's items are read as they are; the menu names what each one is.
+			if (mapping.target === "SubscriptionFact") {
+				items.push({
+					lookupKey: null,
+					interval: null,
+					...line.value,
+				} as SubscriptionItem);
+				continue;
+			}
 			// A line (API 2025-10-29.clover) has no interval of its own; the menu says it once the line is matched.
 			lines.push({
 				kind: "unknown",
@@ -214,7 +226,8 @@ export function normalize(
 				...line.value,
 			} as InvoiceLine);
 		}
-		body.lines = lines;
+		if (mapping.target === "SubscriptionFact") body.items = items;
+		else body.lines = lines;
 	}
 	return ok(body as unknown as Fact);
 }
@@ -247,6 +260,27 @@ export function resolveLines(
 			? { ...known, kind: "tier", tierId: item.tierId }
 			: { ...known, kind: "addon", addonId: item.addonId };
 	});
+}
+
+/**
+ * The tier a subscription is on, by its items: the first item the menu names as a tier (by lookup key, else price id),
+ * with that price's interval. Null when no item is a menu tier.
+ */
+export function resolveSubscriptionPlan(
+	items: readonly SubscriptionItem[],
+	itemByKey: ReadonlyMap<string, LineItem>,
+): { tierId: string; interval: Interval | null } | null {
+	for (const item of items) {
+		const found =
+			(item.lookupKey ? itemByKey.get(item.lookupKey) : undefined) ??
+			itemByKey.get(item.priceId);
+		if (found?.kind === "tier")
+			return {
+				tierId: found.tierId,
+				interval: item.interval ?? found.interval ?? null,
+			};
+	}
+	return null;
 }
 
 /** An invoice with its lines resolved against the menu. */

@@ -28,6 +28,7 @@ import {
 	paymentIntentOf,
 	priceIdOf,
 	subscriptionDeleted,
+	subscriptionEvent,
 } from "./stripe-events.js";
 
 const SCHOOL = "sch_vol";
@@ -978,5 +979,332 @@ describe("refusals", () => {
 	test("a refund or dispute for a family with no rows is nothing, not an error", () => {
 		const r = handleStripeEvent(input(refundOf("in_unknown")));
 		expect(r).toEqual({ rowChanges: null, events: [] });
+	});
+});
+
+describe("subscription events", () => {
+	const sub = (over: Partial<Parameters<typeof subscriptionEvent>[0]> = {}) =>
+		subscriptionEvent({
+			type: "customer.subscription.updated",
+			eventId: "evt_sub",
+			subscriptionId: "sub_1",
+			status: "active",
+			items: [{ lookupKey: tierKey("sparkle-2", "month"), interval: "month" }],
+			periodStart: T0,
+			periodEnd: T1,
+			at: T0 + 20_000,
+			metadata,
+			...over,
+		});
+	const DAY = 86_400_000;
+	const grantsOf = (s: ReturnType<typeof store>) => grantsFromRows(s.rows);
+
+	test("a subscription seen before its first invoice records the holder and the membership, and credits nothing", () => {
+		const s = store();
+		const r = s.handle(
+			sub({ type: "customer.subscription.created" }),
+			T0 + 20_000,
+		);
+		expect(r.events).toEqual([]);
+		expect(r.rowChanges?.upserts.map((u) => u.table)).toEqual([GRANTS_TABLE]);
+		const grants = grantsOf(s);
+		expect(grants.holder).toEqual({ orgId: SCHOOL, customerId: HOLDER });
+		expect(grants.membership).toEqual({
+			subscriptionId: "sub_1",
+			status: "active",
+			tierId: "sparkle-2",
+			interval: "month",
+			renewsAt: T1,
+			cancelAtPeriodEnd: false,
+			endsAt: null,
+			at: T0 + 20_000,
+		});
+		expect(grants.tierId).toBeNull();
+		expect(s.avail(T0 + 30_000)).toBe(0);
+		// The invoice that follows grants as it always did.
+		create(s);
+		expect(s.avail(T0 + 30_000)).toBe(2);
+		expect(grantsOf(s).membership?.tierId).toBe("sparkle-2");
+	});
+
+	test("cancel at period end is recorded and changes no credits; the subscription still runs", () => {
+		const s = store();
+		create(s);
+		const before = s.avail(T0 + 2 * DAY);
+		const r = s.handle(
+			sub({ cancelAtPeriodEnd: true, at: T0 + DAY }),
+			T0 + DAY,
+		);
+		expect(r.events).toEqual([]);
+		expect(r.rowChanges?.upserts.map((u) => u.table)).toEqual([GRANTS_TABLE]);
+		const grants = grantsOf(s);
+		expect(grants.membership).toMatchObject({
+			status: "active",
+			cancelAtPeriodEnd: true,
+			renewsAt: null,
+			endsAt: T1,
+		});
+		expect(grants.endedAt).toBeNull();
+		expect(s.avail(T0 + 2 * DAY)).toBe(before);
+	});
+
+	test("a tier change Stripe has made shows in the membership; credits follow only the paid invoice", () => {
+		const s = store();
+		create(s);
+		const r = s.handle(
+			sub({
+				items: [
+					{ lookupKey: tierKey("sparkle-4", "month"), interval: "month" },
+				],
+				at: T0 + DAY,
+			}),
+			T0 + DAY,
+		);
+		expect(r.events).toEqual([]);
+		const grants = grantsOf(s);
+		expect(grants.membership?.tierId).toBe("sparkle-4");
+		expect(grants.tierId).toBe("sparkle-2");
+		expect(s.avail(T0 + 2 * DAY)).toBe(2);
+	});
+
+	test("the tier is found among several items, and by price id when the lookup key is absent", () => {
+		const s = store();
+		const raw = sub({
+			items: [
+				{ lookupKey: addonKey("glow"), interval: "month" },
+				{ lookupKey: tierKey("sparkle-2", "year"), interval: "year" },
+			],
+		});
+		delete raw.data.object.items.data[1].price.lookup_key;
+		s.handle(raw, T0 + 20_000);
+		expect(grantsOf(s).membership).toMatchObject({
+			tierId: "sparkle-2",
+			interval: "year",
+		});
+	});
+
+	test.each([
+		["past_due", "past_due", T1],
+		["unpaid", "past_due", T1],
+		["incomplete", "payment_incomplete", null],
+		["paused", "inactive", null],
+		["trialing", "active", T1],
+	] as const)("status %s is shown as %s", (status, shown, renewsAt) => {
+		const s = store();
+		create(s);
+		s.handle(sub({ status, at: T0 + DAY }), T0 + DAY);
+		expect(grantsOf(s).membership).toMatchObject({ status: shown, renewsAt });
+	});
+
+	test("an event about another subscription than the holder's changes nothing", () => {
+		const s = store();
+		create(s);
+		const before = grantsOf(s).membership;
+		const r = s.handle(
+			sub({
+				subscriptionId: "sub_old",
+				status: "canceled",
+				type: "customer.subscription.deleted",
+				at: T0 + 2 * DAY,
+			}),
+			T0 + 2 * DAY,
+		);
+		expect(r).toEqual({ rowChanges: null, events: [] });
+		expect(grantsOf(s).membership).toEqual(before);
+	});
+
+	test("a replayed event and an older one than the one on record change nothing", () => {
+		const s = store();
+		create(s);
+		const newer = sub({ cancelAtPeriodEnd: true, at: T0 + 2 * DAY });
+		expect(s.handle(newer, T0 + 2 * DAY).rowChanges).not.toBeNull();
+		expect(s.handle(newer, T0 + 2 * DAY).rowChanges).toBeNull();
+		const older = sub({
+			eventId: "evt_older",
+			cancelAtPeriodEnd: false,
+			at: T0 + DAY,
+		});
+		expect(s.handle(older, T0 + 3 * DAY).rowChanges).toBeNull();
+		expect(grantsOf(s).membership?.cancelAtPeriodEnd).toBe(true);
+	});
+
+	test("an item of ours that the menu does not know is refused, nothing written", () => {
+		const s = store();
+		const r = s.handle(
+			sub({
+				items: [
+					{ lookupKey: "b4u_sch_vol_t_ghost_month_100_usd", interval: "month" },
+				],
+			}),
+			T0 + 20_000,
+		);
+		expect(r.refused?.reason).toBe("unmatched_line");
+		expect(r.rowChanges).toBeNull();
+		expect(s.rows).toEqual([]);
+	});
+
+	test("events of one second do not undo a more final status, in either order", () => {
+		const at = T0 + DAY;
+		const created = sub({
+			type: "customer.subscription.created",
+			eventId: "evt_created",
+			status: "incomplete",
+			at,
+		});
+		const updated = sub({ eventId: "evt_updated", status: "active", at });
+		const deleted = sub({
+			type: "customer.subscription.deleted",
+			eventId: "evt_deleted",
+			status: "canceled",
+			at,
+		});
+		const updatedFirst = store();
+		create(updatedFirst);
+		updatedFirst.handle(updated, at);
+		updatedFirst.handle(created, at);
+		expect(grantsOf(updatedFirst).membership?.status).toBe("active");
+		const createdFirst = store();
+		create(createdFirst);
+		createdFirst.handle(created, at);
+		createdFirst.handle(updated, at);
+		expect(grantsOf(createdFirst).membership?.status).toBe("active");
+		const endedFirst = store();
+		create(endedFirst);
+		endedFirst.handle(deleted, at);
+		endedFirst.handle(created, at);
+		endedFirst.handle(updated, at);
+		expect(grantsOf(endedFirst).membership?.status).toBe("ended");
+		expect(grantsOf(endedFirst).endedAt).toBe(at);
+	});
+
+	test("a canceled event older than the membership on record ends nothing and lapses nothing", () => {
+		const s = store();
+		create(s);
+		s.handle(sub({ cancelAtPeriodEnd: true, at: T0 + 2 * DAY }), T0 + 2 * DAY);
+		const before = s.avail(T0 + 3 * DAY);
+		const r = s.handle(
+			sub({
+				type: "customer.subscription.deleted",
+				eventId: "evt_stale_deleted",
+				status: "canceled",
+				at: T0 + DAY,
+			}),
+			T0 + 3 * DAY,
+		);
+		expect(r).toEqual({ rowChanges: null, events: [] });
+		const grants = grantsOf(s);
+		expect(grants.endedAt).toBeNull();
+		expect(grants.membership?.status).toBe("active");
+		expect(s.avail(D("2026-03-15T18:00:01Z"))).toBe(before);
+	});
+
+	test("before the first invoice, a late event of one subscription does not overwrite another's membership", () => {
+		const s = store();
+		s.handle(
+			sub({ subscriptionId: "sub_a", eventId: "evt_a1", at: T0 + 10_000 }),
+			T0 + 40_000,
+		);
+		s.handle(
+			sub({
+				subscriptionId: "sub_b",
+				eventId: "evt_b1",
+				items: [
+					{ lookupKey: tierKey("sparkle-4", "month"), interval: "month" },
+				],
+				at: T0 + 30_000,
+			}),
+			T0 + 40_000,
+		);
+		const r = s.handle(
+			sub({
+				subscriptionId: "sub_a",
+				eventId: "evt_a2",
+				cancelAtPeriodEnd: true,
+				at: T0 + 20_000,
+			}),
+			T0 + 40_000,
+		);
+		expect(r.rowChanges).toBeNull();
+		expect(grantsOf(s).membership).toMatchObject({
+			subscriptionId: "sub_b",
+			tierId: "sparkle-4",
+		});
+	});
+
+	test("a canceled subscription whose price left the menu is not refused: it ends, the credits lapse, the tier stays", () => {
+		const s = store();
+		create(s);
+		const r = s.handle(
+			sub({
+				type: "customer.subscription.deleted",
+				status: "canceled",
+				items: [
+					{ lookupKey: "b4u_sch_vol_t_ghost_month_100_usd", interval: "month" },
+				],
+				at: T0 + DAY,
+			}),
+			T0 + DAY,
+		);
+		expect(r.refused).toBeUndefined();
+		const grants = grantsOf(s);
+		expect(grants.endedAt).toBe(T0 + DAY);
+		expect(grants.membership).toMatchObject({
+			status: "ended",
+			tierId: "sparkle-2",
+			interval: "month",
+		});
+		expect(s.avail(D("2026-03-15T18:00:01Z"))).toBe(0);
+	});
+
+	test("an unknown item on another subscription than the holder's is not refused, it changes nothing", () => {
+		const s = store();
+		create(s);
+		const r = s.handle(
+			sub({
+				subscriptionId: "sub_old",
+				items: [
+					{ lookupKey: "b4u_sch_vol_t_ghost_month_100_usd", interval: "month" },
+				],
+				at: T0 + DAY,
+			}),
+			T0 + DAY,
+		);
+		expect(r).toEqual({ rowChanges: null, events: [] });
+	});
+
+	test("a subscription that names no family and meets no stored holder is not ours to record", () => {
+		const s = store();
+		const r = s.handle(sub({ metadata: null }), T0 + 20_000);
+		expect(r).toEqual({ rowChanges: null, events: [] });
+		// Once the family has rows, the stored holder names it and the metadata is not needed.
+		create(s);
+		s.handle(
+			sub({ metadata: null, cancelAtPeriodEnd: true, at: T0 + DAY }),
+			T0 + DAY,
+		);
+		expect(grantsOf(s).membership?.cancelAtPeriodEnd).toBe(true);
+	});
+
+	test("deleted records the end and still lapses the credits", () => {
+		const s = store();
+		create(s);
+		s.handle(
+			sub({
+				type: "customer.subscription.deleted",
+				status: "canceled",
+				at: T0 + DAY,
+			}),
+			T0 + DAY,
+		);
+		const grants = grantsOf(s);
+		expect(grants.membership).toMatchObject({
+			status: "ended",
+			tierId: "sparkle-2",
+			renewsAt: null,
+			endsAt: null,
+		});
+		expect(grants.endedAt).toBe(T0 + DAY);
+		expect(s.avail(T0 + 2 * DAY)).toBe(2);
+		expect(s.avail(D("2026-03-15T18:00:01Z"))).toBe(0);
 	});
 });

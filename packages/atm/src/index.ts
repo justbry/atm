@@ -67,6 +67,7 @@ import type {
 	SubjectRows,
 	SubscriptionEndInput,
 	SubscriptionFact,
+	SubscriptionItem,
 	SubscriptionStatus,
 } from "./types.js";
 
@@ -229,6 +230,15 @@ export const subscriptionEndedToCommands = (
 	input: SubscriptionEndInput,
 ): GrantResult => grants.subscriptionEndedToCommands(input);
 
+/**
+ * Any `customer.subscription.*` fact: records the membership (status, tier and interval the menu names for its price,
+ * renewal or end date) in `state.membership` and, for a canceled subscription, lets the credits lapse as
+ * `subscriptionEndedToCommands` does. Grants nothing; an older fact than the one on record changes nothing.
+ */
+export const subscriptionToCommands = (
+	input: SubscriptionEndInput,
+): GrantResult => grants.subscriptionToCommands(input);
+
 export const MAX_TIERS: number = menu.MAX_TIERS;
 export const MAX_ADDONS: number = menu.MAX_ADDONS;
 export const MAX_FEATURES: number = menu.MAX_FEATURES;
@@ -308,6 +318,12 @@ export const resolveInvoice = (
 	invoice: BillingInvoice,
 	itemByKey: ReadonlyMap<string, LineItem>,
 ): BillingInvoice => normalizer.resolveInvoice(invoice, itemByKey);
+
+/** The tier and interval the menu names for a subscription's items, or null when none is a tier. */
+export const resolveSubscriptionPlan = (
+	items: readonly SubscriptionItem[],
+	itemByKey: ReadonlyMap<string, LineItem>,
+) => normalizer.resolveSubscriptionPlan(items, itemByKey);
 
 /** A deep copy of the raw event without the mapping's personal-data paths. */
 export const redactPersonal = (payload: unknown, mapping: Mapping): unknown =>

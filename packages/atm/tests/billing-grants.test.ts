@@ -647,8 +647,7 @@ describe("cancellation", () => {
 		id: "sub_1",
 		customerId: "cus_1",
 		status: "canceled",
-		tierId: "sparkle-2",
-		interval: "month",
+		items: [{ priceId: "price_sparkle_2", lookupKey: null, interval: "month" }],
 		currentPeriodStart: D("2026-01-15T18:00:00Z"),
 		currentPeriodEnd: T1,
 		cancelAtPeriodEnd: false,
@@ -711,7 +710,7 @@ describe("cancellation", () => {
 	test("a yearly grant on a monthly plan lapses at its own reset date", () => {
 		const w = world();
 		w.invoice(invoice("inv-create-s4"));
-		w.end(ended({ tierId: "sparkle-4" }));
+		w.end(ended());
 		const retreatAt = D("2027-01-15T18:00:00Z");
 		expect(w.avail(retreatAt - 1, "retreat")).toBe(1);
 		expect(w.avail(addUtcMonths(retreatAt, 1) + 1, "retreat")).toBe(0);
@@ -782,8 +781,9 @@ describe("plan moves that outlive their rows", () => {
 			id: "sub_1",
 			customerId: "cus_1",
 			status: "canceled",
-			tierId: "sparkle-2",
-			interval: "month",
+			items: [
+				{ priceId: "price_sparkle_2", lookupKey: null, interval: "month" },
+			],
 			currentPeriodStart: T1,
 			currentPeriodEnd: T2,
 			cancelAtPeriodEnd: false,
@@ -821,8 +821,9 @@ describe("plan moves that outlive their rows", () => {
 			id: "sub_1",
 			customerId: "cus_1",
 			status: "canceled",
-			tierId: "sparkle-2",
-			interval: "month",
+			items: [
+				{ priceId: "price_sparkle_2", lookupKey: null, interval: "month" },
+			],
 			currentPeriodStart: T1,
 			currentPeriodEnd: T2,
 			cancelAtPeriodEnd: false,

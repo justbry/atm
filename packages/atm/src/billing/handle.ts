@@ -35,9 +35,15 @@ import {
 	invoiceHolder,
 	invoiceToCommands,
 	refundToCommands,
-	subscriptionEndedToCommands,
+	subscriptionHolder,
+	subscriptionToCommands,
 } from "./grants.js";
-import { mappingFor, normalize, resolveInvoice } from "./normalize.js";
+import {
+	mappingFor,
+	normalize,
+	resolveInvoice,
+	resolveSubscriptionPlan,
+} from "./normalize.js";
 import {
 	applyRowChanges,
 	diffRows,
@@ -112,8 +118,9 @@ const resolve = (
 
 type Rules = {
 	input: StripeEventInput;
+	/** Whose credits these are: the subject's holder, else the one the event names. */
+	holder: { orgId: string; customerId: string };
 	grants: GrantsState;
-	holder: { orgId: string; customerId: string } | null;
 	subject: ReturnType<typeof subjectFromRows> | null;
 };
 
@@ -223,10 +230,43 @@ const decide = (
 						`subscription ${subscription.id} ended before any invoice of this holder was handled`,
 					),
 				};
+			const menuItems = menuLineItems(holder.orgId, input.menu, input.priceIds);
+			// An item of ours (a b4u_ lookup key) that the menu does not know: the plan cannot be told, so say so.
+			// A canceled one is not refused: its price may have left the menu since, and its credits must still lapse.
+			// Nor is an event about another subscription than the holder's: it changes nothing, so a refusal would only retry.
+			const decidesPlan =
+				subscription.status !== "canceled" &&
+				(grants.subscriptionId === null ||
+					grants.subscriptionId === subscription.id);
+			const stray = (decidesPlan ? subscription.items : []).filter(
+				(item) =>
+					!menuItems.has(item.priceId) &&
+					!(item.lookupKey && menuItems.has(item.lookupKey)) &&
+					item.lookupKey?.startsWith(BILLING_LINE_PREFIX),
+			);
+			if (stray.length > 0)
+				return {
+					ok: false,
+					refusal: refuse(
+						"unmatched_line",
+						`subscription ${subscription.id} has ${stray.length} item(s) the menu does not know: ${stray
+							.map((item) => item.lookupKey ?? item.priceId)
+							.join(", ")}`,
+					),
+				};
 			return {
 				ok: true,
-				result: subscriptionEndedToCommands({ ...common, subscription }),
-				reason: "subscription ended",
+				result: subscriptionToCommands({
+					...common,
+					// A subject known only by the event's metadata (the subscription came before any invoice) has no holder yet.
+					state: grants.holder ? grants : { ...grants, holder },
+					subscription,
+					plan: resolveSubscriptionPlan(subscription.items, menuItems),
+				}),
+				reason:
+					subscription.status === "canceled"
+						? "subscription ended"
+						: "subscription",
 			};
 		}
 		default:
@@ -440,6 +480,8 @@ const decideAndRun = (
 			);
 		holder = invoiceHolder(invoice);
 	}
+	if (!holder && target === "SubscriptionFact")
+		holder = subscriptionHolder(fact as SubscriptionFact);
 	if (!holder) return nothing();
 	const identity: AtmIdentity = {
 		orgId: holder.orgId,
