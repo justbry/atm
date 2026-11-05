@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import { readdirSync, readFileSync } from "node:fs";
+import { cpSync, readdirSync, readFileSync } from "node:fs";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,7 +10,10 @@ import {
 	createSubjectFor,
 } from "../../balance-engine/tests/unit/engineFixtures.js";
 
-/** Builds dist into an empty directory and uses it the way a consumer outside this workspace would. */
+/**
+ * Builds dist into an empty directory and uses it the way a consumer outside this workspace would. With `ATM_DIST`
+ * set (the release script does), it tests that already-built directory instead of building one.
+ */
 let dir: string;
 const command = createCheckCommand();
 const subject = createSubjectFor({
@@ -23,12 +26,16 @@ const expected = JSON.parse(
 
 beforeAll(async () => {
 	dir = await mkdtemp(join(tmpdir(), "atm-consumer-"));
-	const build = Bun.spawnSync([
-		"bun",
-		join(import.meta.dir, "../build.ts"),
-		join(dir, "dist"),
-	]);
-	if (build.exitCode !== 0) throw new Error(build.stderr.toString());
+	if (process.env.ATM_DIST) {
+		cpSync(process.env.ATM_DIST, join(dir, "dist"), { recursive: true });
+	} else {
+		const build = Bun.spawnSync([
+			"bun",
+			join(import.meta.dir, "../build.ts"),
+			join(dir, "dist"),
+		]);
+		if (build.exitCode !== 0) throw new Error(build.stderr.toString());
+	}
 	await writeFile(join(dir, "subject.json"), JSON.stringify(subject));
 	await writeFile(join(dir, "command.json"), JSON.stringify(command));
 	await writeFile(

@@ -1,0 +1,38 @@
+name: Release atm
+
+# Pushing a tag atm-v<version> builds packages/atm at that tag and puts atm-<version>.tgz on the GitHub release for it.
+# If the release already exists (`bun run --cwd packages/atm release` made it from a laptop), this checks that its asset
+# is exactly what this commit builds, and fails if not. B4 Uni's family service pins the asset URL and its sha512.
+
+on:
+  push:
+    tags: ["atm-v*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-atm-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish the tarball
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout the tag
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Release
+        run: bun run --cwd packages/atm release --ci
+        env:
+          GH_TOKEN: ${{ github.token }}
