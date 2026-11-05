@@ -1,0 +1,419 @@
+{
+  "balances": {
+    "current": [
+      {
+        "holder": "family:fam_th6z",
+        "feature": "visit",
+        "avail": 0,
+        "held": 1
+      }
+    ],
+    "candidate": [
+      {
+        "holder": "family:fam_th6z",
+        "feature": "visit",
+        "avail": 0,
+        "held": 1
+      }
+    ]
+  },
+  "balanceChanges": [],
+  "postingChanges": [
+    {
+      "month": "2026-09",
+      "account": "credits:avail:family:fam_th6z:visit",
+      "commodity": "VISIT",
+      "current": "-1",
+      "candidate": "0"
+    },
+    {
+      "month": "2026-09",
+      "account": "credits:expired",
+      "commodity": "VISIT",
+      "current": "1",
+      "candidate": "0"
+    },
+    {
+      "month": "2026-12",
+      "account": "credits:avail:family:fam_th6z:visit",
+      "commodity": "VISIT",
+      "current": "-1",
+      "candidate": "-2"
+    },
+    {
+      "month": "2026-12",
+      "account": "credits:expired",
+      "commodity": "VISIT",
+      "current": "0",
+      "candidate": "1"
+    }
+  ],
+  "transactions": [
+    {
+      "month": "2026-01",
+      "current": 7,
+      "candidate": 7
+    },
+    {
+      "month": "2026-02",
+      "current": 5,
+      "candidate": 5
+    },
+    {
+      "month": "2026-03",
+      "current": 10,
+      "candidate": 10
+    },
+    {
+      "month": "2026-04",
+      "current": 8,
+      "candidate": 8
+    },
+    {
+      "month": "2026-05",
+      "current": 7,
+      "candidate": 7
+    },
+    {
+      "month": "2026-06",
+      "current": 5,
+      "candidate": 5
+    },
+    {
+      "month": "2026-07",
+      "current": 6,
+      "candidate": 6
+    },
+    {
+      "month": "2026-08",
+      "current": 8,
+      "candidate": 8
+    },
+    {
+      "month": "2026-09",
+      "current": 7,
+      "candidate": 6
+    },
+    {
+      "month": "2026-10",
+      "current": 4,
+      "candidate": 4
+    },
+    {
+      "month": "2026-11",
+      "current": 6,
+      "candidate": 6
+    },
+    {
+      "month": "2026-12",
+      "current": 6,
+      "candidate": 7
+    }
+  ],
+  "changed": [
+    {
+      "key": "family:fam_th6z",
+      "commandId": "cmd_038",
+      "command": "track",
+      "at": "2026-08-24T17:03:00Z",
+      "eventIds": [
+        "01M0TBKCD00002DVV62NBAA9Z5"
+      ],
+      "removed": [
+        {
+          "table": "customerEntitlements",
+          "op": "increment",
+          "id": "ce_1",
+          "detail": "{\"add\":{\"balance\":-1}}"
+        },
+        {
+          "table": "locks",
+          "op": "insert",
+          "id": "lock_bk_mp4aad",
+          "detail": "{\"row\":{\"created_at\":1787590980000,\"customer_id\":\"family:fam_th6z\",\"deltas\":[{\"balanceDelta\":-1,\"creditCost\":1,\"entityKey\":null,\"id\":\"ce_1\",\"table\":\"customerEntitlements\",\"usageDelta\":0,\"valueDelta\":-1}],\"entity_id\":null,\"env\":\"live\",\"expires_at\":1787864580000,\"expiry_action\":\"confirm\",\"feature_id\":\"visit\",\"id\":\"lock_bk_mp4aad\",\"internal_customer_id\":\"cus_fam_th6z\",\"lock_id\":\"bk_mp4aad\",\"org_id\":\"sch_vol\",\"overage_behavior\":\"reject\",\"properties\":null}}"
+        }
+      ],
+      "added": [
+        {
+          "table": "customerEntitlements",
+          "op": "increment",
+          "id": "ce_gift_1",
+          "detail": "{\"add\":{\"balance\":-1}}"
+        },
+        {
+          "table": "locks",
+          "op": "insert",
+          "id": "lock_bk_mp4aad",
+          "detail": "{\"row\":{\"created_at\":1787590980000,\"customer_id\":\"family:fam_th6z\",\"deltas\":[{\"balanceDelta\":-1,\"creditCost\":1,\"entityKey\":null,\"id\":\"ce_gift_1\",\"table\":\"customerEntitlements\",\"usageDelta\":0,\"valueDelta\":-1}],\"entity_id\":null,\"env\":\"live\",\"expires_at\":1787864580000,\"expiry_action\":\"confirm\",\"feature_id\":\"visit\",\"id\":\"lock_bk_mp4aad\",\"internal_customer_id\":\"cus_fam_th6z\",\"lock_id\":\"bk_mp4aad\",\"org_id\":\"sch_vol\",\"overage_behavior\":\"reject\",\"properties\":null}}"
+        }
+      ],
+      "resultChanged": true
+    },
+    {
+      "key": "family:fam_th6z",
+      "commandId": "cmd_040",
+      "command": "track",
+      "at": "2026-08-30T18:03:00Z",
+      "eventIds": [
+        "01M19XDJ100002GT728BYGB0Z9"
+      ],
+      "removed": [
+        {
+          "table": "customerEntitlements",
+          "op": "increment",
+          "id": "ce_gift_1",
+          "detail": "{\"add\":{\"balance\":-1}}"
+        },
+        {
+          "table": "locks",
+          "op": "insert",
+          "id": "lock_bk_nnv23g",
+          "detail": "{\"row\":{\"created_at\":1788112980000,\"customer_id\":\"family:fam_th6z\",\"deltas\":[{\"balanceDelta\":-1,\"creditCost\":1,\"entityKey\":null,\"id\":\"ce_gift_1\",\"table\":\"customerEntitlements\",\"usageDelta\":0,\"valueDelta\":-1}],\"entity_id\":null,\"env\":\"live\",\"expires_at\":1788393780000,\"expiry_action\":\"confirm\",\"feature_id\":\"visit\",\"id\":\"lock_bk_nnv23g\",\"internal_customer_id\":\"cus_fam_th6z\",\"lock_id\":\"bk_nnv23g\",\"org_id\":\"sch_vol\",\"overage_behavior\":\"reject\",\"properties\":null}}"
+        }
+      ],
+      "added": [
+        {
+          "table": "customerEntitlements",
+          "op": "increment",
+          "id": "ce_1",
+          "detail": "{\"add\":{\"balance\":-1}}"
+        },
+        {
+          "table": "locks",
+          "op": "insert",
+          "id": "lock_bk_nnv23g",
+          "detail": "{\"row\":{\"created_at\":1788112980000,\"customer_id\":\"family:fam_th6z\",\"deltas\":[{\"balanceDelta\":-1,\"creditCost\":1,\"entityKey\":null,\"id\":\"ce_1\",\"table\":\"customerEntitlements\",\"usageDelta\":0,\"valueDelta\":-1}],\"entity_id\":null,\"env\":\"live\",\"expires_at\":1788393780000,\"expiry_action\":\"confirm\",\"feature_id\":\"visit\",\"id\":\"lock_bk_nnv23g\",\"internal_customer_id\":\"cus_fam_th6z\",\"lock_id\":\"bk_nnv23g\",\"org_id\":\"sch_vol\",\"overage_behavior\":\"reject\",\"properties\":null}}"
+        }
+      ],
+      "resultChanged": true
+    },
+    {
+      "key": "family:fam_th6z",
+      "commandId": "cmd_043",
+      "command": "track",
+      "at": "2026-09-20T00:03:00Z",
+      "eventIds": [
+        "01M2Y1Z3S00002Q4R8SVP1R6A1"
+      ],
+      "removed": [
+        {
+          "table": "customerEntitlements",
+          "op": "increment",
+          "id": "ce_1",
+          "detail": "{\"add\":{\"balance\":-1}}"
+        },
+        {
+          "table": "locks",
+          "op": "insert",
+          "id": "lock_bk_dkokh7",
+          "detail": "{\"row\":{\"created_at\":1789862580000,\"customer_id\":\"family:fam_th6z\",\"deltas\":[{\"balanceDelta\":-1,\"creditCost\":1,\"entityKey\":null,\"id\":\"ce_1\",\"table\":\"customerEntitlements\",\"usageDelta\":0,\"valueDelta\":-1}],\"entity_id\":null,\"env\":\"live\",\"expires_at\":1790136180000,\"expiry_action\":\"confirm\",\"feature_id\":\"visit\",\"id\":\"lock_bk_dkokh7\",\"internal_customer_id\":\"cus_fam_th6z\",\"lock_id\":\"bk_dkokh7\",\"org_id\":\"sch_vol\",\"overage_behavior\":\"reject\",\"properties\":null}}"
+        }
+      ],
+      "added": [
+        {
+          "table": "customerEntitlements",
+          "op": "increment",
+          "id": "ce_gift_2",
+          "detail": "{\"add\":{\"balance\":-1}}"
+        },
+        {
+          "table": "locks",
+          "op": "insert",
+          "id": "lock_bk_dkokh7",
+          "detail": "{\"row\":{\"created_at\":1789862580000,\"customer_id\":\"family:fam_th6z\",\"deltas\":[{\"balanceDelta\":-1,\"creditCost\":1,\"entityKey\":null,\"id\":\"ce_gift_2\",\"table\":\"customerEntitlements\",\"usageDelta\":0,\"valueDelta\":-1}],\"entity_id\":null,\"env\":\"live\",\"expires_at\":1790136180000,\"expiry_action\":\"confirm\",\"feature_id\":\"visit\",\"id\":\"lock_bk_dkokh7\",\"internal_customer_id\":\"cus_fam_th6z\",\"lock_id\":\"bk_dkokh7\",\"org_id\":\"sch_vol\",\"overage_behavior\":\"reject\",\"properties\":null}}"
+        }
+      ],
+      "resultChanged": true
+    },
+    {
+      "key": "family:fam_th6z",
+      "commandId": "cmd_045",
+      "command": "reset",
+      "at": "2026-10-17T16:03:20Z",
+      "eventIds": [
+        "01M559MYA00002T56C57H0Y16Y"
+      ],
+      "removed": [
+        {
+          "table": "customerEntitlements",
+          "op": "update",
+          "id": "ce_1",
+          "detail": "{\"after\":{\"additional_balance\":0,\"adjustment\":0,\"balance\":1,\"next_reset_at\":1794931380000,\"usage_attribution\":{}},\"before\":{\"additional_balance\":0,\"adjustment\":0,\"balance\":0,\"next_reset_at\":1792252980000}}"
+        }
+      ],
+      "added": [
+        {
+          "table": "customerEntitlements",
+          "op": "update",
+          "id": "ce_1",
+          "detail": "{\"after\":{\"additional_balance\":0,\"adjustment\":0,\"balance\":1,\"next_reset_at\":1794931380000,\"usage_attribution\":{}},\"before\":{\"additional_balance\":0,\"adjustment\":0,\"balance\":1,\"next_reset_at\":1792252980000}}"
+        },
+        {
+          "table": "rollovers",
+          "op": "insert",
+          "id": "roll_cmd_045_1",
+          "detail": "{\"row\":{\"balance\":1,\"cus_ent_id\":\"ce_1\",\"entities\":{},\"expires_at\":1794931380000,\"id\":\"roll_cmd_045_1\",\"usage\":0}}"
+        },
+        {
+          "table": "rollovers",
+          "op": "delete",
+          "id": "roll_cmd_035_1",
+          "detail": "{}"
+        }
+      ],
+      "resultChanged": false
+    },
+    {
+      "key": "family:fam_th6z",
+      "commandId": "cmd_046",
+      "command": "updateBalance",
+      "at": "2026-10-18T16:04:00Z",
+      "eventIds": [
+        "01M57W2WC00002WJN93CW4RK60"
+      ],
+      "removed": [
+        {
+          "table": "customerEntitlements",
+          "op": "increment",
+          "id": "ce_1",
+          "detail": "{\"add\":{\"balance\":-1}}"
+        }
+      ],
+      "added": [
+        {
+          "table": "rollovers",
+          "op": "increment",
+          "id": "roll_cmd_045_1",
+          "detail": "{\"add\":{\"balance\":-1,\"usage\":1}}"
+        }
+      ],
+      "resultChanged": true
+    },
+    {
+      "key": "family:fam_th6z",
+      "commandId": "cmd_047",
+      "command": "reset",
+      "at": "2026-11-17T16:03:22Z",
+      "eventIds": [
+        "01M7N3Z98G0002ZHKYMZCXMRRJ"
+      ],
+      "removed": [
+        {
+          "table": "customerEntitlements",
+          "op": "update",
+          "id": "ce_1",
+          "detail": "{\"after\":{\"additional_balance\":0,\"adjustment\":0,\"balance\":1,\"next_reset_at\":1797523380000,\"usage_attribution\":{}},\"before\":{\"additional_balance\":0,\"adjustment\":0,\"balance\":0,\"next_reset_at\":1794931380000}}"
+        }
+      ],
+      "added": [
+        {
+          "table": "customerEntitlements",
+          "op": "update",
+          "id": "ce_1",
+          "detail": "{\"after\":{\"additional_balance\":0,\"adjustment\":0,\"balance\":1,\"next_reset_at\":1797523380000,\"usage_attribution\":{}},\"before\":{\"additional_balance\":0,\"adjustment\":0,\"balance\":1,\"next_reset_at\":1794931380000}}"
+        },
+        {
+          "table": "rollovers",
+          "op": "insert",
+          "id": "roll_cmd_047_1",
+          "detail": "{\"row\":{\"balance\":1,\"cus_ent_id\":\"ce_1\",\"entities\":{},\"expires_at\":1797523380000,\"id\":\"roll_cmd_047_1\",\"usage\":0}}"
+        },
+        {
+          "table": "rollovers",
+          "op": "delete",
+          "id": "roll_cmd_045_1",
+          "detail": "{}"
+        }
+      ],
+      "resultChanged": false
+    },
+    {
+      "key": "family:fam_th6z",
+      "commandId": "cmd_048",
+      "command": "track",
+      "at": "2026-11-20T19:03:00Z",
+      "eventIds": [
+        "01M7X5EBN000031FXGQWSKW2A7"
+      ],
+      "removed": [
+        {
+          "table": "customerEntitlements",
+          "op": "increment",
+          "id": "ce_1",
+          "detail": "{\"add\":{\"balance\":-1}}"
+        },
+        {
+          "table": "locks",
+          "op": "insert",
+          "id": "lock_bk_5dhd5w",
+          "detail": "{\"row\":{\"created_at\":1795201380000,\"customer_id\":\"family:fam_th6z\",\"deltas\":[{\"balanceDelta\":-1,\"creditCost\":1,\"entityKey\":null,\"id\":\"ce_1\",\"table\":\"customerEntitlements\",\"usageDelta\":0,\"valueDelta\":-1}],\"entity_id\":null,\"env\":\"live\",\"expires_at\":1795482180000,\"expiry_action\":\"confirm\",\"feature_id\":\"visit\",\"id\":\"lock_bk_5dhd5w\",\"internal_customer_id\":\"cus_fam_th6z\",\"lock_id\":\"bk_5dhd5w\",\"org_id\":\"sch_vol\",\"overage_behavior\":\"reject\",\"properties\":null}}"
+        }
+      ],
+      "added": [
+        {
+          "table": "rollovers",
+          "op": "increment",
+          "id": "roll_cmd_047_1",
+          "detail": "{\"add\":{\"balance\":-1,\"usage\":1}}"
+        },
+        {
+          "table": "locks",
+          "op": "insert",
+          "id": "lock_bk_5dhd5w",
+          "detail": "{\"row\":{\"created_at\":1795201380000,\"customer_id\":\"family:fam_th6z\",\"deltas\":[{\"balanceDelta\":-1,\"creditCost\":1,\"entityKey\":null,\"id\":\"roll_cmd_047_1\",\"table\":\"rollovers\",\"usageDelta\":1,\"valueDelta\":-1}],\"entity_id\":null,\"env\":\"live\",\"expires_at\":1795482180000,\"expiry_action\":\"confirm\",\"feature_id\":\"visit\",\"id\":\"lock_bk_5dhd5w\",\"internal_customer_id\":\"cus_fam_th6z\",\"lock_id\":\"bk_5dhd5w\",\"org_id\":\"sch_vol\",\"overage_behavior\":\"reject\",\"properties\":null}}"
+        }
+      ],
+      "resultChanged": true
+    },
+    {
+      "key": "family:fam_th6z",
+      "commandId": "cmd_051",
+      "command": "reset",
+      "at": "2026-12-17T16:03:18Z",
+      "eventIds": [
+        "01MA2BWQBG00037E3MME8Y2BFQ"
+      ],
+      "removed": [
+        {
+          "table": "customerEntitlements",
+          "op": "update",
+          "id": "ce_1",
+          "detail": "{\"after\":{\"additional_balance\":0,\"adjustment\":0,\"balance\":1,\"next_reset_at\":1800201780000,\"usage_attribution\":{}},\"before\":{\"additional_balance\":0,\"adjustment\":0,\"balance\":1,\"next_reset_at\":1797523380000}}"
+        },
+        {
+          "table": "rollovers",
+          "op": "delete",
+          "id": "roll_cmd_035_1",
+          "detail": "{}"
+        }
+      ],
+      "added": [
+        {
+          "table": "customerEntitlements",
+          "op": "update",
+          "id": "ce_1",
+          "detail": "{\"after\":{\"additional_balance\":0,\"adjustment\":0,\"balance\":1,\"next_reset_at\":1800201780000,\"usage_attribution\":{}},\"before\":{\"additional_balance\":0,\"adjustment\":0,\"balance\":2,\"next_reset_at\":1797523380000}}"
+        },
+        {
+          "table": "rollovers",
+          "op": "delete",
+          "id": "roll_cmd_047_1",
+          "detail": "{}"
+        }
+      ],
+      "resultChanged": false
+    }
+  ],
+  "refused": [],
+  "unaffected": {
+    "events": 24,
+    "byType": {
+      "payment.succeeded": 12,
+      "payout.paid": 11,
+      "payment.refunded": 1
+    }
+  },
+  "differences": 12,
+  "asOf": "2026-12-28T17:00:00Z",
+  "summary": "simulate: 81 events replayed against the candidate, balances as of 2026-12-28T17:00:00Z; 12 differences\nbalances that differ: none\nposting totals that differ: 4\n  2026-09 credits:avail:family:fam_th6z:visit VISIT: -1 -> 0\n  2026-09 credits:expired VISIT: 1 -> 0\n  2026-12 credits:avail:family:fam_th6z:visit VISIT: -1 -> -2\n  2026-12 credits:expired VISIT: 0 -> 1\ncommands decided differently: 8\n  2026-08-24T17:03:00Z track cmd_038: not made customerEntitlements ce_1 increment {\"add\":{\"balance\":-1}}, locks lock_bk_mp4aad insert; made instead customerEntitlements ce_gift_1 increment {\"add\":{\"balance\":-1}}, locks lock_bk_mp4aad insert; the engine's answer differs\n  2026-08-30T18:03:00Z track cmd_040: not made customerEntitlements ce_gift_1 increment {\"add\":{\"balance\":-1}}, locks lock_bk_nnv23g insert; made instead customerEntitlements ce_1 increment {\"add\":{\"balance\":-1}}, locks lock_bk_nnv23g insert; the engine's answer differs\n  2026-09-20T00:03:00Z track cmd_043: not made customerEntitlements ce_1 increment {\"add\":{\"balance\":-1}}, locks lock_bk_dkokh7 insert; made instead customerEntitlements ce_gift_2 increment {\"add\":{\"balance\":-1}}, locks lock_bk_dkokh7 insert; the engine's answer differs\n  2026-10-17T16:03:20Z reset cmd_045: not made customerEntitlements ce_1 update; made instead customerEntitlements ce_1 update, rollovers roll_cmd_045_1 insert, rollovers roll_cmd_035_1 delete\n  2026-10-18T16:04:00Z updateBalance cmd_046: not made customerEntitlements ce_1 increment {\"add\":{\"balance\":-1}}; made instead rollovers roll_cmd_045_1 increment {\"add\":{\"balance\":-1,\"usage\":1}}; the engine's answer differs\n  2026-11-17T16:03:22Z reset cmd_047: not made customerEntitlements ce_1 update; made instead customerEntitlements ce_1 update, rollovers roll_cmd_047_1 insert, rollovers roll_cmd_045_1 delete\n  2026-11-20T19:03:00Z track cmd_048: not made customerEntitlements ce_1 increment {\"add\":{\"balance\":-1}}, locks lock_bk_5dhd5w insert; made instead rollovers roll_cmd_047_1 increment {\"add\":{\"balance\":-1,\"usage\":1}}, locks lock_bk_5dhd5w insert; the engine's answer differs\n  2026-12-17T16:03:18Z reset cmd_051: not made customerEntitlements ce_1 update, rollovers roll_cmd_035_1 delete; made instead customerEntitlements ce_1 update, rollovers roll_cmd_047_1 delete\ncommands the candidate refuses: none\nunaffected: 24 events no command made, carried over as they are (payment.refunded 1, payment.succeeded 12, payout.paid 11); a replay re-decides credits only and cannot change what Stripe charged"
+}

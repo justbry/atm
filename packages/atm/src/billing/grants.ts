@@ -676,6 +676,78 @@ export const invoiceHolder = (
 ): { orgId: string; customerId: string } =>
 	identityFrom(invoice, EMPTY_GRANTS_STATE);
 
+/** A line that pays for units: a paused add-on or a tier at quantity 0 grants nothing, and an unmatched line is skipped. */
+const grantableLines = (invoice: BillingInvoice): InvoiceLine[] =>
+	invoice.lines.filter((l) => l.kind !== "unknown" && l.quantity >= 1);
+
+/** Once the subscription has ended nothing more is granted for it, whatever invoice still arrives. */
+const isLive = (invoice: BillingInvoice, state: GrantsState): boolean =>
+	state.endedAt === null || invoice.subscriptionId !== state.subscriptionId;
+
+/** The tier's own plain (non-proration) line: the one that creates or renews the plan. */
+const isPlainTierLine = (l: InvoiceLine): boolean =>
+	l.kind === "tier" && !l.proration && Boolean(l.tierId) && Boolean(l.interval);
+
+/**
+ * The paid recurring add-on lines of an invoice that `invoiceToCommands` would not grant, with why: an invoice with no
+ * tier line whose add-on is not on the holder's own tier subscription. A recurring add-on is attached only from that
+ * subscription's own create or renewal invoice (which carry the tier line) or its mid-cycle `subscription_update`
+ * invoice; an invoice for a subscription that holds only an add-on reaches none of these, and the membership follows one
+ * subscription, so cancelling it would never retire the add-on's rows either. Empty when nothing is lost: an invoice
+ * with a tier line, one-time add-ons and gifts, lines of no amount (a paused or removed add-on, a negative proration
+ * line), and an invoice of a subscription that has ended (nothing more is granted for it, whatever arrives).
+ * Pure; the webhook path refuses an invoice with a non-empty answer, before `invoiceToCommands` records it as decided.
+ */
+export const ungrantedRecurringAddons = ({
+	invoice,
+	state,
+}: {
+	invoice: BillingInvoice;
+	state: GrantsState;
+}): { lines: InvoiceLine[]; why: string; fix: string } => {
+	const none = { lines: [], why: "", fix: "" };
+	if (!isLive(invoice, state)) return none;
+	const lines = grantableLines(invoice);
+	if (lines.some(isPlainTierLine)) return none;
+	const isUpdate = invoice.reason === "subscription_update";
+	// What `invoiceToCommands` would attach, by the same lines: a mid-cycle purchase may be a proration line, any other
+	// invoice attaches only its plain recurring lines.
+	const paid = lines.filter(
+		(l) =>
+			l.kind === "addon" &&
+			l.addonId &&
+			l.interval &&
+			l.amount > 0 &&
+			(isUpdate || !l.proration),
+	);
+	if (paid.length === 0) return none;
+	const own =
+		state.subscriptionId !== null &&
+		invoice.subscriptionId === state.subscriptionId;
+	if (own && state.tierId && isUpdate) return none;
+	// Re-sending this very invoice helps only when the holder's state is what is missing (their tier invoice has not been
+	// handled yet). When the invoice itself is the wrong shape, it is refused again whatever the Stripe side now looks like.
+	if (state.tierId === null)
+		return {
+			lines: paid,
+			why: "this member has no tier subscription yet",
+			fix: "Re-send this event once the member's tier subscription invoice is handled; if the add-on is on a separate subscription, put it on the member's tier subscription instead (it is granted from that subscription's next invoice)",
+		};
+	const fix =
+		"Put the add-on on the member's tier subscription in Stripe and cancel this one (the add-on is granted from the tier subscription's next invoice; re-sending this event gives the same refusal, so refund it if the member should not keep it)";
+	if (!own)
+		return {
+			lines: paid,
+			why: `this member's tier subscription is ${state.subscriptionId}`,
+			fix,
+		};
+	return {
+		lines: paid,
+		why: `it is this member's tier subscription ${state.subscriptionId}, but this invoice (${invoice.reason}) carries no tier line`,
+		fix,
+	};
+};
+
 /**
  * The engine commands one paid invoice calls for, in order, and the state after them.
  *
@@ -717,17 +789,9 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 		removed: false,
 	};
 	// A line that pays for no units (a paused add-on, a tier at quantity 0) grants nothing, and is not coerced to one unit.
-	const lines = invoice.lines.filter(
-		(l: InvoiceLine) => l.kind !== "unknown" && l.quantity >= 1,
-	);
-	// Once the subscription has ended nothing more is granted for it, whatever invoice still arrives.
-	const live =
-		state.endedAt === null || invoice.subscriptionId !== state.subscriptionId;
-	const tierLine = live
-		? lines.find(
-				(l) => l.kind === "tier" && !l.proration && l.tierId && l.interval,
-			)
-		: undefined;
+	const lines = grantableLines(invoice);
+	const live = isLive(invoice, state);
+	const tierLine = live ? lines.find(isPlainTierLine) : undefined;
 	// The raise is the positive proration line that starts LAST: a decrease made with create_prorations leaves an older
 	// pair pending, and it rides on whichever invoice comes next (a later raise, an add-on purchase, a renewal).
 	const isTierLine = (l: InvoiceLine) =>

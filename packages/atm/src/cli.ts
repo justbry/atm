@@ -1,11 +1,15 @@
 import { Database } from "bun:sqlite";
 import { readFile, stat } from "node:fs/promises";
+import { basename } from "node:path";
 import type { WorkerFullSubject } from "@autumn/balance-engine";
 import { Command } from "commander";
 import packageJson from "../package.json";
+import { validateMenu } from "./billing/menu.js";
+import { resolvePolicy } from "./billing/policy.js";
+import type { BillingPolicy, Menu } from "./billing/types.js";
 import { engineCommandTypes, runEngineCommand } from "./engine.js";
 import { bunSqlite } from "./handler/bun-sqlite.js";
-import { journalMonth } from "./ledger/files.js";
+import { journalMonth, readEvents } from "./ledger/files.js";
 import { ReconcileInputError } from "./ledger/reconcile.js";
 import {
 	formatReconcile,
@@ -20,8 +24,10 @@ import {
 	reportMonth,
 } from "./ledger/report.js";
 import { shipOutbox } from "./ledger/ship.js";
+import { simulate } from "./ledger/simulate.js";
 import { outboxStatus } from "./ledger/status.js";
 import { FolderStore } from "./store/folder-store.js";
+import type { AtmCatalogRow } from "./types.js";
 
 /** How long `atm ship` waits for the handler's write lock on a busy database. */
 const BUSY_TIMEOUT_MS = 5000;
@@ -376,3 +382,153 @@ program
 			}
 		},
 	);
+
+type SimulateOptions = {
+	root: string;
+	school: string;
+	month?: string;
+	menu?: string;
+	catalog?: string;
+	policy?: string;
+	currentMenu?: string;
+	currentCatalog?: string;
+	json?: boolean;
+};
+
+const readInputFile = async (flag: string, path: string): Promise<unknown> => {
+	try {
+		return JSON.parse(await readFile(path, "utf8"));
+	} catch (error) {
+		throw new InputError(
+			`${flag} ${path} cannot be read as JSON: ${oneLine(error)}`,
+		);
+	}
+};
+
+const menuFrom = async (flag: string, path: string): Promise<Menu> => {
+	const checked = validateMenu(await readInputFile(flag, path));
+	if (!checked.ok)
+		throw new InputError(
+			`${flag} ${path} is not a valid menu: ${checked.problems.join(", ")}`,
+		);
+	return checked.menu;
+};
+
+const catalogFrom = async (
+	flag: string,
+	path: string,
+): Promise<AtmCatalogRow[]> => {
+	const rows = await readInputFile(flag, path);
+	const isRow = (row: unknown) =>
+		typeof row === "object" &&
+		row !== null &&
+		typeof (row as { table?: unknown }).table === "string" &&
+		typeof (row as { row?: unknown }).row === "object" &&
+		(row as { row?: unknown }).row !== null;
+	if (!Array.isArray(rows) || !rows.every(isRow))
+		throw new InputError(
+			`${flag} ${path} is not a list of catalog rows ({table, row}), as menuCatalogRows makes`,
+		);
+	return rows as AtmCatalogRow[];
+};
+
+const policyFrom = async (path: string): Promise<BillingPolicy> => {
+	const overrides = await readInputFile("--policy", path);
+	try {
+		return resolvePolicy(overrides);
+	} catch (error) {
+		throw new InputError(`--policy ${path}: ${oneLine(error)}`);
+	}
+};
+
+const SIMULATE_MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+const runSimulate = async (opts: SimulateOptions): Promise<void> => {
+	// `--school ..` or `a/../b` would read some other folder's events as the school's (as `atm reconcile` refuses).
+	if (
+		opts.school === "" ||
+		opts.school === "." ||
+		opts.school === ".." ||
+		basename(opts.school) !== opts.school
+	)
+		throw new InputError(
+			`--school ${JSON.stringify(opts.school)} must be one folder name under schools/`,
+		);
+	if (opts.menu && opts.catalog)
+		throw new InputError("give --menu or --catalog, not both");
+	if (opts.currentMenu && opts.currentCatalog)
+		throw new InputError("give --current-menu or --current-catalog, not both");
+	if (!(opts.menu || opts.catalog || opts.policy))
+		throw new InputError(
+			"give at least one of --menu, --catalog and --policy to try",
+		);
+	if (!(opts.currentMenu || opts.currentCatalog))
+		throw new InputError(
+			"give --current-menu or --current-catalog: the menu (or catalog rows) the log was written under",
+		);
+	if (opts.month !== undefined && !SIMULATE_MONTH.test(opts.month))
+		throw new InputError(`--month ${opts.month} is not YYYY-MM`);
+	const candidate = {
+		menu: opts.menu ? await menuFrom("--menu", opts.menu) : undefined,
+		catalog: opts.catalog
+			? await catalogFrom("--catalog", opts.catalog)
+			: undefined,
+		policy: opts.policy ? await policyFrom(opts.policy) : undefined,
+	};
+	const currentMenu = opts.currentMenu
+		? await menuFrom("--current-menu", opts.currentMenu)
+		: undefined;
+	const currentCatalog = opts.currentCatalog
+		? await catalogFrom("--current-catalog", opts.currentCatalog)
+		: undefined;
+	const { events } = await readEvents(opts.root, opts.school);
+	if (events.length === 0)
+		throw new InputError(
+			`no events under ${opts.root}/schools/${opts.school}/events`,
+		);
+	const { events: _candidateEvents, ...result } = simulate({
+		events,
+		menu: currentMenu,
+		catalog: currentCatalog,
+		school: opts.school,
+		candidate,
+		month: opts.month,
+	});
+	if (opts.json) writeJson({ ok: true, school: opts.school, ...result });
+	else process.stdout.write(`${result.summary}\n`);
+	if (result.differences > 0) process.exitCode = EXIT_CONFLICT;
+};
+
+const simulateCommand = program
+	.command("simulate")
+	.description(
+		"a what-if: replay a school's event log against a candidate menu or policy and diff balances, posting totals (by month and account) and the commands' decisions against the log; writes nothing. It re-decides credits only: it cannot change what Stripe charged, and the grant rules (upgrade grants, amounts from invoices) are not in the log's commands. Needs the menu or catalog rows the log was written under. Exits 0 with no differences, 1 with differences, 2 for input it cannot use (one line on stderr)",
+	)
+	.requiredOption("--root <folder>", "the folder that holds schools/<id>/")
+	.requiredOption("--school <id>", "school id, as in schools/<id>/")
+	.option("--menu <file>", "the candidate menu (menu.v1 JSON)")
+	.option(
+		"--catalog <file>",
+		"the candidate catalog rows (JSON list of {table, row}, as menuCatalogRows makes), instead of --menu",
+	)
+	.option(
+		"--policy <file>",
+		"the candidate policy (policy.v1 JSON, over the defaults); its deductionOrder sets the draw order of every command that carries an org",
+	)
+	.option("--current-menu <file>", "the menu the log was written under")
+	.option(
+		"--current-catalog <file>",
+		"the catalog rows the log was written under, instead of --current-menu",
+	)
+	.option(
+		"--month <YYYY-MM>",
+		"report only this month's posting totals and commands (balances stay as of the last event)",
+	)
+	.option(
+		"--json",
+		"print one JSON line ({ok, school, balances, balanceChanges, postingChanges, transactions, changed, refused, unaffected, differences, asOf, summary}) instead of the summary",
+	)
+	.action((opts: SimulateOptions) =>
+		unattended("simulate", opts.json === true, () => runSimulate(opts)),
+	);
+exitTwoOnUsageError(simulateCommand);

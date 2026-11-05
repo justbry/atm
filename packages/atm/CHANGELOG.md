@@ -31,6 +31,8 @@ Everything on `dev` after the `atm-v0.5.0` tag (`0152d7a1c`).
 | #58 | | next release, not released | `lapseAlertEvents` calls `drawnAfter` once per lapse instant (with `I - 1`) and adds it to both totals, so a draw at exactly the lapse instant is no longer counted on one side only; its meaning is documented |
 | #51 | `5f0a5aad8` | next release, not released | the 0.6.0 release commit: `package.json` 0.6.0 and the upgrade notes (`UPGRADING.md`, "Moving to 0.6.0 from 0.5.0") |
 
+- **A recurring add-on paid on its own subscription is refused, not recorded with no credits** (branch `claude/atm-refuse-addon-only`, not merged yet, so no PR number or merge commit; add its row to the table above when it merges). The handler answers 422 `refused` with the new reason `addon_only_subscription` for a paid invoice with a recurring add-on line and no tier line, when the subscription is not the holder's own tier subscription (or the holder has none), and writes nothing. Before it, the sandbox spike of 2026-11-05 was answered 200 `applied` with no credits. What a caller does: `UPGRADING.md`, "Moving to 0.6.0 from 0.5.0".
+
 ### Built, with the detail
 
 The text of the built items for #39 and #41 to #49, as the roadmap held it. The open to-dos that sat under them are in `ROADMAP.md` (one line each) and in `docs/log-and-r2.md` and `docs/financial-reports.md` (full text).

@@ -10,6 +10,7 @@ import {
 	stateFromRows,
 } from "../src/billing/rows.js";
 import {
+	addonPriceKey,
 	lookupKeyOf,
 	menuLineItems,
 	tierPriceKey,
@@ -912,6 +913,100 @@ describe("handleStripeWebhook", () => {
 		h.clock.now += MINUTE;
 		h.deliver({ ...create(), id: "evt_create_again" });
 		expect(h.count("atm_invoice_index")).toBe(1);
+	});
+});
+
+describe("an invoice that pays for a recurring add-on on its own subscription is 422 addon_only_subscription", () => {
+	const glowKey = () =>
+		lookupKeyOf(SCHOOL, addonPriceKey("glow", "month"), 5000, menu.currency);
+	/** The spike: the family's second subscription holds only Glow. */
+	const addonOnly = (invoiceId = "in_glow"): RawEvent =>
+		invoicePaid({
+			eventId: `evt_${invoiceId}`,
+			invoiceId,
+			at: T0 + 3 * MINUTE,
+			subscriptionId: "sub_glow",
+			reason: "subscription_create",
+			periodStart: T0,
+			periodEnd: T1,
+			lines: [{ lookupKey: glowKey(), amount: 5000, interval: "month" }],
+			metadata,
+		});
+
+	test("422 with the new reason, nothing written, claim released; its follow-on events are the retryable 409s", () => {
+		const h = harness();
+		expect(h.deliver(create()).body.outcome).toBe("applied");
+		const rows = h.rows();
+		const revision = h.revision();
+		const outbox = h.outbox().length;
+		const invoices = h.count("atm_invoice_index");
+
+		const response = h.deliver(addonOnly());
+		expect(response.status).toBe(422);
+		expect(response.body).toMatchObject({
+			outcome: "refused",
+			reason: "addon_only_subscription",
+			stripeEventId: "evt_in_glow",
+		});
+		expect(response.body.message).toContain("in_glow");
+		expect(response.body.message).toContain("sub_glow");
+		expect(response.body.message).toContain("glow");
+		expect(h.claim("evt_in_glow")).toBeNull();
+		expect(h.rows()).toEqual(rows);
+		expect(h.revision()).toBe(revision);
+		expect(h.outbox()).toHaveLength(outbox);
+		expect(h.count("atm_invoice_index")).toBe(invoices);
+
+		// Stripe's payment event for it has no invoice to link to, and a refund of it no payment: both retried, neither claimed.
+		const payment = h.deliver(link("in_glow"));
+		expect(payment.status).toBe(409);
+		expect(payment.body.outcome).toBe("unmatched_invoice");
+		expect(h.claim("evt_pay_in_glow")).toBeNull();
+		const refunded = h.deliver(refund("in_glow"));
+		expect(refunded.status).toBe(409);
+		expect(refunded.body.outcome).toBe("unmatched_payment");
+		expect(h.count("atm_payment_index")).toBe(0);
+	});
+
+	test("a re-send after the cause is fixed applies: the add-on's update invoice that came before the tier's create invoice", () => {
+		const h = harness();
+		const update = (): RawEvent =>
+			invoicePaid({
+				eventId: "evt_glow_update",
+				invoiceId: "in_glow_update",
+				at: T0 + 3 * MINUTE,
+				subscriptionId: "sub_1",
+				reason: "subscription_update",
+				periodStart: T0,
+				periodEnd: T1,
+				lines: [
+					{
+						lookupKey: glowKey(),
+						amount: 2800,
+						interval: "month",
+						proration: true,
+						periodStart: T0 + 3 * MINUTE,
+						periodEnd: T1,
+					},
+				],
+				metadata,
+			});
+		const early = h.deliver(update());
+		expect(early.status).toBe(422);
+		expect(early.body).toMatchObject({
+			outcome: "refused",
+			reason: "addon_only_subscription",
+		});
+		nothingWritten(h);
+		expect(h.claim("evt_glow_update")).toBeNull();
+
+		expect(h.deliver(create()).body.outcome).toBe("applied");
+		const resent = h.deliver(update());
+		expect(resent.status).toBe(200);
+		expect(resent.body.outcome).toBe("applied");
+		expect(h.claim("evt_glow_update")).toMatchObject({ state: "done" });
+		// Glow is attached: its credits are in the books (the tier gives 2 visits, Glow 1).
+		expect(availOf(h, T0 + 5 * MINUTE)).toBe(3);
 	});
 });
 
