@@ -749,6 +749,35 @@ export const ungrantedRecurringAddons = ({
 };
 
 /**
+ * The tier lines of a cycle or update invoice that belong to another subscription than the holder's own: the membership
+ * (the tier, its quantity and its rows) follows ONE subscription, `state.subscriptionId`, so a renewal or a plan change
+ * of a second subscription of the same school and family must not refill, move or raise the first one's credits. Empty
+ * when the invoice is the holder's own subscription's, when the holder has no subscription yet (the first tier invoice
+ * names it), or for an invoice that is not a cycle or an update (a create invoice of another subscription meets the
+ * engine's own state check, and a manual invoice has no subscription). Pure; the webhook path refuses an invoice with a
+ * non-empty answer, before `invoiceToCommands` records it as decided.
+ */
+export const tierLinesOfOtherSubscription = ({
+	invoice,
+	state,
+}: {
+	invoice: BillingInvoice;
+	state: GrantsState;
+}): InvoiceLine[] => {
+	if (state.subscriptionId === null || invoice.subscriptionId === null)
+		return [];
+	if (invoice.subscriptionId === state.subscriptionId) return [];
+	if (
+		invoice.reason !== "subscription_cycle" &&
+		invoice.reason !== "subscription_update"
+	)
+		return [];
+	return grantableLines(invoice).filter(
+		(l) => l.kind === "tier" && Boolean(l.tierId) && Boolean(l.interval),
+	);
+};
+
+/**
  * The engine commands one paid invoice calls for, in order, and the state after them.
  *
  * A tier's grants are per unit: its tier line's `quantity` (Stripe's) multiplies every one, and `state.quantity` keeps
