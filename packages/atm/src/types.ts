@@ -818,6 +818,8 @@ export type StripeEventRefusal = {
 		| "bad_event"
 		| "missing_metadata"
 		| "unmatched_line"
+		| "unmatched_invoice"
+		| "unknown_subscription"
 		| "rejected";
 	message: string;
 };

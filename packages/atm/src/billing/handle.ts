@@ -66,7 +66,8 @@ const refuse = (
 	refused: { reason, message },
 });
 
-const NOTHING: StripeEventResult = { rowChanges: null, events: [] };
+/** A fresh result each time: a caller that pushes onto `events` must not change the next one. */
+const nothing = (): StripeEventResult => ({ rowChanges: null, events: [] });
 
 /** What the grant rules decide for a normalized fact, or why not. */
 type Decision =
@@ -79,9 +80,11 @@ const BILLING_LINE_PREFIX = "b4u_";
 const resolve = (
 	invoice: BillingInvoice,
 	input: StripeEventInput,
+	holder: { orgId: string } | null,
 ): { ok: true; invoice: BillingInvoice } | { ok: false; message: string } => {
-	const schoolId = invoice.metadata.b4u_school;
-	if (!schoolId || !invoice.metadata.family_id)
+	// Once the holder is known (an earlier invoice named it) the checkout metadata is not needed again.
+	const schoolId = invoice.metadata.b4u_school ?? holder?.orgId;
+	if (!schoolId || (!holder && !invoice.metadata.family_id))
 		return {
 			ok: false,
 			message: `invoice ${invoice.id} has no b4u_school/family_id metadata to name the holder`,
@@ -110,6 +113,7 @@ const resolve = (
 type Rules = {
 	input: StripeEventInput;
 	grants: GrantsState;
+	holder: { orgId: string; customerId: string } | null;
 	subject: ReturnType<typeof subjectFromRows> | null;
 };
 
@@ -128,10 +132,27 @@ const withInvoiceId = <T extends BillingRefund | BillingDispute>(
 	return { ...fact, invoiceId };
 };
 
+/**
+ * A refund or dispute that takes credits back (policy on, fully refunded or lost) but names no invoice we have handled:
+ * silence would leave the credits, so it is refused and kept for a retry once the invoice is known.
+ */
+const unlinkedInvoice = (
+	fact: BillingRefund | BillingDispute,
+	takesCreditsBack: boolean,
+	grants: GrantsState,
+): StripeEventResult | null => {
+	if (!takesCreditsBack) return null;
+	if (fact.invoiceId && grants.invoices[fact.invoiceId]) return null;
+	return refuse(
+		"unmatched_invoice",
+		`${fact.id} (charge ${fact.chargeId}, payment intent ${fact.paymentIntentId ?? "none"}) names no invoice this holder has been paid: pass invoiceIds, or retry once the invoice is handled`,
+	);
+};
+
 const decide = (
 	target: string,
 	fact: unknown,
-	{ input, grants, subject }: Rules,
+	{ input, grants, holder, subject }: Rules,
 ): Decision | null => {
 	const common = {
 		menu: input.menu,
@@ -144,7 +165,9 @@ const decide = (
 	};
 	switch (target) {
 		case "BillingInvoice": {
-			const resolved = resolve(fact as BillingInvoice, input);
+			// A paid invoice is decided once: its replay is nothing, whatever the menu looks like now.
+			if (grants.invoices[(fact as BillingInvoice).id]) return null;
+			const resolved = resolve(fact as BillingInvoice, input, holder);
 			if (!resolved.ok)
 				return {
 					ok: false,
@@ -161,33 +184,51 @@ const decide = (
 				reason: "invoice",
 			};
 		}
-		case "BillingRefund":
+		case "BillingRefund": {
+			const refund = withInvoiceId(fact as BillingRefund, input);
+			const unlinked = unlinkedInvoice(
+				refund,
+				refund.full && input.policy.removeOnFullRefund,
+				grants,
+			);
+			if (unlinked) return { ok: false, refusal: unlinked };
 			return {
 				ok: true,
-				result: refundToCommands({
-					...common,
-					refund: withInvoiceId(fact as BillingRefund, input),
-				}),
+				result: refundToCommands({ ...common, refund }),
 				reason: "refund",
 			};
-		case "BillingDispute":
+		}
+		case "BillingDispute": {
+			const dispute = withInvoiceId(fact as BillingDispute, input);
+			const unlinked = unlinkedInvoice(
+				dispute,
+				dispute.status === "lost" && input.policy.removeOnLostDispute,
+				grants,
+			);
+			if (unlinked) return { ok: false, refusal: unlinked };
 			return {
 				ok: true,
-				result: disputeToCommands({
-					...common,
-					dispute: withInvoiceId(fact as BillingDispute, input),
-				}),
+				result: disputeToCommands({ ...common, dispute }),
 				reason: "dispute lost",
 			};
-		case "SubscriptionFact":
+		}
+		case "SubscriptionFact": {
+			const subscription = fact as SubscriptionFact;
+			// A cancel that arrives before any invoice of the family: keep it and retry once the subscription is known.
+			if (subscription.status === "canceled" && grants.subscriptionId === null)
+				return {
+					ok: false,
+					refusal: refuse(
+						"unknown_subscription",
+						`subscription ${subscription.id} ended before any invoice of this holder was handled`,
+					),
+				};
 			return {
 				ok: true,
-				result: subscriptionEndedToCommands({
-					...common,
-					subscription: fact as SubscriptionFact,
-				}),
+				result: subscriptionEndedToCommands({ ...common, subscription }),
 				reason: "subscription ended",
 			};
+		}
 		default:
 			return null;
 	}
@@ -274,37 +315,71 @@ const eventsOf = ({
 		const internal = rowId ? internalOf.get(rowId) : undefined;
 		return internal ? (catalog.features[internal]?.id ?? null) : null;
 	};
-	const features = [
-		...new Set(mutation.changes.map(featureOf).filter((f) => f !== null)),
-	].sort();
-	if (features.length === 0) return [];
+	const planAt = (c: Change): string | null => {
+		const id = rowIdOf(c);
+		return id
+			? planOf({
+					rowIds: [id],
+					menu: input.menu,
+					menuVersion: input.menuVersion,
+					tierId: grants.tierId,
+				})
+			: null;
+	};
+	// Credits of one feature can come from several plans at once (the tier, a recurring add-on, a pack): each
+	// (feature, plan) is booked on its own, so `credits:issued:<plan>` is the plan that issued them.
+	const groupOf = (c: Change): { feature: string; plan: string } | null => {
+		const feature = featureOf(c);
+		const plan = planAt(c);
+		return feature !== null && plan !== null ? { feature, plan } : null;
+	};
+	const groups = [
+		...new Map(
+			mutation.changes.flatMap((c) => {
+				const g = groupOf(c);
+				return g ? [[`${g.feature}\u0000${g.plan}`, g] as const] : [];
+			}),
+		).values(),
+	].sort((x, y) =>
+		x.feature === y.feature
+			? x.plan < y.plan
+				? -1
+				: x.plan > y.plan
+					? 1
+					: 0
+			: x.feature < y.feature
+				? -1
+				: 1,
+	);
+	if (groups.length === 0) return [];
+	const plansOfFeature = new Map<string, number>();
+	for (const g of groups)
+		plansOfFeature.set(g.feature, (plansOfFeature.get(g.feature) ?? 0) + 1);
 	const events: AtmEvent[] = [];
-	for (const [index, feature] of features.entries()) {
+	for (const [index, group] of groups.entries()) {
 		const slice = mutation.changes.filter((c) => {
-			const own = featureOf(c);
-			return own === feature || (own === null && index === 0);
+			const own = groupOf(c);
+			if (own === null) return index === 0;
+			return own.feature === group.feature && own.plan === group.plan;
 		});
-		const rowIds = slice.flatMap((c) => {
-			const id = rowIdOf(c);
-			return id ? [id] : [];
-		});
+		const idemPrefix =
+			(plansOfFeature.get(group.feature) ?? 0) > 1
+				? `engine.${group.feature}.${group.plan}`
+				: groups.length > 1
+					? `engine.${group.feature}`
+					: "engine";
 		events.push(
 			...mutationToEvents({
 				mutation: { ...mutation, changes: slice } as SubjectStateMutation,
 				context: {
 					school: mutation.identity.orgId,
 					tz: input.menu.timeZone,
-					feature,
-					plan: planOf({
-						rowIds,
-						menu: input.menu,
-						menuVersion: input.menuVersion,
-						tierId: grants.tierId,
-					}),
+					feature: group.feature,
+					plan: group.plan,
 					reason,
 					cause: input.eventId,
 					labels,
-					idemPrefix: features.length > 1 ? `engine.${feature}` : "engine",
+					idemPrefix,
 					before: before as never,
 				},
 			}),
@@ -365,7 +440,7 @@ const decideAndRun = (
 			);
 		holder = invoiceHolder(invoice);
 	}
-	if (!holder) return NOTHING;
+	if (!holder) return nothing();
 	const identity: AtmIdentity = {
 		orgId: holder.orgId,
 		env: "live",
@@ -383,8 +458,8 @@ const decideAndRun = (
 			})
 		: null;
 
-	const decision = decide(target, fact, { input, grants, subject });
-	if (decision === null) return NOTHING;
+	const decision = decide(target, fact, { input, grants, holder, subject });
+	if (decision === null) return nothing();
 	if (!decision.ok) return decision.refusal;
 	const { result } = decision;
 
@@ -426,7 +501,7 @@ const decideAndRun = (
 		current = applyRowChanges({ ...current, changes });
 	}
 	const grantsChanged = !sameJson(grants, result.state);
-	if (mutations.length === 0 && !grantsChanged) return NOTHING;
+	if (mutations.length === 0 && !grantsChanged) return nothing();
 
 	const engine = diffRows(initial, current.rows);
 	const nextRevision =

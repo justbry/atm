@@ -260,7 +260,8 @@ describe("handleStripeEvent", () => {
 		create(s);
 		const r = renew(s);
 		expect(r.rowChanges?.expectedRevision).toBe(1);
-		expect(r.rowChanges?.nextRevision).toBe(2);
+		// the reset, then the update that puts the row's next reset on Stripe's cycle end
+		expect(r.rowChanges?.nextRevision).toBe(3);
 		expect(r.events.length).toBeGreaterThan(0);
 		for (const e of r.events) {
 			expect(e.cause).toBe("evt_cycle_2");
@@ -674,6 +675,216 @@ describe("what the random histories found", () => {
 		expect(again.refused?.reason).toBe("rejected");
 		expect(again.refused?.message).toMatch(/second subscription/);
 		expect(JSON.stringify([s.rows, s.revision])).toBe(before);
+	});
+});
+
+describe("what the reviews found", () => {
+	const dispute = (
+		status: "needs_response" | "won" | "lost",
+		invoiceId: string,
+	) =>
+		disputeEvent({
+			type: "charge.dispute.closed",
+			eventId: `evt_dp_${invoiceId}_${status}`,
+			disputeId: `dp_${invoiceId}_${status}`,
+			chargeId: `ch_${invoiceId}`,
+			invoiceId,
+			status,
+			at: T1,
+		});
+
+	test("a replayed invoice is nothing even after the menu changed its price", () => {
+		const s = store();
+		create(s);
+		const repriced = structuredClone(menu);
+		const tier = repriced.tiers.find(
+			(t) => t.id === "sparkle-2",
+		) as Menu["tiers"][number];
+		(
+			tier.prices.find((p) => p.interval === "month") as { amount: number }
+		).amount = 30000;
+		const again = handleStripeEvent({
+			event: invoicePaid({
+				eventId: "evt_create",
+				invoiceId: "in_1",
+				at: T0 + 10_000,
+				subscriptionId: "sub_1",
+				reason: "subscription_create",
+				periodStart: T0,
+				periodEnd: T1,
+				lines: [
+					{
+						lookupKey: tierKey("sparkle-2", "month"),
+						amount: 26000,
+						interval: "month",
+					},
+				],
+				metadata,
+			}),
+			eventId: "01KWE000000000000000000000",
+			menu: repriced,
+			menuVersion: 4,
+			policy: DEFAULT_POLICY,
+			policyVersion: POLICY_VERSION,
+			rows: s.rows,
+			revision: s.revision,
+			catalog: menuCatalogRows({ menu: repriced, school: SCHOOL }),
+			now: T0 + 10_000,
+			priceIds,
+		});
+		expect(again).toEqual({ rowChanges: null, events: [] });
+	});
+
+	test("a full refund or lost dispute that names no invoice we have handled is refused, not ignored", () => {
+		const s = store();
+		create(s);
+		const unlinked = chargeRefunded({
+			eventId: "evt_re_x",
+			refundId: "re_x",
+			chargeId: "ch_unknown",
+			invoiceId: null,
+			amount: 26000,
+			chargeAmount: 26000,
+			at: T1,
+		});
+		const r = s.handle(unlinked, T1);
+		expect(r.refused?.reason).toBe("unmatched_invoice");
+		expect(r.rowChanges).toBeNull();
+		expect(s.handle(dispute("lost", "in_other"), T1).refused?.reason).toBe(
+			"unmatched_invoice",
+		);
+		// a partial refund or a dispute not lost takes nothing back, so there is nothing to retry
+		const partial = chargeRefunded({
+			eventId: "evt_re_p",
+			refundId: "re_p",
+			chargeId: "ch_unknown",
+			invoiceId: null,
+			amount: 100,
+			chargeAmount: 26000,
+			at: T1,
+		});
+		expect(s.handle(partial, T1)).toEqual({ rowChanges: null, events: [] });
+		expect(s.handle(dispute("won", "in_other"), T1)).toEqual({
+			rowChanges: null,
+			events: [],
+		});
+		// and once the invoice is known the same refund goes through
+		expect(s.handle(refundOf("in_1"), T1).refused).toBeUndefined();
+	});
+
+	test("a cancel that arrives before any invoice of the holder is refused to be retried; one for an older subscription is not", () => {
+		const s = store();
+		s.handle(
+			invoicePaid({
+				eventId: "evt_dg",
+				invoiceId: "in_dg",
+				at: T0 - 86_400_000,
+				subscriptionId: null,
+				reason: "manual",
+				periodStart: T0,
+				periodEnd: T0,
+				lines: [{ lookupKey: addonKey("gift-dollars"), amount: 5000 }],
+				metadata,
+			}),
+			T0 - 86_400_000,
+		);
+		const cancel = (id: string) =>
+			subscriptionDeleted({
+				eventId: `evt_sd_${id}`,
+				subscriptionId: id,
+				tierId: "sparkle-2",
+				interval: "month",
+				periodStart: T0,
+				periodEnd: T1,
+				at: T0 + 86_400_000,
+			});
+		expect(s.handle(cancel("sub_1"), T0 + 86_400_000).refused?.reason).toBe(
+			"unknown_subscription",
+		);
+		create(s);
+		expect(s.handle(cancel("sub_old"), T0 + 86_400_000)).toEqual({
+			rowChanges: null,
+			events: [],
+		});
+	});
+
+	test("credits of one feature from the tier, a recurring add-on and a pack are booked each to its own plan", () => {
+		const s = store();
+		const r = s.handle(
+			invoicePaid({
+				eventId: "evt_multi",
+				invoiceId: "in_multi",
+				at: T0,
+				subscriptionId: "sub_1",
+				reason: "subscription_create",
+				periodStart: T0,
+				periodEnd: T1,
+				lines: [
+					{
+						lookupKey: tierKey("sparkle-2", "month"),
+						amount: 26000,
+						interval: "month",
+					},
+					{ lookupKey: addonKey("glow"), amount: 5000, interval: "month" },
+					{ lookupKey: addonKey("pack"), amount: 9000 },
+				],
+				metadata,
+			}),
+			T0,
+		);
+		expect(r.refused).toBeUndefined();
+		expect(r.events.map((e) => e.text)).toEqual([
+			"granted 1 visit on glow@v3",
+			"granted 1 visit on pack@v3",
+			"granted 2 visit on sparkle-2@v3",
+		]);
+		expect(new Set(r.events.map((e) => e.idem)).size).toBe(3);
+		expect(
+			r.events.map(
+				(e) =>
+					e.postings.find((p) => p.account.startsWith("credits:issued:"))
+						?.account,
+			),
+		).toEqual([
+			"credits:issued:glow@v3",
+			"credits:issued:pack@v3",
+			"credits:issued:sparkle-2@v3",
+		]);
+		expect(s.avail(T0)).toBe(4);
+	});
+
+	test("a renewal whose invoice carries no checkout metadata is handled for a holder we know", () => {
+		const s = store();
+		create(s);
+		const r = s.handle(
+			invoicePaid({
+				eventId: "evt_nometa",
+				invoiceId: "in_nometa",
+				at: T1 + 10_000,
+				subscriptionId: "sub_1",
+				reason: "subscription_cycle",
+				periodStart: T1,
+				periodEnd: T2,
+				lines: [
+					{
+						lookupKey: tierKey("sparkle-2", "month"),
+						amount: 26000,
+						interval: "month",
+					},
+				],
+				metadata: {},
+			}),
+			T1 + 10_000,
+		);
+		expect(r.refused).toBeUndefined();
+		expect(s.avail(T1 + 20_000)).toBe(4);
+	});
+
+	test("a no-op result is its own object each time", () => {
+		const s = store();
+		const a = s.handle(refundOf("in_unknown"), T1);
+		a.events.push({} as never);
+		expect(s.handle(refundOf("in_unknown"), T1).events).toEqual([]);
 	});
 });
 

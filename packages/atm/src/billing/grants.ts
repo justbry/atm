@@ -632,6 +632,8 @@ const identityFrom = (
 	state: GrantsState,
 ): { orgId: string; customerId: string } => {
 	if (state.identity) return state.identity;
+	// Known from an earlier invoice (a dollar gift): the checkout metadata is not needed again.
+	if (state.holder) return state.holder;
 	const orgId = invoice.metadata.b4u_school;
 	const family = invoice.metadata.family_id;
 	if (!orgId || !family)
