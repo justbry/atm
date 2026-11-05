@@ -355,7 +355,7 @@ const decideAndRun = (
 	fact: unknown,
 ): StripeEventResult => {
 	const grants = grantsFromRows(input.rows);
-	let holder = grants.identity;
+	let holder = grants.identity ?? grants.holder;
 	if (!holder && target === "BillingInvoice") {
 		const invoice = fact as BillingInvoice;
 		if (!invoice.metadata.b4u_school || !invoice.metadata.family_id)
@@ -388,10 +388,13 @@ const decideAndRun = (
 	if (!decision.ok) return decision.refusal;
 	const { result } = decision;
 
-	// Run the commands in order against the stored rows, one revision step each.
+	// Run the commands in order against the stored rows, one revision step each. The engine creates a customer at
+	// revision zero; a subject whose only row so far is the grants row (a dollar gift came first) holds a later
+	// revision, so its engine rows are made at zero and the write is moved up to the stored revision.
+	const engineRevision = hasEngineRows ? input.revision : 0;
 	let state = stateFromRows({
 		identity,
-		revision: input.revision,
+		revision: engineRevision,
 		rows: input.rows,
 	});
 	const mutations: {
@@ -413,7 +416,7 @@ const decideAndRun = (
 	}
 
 	const initial = input.rows.filter((r) => r.table !== GRANTS_TABLE);
-	let current = { rows: initial, revision: input.revision };
+	let current = { rows: initial, revision: engineRevision };
 	for (const { mutation } of mutations) {
 		const changes = rowChangesFromMutation({
 			mutation,
@@ -427,7 +430,9 @@ const decideAndRun = (
 
 	const engine = diffRows(initial, current.rows);
 	const nextRevision =
-		mutations.length > 0 ? current.revision : input.revision + 1;
+		mutations.length > 0
+			? current.revision + (input.revision - engineRevision)
+			: input.revision + 1;
 	const rowChanges = {
 		subjectKey: subjectKey(identity),
 		expectedRevision: input.revision,

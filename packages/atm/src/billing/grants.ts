@@ -43,6 +43,7 @@ import type {
 export const EMPTY_GRANTS_STATE: GrantsState = {
 	v: 1,
 	identity: null,
+	holder: null,
 	subscriptionId: null,
 	tierId: null,
 	interval: null,
@@ -52,6 +53,7 @@ export const EMPTY_GRANTS_STATE: GrantsState = {
 	addonIds: [],
 	endedAt: null,
 	rows: {},
+	retired: {},
 	invoices: {},
 };
 
@@ -661,6 +663,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 		return { commands: [], labels, state: input.state };
 	const state = clone(input.state);
 	const who = identityFrom(invoice, state);
+	state.holder ??= who;
 	const b = new Builder(invoice.source, who);
 	const record: InvoiceRecord = {
 		paidAt: invoice.paidAt,
@@ -786,6 +789,11 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 	const isCreate =
 		tierLine !== undefined &&
 		(invoice.reason === "subscription_create" || state.tierId === null);
+	if (isCreate && tierLine && state.endedAt !== null)
+		// The tier's credit rows and product have fixed ids; a second subscription would insert them again.
+		throw new Error(
+			`invoice ${invoice.id} starts subscription ${invoice.subscriptionId}, but ${state.subscriptionId} ended: a second subscription for the same family is not supported yet`,
+		);
 	if (isCreate && tierLine) {
 		const tierId = tierLine.tierId as string;
 		const interval = tierLine.interval as Interval;
@@ -825,6 +833,27 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 				ops,
 				insert: (s) =>
 					insertSpec(s, TIER_CP, s.amount, end, invoice.periodStart),
+				// The reset at the period start refills it: what is left rolls over, the allowance comes back.
+				revive: (s) => {
+					ops.push({
+						op: "update",
+						table: "customerEntitlements",
+						id: s.rowId,
+						set: { next_reset_at: invoice.periodStart },
+					});
+					state.rows[s.rowId] = (state.rows[s.rowId] ?? 0) + 1;
+					grantRow(
+						s,
+						s.amount,
+						s.interval === s.plan
+							? end
+							: addUtcMonths(
+									invoice.periodStart,
+									s.interval === "year" ? 12 : 1,
+								),
+					);
+					needReset = true;
+				},
 				units: () => 0,
 			});
 		}
@@ -834,6 +863,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 			if (!want.has(id)) {
 				for (const s of addonSpecs(menu, id)) {
 					ops.push(stopRefill(s.rowId));
+					state.retired[s.rowId] = state.rows[s.rowId] ?? 1;
 					delete state.rows[s.rowId];
 				}
 			}
@@ -891,6 +921,40 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 						end: state.cycleEnd,
 					});
 					insertSpec(s, TIER_CP, units, newEnd, at);
+				},
+				revive: (s) => {
+					if (s.interval === s.plan) {
+						// the cycle's own row: what is left stays, the prorated difference is added
+						ops.push({
+							op: "update",
+							table: "customerEntitlements",
+							id: s.rowId,
+							set: { next_reset_at: newEnd },
+						});
+						const units = upgradeUnits({
+							diff: s.amount,
+							policy,
+							at,
+							start: state.cycleStart,
+							end: state.cycleEnd,
+						});
+						if (units > 0) adds.push({ s, units });
+						return;
+					}
+					// a row on its own interval is refilled by a reset from now
+					ops.push({
+						op: "update",
+						table: "customerEntitlements",
+						id: s.rowId,
+						set: { next_reset_at: at },
+					});
+					state.rows[s.rowId] = (state.rows[s.rowId] ?? 0) + 1;
+					grantRow(
+						s,
+						s.amount,
+						addUtcMonths(at, s.interval === "year" ? 12 : 1),
+					);
+					needReset = true;
 				},
 				units: (s) => {
 					const diff = s.amount - (oldAmount.get(s.rowId) ?? 0);
@@ -998,6 +1062,7 @@ const moveTier = ({
 	to,
 	ops,
 	insert,
+	revive,
 	units,
 }: {
 	menu: Menu;
@@ -1005,6 +1070,8 @@ const moveTier = ({
 	to: { tierId: string; interval: Interval };
 	ops: Op[];
 	insert: (s: RowSpec) => void;
+	/** A row the plan once moved off and now moves back onto: it still exists, so it is updated, not inserted. */
+	revive: (s: RowSpec) => void;
 	units: (s: RowSpec) => number;
 }) => {
 	const oldSpecs = tierSpecs(
@@ -1033,12 +1100,23 @@ const moveTier = ({
 				set: { entitlement_id: s.entId },
 			});
 			units(s);
+		} else if (s.rowId in state.retired) {
+			state.rows[s.rowId] = state.retired[s.rowId] as number;
+			delete state.retired[s.rowId];
+			ops.push({
+				op: "update",
+				table: "customerEntitlements",
+				id: s.rowId,
+				set: { entitlement_id: s.entId },
+			});
+			revive(s);
 		} else insert(s);
 	}
 	const newIds = new Set(newSpecs.map((s) => s.rowId));
 	for (const s of oldSpecs) {
 		if (!newIds.has(s.rowId)) {
 			ops.push(stopRefill(s.rowId));
+			state.retired[s.rowId] = state.rows[s.rowId] ?? 1;
 			delete state.rows[s.rowId];
 		}
 	}
@@ -1068,13 +1146,16 @@ const removeInvoice = ({
 }): GrantResult => {
 	const labels = labelsOf(source, input);
 	const record = invoiceId ? input.state.invoices[invoiceId] : undefined;
-	if (!record || record.removed || !input.state.identity)
+	if (!record || record.removed)
 		return { commands: [], labels, state: input.state };
 	const state = clone(input.state);
-	const b = new Builder(
-		source,
-		state.identity as { orgId: string; customerId: string },
-	);
+	// An invoice that granted nothing (a dollar gift, before any credit row) is marked all the same: handling the
+	// event again later, once the subject exists, must not change anything.
+	if (!state.identity) {
+		(state.invoices[invoiceId as string] as InvoiceRecord).removed = true;
+		return { commands: [], labels, state };
+	}
+	const b = new Builder(source, state.identity);
 	const held = heldOf(input.subject);
 	const cut = new Map<string, number>();
 	const ops: Op[] = [];
@@ -1174,6 +1255,22 @@ export const subscriptionEndedToCommands = (
 				next_reset_at: null,
 				expires_at: rolloverExpiry(s.rollover, boundary) ?? boundary,
 			},
+		});
+	}
+	// Rows the plan had moved off keep what they hold, but not for ever: they lapse as their old tier's rollover would.
+	const everySpec = menu.tiers.flatMap((t) =>
+		t.prices.flatMap((p) => tierSpecs(menu, t.id, p.interval)),
+	);
+	for (const rowId of Object.keys(prior.retired)) {
+		const row = held.get(rowId);
+		if (!row || row.expiresAt !== null) continue;
+		const rollover = everySpec.find((s) => s.rowId === rowId)?.rollover;
+		const boundary = prior.cycleEnd ?? fact.at;
+		ops.push({
+			op: "update",
+			table: "customerEntitlements",
+			id: rowId,
+			set: { expires_at: rolloverExpiry(rollover, boundary) ?? boundary },
 		});
 	}
 	const b = new Builder(fact.source, prior.identity);

@@ -555,6 +555,8 @@ export type GrantsState = {
 	v: 1;
 	/** Set when the engine subject was created (the first grant). */
 	identity: { orgId: string; customerId: string } | null;
+	/** Whose credits these are, from the first invoice of any kind (a dollar gift creates no engine subject but has a holder). */
+	holder: { orgId: string; customerId: string } | null;
 	subscriptionId: string | null;
 	tierId: string | null;
 	interval: Interval | null;
@@ -569,6 +571,11 @@ export type GrantsState = {
 	endedAt: number | null;
 	/** Credit rows of the tier and recurring add-ons, with how many times each has been refilled. */
 	rows: Record<string, number>;
+	/**
+	 * Credit rows the plan has moved off (a downgrade to a tier without that feature) with their refill count: they
+	 * stopped refilling and keep what is left. A later move back onto the feature revives the same row.
+	 */
+	retired: Record<string, number>;
 	/** Every invoice seen, by id: a replayed invoice finds its record and decides nothing. */
 	invoices: Record<string, InvoiceRecord>;
 };

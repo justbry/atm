@@ -433,6 +433,250 @@ describe("handleStripeEvent", () => {
 	});
 });
 
+describe("what the random histories found", () => {
+	test("a dollar gift first leaves a subject with no engine rows at revision 1; the first plan after it still lands", () => {
+		const s = store();
+		s.handle(
+			invoicePaid({
+				eventId: "evt_dg",
+				invoiceId: "in_dg",
+				at: T0 - 86_400_000,
+				subscriptionId: null,
+				reason: "manual",
+				periodStart: T0,
+				periodEnd: T0,
+				lines: [{ lookupKey: addonKey("gift-dollars"), amount: 5000 }],
+				metadata,
+			}),
+			T0 - 86_400_000,
+		);
+		expect(s.revision).toBe(1);
+		const r = create(s);
+		expect(r.refused).toBeUndefined();
+		expect(r.rowChanges).toMatchObject({
+			expectedRevision: 1,
+			nextRevision: 2,
+		});
+		expect(s.avail(T0)).toBe(2);
+	});
+
+	test("a refund of a dollar gift is handled once, before or after the family has credits", () => {
+		const s = store();
+		const gift = invoicePaid({
+			eventId: "evt_dg",
+			invoiceId: "in_dg",
+			at: T0 - 86_400_000,
+			subscriptionId: null,
+			reason: "manual",
+			periodStart: T0,
+			periodEnd: T0,
+			lines: [{ lookupKey: addonKey("gift-dollars"), amount: 5000 }],
+			metadata,
+		});
+		s.handle(gift, T0 - 86_400_000);
+		const refund = chargeRefunded({
+			eventId: "evt_re_dg",
+			refundId: "re_dg",
+			chargeId: "ch_in_dg",
+			invoiceId: "in_dg",
+			amount: 5000,
+			chargeAmount: 5000,
+			at: T0 - 3_600_000,
+		});
+		expect(s.handle(refund, T0 - 3_600_000).rowChanges).not.toBeNull();
+		create(s);
+		expect(s.handle(refund, T0 - 3_600_000)).toEqual({
+			rowChanges: null,
+			events: [],
+		});
+	});
+
+	test("a downgrade that drops a feature and an upgrade that brings it back revive the row instead of inserting it twice", () => {
+		const s = store();
+		create(s, "sparkle-4");
+		expect(s.avail(T0, "retreat")).toBe(1);
+		// the renewal moves to sparkle-2, which has no retreat: the row stops refilling and keeps its visit
+		s.handle(
+			invoicePaid({
+				eventId: "evt_c2",
+				invoiceId: "in_c2",
+				at: T1,
+				subscriptionId: "sub_1",
+				reason: "subscription_cycle",
+				periodStart: T1,
+				periodEnd: T2,
+				lines: [
+					{
+						lookupKey: tierKey("sparkle-2", "month"),
+						amount: 26000,
+						interval: "month",
+					},
+				],
+				metadata,
+			}),
+			T1,
+		);
+		expect(s.avail(T1 + 1000, "retreat")).toBe(1);
+		const grants = grantsFromRows(s.rows);
+		expect(grants.retired).toEqual({ ce_tier_retreat_year: 1 });
+		expect(grants.rows.ce_tier_retreat_year).toBeUndefined();
+		// and mid-cycle back up to sparkle-4
+		const up = s.handle(
+			invoicePaid({
+				eventId: "evt_up",
+				invoiceId: "in_up",
+				at: T1 + 86_400_000,
+				subscriptionId: "sub_1",
+				reason: "subscription_update",
+				periodStart: T1 + 86_400_000,
+				periodEnd: T2,
+				lines: [
+					{
+						lookupKey: tierKey("sparkle-2", "month"),
+						amount: -9000,
+						interval: "month",
+						proration: true,
+					},
+					{
+						lookupKey: tierKey("sparkle-4", "month"),
+						amount: 18000,
+						interval: "month",
+						proration: true,
+					},
+				],
+				metadata,
+			}),
+			T1 + 86_400_000,
+		);
+		expect(up.refused).toBeUndefined();
+		const after = grantsFromRows(s.rows);
+		expect(after.retired).toEqual({});
+		expect(after.rows.ce_tier_retreat_year).toBe(2);
+		// the retreat row was refilled by the reset: the kept visit rolled over (or stayed) and a new one came
+		expect(s.avail(T1 + 2 * 86_400_000, "retreat")).toBeGreaterThanOrEqual(1);
+	});
+
+	test("the same, on the renewal itself", () => {
+		const s = store();
+		create(s, "sparkle-4");
+		const cycle = (
+			id: string,
+			at: number,
+			start: number,
+			end: number,
+			tier: string,
+		) =>
+			s.handle(
+				invoicePaid({
+					eventId: `evt_${id}`,
+					invoiceId: `in_${id}`,
+					at,
+					subscriptionId: "sub_1",
+					reason: "subscription_cycle",
+					periodStart: start,
+					periodEnd: end,
+					lines: [
+						{
+							lookupKey: tierKey(tier as "sparkle-2", "month"),
+							amount: 1,
+							interval: "month",
+						},
+					],
+					metadata,
+				}),
+				at,
+			);
+		const T3 = D("2026-04-15T18:00:00Z");
+		expect(cycle("c2", T1, T1, T2, "sparkle-2").refused).toBeUndefined();
+		const back = cycle("c4", T2, T2, T3, "sparkle-4");
+		expect(back.refused).toBeUndefined();
+		expect(grantsFromRows(s.rows).retired).toEqual({});
+		expect(s.avail(T2 + 1000, "retreat")).toBeGreaterThanOrEqual(1);
+		expect(s.avail(T2 + 1000, "visit")).toBe(4 + 2);
+	});
+
+	test("a row the plan moved off lapses when the subscription ends, as its old tier's rollover would", () => {
+		const s = store();
+		create(s, "sparkle-4");
+		s.handle(
+			invoicePaid({
+				eventId: "evt_c2",
+				invoiceId: "in_c2",
+				at: T1,
+				subscriptionId: "sub_1",
+				reason: "subscription_cycle",
+				periodStart: T1,
+				periodEnd: T2,
+				lines: [
+					{
+						lookupKey: tierKey("sparkle-2", "month"),
+						amount: 26000,
+						interval: "month",
+					},
+				],
+				metadata,
+			}),
+			T1,
+		);
+		expect(s.avail(D("2027-06-01T00:00:00Z"), "retreat")).toBe(1); // kept, with no end in sight
+		s.handle(
+			subscriptionDeleted({
+				eventId: "evt_sd",
+				subscriptionId: "sub_1",
+				tierId: "sparkle-2",
+				interval: "month",
+				periodStart: T1,
+				periodEnd: T2,
+				at: T1 + 86_400_000,
+			}),
+			T1 + 86_400_000,
+		);
+		expect(s.avail(T2 - 1, "retreat")).toBe(1);
+		expect(s.avail(T2 + 1, "retreat")).toBe(0);
+	});
+
+	test("a second subscription for a family whose first ended is refused, nothing written", () => {
+		const s = store();
+		create(s);
+		s.handle(
+			subscriptionDeleted({
+				eventId: "evt_sd",
+				subscriptionId: "sub_1",
+				tierId: "sparkle-2",
+				interval: "month",
+				periodStart: T0,
+				periodEnd: T1,
+				at: T0 + 86_400_000,
+			}),
+			T0 + 86_400_000,
+		);
+		const before = JSON.stringify([s.rows, s.revision]);
+		const again = s.handle(
+			invoicePaid({
+				eventId: "evt_new",
+				invoiceId: "in_new",
+				at: T2,
+				subscriptionId: "sub_2",
+				reason: "subscription_create",
+				periodStart: T2,
+				periodEnd: D("2026-04-15T18:00:00Z"),
+				lines: [
+					{
+						lookupKey: tierKey("sparkle-2", "month"),
+						amount: 26000,
+						interval: "month",
+					},
+				],
+				metadata,
+			}),
+			T2,
+		);
+		expect(again.refused?.reason).toBe("rejected");
+		expect(again.refused?.message).toMatch(/second subscription/);
+		expect(JSON.stringify([s.rows, s.revision])).toBe(before);
+	});
+});
+
 describe("refusals", () => {
 	const input = (event: unknown) => ({
 		event,
