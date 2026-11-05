@@ -83,4 +83,57 @@ describe("the grants state keeps 0.6.0's shape", () => {
 		expect(result.state.bookings).toEqual({ bk_1: booking });
 		expect(result.state.redeemed).toEqual({ gift_1: redeemed });
 	});
+	test("a state with no revenue share has no share key on any record, and one that has it round-trips", () => {
+		const menu = load<Menu>("menu");
+		const invoice = load<BillingInvoice>("inv-create-s2");
+		const result = invoiceToCommands({
+			invoice,
+			menu,
+			policy: DEFAULT_POLICY,
+			state: EMPTY_GRANTS_STATE,
+			now: invoice.paidAt,
+			menuVersion: 1,
+			policyVersion: 1,
+		});
+		const record = result.state.invoices[invoice.id];
+		expect(record).toBeDefined();
+		expect(Object.hasOwn(record ?? {}, "share")).toBe(false);
+		expect(JSON.stringify(grantsRow(result.state))).not.toContain('"share"');
+
+		const shared: GrantsState = {
+			...result.state,
+			invoices: {
+				...result.state.invoices,
+				[invoice.id]: {
+					...(record as NonNullable<typeof record>),
+					paid: 26_000,
+					share: { accrued: 866, reversed: 167 },
+				},
+			},
+			bookings: {
+				bk_1: {
+					...booking,
+					payment: {
+						sessionId: "cs_1",
+						paymentIntentId: "pi_1",
+						amount: 3000,
+						currency: "usd",
+						refunded: 1000,
+						booked: true,
+						share: { accrued: 75, reversed: 25 },
+					},
+				},
+			},
+		};
+		const loaded = grantsFromRows([grantsRow(shared)]);
+		expect(loaded.invoices[invoice.id]?.share).toEqual({
+			accrued: 866,
+			reversed: 167,
+		});
+		expect(loaded.bookings?.bk_1?.payment?.share).toEqual({
+			accrued: 75,
+			reversed: 25,
+		});
+		expect(JSON.stringify(loaded)).toBe(JSON.stringify(shared));
+	});
 });

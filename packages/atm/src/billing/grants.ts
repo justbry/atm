@@ -431,7 +431,7 @@ export const addZonedMonths = (
 	return fits(after) && !fits(before) ? after : before;
 };
 
-const labelsOf = (source: FactSource, v: Versions): GrantLabels => ({
+export const labelsOf = (source: FactSource, v: Versions): GrantLabels => ({
 	menu_version: String(v.menuVersion),
 	policy_version: String(v.policyVersion),
 	mapping: source.mapping,

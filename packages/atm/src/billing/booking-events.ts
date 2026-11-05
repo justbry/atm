@@ -14,11 +14,17 @@
  * The books: a paid booking makes a `payment.succeeded` (gross = the session's `amount_total`, income
  * `income:billing:booking`, idem `stripe:<payment intent id>`, `labels.booking` the booking id; the Stripe fee is the
  * caller's optional `StripeEventInput.fee`, as for an invoice), and a refund of a payment the books hold makes a
- * `payment.refunded` for what the charge's running total rose by (`amount_refunded` less the record's `payment.refunded`,
- * so an event that arrives late books nothing twice and nothing is lost). `payment.booked` on the record says the books took the
+ * `payment.refunded` for what that event refunded (`amount_refunded` less `previous_attributes.amount_refunded`, as for an
+ * invoice, so each line matches one of Stripe's refunds whatever the order the events arrive in; a redelivery makes the same
+ * idem and the outbox keeps one). The record's running total (`payment.refunded`) decides only the state and the share's
+ * reversal. `payment.booked` on the record says the books took the
  * payment; a payment decided before payments were booked, or one in another currency (a `money.skipped` marker, as for an
  * invoice), has none and its refund books no `payment.refunded`. `reconcile` pairs the payment with Stripe's payment
  * intents (`paymentIntents`) and the refund with Stripe's refunds, by payment intent.
+ *
+ * The revenue share (`./share.ts`): when the policy has a rate, a paid booking also makes a `share.accrued` after its
+ * `payment.succeeded`, and a refund of a payment that accrued one makes a `share.reversed` after its `payment.refunded`;
+ * the record keeps what was accrued and reversed (`payment.share`), absent when there was none.
  *
  * Pure: no clock, no network. Decided once: the replay of a paid session finds its record and decides nothing, so the
  * caller must write the rows and act on the outcome in one transaction (as for an invoice).
@@ -44,6 +50,7 @@ import {
 	skippedRefundEvents,
 } from "./money.js";
 import { grantsRow, subjectKey } from "./rows.js";
+import { accrueShare, reverseShare } from "./share.js";
 
 const FAMILY_PREFIX = "family:";
 
@@ -71,7 +78,7 @@ const familyOf = (holder: Holder): string =>
 
 /** The one write of a booking decision: the grants row alone, one revision on. Engine rows are not touched. */
 const writeGrants = (
-	input: StripeEventInput,
+	input: Omit<StripeEventInput, "event">,
 	env: AtmEnv,
 	holder: Holder,
 	state: GrantsState,
@@ -108,7 +115,7 @@ const withBooking = (
 
 /** The labels of a booking's money lines: the versions and mapping every decision carries, and the booking's id. */
 const labelsOf = (
-	input: StripeEventInput,
+	input: Omit<StripeEventInput, "event">,
 	mapping: string,
 	bookingId: string,
 ): Record<string, string> => ({
@@ -132,7 +139,7 @@ export const decideCheckoutSession = ({
 	grants,
 	fact,
 }: {
-	input: StripeEventInput;
+	input: Omit<StripeEventInput, "event">;
 	env: AtmEnv;
 	grants: GrantsState;
 	fact: CheckoutSessionFact;
@@ -199,7 +206,9 @@ export const decideCheckoutSession = ({
 		orgId: schoolId,
 		customerId: `${FAMILY_PREFIX}${familyId}`,
 	};
-	const money = bookingPaymentEvents({
+	const booker = bookerOf(input, holder);
+	const labels = labelsOf(input, fact.source.mapping, bookingId);
+	const payment = bookingPaymentEvents({
 		payment: {
 			bookingId,
 			sessionId: fact.sessionId,
@@ -209,10 +218,22 @@ export const decideCheckoutSession = ({
 			at: fact.at,
 		},
 		fee: input.fee,
-		labels: labelsOf(input, fact.source.mapping, bookingId),
-		booker: bookerOf(input, holder),
+		labels,
+		booker,
 		holder,
 	});
+	// The school's revenue share on what the session collected, booked right after the payment.
+	const share = accrueShare({
+		policy: input.policy,
+		kind: "booking",
+		collected: amount,
+		money: payment,
+		paymentId: fact.paymentIntentId ?? fact.sessionId,
+		labels,
+		booker,
+		holder,
+	});
+	const money = [...payment, ...share.events];
 	const record: BookingRecord = {
 		state: "paid",
 		cost: { kind: "price", amount, currency: fact.currency },
@@ -225,8 +246,12 @@ export const decideCheckoutSession = ({
 			currency: fact.currency,
 			refunded: 0,
 			// Only a payment line is a payment the books took: the `money.skipped` marker of a non-USD booking is not one.
-			...(money.some((event) => event.event_type === "payment.succeeded")
+			...(payment.some((event) => event.event_type === "payment.succeeded")
 				? { booked: true }
+				: {}),
+			// What the share accrued on it, which a refund reverses in proportion; absent when the school has no rate.
+			...(share.accrued > 0
+				? { share: { accrued: share.accrued, reversed: 0 } }
 				: {}),
 		},
 	};
@@ -267,7 +292,7 @@ export const decideBookingRefund = ({
 	grants,
 	fact,
 }: {
-	input: StripeEventInput;
+	input: Omit<StripeEventInput, "event">;
 	env: AtmEnv;
 	grants: GrantsState;
 	fact: BillingRefund;
@@ -300,31 +325,61 @@ export const decideBookingRefund = ({
 			`${fact.id} refunds payment intent ${fact.paymentIntentId}, but booking ${bookingId} was paid by ${payment.paymentIntentId}`,
 		);
 
-	// `amount` is the charge's total refunded after this event: an event that does not raise it (a redelivery, or an older
-	// one that arrived late) decides nothing, and the full refund is decided once.
+	// `amount` is the charge's total refunded after this event. The books take each event's own amount (the total less what
+	// it was before the event), as an invoice's refund does, so the lines match Stripe's refunds whatever the order the
+	// events arrive in; a redelivery makes the same line (same idem), which the outbox keeps once.
 	const total = fact.amount;
 	const settled = record.state === "refunded";
-	if (settled || (total <= payment.refunded && !fact.full)) return nothing();
-	const full = fact.full;
-	// What this event added to the charge's refunded total, by the record's own running total: an event that arrives late (a
-	// smaller total than one already decided) adds nothing, and the books end at the charge's total whatever the order.
+	const raisesTotal = total > payment.refunded;
+	// The event's own `previous_attributes.amount_refunded` (0 when it carries none). A total that rises past the record's with
+	// a 0 before can only be an event without `previous_attributes` (a first refund has a total no larger than any later
+	// one), so the record's running total says what it added.
+	const eventPrevious = fact.previousAmount ?? 0;
+	let previousAmount = eventPrevious;
+	if (eventPrevious <= 0 && raisesTotal) previousAmount = payment.refunded;
 	const refund: BillingRefund = {
 		...fact,
-		previousAmount: payment.refunded,
+		previousAmount,
 		currency: fact.currency ?? payment.currency,
 	};
 	// Only a refund of a payment the books hold is a `payment.refunded`; a non-USD one leaves the marker either way.
-	const money = (payment.booked ? refundEvents : skippedRefundEvents)({
+	const booker = bookerOf(input, holder);
+	const labels = labelsOf(input, fact.source.mapping, bookingId);
+	const refunded = (payment.booked ? refundEvents : skippedRefundEvents)({
 		refund,
-		labels: labelsOf(input, fact.source.mapping, bookingId),
-		booker: bookerOf(input, holder),
+		labels,
+		booker,
 		holder,
 		...(payment.booked ? { bookingId } : {}),
 	});
+	// An event that does not raise the running total (a redelivery, or an older one that arrived late) or one that follows
+	// the full refund decides nothing about the record or the share, which already count it; only its own line is booked.
+	if (settled || (!raisesTotal && !fact.full))
+		return { rowChanges: null, events: refunded };
+	const full = fact.full;
+	const refundedTotal = Math.max(total, payment.refunded);
+	// The part of the payment's share this refund takes back, from the record's own running total.
+	const share = reverseShare({
+		record: payment.share,
+		collected: payment.amount,
+		refundedTotal,
+		refundId: fact.id,
+		refundAt: fact.at,
+		money: refunded,
+		paymentId: payment.paymentIntentId ?? payment.sessionId,
+		labels,
+		booker,
+		holder,
+	});
+	const money = [...refunded, ...share.events];
 	const next: BookingRecord = {
 		...record,
 		state: full ? "refunded" : record.state,
-		payment: { ...payment, refunded: Math.max(total, payment.refunded) },
+		payment: {
+			...payment,
+			refunded: refundedTotal,
+			...(share.share ? { share: share.share } : {}),
+		},
 	};
 	return writeGrants(
 		input,

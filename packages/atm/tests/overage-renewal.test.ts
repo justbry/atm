@@ -32,8 +32,9 @@ import type { RowChanges } from "../src/types.js";
  * A caller can let a holder spend below zero: `overage_allowed` (and optionally `spend_limits`) on the customer row.
  * The renewal's `reset` then meets a negative row, and `mutationToEvents` throws "a reset cannot add more than it
  * refills (-N)" because the ledger has no event for forgiving an overdraft. `handleStripeEvent` turns the throw into a
- * `rejected` refusal, so the handler answers 422, releases the claim and writes nothing: no credits, no cycle move, no
- * `payment.succeeded`, and the invoice is never indexed.
+ * `rejected` refusal, so the handler answers 422, releases the claim and grants nothing: no credits, no cycle move, and
+ * the invoice is never indexed. Its payment is booked (a `payment.succeeded`, once: Stripe has collected the money), which
+ * it was not before the e2e matrix's finding D4 was fixed.
  *
  * When this is fixed (the reset books the forgiven overage, or the row is kept, or the boundary refuses overage rows),
  * the tests marked KNOWN GAP below fail, with a message saying so, and must change to expect the renewal to apply; the
@@ -341,7 +342,8 @@ const whileGapOpen = (what: string, check: () => void): void => {
 
 /**
  * A renewal that is refused: 422, the cause, and the same answer however often Stripe retries. Then its payment can
- * never be linked: the invoice is not indexed.
+ * never be linked: the invoice is not indexed. Stripe has collected the money, so the books take the invoice's one
+ * `payment.succeeded` at the first refusal (the same idem after that); nothing else is written.
  */
 const expectRefusedEveryTime = ({
 	db,
@@ -357,6 +359,7 @@ const expectRefusedEveryTime = ({
 	payment?: Recorded;
 }) => {
 	const before = snapshot(db);
+	let settled: ReturnType<typeof snapshot> | undefined;
 	for (let attempt = 1; attempt <= 3; attempt += 1) {
 		const response = deliver(invoice);
 		whileGapOpen(
@@ -366,12 +369,28 @@ const expectRefusedEveryTime = ({
 				expect(response.body).toMatchObject({
 					outcome: "refused",
 					reason: "rejected",
-					message: `${REFILLS_CAP_MESSAGE} (-${overdrawnBy})`,
+					message: expect.stringContaining(
+						`${REFILLS_CAP_MESSAGE} (-${overdrawnBy})`,
+					),
 				});
 			},
 		);
-		// nothing written, and the claim is released, so the next delivery runs the handler again (it is not `duplicate`)
-		expect(snapshot(db)).toEqual(before);
+		const after = snapshot(db);
+		if (settled === undefined) {
+			// rows, revision, cycle, invoice record and claims are as they were (the claim is released, so the next delivery
+			// runs the handler again; it is not `duplicate`). Only the payment of this invoice joined the outbox, unless it
+			// was there already.
+			expect({ ...after, outbox: [] }).toEqual({ ...before, outbox: [] });
+			const added = after.outbox.length - before.outbox.length;
+			expect(added).toBeLessThanOrEqual(1);
+			expect(after.outbox).toEqual(
+				[
+					...before.outbox,
+					...(added === 1 ? ["payment.succeeded"] : []),
+				].sort(),
+			);
+			settled = after;
+		} else expect(after).toEqual(settled);
 	}
 	const unmatched = deliver(payment);
 	expect(unmatched.status).toBe(409);
@@ -444,10 +463,12 @@ describe("a renewal for a holder in overage", () => {
 		expect(before.cycleEnd).toBe(1_796_472_126_000);
 		expect(before.invoices).toBe(1);
 		expectRefusedEveryTime({ db, deliver, overdrawnBy: 30 });
-		// still the old cycle, no credits, no new invoice record, no payment.succeeded or credit events
+		// still the old cycle, no credits, no new invoice record, no credit events; the family paid, so the money is booked once
 		expect(balances(db)).toEqual({ [TIER_ROW]: -30 });
 		expect(grantsOf(db).cycleEnd).toBe(1_796_472_126_000);
-		expect(snapshot(db).outbox).toEqual(before.outbox);
+		expect(snapshot(db).outbox).toEqual(
+			[...before.outbox, "payment.succeeded"].sort(),
+		);
 	});
 
 	test("KNOWN GAP: with spend_limits overage_limit 20, balance -20: refused the same way", () => {

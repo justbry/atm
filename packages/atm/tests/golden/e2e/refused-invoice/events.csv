@@ -1,1 +1,2 @@
 date,event_type,idem,postings
+2026-01-15,payment.succeeded,stripe:in_1,"assets:stripe 252.16 USD | expenses:billing:stripe-fees 7.84 USD | income:billing:other -260.00 USD"
