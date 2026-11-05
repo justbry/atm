@@ -1,4 +1,5 @@
 import type { WorkerFullSubject } from "@autumn/balance-engine";
+import * as adopt from "./billing/adopt.js";
 import * as grants from "./billing/grants.js";
 import * as handle from "./billing/handle.js";
 import * as menu from "./billing/menu.js";
@@ -49,6 +50,8 @@ import type {
 	BillingPolicy,
 	BillingRefund,
 	BillingRow,
+	CallerRowsImport,
+	CallerRowsInput,
 	CheckoutInput,
 	CheckoutParams,
 	CheckoutParamsWithPrices,
@@ -67,6 +70,7 @@ import type {
 	MenuToStripeInput,
 	MenuValidation,
 	NormalizeContext,
+	NormalizeError,
 	NormalizeResult,
 	PortalConfigIds,
 	R2StoreOptions,
@@ -351,6 +355,13 @@ export const normalize = (
 	ctx: NormalizeContext,
 ): NormalizeResult<BillingFact> => normalizer.normalize(event, mapping, ctx);
 
+/**
+ * A sentence for a `NormalizeError`. An event from another Stripe API version says which version the endpoint is on and
+ * the fix: recreate the endpoint with the version atm reads (`handleStripeEvent` refuses it with this as the message).
+ */
+export const describeNormalizeError = (error: NormalizeError): string =>
+	normalizer.describeNormalizeError(error);
+
 /** The mapping for an event type and Stripe API version; an unknown pair is refused. */
 export const mappingFor = (
 	eventType: string,
@@ -427,6 +438,18 @@ export const rowsFromState = (state: AtmSubjectState): BillingRow[] =>
 /** Rows back to a state; no rows is null. */
 export const stateFromRows = (input: SubjectRows): AtmSubjectState | null =>
 	rows.stateFromRows(input) as unknown as AtmSubjectState | null;
+
+/**
+ * A caller that grants on its own (B4 Uni's family service: `school_memberships` and `school_credit_lots`) moves onto
+ * `handleStripeEvent` by writing what this returns for each member once: the engine rows (the lots as refilling credit
+ * rows and rollovers) and the `atm_grants` row (`state`, which remembers every invoice the lots name, so replaying one
+ * grants nothing again), under one revision. It is not `stateFromRows`, which turns atm's own rows into an engine state.
+ * Throws, naming each problem, when the rows name a tier, add-on or feature the menu lacks or cannot be placed on atm's
+ * rows; it does not guess. See UPGRADING.md ("Moving an existing caller onto handleStripeEvent").
+ */
+export const grantsStateFromCallerRows = (
+	input: CallerRowsInput,
+): CallerRowsImport => adopt.grantsStateFromCallerRows(input);
 
 /** The engine's subject for a command: the rows joined with the catalog. Throws when there are no rows. */
 export const subjectFromRows = (

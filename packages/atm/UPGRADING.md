@@ -6,7 +6,7 @@
 
 ### Stripe
 
-- **API version.** The mappings read Stripe API `2025-10-29.clover`; an event from any other version is refused (`unknown_mapping`). A school's webhook endpoint must be created with `api_version: "2025-10-29.clover"` (the endpoint's version, not the request header, decides the shape of the events it receives), and every API call should send the same `Stripe-Version`.
+- **API version.** The mappings read Stripe API `2025-10-29.clover`; an event from any other version is refused (`unknown_mapping`), with a message that names the endpoint's version (`event.api_version`) and the fix, which is to recreate the endpoint with `api_version: "2025-10-29.clover"`. atm does not read a second layout (an older endpoint sends `line.price.id` and `line.proration`): the mappings are checked against the pinned version's OpenAPI spec, and a second shape would be unchecked. A school's webhook endpoint must be created with `api_version: "2025-10-29.clover"` (the endpoint's version, not the request header, decides the shape of the events it receives), and every API call should send the same `Stripe-Version`.
 - **Events to subscribe to:** `invoice.paid`, `invoice_payment.paid`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `charge.refunded`, `charge.dispute.created`, `charge.dispute.closed`. Without `invoice_payment.paid` a refund or dispute cannot find its invoice and answers 409 until Stripe gives up.
 - **Checkout metadata.** Put `b4u_school` and `family_id` in `subscription_data.metadata`. On the invoice they arrive at `parent.subscription_details.metadata`; atm reads both and the invoice's own keys win.
 - Shapes were checked against real payloads from a Stripe sandbox (`fixtures/billing/stripe/recorded/`). The pin is still unverified against a school's own account.
@@ -76,6 +76,40 @@ A studio sells one tier at several counts (Vibes of Light: Shine at 1, 2 or 4 se
 - `Store` and its errors, `FolderStore` and `R2Store` (on `aws4fetch`) are exported, with a contract suite that runs against the folder and SeaweedFS. Live balances stay in the caller's SQLite; the object store holds the append-only log.
 - Both stores validate keys and byte ranges strictly and refuse what they cannot serve; no caller should rely on a looser reading. `FolderStore` treats reserved names case-insensitively, as a case-insensitive filesystem does.
 - `balance-engine` has one opt-in change (`org.config.deduction_order`), listed in `UPSTREAM.md`.
+
+### Moving an existing caller onto `handleStripeEvent`
+
+For a caller that already grants credits on its own and has paying members (B4 Uni's family service: `school_memberships`, `school_credit_lots`, rules in `src/school-billing/grant.ts`). It uses only `runEngineCommand` today; this is how to move it onto `handleStripeEvent` without regranting anything.
+
+1. **Create each school's webhook endpoint with `api_version` `2025-10-29.clover`** (see Stripe above). An event from any other version is refused (`unknown_mapping`) with a message that names the endpoint's version and says to recreate it.
+2. **Import each member once**, in one transaction, with the member's lots and the menu their invoices were granted against:
+
+   ```ts
+   const { state, rows } = grantsStateFromCallerRows({ membership, lots, menu, now });
+   // write `rows` (engine rows and the atm_grants row) for the subject <school>|live|family:<family_id>, at one revision
+   ```
+
+   `membership` and `lots` are the `SELECT *` rows (`CallerMembershipRow`, `CallerCreditLotRow`): the membership's instants are Unix seconds, the lots' are milliseconds. `now` is the instant of the import: a lot past its `expires_at` holds nothing and is not carried over. The subject is `family:<family_id>` at the membership's school, the identity the caller already uses.
+3. **Stop the caller's own grants and takebacks at the same moment** (the `grantForInvoice` and `removeForInvoice` calls), and hand `handleStripeEvent` only events the caller has not applied: an invoice the caller granted is found in `state.invoices` and grants nothing, but an event the caller handled that left no lot (an upgrade proration, a manual invoice) is not known to atm and would be decided afresh. Start from the caller's `school_stripe_events` cutoff.
+4. **Pass `invoiceIds` for payments made before the import.** A refund or dispute names its charge and payment intent, not its invoice; atm learns the link from `invoice_payment.paid`, which it has not seen for the old invoices. Without it a refund of one of them is refused `unmatched_invoice` (409, retried until Stripe gives up). The caller has the link (the invoice's `payment_intent`). The reference handler finds the subject of a refund by joining two tables, so each old invoice needs a row in both: `atm_payment_index` (payment intent to invoice id) and `atm_invoice_index` (invoice id to the subject key, `<school>|live|family:<family_id>`). With only the first, the refund is answered 409 `unmatched_payment`.
+
+What the import reads from the rows, and what it does not:
+
+- **Read:** the holder (`school_id`, `family_id`), the subscription, the tier, interval and add-ons, the quantity the credits reflect (the newest tier lot's `allowance` over the menu's per-unit amount; the membership's own `quantity` goes to `membership.quantity`), the cycle (read back from the lots' `expires_at`, minus the rollover months on the school's calendar), each lot's balance, expiry and removal, and the decided invoices.
+- **Refused, naming each problem** (one error lists them all): a tier, add-on or feature the menu does not have; a tier the menu does not price at the membership's interval; a lot that is no grant of the membership's tier, or is for an add-on the membership no longer has; a lot of another member or with a source that is not `tier` or `addon:<id>`; a tier grant or a recurring add-on with no lot (atm refills only rows it holds, so it would silently stop granting it); credit rows on different cycles (a renewal granted to some and not others); a lot that is not a whole number of the menu's per-unit amount. A membership with no lots yet imports as just the membership: the first invoice then grants as for a new member.
+- **Not in the rows (the owner decides):**
+  - `GrantsState.anchor` (the first invoice's period start) is `null`; no rule reads it.
+  - `cycleStart` is the cycle end minus one interval, not the invoice's own start; only the proration of a mid-cycle upgrade reads it.
+  - A yearly grant on a monthly plan (Shine's retreat) has no refill date in the rows: its next refill is set a year after its lot's creation. The caller's own rule gives such a lot `expires_at` = the end of the first month's period (it has no rollover), so by the second month the lot holds nothing and the import carries that balance of 0; atm then refills it a year after the first invoice. Decide whether the retreat should be restored for current members.
+  - `GrantsState.tierId` is the membership row's tier. A plan change Stripe made that no invoice has paid yet cannot be told apart in the rows.
+
+Where atm's rules differ from the caller's, so a renewal after the import is not always the same (each is pinned in `tests/billing-adopt.test.ts`):
+
+- **Rollover cap.** The caller never caps a rollover (a lot keeps its balance until it expires); atm carries over at most the grant's `rollover.max` (times the quantity). A leftover above the cap is lost at the renewal. The imported rows themselves are not capped.
+- **Rollover months on the school's calendar.** The caller adds rollover months on the school's time zone; the engine adds them on the UTC calendar. Across a clock change the rollover of a cycle lapses a whole hour from the caller's lot (Denver, a January cycle: 17:00Z against 18:00Z).
+- **A cycle not renewed.** The caller's lot lapses at the cycle end plus the rollover months. atm's refilling row stays until the next invoice or the cancellation (`subscriptionEndedToCommands` sets its expiry).
+- **Session gifts.** The caller's gift lot lasts until its own rollover months, or keeps if the grant has none; atm gives a gift of sessions an expiry `policy.giftSessionMonths` after payment (six months by default). Gifts imported keep the caller's expiry; a gift bought after the import gets atm's.
+- **What an invoice grants.** The caller grants on `subscription_create`, `subscription_cycle` and `subscription_threshold` only. atm also grants a mid-cycle upgrade or a raise in quantity (a `subscription_update` invoice, per `policy.upgradeGrant`), which the caller does not.
 
 ### Not in this release
 
