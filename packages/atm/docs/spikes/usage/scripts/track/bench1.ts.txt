@@ -1,0 +1,56 @@
+import { rmSync } from "node:fs";
+import * as h from "<spike-branch-checkout>/packages/atm/tests/spikes/usage-track-harness.ts";
+
+const DIR = "/tmp/atm-usage-track";
+const fmt = (n: number, d = 1) => n.toFixed(d);
+let seq = 0;
+const fresh = () => {
+	const p = `${DIR}/b${seq++}.db`;
+	for (const s of ["", "-wal", "-shm"]) rmSync(p + s, { force: true });
+	return p;
+};
+
+type W = Omit<h.Workload, "path"> & { memory?: boolean };
+const runs = (w: W, times = 3) => {
+	const out: h.WorkloadReport[] = [];
+	for (let i = 0; i < times; i++) {
+		const path = w.memory ? undefined : fresh();
+		out.push(h.runWorkload({ ...w, path }));
+	}
+	out.sort((a, b) => a.tracksPerSecond - b.tracksPerSecond);
+	return out[Math.floor(out.length / 2)] as h.WorkloadReport;
+};
+
+const rows: string[] = [];
+const report = (r: h.WorkloadReport) => {
+	const p = r.phaseMeanMs;
+	const commit = p.total - p.read - p.decode - p.engine - p.diff - p.write;
+	rows.push(
+		`${r.label.padEnd(58)} ${fmt(r.tracksPerSecond, 0).padStart(7)}/s  p50 ${fmt(r.latencyMs.p50 * 1000, 0).padStart(5)}us p99 ${fmt(r.latencyMs.p99 * 1000, 0).padStart(5)}us | read ${fmt(p.read * 1000, 1)} dec ${fmt(p.decode * 1000, 1)} eng ${fmt(p.engine * 1000, 1)} diff ${fmt(p.diff * 1000, 1)} wr ${fmt(p.write * 1000, 1)} txn ${fmt(commit * 1000, 1)} tot ${fmt(p.total * 1000, 1)}us | rows r/u/d ${r.rowsReadPerTrack}/${r.rowsUpsertedPerTrack}/${r.rowsDeletedPerTrack} outbox ${r.outboxPerTrack}${r.topTenShare !== undefined ? ` top10 ${fmt(r.topTenShare * 100)}%` : ""}`,
+	);
+	console.log(rows[rows.length - 1]);
+};
+
+const N = 30000;
+console.log("engine only:");
+for (const value of [1, 1_000_000]) {
+	const e = h.runEngineOnly({ runs: 50000, value });
+	console.log(`engine-only value=${value}`, JSON.stringify(e));
+}
+const e2 = h.runEngineOnly({ runs: 50000, value: 1, shape: { balance: 1e12, rich: true, rollover: 1000, pack: 5000 } });
+console.log("engine-only rich", JSON.stringify(e2));
+
+for (const value of [1, 1_000_000]) {
+	const tag = value === 1 ? "1 credit" : "1e6 credits";
+	report(runs({ label: `(a) 1 holder seq, ${tag}, file WAL/NORMAL`, holders: 1, tracks: N, value, pick: "single" }));
+	report(runs({ label: `(b) 1000 holders rr, ${tag}, file WAL/NORMAL`, holders: 1000, tracks: N, value, pick: "round-robin" }));
+	report(runs({ label: `(c) 20000 holders zipf, ${tag}, file WAL/NORMAL`, holders: 20000, tracks: N, value, pick: "zipf" }));
+}
+report(runs({ label: `(a) 1 holder, 1 credit, :memory:`, holders: 1, tracks: N, value: 1, pick: "single", memory: true }));
+report(runs({ label: `(a) 1 holder, 1 credit, WAL/FULL`, holders: 1, tracks: 5000, value: 1, pick: "single", sync: "FULL" }));
+report(runs({ label: `(a) 1 holder, 1 credit, public decode (subjectFromRows)`, holders: 1, tracks: N, value: 1, pick: "single", decode: "public" }));
+report(runs({ label: `(a) 1 holder rich (rollover+pack, 5 rows), 1 credit`, holders: 1, tracks: N, value: 1, pick: "single", shape: { balance: 1e12, rich: true, rollover: 1000, pack: 5000 } }));
+report(runs({ label: `(b) 1000 holders rich, 1 credit`, holders: 1000, tracks: N, value: 1, pick: "round-robin", shape: { balance: 1e12, rich: true, rollover: 1000, pack: 5000 } }));
+report(runs({ label: `(a) hold+settle (2 cmds) + outbox events, 1 holder`, holders: 1, tracks: 10000, value: 1, pick: "single", holdAndSettle: true }));
+report(runs({ label: `(b) hold+settle (2 cmds) + outbox events, 1000 holders`, holders: 1000, tracks: 10000, value: 1, pick: "round-robin", holdAndSettle: true }));
+console.log("\n" + rows.join("\n"));

@@ -1,0 +1,38 @@
+// usage: bun bench-dedupe.ts <tag> [threads] [memoryLimit]
+import { readdirSync } from "node:fs";
+import { fmt, runSql } from "./lib.ts";
+
+const tag = process.argv[2] ?? "10m";
+const threads = process.argv[3] && process.argv[3] !== "-" ? Number(process.argv[3]) : undefined;
+const memoryLimit = process.argv[4];
+const base = `data/c${tag}/schools/sch_acme/events`;
+const cols = `{idem:'VARCHAR', id:'VARCHAR', key:'VARCHAR', date:'DATE', ingest_time:'TIMESTAMPTZ', labels:'STRUCT(model VARCHAR)', payload:'STRUCT(input_tokens BIGINT, output_tokens BIGINT)'}`;
+const src = (glob: string) => `read_json('${glob}', format='newline_delimited', columns=${cols})`;
+const all = src(`${base}/*/*.jsonl`);
+
+const variants: Record<string, string> = {
+	baseline_materialize_no_dedupe: `CREATE OR REPLACE TEMP TABLE x AS SELECT * FROM ${all};`,
+	qualify_row_number: `CREATE OR REPLACE TEMP TABLE x AS SELECT * FROM ${all} QUALIFY row_number() OVER (PARTITION BY idem ORDER BY ingest_time, id) = 1;`,
+	distinct_on: `CREATE OR REPLACE TEMP TABLE x AS SELECT DISTINCT ON (idem) * FROM ${all} ORDER BY idem, ingest_time, id;`,
+	arg_min_group_by: `CREATE OR REPLACE TEMP TABLE x AS SELECT idem, arg_min(id, ingest_time) AS id, arg_min(key, ingest_time) AS "key", arg_min(date, ingest_time) AS "date", min(ingest_time) ingest_time, arg_min(labels, ingest_time) labels, arg_min(payload, ingest_time) payload FROM ${all} GROUP BY idem;`,
+	anti_join_first_by_id_min_rowid: `CREATE OR REPLACE TEMP TABLE x AS SELECT * EXCLUDE (rn) FROM (SELECT *, row_number() OVER (PARTITION BY idem) rn FROM ${all}) WHERE rn = 1;`,
+};
+
+for (const [name, sql] of Object.entries(variants)) {
+	const r = runSql(`.timer on\n.mode trash\n${sql}\nSELECT count(*) FROM x;`, { threads, memoryLimit });
+	const err = /Error/.test(r.stdout + r.stderr) ? (r.stdout + r.stderr).slice(0, 300) : "";
+	console.log(tag, `threads=${threads ?? "default"}`, `mem=${memoryLimit ?? "default"}`, name, `${fmt(r.timers[0] ?? Number.NaN, 3)}s`, `rss=${fmt(r.rssMb, 0)}MB`, err);
+}
+
+// Dedupe scoped to one event-date partition, run day by day (dupes carry the same event date): the daily-job shape.
+const days = readdirSync(base).filter((d) => d.startsWith("date=")).sort();
+const script = days
+	.map(
+		(d) =>
+			`CREATE OR REPLACE TEMP TABLE x AS SELECT * FROM ${src(`${base}/${d}/*.jsonl`)} QUALIFY row_number() OVER (PARTITION BY idem ORDER BY ingest_time, id) = 1;`,
+	)
+	.join("\n");
+const r = runSql(`.timer on\n.mode trash\n${script}`, { threads, memoryLimit });
+const total = r.timers.reduce((s, t) => s + t, 0);
+const worst = Math.max(...r.timers);
+console.log(tag, `threads=${threads ?? "default"}`, `per_event_date_dedupe days=${days.length} sum=${fmt(total, 3)}s max_day=${fmt(worst, 3)}s rss=${fmt(r.rssMb, 0)}MB`);

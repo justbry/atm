@@ -1,0 +1,58 @@
+// usage: bun bench-agg.ts <tag> [threads]
+import { fmt, runSql } from "./lib.ts";
+
+const tag = process.argv[2] ?? "1m";
+const threads = process.argv[3] ? Number(process.argv[3]) : undefined;
+const D = "data";
+
+const jsonExplicit = (layout: "c" | "s", glob = "*.jsonl") =>
+	`SELECT key, date, id, idem, ingest_time, labels.model AS model, labels.feature AS feature, labels.region AS region, payload.input_tokens AS input_tokens, payload.output_tokens AS output_tokens FROM read_json('${D}/${layout}${tag}/schools/sch_acme/events/*/${glob}', format='newline_delimited', columns={idem:'VARCHAR', id:'VARCHAR', key:'VARCHAR', date:'DATE', event_time:'TIMESTAMPTZ', ingest_time:'TIMESTAMPTZ', labels:'STRUCT(feature VARCHAR, model VARCHAR, region VARCHAR)', payload:'STRUCT(input_tokens BIGINT, output_tokens BIGINT, cached_input_tokens BIGINT)'})`;
+const jsonAuto = `SELECT key, date, id, idem, ingest_time, labels.model AS model, labels.feature AS feature, labels.region AS region, payload.input_tokens AS input_tokens, payload.output_tokens AS output_tokens FROM read_json_auto('${D}/c${tag}/schools/sch_acme/events/*/*.jsonl', format='newline_delimited')`;
+const parquetEnvDay = `SELECT key, date, id, idem, ingest_time, labels['model'] AS model, labels['feature'] AS feature, labels['region'] AS region, (payload->>'input_tokens')::BIGINT AS input_tokens, (payload->>'output_tokens')::BIGINT AS output_tokens FROM read_parquet('${D}/pe_${tag}_byday/*/*.parquet', hive_partitioning=true)`;
+const parquetEnvSingle = `SELECT key, date, id, idem, ingest_time, labels['model'] AS model, labels['feature'] AS feature, labels['region'] AS region, (payload->>'input_tokens')::BIGINT AS input_tokens, (payload->>'output_tokens')::BIGINT AS output_tokens FROM read_parquet('${D}/pe_${tag}_single.parquet')`;
+const parquetFlat = `SELECT key, date, idem, ingest_time, model, feature, region, input_tokens, output_tokens FROM read_parquet('${D}/pf_${tag}.parquet')`;
+
+const sources: Record<string, string> = {
+	jsonl_explicit: jsonExplicit("c"),
+	jsonl_auto: jsonAuto,
+	jsonl_explicit_shipperlayout: jsonExplicit("s", "batch-*.jsonl"),
+	parquet_env_byday: parquetEnvDay,
+	parquet_env_single: parquetEnvSingle,
+	parquet_flat: parquetFlat,
+};
+
+const queries: Record<string, (v: string) => string> = {
+	q1_holder_month_model: (v) =>
+		`WITH v AS (${v}) SELECT key, date_trunc('month', date) AS month, model, sum(input_tokens) i, sum(output_tokens) o FROM v GROUP BY ALL;`,
+	q1d_same_with_dedupe: (v) =>
+		`WITH v AS (${v}), d AS (SELECT * FROM v QUALIFY row_number() OVER (PARTITION BY idem ORDER BY ingest_time, id) = 1) SELECT key, date_trunc('month', date) AS month, model, sum(input_tokens) i, sum(output_tokens) o FROM d GROUP BY ALL;`,
+	q2_one_heavy_holder_month: (v) =>
+		`WITH v AS (${v}) SELECT model, sum(input_tokens) i, sum(output_tokens) o, count(*) n FROM v WHERE key = 'cus_000001' AND date >= DATE '2026-10-01' AND date < DATE '2026-11-01' GROUP BY ALL;`,
+	q2b_one_median_holder_month: (v) =>
+		`WITH v AS (${v}) SELECT model, sum(input_tokens) i, sum(output_tokens) o, count(*) n FROM v WHERE key = 'cus_0001jk' AND date >= DATE '2026-10-01' AND date < DATE '2026-11-01' GROUP BY ALL;`,
+	q3_school_month_rollup: (v) =>
+		`WITH v AS (${v}) SELECT model, feature, region, sum(input_tokens) i, sum(output_tokens) o, count(*) n FROM v WHERE date >= DATE '2026-10-01' AND date < DATE '2026-11-01' GROUP BY ALL;`,
+};
+
+const only = process.env.ONLY?.split(",");
+for (const [sourceName, source] of Object.entries(sources)) {
+	if (only && !only.includes(sourceName)) continue;
+	for (const [queryName, build] of Object.entries(queries)) {
+		if (queryName === "q1d_same_with_dedupe" && (sourceName === "jsonl_auto" || sourceName === "parquet_flat")) continue;
+		const sql = build(source);
+		const r = runSql(`.timer on\n.mode trash\n${sql}\n${sql}`, { threads });
+		const err = /Error/.test(r.stdout + r.stderr) ? r.stdout.slice(0, 300) : "";
+		console.log(
+			[
+				tag,
+				`threads=${threads ?? "default"}`,
+				sourceName,
+				queryName,
+				`cold=${fmt(r.timers[0] ?? Number.NaN, 3)}s`,
+				`warm=${fmt(r.timers[1] ?? Number.NaN, 3)}s`,
+				`rss=${fmt(r.rssMb, 0)}MB`,
+				err,
+			].join(" | "),
+		);
+	}
+}

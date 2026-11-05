@@ -1,0 +1,31 @@
+// usage: bun conv.ts <size tag, e.g. 1m> [layout dir tag c]
+import { DIR, fmt, runSql } from "./lib.ts";
+
+const tag = process.argv[2] ?? "1m";
+const src = `data/c${tag}/schools/sch_acme/events/*/*.jsonl`;
+const env = `read_json('${src}', format='newline_delimited', columns={v:'INTEGER', id:'VARCHAR', school:'VARCHAR', source:'VARCHAR', event_type:'VARCHAR', event_time:'TIMESTAMPTZ', ingest_time:'TIMESTAMPTZ', date:'DATE', tz:'VARCHAR', key:'VARCHAR', labels:'MAP(VARCHAR,VARCHAR)', idem:'VARCHAR', cause:'VARCHAR', text:'VARCHAR', postings:'STRUCT(account VARCHAR, amount DECIMAL(18,2), commodity VARCHAR)[]', payload:'JSON', redacted:'JSON'})`;
+
+const steps: [string, string][] = [
+	[
+		`env_single_${tag}`,
+		`COPY (SELECT * FROM ${env}) TO 'data/pe_${tag}_single.parquet' (FORMAT parquet, COMPRESSION zstd);`,
+	],
+	[
+		`env_byday_${tag}`,
+		`COPY (SELECT * FROM ${env}) TO 'data/pe_${tag}_byday' (FORMAT parquet, COMPRESSION zstd, PARTITION_BY (date), OVERWRITE_OR_IGNORE);`,
+	],
+	[
+		`env_sorted_key_${tag}`,
+		`COPY (SELECT * FROM ${env} ORDER BY key, event_time) TO 'data/pe_${tag}_sortkey.parquet' (FORMAT parquet, COMPRESSION zstd);`,
+	],
+	[
+		`flat_${tag}`,
+		`COPY (SELECT key, date, event_time, ingest_time, idem, labels['model'] AS model, labels['feature'] AS feature, labels['region'] AS region, (payload->>'input_tokens')::BIGINT AS input_tokens, (payload->>'output_tokens')::BIGINT AS output_tokens, (payload->>'cached_input_tokens')::BIGINT AS cached_input_tokens FROM ${env}) TO 'data/pf_${tag}.parquet' (FORMAT parquet, COMPRESSION zstd);`,
+	],
+];
+for (const [name, sql] of steps) {
+	const r = runSql(`.timer on\n.mode trash\n${sql}`);
+	console.log(name, `wall=${fmt(r.wall)}s rss=${fmt(r.rssMb, 0)}MB`);
+	if (r.stderr.includes("Error")) console.log(r.stderr.slice(0, 400));
+}
+console.log(DIR);

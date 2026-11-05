@@ -1,0 +1,75 @@
+// usage: bun sizes.ts <tag> e.g. 1m  -> bytes per event in JSONL raw, gzip -6, zstd -3 (per file), parquet variants
+import { readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+
+const tag = process.argv[2] ?? "1m";
+const walk = (dir: string, out: string[] = []): string[] => {
+	for (const e of readdirSync(dir, { withFileTypes: true })) {
+		const p = join(dir, e.name);
+		if (e.isDirectory()) walk(p, out);
+		else out.push(p);
+	}
+	return out;
+};
+
+const lineCount = async (files: string[]) => {
+	let total = 0;
+	for (const f of files) {
+		const text = await Bun.file(f).text();
+		for (let i = text.indexOf("\n"); i !== -1; i = text.indexOf("\n", i + 1))
+			total++;
+	}
+	return total;
+};
+
+const compressed = async (files: string[], cmd: string[]) => {
+	let total = 0;
+	let next = 0;
+	const worker = async () => {
+		while (next < files.length) {
+			const f = files[next++] as string;
+			const p = Bun.spawn([...cmd, f], { stdout: "pipe" });
+			const buf = await new Response(p.stdout).arrayBuffer();
+			total += buf.byteLength;
+		}
+	};
+	await Promise.all(Array.from({ length: 14 }, worker));
+	return total;
+};
+
+const du = (path: string) => walk(path).reduce((s, f) => s + statSync(f).size, 0);
+
+for (const layout of ["c", "s"]) {
+	const dir = `/tmp/atm-usage-pipeline/data/${layout}${tag}/schools/sch_acme/events`;
+	const files = walk(dir).filter((f) => f.endsWith(".jsonl"));
+	const raw = files.reduce((s, f) => s + statSync(f).size, 0);
+	const rows = await lineCount(files);
+	const gz = await compressed(files, ["gzip", "-6", "-c"]);
+	const zs = await compressed(files, ["zstd", "-3", "-c", "-q"]);
+	console.log(
+		JSON.stringify({
+			layout,
+			tag,
+			files: files.length,
+			rows,
+			rawBytes: raw,
+			rawPerEvent: +(raw / rows).toFixed(1),
+			gzipPerEvent: +(gz / rows).toFixed(1),
+			zstdPerEvent: +(zs / rows).toFixed(1),
+			gzBytes: gz,
+			zsBytes: zs,
+		}),
+	);
+	if (layout === "c") {
+		const d = "/tmp/atm-usage-pipeline/data";
+		for (const [name, path] of [
+			["parquet_env_single", `${d}/pe_${tag}_single.parquet`],
+			["parquet_env_byday", `${d}/pe_${tag}_byday`],
+			["parquet_env_sortkey", `${d}/pe_${tag}_sortkey.parquet`],
+			["parquet_flat", `${d}/pf_${tag}.parquet`],
+		] as const) {
+			const bytes = statSync(path).isDirectory() ? du(path) : statSync(path).size;
+			console.log(name, bytes, "bytes", +(bytes / rows).toFixed(1), "B/event");
+		}
+	}
+}

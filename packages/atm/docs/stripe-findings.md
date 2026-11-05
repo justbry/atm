@@ -1,0 +1,44 @@
+# Stripe findings
+
+What was checked against a real Stripe sandbox or against real webhook deliveries, and what was found. Moved here from `ROADMAP.md` in the roadmap split; the wording is the original. The open to-dos of each are one-liners in `ROADMAP.md`. Related: `docs/receipts.md` (connected-account invoices), `docs/review-findings.md` (the review of #22 to #24), `docs/financial-reports.md`, `docs/log-and-r2.md`, `docs/README.md`.
+
+## Tier quantities verified with real data
+
+(From the item "Tier quantities", which is in `CHANGELOG.md`, "Before 0.3.0".)
+
+- [x] Verified with real data (2026-11-05, sandbox, real webhook deliveries; the events are in `fixtures/billing/stripe/recorded/delivered/`, replayed by `tests/stripe-recorded-delivered.test.ts`): a tier change and a quantity change in one update (sparkle x2 to shine x4 on day 10) grants 2, the one-visit-per-unit difference prorated up, and moves the membership to shine; a raise 2 to 4 on a yearly plan 90 days in grants 19 (2 extra units x 12 x 275/365, rounded up) on top of the 24 of the create; a decrease 4 to 2 through a subscription schedule (`phases[].duration`; `iterations` is gone) leaves the credits alone until the renewal, which resets to 2; a raise and a decrease made in the hosted billing portal behave the same (a raise charged at once, a decrease only a schedule).
+
+## Webhook delivery at the pinned version
+
+- Webhook delivery at the pinned version verified (2026-11-05): a sandbox endpoint with `api_version: "2025-10-29.clover"`, subscribed to the eight events in `UPGRADING.md`, reached the reference handler through a cloudflared quick tunnel; every event carried `api_version: 2025-10-29.clover` and a valid signature. Refunds and disputes too: a full refund and a lost dispute took the credits back, a partial refund and a won dispute changed nothing. The ordering race is real and frequent: in the refund and dispute run `invoice_payment.paid` beat its `invoice.paid` for all four families and each refund or dispute then answered 409 `unmatched_payment`; Stripe's sandbox retry had not fired two minutes later, so the events were resent by hand in order, after which they applied (a live endpoint retries with backoff for up to three days; check how soon, since a refund waits on it). The events are recorded in `fixtures/billing/stripe/recorded/delivered/`.
+
+## Payload shapes checked against a sandbox
+
+(Under "Stripe coverage" in the old "Done" section; the whole section is in `CHANGELOG.md`, "Before 0.3.0".)
+
+- [x] Mapping shapes checked against real payloads from a Stripe sandbox at API `2025-10-29.clover` (objects fetched at that version; the event envelope was rebuilt around them, see `fixtures/billing/stripe/recorded/README.md`). Three bugs the OpenAPI check and the synthetic fixtures had hidden are fixed:
+  - [x] `charge.refunded`: a real charge has no `refunds` list, so every refund was refused and no credits were ever taken back.
+  - [x] Invoice metadata: with checkout's `subscription_data.metadata` the invoice's own metadata is empty; it is on `parent.subscription_details.metadata`. Every real subscription invoice was refused as `missing_metadata`.
+  - [x] Renewal period: a `subscription_cycle` invoice's own period is the previous one; the lines carry the new one. A real renewal reset a month early and granted nothing.
+
+## A Checkout with a one-time gift line
+
+- A subscription-mode Checkout that carries a one-time gift line, verified in a real hosted Checkout (2026-11-05, test card): one `invoice.paid` has both lines (the gift line is `quantity 1`, `proration: false`, with a period equal to the first cycle's) and the handler grants the tier's credits and a separate gift lot of 1 visit that expires after `giftSessionMonths`; the gift line is not on the subscription's items. Webhook delivery and the schedule downgrade are verified above.
+
+## portalConfigOf: validation and portal behaviour
+
+- [x] `portalConfigOf(menu, { products, prices })`: the billing portal configuration for a tier sold in quantities (a raise billed at once, a decrease at the renewal, quantity-only updates, cancel at the period end), matching the family service's own `portalFieldsOf` (justbry/buzz-school#1307) field for field, except that a tier with a product but none of its prices published is left out (Stripe requires `prices` on each product), where `portalFieldsOf` would send it with none. Created in a real Stripe account (2026-11-05, API `2025-10-29.clover`): every field was accepted, and Stripe validates `products` (a missing product, a price of another product, an `adjustable_quantity` maximum below the minimum are refused); it also refuses subscription updates with `payment_method_update` off, which `portalConfigOf` has on. The API never returns `features.subscription_update.products` (nor `adjustable_quantity`) on a read, at `2025-10-29.clover`, `2025-03-31.basil` or `2024-06-20`, so the stored limits cannot be read back; the hosted portal does enforce them (driven in a browser: a quantity-only stepper with no tier switch, stopping at 1 and at 4, 3 reachable; a raise 2 to 4 charged at once, a decrease "updated at the end of your current billing period" with a schedule). Still to do in `buzz-school`: replace `portalFieldsOf` with it.
+
+## Portal limits found in the sandbox: add-ons and older prices
+
+From the open findings of the 2026-11-05 review of #22 to #24 (the other two findings are in `docs/review-findings.md`).
+
+- #22 (`portalConfigOf`): the portal lists only the tier products, so a member who also holds a recurring add-on is not offered the update. Verified in the sandbox (2026-11-05, hosted portal, the configuration `portalConfigOf` builds): a subscription of Sparkle x2 plus the Glow add-on shows only "Cancel subscription", no "Update subscription" link, so the family service must change quantity another way for those members (its own page, with `subscriptions.update` or a Checkout). Listing the add-on's product in the configuration does not fix it: tried with the Glow product added to `products` (no `adjustable_quantity`, then one with minimum 1 and maximum 2; Stripe refuses a maximum of 1), and the same member still saw only "Cancel subscription". The quantity is a range, so a tier sold in [1, 2, 4] lets a member pick 3, and nothing flags a quantity outside `quantities`. A member on an older price (after a price change) is fine: verified, the portal offers the quantity update on a price that is not in `products[].prices`, and enforces the 1 to 4 limits on it too.
+
+## Several subscriptions on one customer
+
+- [ ] **Several subscriptions on one customer** (sandbox spike 2026-11-05, real deliveries to the handler with `env: "test"`; the limits are in `UPGRADING.md`, "Moving to 0.5.0"). Works: one customer with three active subscriptions; the portal lists each with its own update link (checked the second school's stepper); atm keeps two schools apart by `b4u_school` and `family_id`, and a raise 2 to 4 on school A left school B untouched. Does not work: a subscription that holds only a recurring add-on is paid and recorded as decided (`applied`) with no credits and no `addonIds`, and cancelling it would not retire anything, because `GrantsState` follows one subscription; a second tier subscription for the same school and family is refused only after the first ended. Shared Stripe account: the handler answers 422 `school_mismatch` for another school's events, which Stripe retries, so the caller must route by `b4u_school`. To do: (1) at least refuse, rather than silently grant nothing, an invoice that carries only recurring add-on lines for a subscription that is not the holder's own (a `refused` code a human sees); (2) decide between add-ons on the tier subscription with the family service's own quantity page (the portal gives an add-on holder no update, see the #22 finding above), and engine support for add-on subscriptions (grant on the add-on subscription's create invoice, refill on renew, retire on cancel and refund; per-subscription state); (3) a small router helper if several schools share one account. Also seen: the portal names subscriptions by product only, so two schools' same-named tiers look alike in a shared account.
+
+## Open: portalConfigOf key order
+
+- [ ] `portalConfigOf` puts `metadata[b4u_key]` after the products, `portalFieldsOf` before them: if the family service's `fieldsHash` depends on key order, switching creates a new configuration once (harmless), but check it. A tier with a product but no published price is left out (Stripe requires `prices`), where the reference sent a request Stripe refuses. The field names were checked against a real account at `2025-10-29.clover` (see above).

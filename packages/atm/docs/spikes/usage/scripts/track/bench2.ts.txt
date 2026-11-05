@@ -1,0 +1,48 @@
+import { rmSync } from "node:fs";
+import * as h from "<spike-branch-checkout>/packages/atm/tests/spikes/usage-track-harness.ts";
+
+const DIR = "/tmp/atm-usage-track";
+let seq = 0;
+const fresh = () => {
+	const p = `${DIR}/c${seq++}.db`;
+	for (const s of ["", "-wal", "-shm"]) rmSync(p + s, { force: true });
+	return p;
+};
+const f = (n: number, d = 1) => n.toFixed(d);
+
+const lines: string[] = [];
+const cases: {
+	pattern: "immediate" | "optimistic";
+	think: number;
+}[] = [
+	{ pattern: "immediate", think: 0 },
+	{ pattern: "optimistic", think: 0 },
+	{ pattern: "optimistic", think: 1 },
+];
+for (const c of cases.slice(Number(process.env.FROM ?? 0))) {
+	if (process.env.FROM === '1' && c.think === 0) {} 
+	for (const holders of ["same", "spread"] as const) {
+		for (const workers of [1, 2, 4, 8]) {
+			if (holders === "spread" && workers === 1) continue;
+			const rs: h.ContentionReport[] = [];
+			for (let i = 0; i < 3; i++)
+				rs.push(
+					await h.runContention({
+						path: fresh(),
+						workers,
+						holders,
+						pattern: c.pattern,
+						thinkMs: c.think,
+						durationMs: 1500,
+					}),
+				);
+			rs.sort((a, b) => a.tracksPerSecond - b.tracksPerSecond);
+			const r = rs[1] as h.ContentionReport;
+			const spreadOut = rs.map((x) => f(x.tracksPerSecond, 0)).join("/");
+			const line = `${c.pattern.padEnd(10)} think=${c.think}ms ${holders.padEnd(6)} K=${workers} | ${f(r.tracksPerSecond, 0).padStart(6)} commits/s | attempts ${r.attempts} commits ${r.committed} stale ${r.stale} (${f(r.staleRate * 100)}%) busy ${r.busy} retries/track ${f(r.retriesPerTrack, 2)} | p50 ${f(r.latencyMs.p50 * 1000, 0)}us p99 ${f(r.latencyMs.p99 * 1000, 0)}us max ${f(r.latencyMs.max, 1)}ms | runs ${spreadOut} | revOk ${r.revisionOk} balOk ${r.balanceOk}`;
+			console.log(line);
+			lines.push(line);
+		}
+	}
+}
+console.log("\n" + lines.join("\n"));

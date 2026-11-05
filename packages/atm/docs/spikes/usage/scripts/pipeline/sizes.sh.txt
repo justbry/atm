@@ -1,0 +1,6 @@
+#!/bin/bash
+cd /tmp/atm-usage-pipeline
+for d in c100k s100k c1m s1m c10m s10m; do
+  [ -d data/$d ] && echo "$d files=$(find data/$d -name '*.jsonl' | wc -l) kb=$(du -sk data/$d | cut -f1)"
+done
+tail -3 gen.log

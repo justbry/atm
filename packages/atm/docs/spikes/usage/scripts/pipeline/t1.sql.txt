@@ -1,0 +1,8 @@
+.timer on
+.mode trash
+SET TimeZone='UTC';
+CREATE VIEW raw AS SELECT * FROM read_json('data/c100k/schools/sch_acme/events/*/*.jsonl', format='newline_delimited', columns={idem:'VARCHAR', id:'VARCHAR', key:'VARCHAR', date:'DATE', event_time:'TIMESTAMPTZ', ingest_time:'TIMESTAMPTZ', labels:'STRUCT(feature VARCHAR, model VARCHAR, region VARCHAR)', payload:'STRUCT(input_tokens BIGINT, output_tokens BIGINT, cached_input_tokens BIGINT)'});
+SELECT key, strftime(date,'%Y-%m') m, labels.model, sum(payload.input_tokens), sum(payload.output_tokens) FROM raw GROUP BY ALL;
+SELECT key, strftime(date,'%Y-%m') m, labels.model, sum(payload.input_tokens), sum(payload.output_tokens) FROM raw GROUP BY ALL;
+.mode duckbox
+SELECT count(*), count(distinct idem), min(event_time), max(event_time) FROM raw;

@@ -1,0 +1,33 @@
+import { rmSync } from "node:fs";
+import * as h from "<spike-branch-checkout>/packages/atm/tests/spikes/usage-track-harness.ts";
+
+const open = (name: string) => {
+	const p = `/tmp/atm-usage-track/${name}.db`;
+	for (const s of ["", "-wal", "-shm"]) rmSync(p + s, { force: true });
+	const { db } = h.openDatabase(p);
+	h.seedHolders(db, 1, { balance: 1e12 });
+	return db;
+};
+const REPS = 200;
+for (const M of [1, 10, 100, 1000]) {
+	const res: { each: number[]; batch: number[] } = { each: [], batch: [] };
+	for (let trial = 0; trial < 5; trial++) {
+		const db = open("b3");
+		const reps = Math.max(5, Math.floor(REPS / Math.sqrt(M)));
+		let t0 = performance.now();
+		for (let r = 0; r < reps; r++)
+			for (let i = 0; i < M; i++)
+				h.spend({ db, command: h.trackCommand({ holder: "u0", value: 137 }) });
+		const each = (performance.now() - t0) / reps;
+		t0 = performance.now();
+		for (let r = 0; r < reps; r++)
+			h.spend({ db, command: h.trackCommand({ holder: "u0", value: 137 * M }) });
+		const batch = (performance.now() - t0) / reps;
+		res.each.push(each);
+		res.batch.push(batch);
+	}
+	const med = (a: number[]) => [...a].sort((x, y) => x - y)[2] as number;
+	console.log(
+		`M=${String(M).padStart(4)}: M tracks ${med(res.each).toFixed(3)} ms | 1 summed track ${med(res.batch).toFixed(3)} ms | speedup x${(med(res.each) / med(res.batch)).toFixed(1)} | per call ${(med(res.each) / M * 1000).toFixed(1)} us vs ${(med(res.batch) / M * 1000).toFixed(2)} us`,
+	);
+}

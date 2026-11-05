@@ -1,0 +1,84 @@
+// usage: bun outbox-bench.ts insert | ship <events>
+import { Database } from "bun:sqlite";
+import { mkdirSync, rmSync, statSync } from "node:fs";
+import { bunSqlite } from "<spike-branch-checkout>/packages/atm/src/handler/bun-sqlite.ts";
+import { HANDLER_DDL } from "<spike-branch-checkout>/packages/atm/src/handler/schema.ts";
+import { appendToOutbox } from "<spike-branch-checkout>/packages/atm/src/ledger/outbox.ts";
+import { shipOutbox } from "<spike-branch-checkout>/packages/atm/src/ledger/ship.ts";
+import { FolderStore } from "<spike-branch-checkout>/packages/atm/src/store/folder-store.ts";
+import { generateUsage } from "<spike-branch-checkout>/packages/atm/tests/spikes/usage-events.ts";
+import type { AtmEvent } from "<spike-branch-checkout>/packages/atm/src/types.ts";
+
+const W = "/tmp/atm-usage-pipeline/work";
+mkdirSync(W, { recursive: true });
+const mode = process.argv[2];
+
+const events = (n: number): AtmEvent[] => {
+	const out: AtmEvent[] = [];
+	for (const e of generateUsage({ events: n, holders: 20000, duplicateRate: 0 })) out.push(JSON.parse(e.line) as AtmEvent);
+	return out;
+};
+const open = (path: string, pragmas: string[]) => {
+	rmSync(path, { force: true });
+	rmSync(`${path}-wal`, { force: true });
+	rmSync(`${path}-shm`, { force: true });
+	const raw = new Database(path);
+	for (const p of pragmas) raw.exec(p);
+	const db = bunSqlite(raw);
+	db.exec(HANDLER_DDL);
+	return { raw, db };
+};
+const mb = () => Math.round(process.memoryUsage().rss / 1048576);
+
+if (mode === "insert") {
+	const N = 30000;
+	const evs = events(N);
+	const configs: [string, string, string[]][] = [
+		["memory", ":memory:", []],
+		["file default (DELETE journal, synchronous=FULL)", `${W}/o-default.db`, []],
+		["file WAL + synchronous=NORMAL (Litestream-style)", `${W}/o-wal.db`, ["PRAGMA journal_mode=WAL", "PRAGMA synchronous=NORMAL"]],
+		["file WAL + synchronous=FULL", `${W}/o-walfull.db`, ["PRAGMA journal_mode=WAL", "PRAGMA synchronous=FULL"]],
+	];
+	for (const [name, path, pragmas] of configs) {
+		for (const batch of [1, 100, 1000]) {
+			const { raw, db } = open(path, pragmas);
+			const total = batch === 1 ? 10000 : N;
+			const start = performance.now();
+			for (let i = 0; i < total; i += batch) {
+				const slice = evs.slice(i, i + batch);
+				db.transaction(() => appendToOutbox(db, slice));
+			}
+			const s = (performance.now() - start) / 1000;
+			const size = path === ":memory:" ? 0 : statSync(path).size;
+			console.log(`${name} | batch=${batch} | ${Math.round(total / s)} events/s | bytes/row=${size ? Math.round(size / total) : "n/a"}`);
+			raw.close();
+		}
+	}
+}
+
+if (mode === "ship") {
+	const n = Number(process.argv[3]);
+	const { raw, db } = open(`${W}/ship-${n}.db`, ["PRAGMA journal_mode=WAL", "PRAGMA synchronous=NORMAL"]);
+	let t = performance.now();
+	let batch: AtmEvent[] = [];
+	let inserted = 0;
+	for (const e of generateUsage({ events: n, holders: 20000, duplicateRate: 0.01 })) {
+		batch.push(JSON.parse(e.line) as AtmEvent);
+		if (batch.length === 1000) {
+			const b = batch;
+			inserted += db.transaction(() => appendToOutbox(db, b));
+			batch = [];
+		}
+	}
+	inserted += db.transaction(() => appendToOutbox(db, batch));
+	console.log(`outbox filled: ${inserted} rows (duplicates dropped by UNIQUE(school_id, idem)) in ${((performance.now() - t) / 1000).toFixed(1)}s, db=${(statSync(`${W}/ship-${n}.db`).size / 1048576).toFixed(0)}MB, rss=${mb()}MB`);
+	const root = `${W}/ship-root-${n}`;
+	rmSync(root, { recursive: true, force: true });
+	mkdirSync(root, { recursive: true });
+	t = performance.now();
+	const result = await shipOutbox({ db, store: new FolderStore({ root }), school: "sch_acme", nowMs: Date.now });
+	const sec = (performance.now() - t) / 1000;
+	const sizes = result.batches.map((b) => b.events);
+	console.log(`shipped ${result.shipped} rows in ${result.batches.length} batches (largest ${Math.max(...sizes)} events), conflicts=${result.conflicts.length}, ${sec.toFixed(1)}s, ${Math.round(result.shipped / sec)} events/s, peak rss=${mb()}MB`);
+	raw.close();
+}

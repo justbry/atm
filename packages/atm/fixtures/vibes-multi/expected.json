@@ -1,0 +1,1752 @@
+{
+  "seed": 1,
+  "school": "sch_multi",
+  "tz": "America/Denver",
+  "asOf": "2027-03-01T07:30:00Z",
+  "lastEventId": "01MFZZY1600000M7ZY8VG1WK5M",
+  "eventCount": 232,
+  "holders": [
+    {
+      "holder": "family:fam_6e5k",
+      "tier": "sparkle-2",
+      "schedule": "eom-2330"
+    },
+    {
+      "holder": "family:fam_7hdl",
+      "tier": "sparkle-2",
+      "schedule": "som-0000"
+    },
+    {
+      "holder": "family:fam_0s9q",
+      "tier": "sparkle-1",
+      "schedule": "eom-235959"
+    },
+    {
+      "holder": "family:fam_jz3t",
+      "tier": "sparkle-1",
+      "schedule": "som-0030"
+    },
+    {
+      "holder": "family:fam_uh3b",
+      "tier": "sparkle-2",
+      "schedule": "regular"
+    },
+    {
+      "holder": "family:fam_kr4i",
+      "tier": "sparkle-2",
+      "schedule": "regular"
+    },
+    {
+      "holder": "family:fam_vlfa",
+      "tier": "sparkle-2",
+      "schedule": "regular"
+    },
+    {
+      "holder": "family:fam_95d7",
+      "tier": "sparkle-2",
+      "schedule": "regular"
+    },
+    {
+      "holder": "family:fam_ipqj",
+      "tier": "sparkle-1",
+      "schedule": "regular"
+    },
+    {
+      "holder": "family:fam_ak4o",
+      "tier": "sparkle-1",
+      "schedule": "regular"
+    },
+    {
+      "holder": "family:fam_v4ao",
+      "tier": "sparkle-1",
+      "schedule": "regular"
+    },
+    {
+      "holder": "family:fam_n5en",
+      "tier": "sparkle-1",
+      "schedule": "regular"
+    }
+  ],
+  "balances": [
+    {
+      "holder": "family:fam_0s9q",
+      "feature": "visit",
+      "avail": 2,
+      "held": 0
+    },
+    {
+      "holder": "family:fam_6e5k",
+      "feature": "visit",
+      "avail": 4,
+      "held": 0
+    },
+    {
+      "holder": "family:fam_7hdl",
+      "feature": "visit",
+      "avail": 2,
+      "held": 0
+    },
+    {
+      "holder": "family:fam_95d7",
+      "feature": "visit",
+      "avail": 0,
+      "held": 0
+    },
+    {
+      "holder": "family:fam_ak4o",
+      "feature": "visit",
+      "avail": 2,
+      "held": 0
+    },
+    {
+      "holder": "family:fam_ipqj",
+      "feature": "visit",
+      "avail": 1,
+      "held": 0
+    },
+    {
+      "holder": "family:fam_jz3t",
+      "feature": "visit",
+      "avail": 1,
+      "held": 0
+    },
+    {
+      "holder": "family:fam_kr4i",
+      "feature": "visit",
+      "avail": 3,
+      "held": 0
+    },
+    {
+      "holder": "family:fam_n5en",
+      "feature": "visit",
+      "avail": 1,
+      "held": 0
+    },
+    {
+      "holder": "family:fam_uh3b",
+      "feature": "visit",
+      "avail": 4,
+      "held": 0
+    },
+    {
+      "holder": "family:fam_v4ao",
+      "feature": "visit",
+      "avail": 1,
+      "held": 1
+    },
+    {
+      "holder": "family:fam_vlfa",
+      "feature": "visit",
+      "avail": 4,
+      "held": 0
+    }
+  ],
+  "postingTotals": {
+    "assets:clearing:stripe-payouts USD": "8007.68",
+    "assets:clearing:zeffy USD": "40.00",
+    "assets:clearing:zeffy-payouts USD": "195.00",
+    "assets:stripe USD": "378.09",
+    "credits:avail:family:fam_0s9q:visit VISIT": "2",
+    "credits:avail:family:fam_6e5k:visit VISIT": "4",
+    "credits:avail:family:fam_7hdl:visit VISIT": "2",
+    "credits:avail:family:fam_95d7:visit VISIT": "0",
+    "credits:avail:family:fam_ak4o:visit VISIT": "2",
+    "credits:avail:family:fam_ipqj:visit VISIT": "1",
+    "credits:avail:family:fam_jz3t:visit VISIT": "1",
+    "credits:avail:family:fam_kr4i:visit VISIT": "3",
+    "credits:avail:family:fam_n5en:visit VISIT": "1",
+    "credits:avail:family:fam_uh3b:visit VISIT": "4",
+    "credits:avail:family:fam_v4ao:visit VISIT": "1",
+    "credits:avail:family:fam_vlfa:visit VISIT": "4",
+    "credits:expired VISIT": "6",
+    "credits:forfeited VISIT": "1",
+    "credits:held:family:fam_0s9q:visit VISIT": "0",
+    "credits:held:family:fam_6e5k:visit VISIT": "0",
+    "credits:held:family:fam_7hdl:visit VISIT": "0",
+    "credits:held:family:fam_95d7:visit VISIT": "0",
+    "credits:held:family:fam_ak4o:visit VISIT": "0",
+    "credits:held:family:fam_ipqj:visit VISIT": "0",
+    "credits:held:family:fam_jz3t:visit VISIT": "0",
+    "credits:held:family:fam_kr4i:visit VISIT": "0",
+    "credits:held:family:fam_n5en:visit VISIT": "0",
+    "credits:held:family:fam_uh3b:visit VISIT": "0",
+    "credits:held:family:fam_v4ao:visit VISIT": "1",
+    "credits:held:family:fam_vlfa:visit VISIT": "0",
+    "credits:issued:sparkle-1@v1 VISIT": "-24",
+    "credits:issued:sparkle-2@v1 VISIT": "-44",
+    "credits:spent:energy-45 VISIT": "8",
+    "credits:spent:light-60 VISIT": "13",
+    "credits:spent:massage-90 VISIT": "14",
+    "expenses:billing:disputes USD": "260.00",
+    "expenses:billing:stripe-fees USD": "274.23",
+    "income:billing:membership:sparkle-1 USD": "-3250.00",
+    "income:billing:membership:sparkle-2 USD": "-5720.00",
+    "income:billing:refunds USD": "50.00",
+    "income:fundraising:fall-fair USD": "-235.00"
+  },
+  "postingTotalsByMonth": {
+    "2026-11": {
+      "assets:clearing:stripe-payouts USD": "1134.27",
+      "assets:stripe USD": "1260.20",
+      "credits:avail:family:fam_6e5k:visit VISIT": "2",
+      "credits:avail:family:fam_7hdl:visit VISIT": "1",
+      "credits:avail:family:fam_95d7:visit VISIT": "1",
+      "credits:avail:family:fam_ak4o:visit VISIT": "0",
+      "credits:avail:family:fam_ipqj:visit VISIT": "0",
+      "credits:avail:family:fam_jz3t:visit VISIT": "0",
+      "credits:avail:family:fam_kr4i:visit VISIT": "1",
+      "credits:avail:family:fam_n5en:visit VISIT": "0",
+      "credits:avail:family:fam_uh3b:visit VISIT": "0",
+      "credits:avail:family:fam_v4ao:visit VISIT": "1",
+      "credits:avail:family:fam_vlfa:visit VISIT": "1",
+      "credits:forfeited VISIT": "1",
+      "credits:held:family:fam_7hdl:visit VISIT": "0",
+      "credits:held:family:fam_95d7:visit VISIT": "0",
+      "credits:held:family:fam_ak4o:visit VISIT": "0",
+      "credits:held:family:fam_ipqj:visit VISIT": "0",
+      "credits:held:family:fam_jz3t:visit VISIT": "0",
+      "credits:held:family:fam_kr4i:visit VISIT": "0",
+      "credits:held:family:fam_n5en:visit VISIT": "0",
+      "credits:held:family:fam_uh3b:visit VISIT": "0",
+      "credits:held:family:fam_vlfa:visit VISIT": "0",
+      "credits:issued:sparkle-1@v1 VISIT": "-5",
+      "credits:issued:sparkle-2@v1 VISIT": "-12",
+      "credits:spent:energy-45 VISIT": "1",
+      "credits:spent:light-60 VISIT": "3",
+      "credits:spent:massage-90 VISIT": "5",
+      "expenses:billing:stripe-fees USD": "75.53",
+      "income:billing:membership:sparkle-1 USD": "-910.00",
+      "income:billing:membership:sparkle-2 USD": "-1560.00"
+    },
+    "2026-12": {
+      "assets:clearing:stripe-payouts USD": "2268.54",
+      "assets:clearing:zeffy USD": "195.00",
+      "assets:stripe USD": "-310.00",
+      "credits:avail:family:fam_0s9q:visit VISIT": "0",
+      "credits:avail:family:fam_6e5k:visit VISIT": "1",
+      "credits:avail:family:fam_7hdl:visit VISIT": "1",
+      "credits:avail:family:fam_95d7:visit VISIT": "1",
+      "credits:avail:family:fam_ak4o:visit VISIT": "1",
+      "credits:avail:family:fam_ipqj:visit VISIT": "0",
+      "credits:avail:family:fam_jz3t:visit VISIT": "1",
+      "credits:avail:family:fam_kr4i:visit VISIT": "0",
+      "credits:avail:family:fam_n5en:visit VISIT": "0",
+      "credits:avail:family:fam_uh3b:visit VISIT": "1",
+      "credits:avail:family:fam_v4ao:visit VISIT": "0",
+      "credits:avail:family:fam_vlfa:visit VISIT": "2",
+      "credits:held:family:fam_0s9q:visit VISIT": "0",
+      "credits:held:family:fam_6e5k:visit VISIT": "0",
+      "credits:held:family:fam_7hdl:visit VISIT": "0",
+      "credits:held:family:fam_95d7:visit VISIT": "0",
+      "credits:held:family:fam_ipqj:visit VISIT": "0",
+      "credits:held:family:fam_jz3t:visit VISIT": "0",
+      "credits:held:family:fam_kr4i:visit VISIT": "0",
+      "credits:held:family:fam_n5en:visit VISIT": "0",
+      "credits:held:family:fam_uh3b:visit VISIT": "0",
+      "credits:held:family:fam_v4ao:visit VISIT": "0",
+      "credits:issued:sparkle-1@v1 VISIT": "-6",
+      "credits:issued:sparkle-2@v1 VISIT": "-12",
+      "credits:spent:energy-45 VISIT": "3",
+      "credits:spent:light-60 VISIT": "4",
+      "credits:spent:massage-90 VISIT": "3",
+      "expenses:billing:disputes USD": "260.00",
+      "expenses:billing:stripe-fees USD": "71.46",
+      "income:billing:membership:sparkle-1 USD": "-780.00",
+      "income:billing:membership:sparkle-2 USD": "-1560.00",
+      "income:billing:refunds USD": "50.00",
+      "income:fundraising:fall-fair USD": "-195.00"
+    },
+    "2027-01": {
+      "assets:clearing:stripe-payouts USD": "1706.38",
+      "assets:clearing:zeffy USD": "-195.00",
+      "assets:clearing:zeffy-payouts USD": "195.00",
+      "assets:stripe USD": "310.00",
+      "credits:avail:family:fam_0s9q:visit VISIT": "0",
+      "credits:avail:family:fam_6e5k:visit VISIT": "0",
+      "credits:avail:family:fam_7hdl:visit VISIT": "0",
+      "credits:avail:family:fam_95d7:visit VISIT": "-2",
+      "credits:avail:family:fam_ak4o:visit VISIT": "0",
+      "credits:avail:family:fam_ipqj:visit VISIT": "1",
+      "credits:avail:family:fam_jz3t:visit VISIT": "0",
+      "credits:avail:family:fam_kr4i:visit VISIT": "1",
+      "credits:avail:family:fam_n5en:visit VISIT": "0",
+      "credits:avail:family:fam_uh3b:visit VISIT": "1",
+      "credits:avail:family:fam_v4ao:visit VISIT": "0",
+      "credits:avail:family:fam_vlfa:visit VISIT": "0",
+      "credits:expired VISIT": "3",
+      "credits:held:family:fam_0s9q:visit VISIT": "0",
+      "credits:held:family:fam_6e5k:visit VISIT": "0",
+      "credits:held:family:fam_7hdl:visit VISIT": "0",
+      "credits:held:family:fam_ak4o:visit VISIT": "0",
+      "credits:held:family:fam_jz3t:visit VISIT": "0",
+      "credits:held:family:fam_kr4i:visit VISIT": "0",
+      "credits:held:family:fam_n5en:visit VISIT": "0",
+      "credits:held:family:fam_uh3b:visit VISIT": "0",
+      "credits:held:family:fam_v4ao:visit VISIT": "0",
+      "credits:held:family:fam_vlfa:visit VISIT": "0",
+      "credits:issued:sparkle-1@v1 VISIT": "-6",
+      "credits:issued:sparkle-2@v1 VISIT": "-10",
+      "credits:spent:energy-45 VISIT": "3",
+      "credits:spent:light-60 VISIT": "5",
+      "credits:spent:massage-90 VISIT": "4",
+      "expenses:billing:disputes USD": "0.00",
+      "expenses:billing:stripe-fees USD": "63.62",
+      "income:billing:membership:sparkle-1 USD": "-780.00",
+      "income:billing:membership:sparkle-2 USD": "-1300.00"
+    },
+    "2027-02": {
+      "assets:clearing:stripe-payouts USD": "2898.49",
+      "assets:clearing:zeffy USD": "40.00",
+      "assets:stripe USD": "-882.11",
+      "credits:avail:family:fam_0s9q:visit VISIT": "1",
+      "credits:avail:family:fam_6e5k:visit VISIT": "1",
+      "credits:avail:family:fam_7hdl:visit VISIT": "1",
+      "credits:avail:family:fam_ak4o:visit VISIT": "1",
+      "credits:avail:family:fam_ipqj:visit VISIT": "0",
+      "credits:avail:family:fam_jz3t:visit VISIT": "1",
+      "credits:avail:family:fam_kr4i:visit VISIT": "1",
+      "credits:avail:family:fam_n5en:visit VISIT": "1",
+      "credits:avail:family:fam_uh3b:visit VISIT": "2",
+      "credits:avail:family:fam_v4ao:visit VISIT": "0",
+      "credits:avail:family:fam_vlfa:visit VISIT": "1",
+      "credits:expired VISIT": "1",
+      "credits:held:family:fam_6e5k:visit VISIT": "0",
+      "credits:held:family:fam_7hdl:visit VISIT": "0",
+      "credits:held:family:fam_ipqj:visit VISIT": "0",
+      "credits:held:family:fam_kr4i:visit VISIT": "0",
+      "credits:held:family:fam_v4ao:visit VISIT": "1",
+      "credits:issued:sparkle-1@v1 VISIT": "-6",
+      "credits:issued:sparkle-2@v1 VISIT": "-10",
+      "credits:spent:energy-45 VISIT": "1",
+      "credits:spent:light-60 VISIT": "1",
+      "credits:spent:massage-90 VISIT": "2",
+      "expenses:billing:stripe-fees USD": "63.62",
+      "income:billing:membership:sparkle-1 USD": "-780.00",
+      "income:billing:membership:sparkle-2 USD": "-1300.00",
+      "income:fundraising:fall-fair USD": "-40.00"
+    },
+    "2027-03": {
+      "credits:avail:family:fam_0s9q:visit VISIT": "1",
+      "credits:avail:family:fam_7hdl:visit VISIT": "-1",
+      "credits:avail:family:fam_jz3t:visit VISIT": "-1",
+      "credits:expired VISIT": "2",
+      "credits:issued:sparkle-1@v1 VISIT": "-1"
+    }
+  },
+  "transactionsByMonth": {
+    "2026-11": 47,
+    "2026-12": 52,
+    "2027-01": 52,
+    "2027-02": 35,
+    "2027-03": 3
+  },
+  "eventCountsByType": {
+    "credit.depleted": 12,
+    "credit.expiration_changed": 1,
+    "credit.expired": 5,
+    "credit.forfeited": 1,
+    "credit.granted": 46,
+    "credit.held": 39,
+    "credit.low": 15,
+    "credit.released": 2,
+    "credit.spent": 35,
+    "dispute.closed": 2,
+    "fundraise.paid_out": 1,
+    "fundraise.received": 4,
+    "payment.disputed": 2,
+    "payment.refunded": 1,
+    "payment.succeeded": 47,
+    "payout.paid": 5,
+    "plan.attached": 12,
+    "plan.canceled": 1,
+    "subject.erased": 1
+  },
+  "boundary": [
+    {
+      "idem": "stripe:in_tg2yyhhc",
+      "instant": "2026-11-02T07:00:00Z",
+      "localDate": "2026-11-02",
+      "utcDate": "2026-11-02",
+      "month": "2026-11",
+      "utcMonth": "2026-11"
+    },
+    {
+      "idem": "stripe:in_ewjqmptn",
+      "instant": "2026-11-02T07:30:00Z",
+      "localDate": "2026-11-02",
+      "utcDate": "2026-11-02",
+      "month": "2026-11",
+      "utcMonth": "2026-11"
+    },
+    {
+      "idem": "stripe:in_31668nst",
+      "instant": "2026-11-09T03:39:00Z",
+      "localDate": "2026-11-08",
+      "utcDate": "2026-11-09",
+      "month": "2026-11",
+      "utcMonth": "2026-11"
+    },
+    {
+      "idem": "stripe:in_y6gxfi38",
+      "instant": "2026-11-15T02:27:00Z",
+      "localDate": "2026-11-14",
+      "utcDate": "2026-11-15",
+      "month": "2026-11",
+      "utcMonth": "2026-11"
+    },
+    {
+      "idem": "stripe:in_dtvn7f35",
+      "instant": "2026-11-16T03:56:00Z",
+      "localDate": "2026-11-15",
+      "utcDate": "2026-11-16",
+      "month": "2026-11",
+      "utcMonth": "2026-11"
+    },
+    {
+      "idem": "stripe:in_cgqyg306",
+      "instant": "2026-12-01T06:30:00Z",
+      "localDate": "2026-11-30",
+      "utcDate": "2026-12-01",
+      "month": "2026-11",
+      "utcMonth": "2026-12"
+    },
+    {
+      "idem": "stripe:in_01yeff4l",
+      "instant": "2026-12-01T06:59:59Z",
+      "localDate": "2026-11-30",
+      "utcDate": "2026-12-01",
+      "month": "2026-11",
+      "utcMonth": "2026-12"
+    },
+    {
+      "idem": "stripe:in_h1bhez9w",
+      "instant": "2026-12-01T07:00:00Z",
+      "localDate": "2026-12-01",
+      "utcDate": "2026-12-01",
+      "month": "2026-12",
+      "utcMonth": "2026-12"
+    },
+    {
+      "idem": "stripe:in_zvdvbzi2",
+      "instant": "2026-12-01T07:30:00Z",
+      "localDate": "2026-12-01",
+      "utcDate": "2026-12-01",
+      "month": "2026-12",
+      "utcMonth": "2026-12"
+    },
+    {
+      "idem": "stripe:in_7r76gfgz",
+      "instant": "2026-12-09T03:39:00Z",
+      "localDate": "2026-12-08",
+      "utcDate": "2026-12-09",
+      "month": "2026-12",
+      "utcMonth": "2026-12"
+    },
+    {
+      "idem": "stripe:in_bikis9ko",
+      "instant": "2026-12-15T02:27:00Z",
+      "localDate": "2026-12-14",
+      "utcDate": "2026-12-15",
+      "month": "2026-12",
+      "utcMonth": "2026-12"
+    },
+    {
+      "idem": "stripe:in_macjdfri",
+      "instant": "2026-12-16T03:56:00Z",
+      "localDate": "2026-12-15",
+      "utcDate": "2026-12-16",
+      "month": "2026-12",
+      "utcMonth": "2026-12"
+    },
+    {
+      "idem": "stripe:in_t3xbxrz1",
+      "instant": "2027-01-01T06:30:00Z",
+      "localDate": "2026-12-31",
+      "utcDate": "2027-01-01",
+      "month": "2026-12",
+      "utcMonth": "2027-01"
+    },
+    {
+      "idem": "stripe:in_jawgks0l",
+      "instant": "2027-01-01T06:59:59Z",
+      "localDate": "2026-12-31",
+      "utcDate": "2027-01-01",
+      "month": "2026-12",
+      "utcMonth": "2027-01"
+    },
+    {
+      "idem": "stripe:in_jxj3k3wp",
+      "instant": "2027-01-01T07:00:00Z",
+      "localDate": "2027-01-01",
+      "utcDate": "2027-01-01",
+      "month": "2027-01",
+      "utcMonth": "2027-01"
+    },
+    {
+      "idem": "stripe:in_hz50xfr6",
+      "instant": "2027-01-01T07:30:00Z",
+      "localDate": "2027-01-01",
+      "utcDate": "2027-01-01",
+      "month": "2027-01",
+      "utcMonth": "2027-01"
+    },
+    {
+      "idem": "stripe:in_qubgdrup",
+      "instant": "2027-01-09T03:39:00Z",
+      "localDate": "2027-01-08",
+      "utcDate": "2027-01-09",
+      "month": "2027-01",
+      "utcMonth": "2027-01"
+    },
+    {
+      "idem": "stripe:in_29ca8kz9",
+      "instant": "2027-01-15T02:27:00Z",
+      "localDate": "2027-01-14",
+      "utcDate": "2027-01-15",
+      "month": "2027-01",
+      "utcMonth": "2027-01"
+    },
+    {
+      "idem": "stripe:in_per7mvwe",
+      "instant": "2027-01-16T03:56:00Z",
+      "localDate": "2027-01-15",
+      "utcDate": "2027-01-16",
+      "month": "2027-01",
+      "utcMonth": "2027-01"
+    },
+    {
+      "idem": "stripe:in_v122zdxa",
+      "instant": "2027-02-01T06:30:00Z",
+      "localDate": "2027-01-31",
+      "utcDate": "2027-02-01",
+      "month": "2027-01",
+      "utcMonth": "2027-02"
+    },
+    {
+      "idem": "stripe:in_4gj7ypm1",
+      "instant": "2027-02-01T06:59:59Z",
+      "localDate": "2027-01-31",
+      "utcDate": "2027-02-01",
+      "month": "2027-01",
+      "utcMonth": "2027-02"
+    },
+    {
+      "idem": "stripe:in_owb19c9g",
+      "instant": "2027-02-01T07:00:00Z",
+      "localDate": "2027-02-01",
+      "utcDate": "2027-02-01",
+      "month": "2027-02",
+      "utcMonth": "2027-02"
+    },
+    {
+      "idem": "stripe:in_m88kb2r9",
+      "instant": "2027-02-01T07:30:00Z",
+      "localDate": "2027-02-01",
+      "utcDate": "2027-02-01",
+      "month": "2027-02",
+      "utcMonth": "2027-02"
+    },
+    {
+      "idem": "stripe:in_xevp9onz",
+      "instant": "2027-02-09T03:39:00Z",
+      "localDate": "2027-02-08",
+      "utcDate": "2027-02-09",
+      "month": "2027-02",
+      "utcMonth": "2027-02"
+    },
+    {
+      "idem": "stripe:in_5swrq0q3",
+      "instant": "2027-02-15T02:27:00Z",
+      "localDate": "2027-02-14",
+      "utcDate": "2027-02-15",
+      "month": "2027-02",
+      "utcMonth": "2027-02"
+    },
+    {
+      "idem": "stripe:in_zyszlppu",
+      "instant": "2027-02-16T03:56:00Z",
+      "localDate": "2027-02-15",
+      "utcDate": "2027-02-16",
+      "month": "2027-02",
+      "utcMonth": "2027-02"
+    },
+    {
+      "idem": "stripe:in_afkw8xwi",
+      "instant": "2027-03-01T06:30:00Z",
+      "localDate": "2027-02-28",
+      "utcDate": "2027-03-01",
+      "month": "2027-02",
+      "utcMonth": "2027-03"
+    },
+    {
+      "idem": "stripe:in_nomedcpv",
+      "instant": "2027-03-01T06:59:59Z",
+      "localDate": "2027-02-28",
+      "utcDate": "2027-03-01",
+      "month": "2027-02",
+      "utcMonth": "2027-03"
+    }
+  ],
+  "late": {
+    "file": "schools/sch_multi/events/date=2026-11-12/late-01M787SH0000000W8KAKR7Y0JB.jsonl",
+    "eventId": "01M787SH0000000W8KAKR7Y0JB",
+    "idem": "stripe:in_iy6z4aa1",
+    "month": "2026-11",
+    "duplicateIdem": "stripe:po_1"
+  },
+  "erased": {
+    "holder": "family:fam_ak4o",
+    "personal": [
+      "Wystan Juniper",
+      "wystan.juniper@example.test"
+    ],
+    "objects": [
+      "event:01M89TQQ600000100K89QQ9ZMY",
+      "event:01MAQ2N960000003RWTZM9ZPX8",
+      "event:01MD6WZJ6000001794J1D6KQFN",
+      "event:01MFPQ9V6000001BYRTAZG2M9E"
+    ]
+  },
+  "personalByHolder": {
+    "family:fam_7hdl": [
+      "Odalys Brennick",
+      "odalys.brennick@example.test"
+    ],
+    "family:fam_jz3t": [
+      "Quillon Delacroix",
+      "quillon.delacroix@example.test"
+    ],
+    "family:fam_95d7": [
+      "Ulric Hawthorne",
+      "ulric.hawthorne@example.test"
+    ],
+    "family:fam_ipqj": [
+      "Vesper Ironwood",
+      "vesper.ironwood@example.test"
+    ],
+    "family:fam_vlfa": [
+      "Tamsin Gallowglass",
+      "tamsin.gallowglass@example.test"
+    ],
+    "family:fam_uh3b": [
+      "Rosalind Evergreen",
+      "rosalind.evergreen@example.test"
+    ],
+    "family:fam_kr4i": [
+      "Soren Fairweather",
+      "soren.fairweather@example.test"
+    ],
+    "family:fam_v4ao": [
+      "Xanthe Kestrel",
+      "xanthe.kestrel@example.test"
+    ],
+    "family:fam_n5en": [
+      "Yarrow Lindqvist",
+      "yarrow.lindqvist@example.test"
+    ],
+    "family:fam_6e5k": [
+      "Marlow Ashgrove",
+      "marlow.ashgrove@example.test"
+    ],
+    "family:fam_0s9q": [
+      "Pernell Castellan",
+      "pernell.castellan@example.test"
+    ]
+  },
+  "stripe": {
+    "invoices": [
+      {
+        "id": "in_tg2yyhhc",
+        "status": "paid",
+        "amount_paid": 26000,
+        "currency": "usd",
+        "created": 1793602740,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1793602800
+        }
+      },
+      {
+        "id": "in_ewjqmptn",
+        "status": "paid",
+        "amount_paid": 13000,
+        "currency": "usd",
+        "created": 1793604540,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1793604600
+        }
+      },
+      {
+        "id": "in_cue1fn53",
+        "status": "paid",
+        "amount_paid": 26000,
+        "currency": "usd",
+        "created": 1794156600,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1794156660
+        }
+      },
+      {
+        "id": "in_31668nst",
+        "status": "paid",
+        "amount_paid": 13000,
+        "currency": "usd",
+        "created": 1794195480,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1794195540
+        }
+      },
+      {
+        "id": "in_mosfj0m3",
+        "status": "paid",
+        "amount_paid": 26000,
+        "currency": "usd",
+        "created": 1794266820,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1794266880
+        }
+      },
+      {
+        "id": "in_iy6z4aa1",
+        "status": "paid",
+        "amount_paid": 13000,
+        "currency": "usd",
+        "created": 1794499140,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1794499200
+        }
+      },
+      {
+        "id": "in_11agvo7p",
+        "status": "paid",
+        "amount_paid": 26000,
+        "currency": "usd",
+        "created": 1794503400,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1794503460
+        }
+      },
+      {
+        "id": "in_y6gxfi38",
+        "status": "paid",
+        "amount_paid": 26000,
+        "currency": "usd",
+        "created": 1794709560,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1794709620
+        }
+      },
+      {
+        "id": "in_dtvn7f35",
+        "status": "paid",
+        "amount_paid": 13000,
+        "currency": "usd",
+        "created": 1794801300,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1794801360
+        }
+      },
+      {
+        "id": "in_1gg9oh8v",
+        "status": "paid",
+        "amount_paid": 13000,
+        "currency": "usd",
+        "created": 1794946620,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1794946680
+        }
+      },
+      {
+        "id": "in_g8b41vbk",
+        "status": "paid",
+        "amount_paid": 13000,
+        "currency": "usd",
+        "created": 1795626300,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1795626360
+        }
+      },
+      {
+        "id": "in_cgqyg306",
+        "status": "paid",
+        "amount_paid": 26000,
+        "currency": "usd",
+        "created": 1796106540,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1796106600
+        }
+      },
+      {
+        "id": "in_01yeff4l",
+        "status": "paid",
+        "amount_paid": 13000,
+        "currency": "usd",
+        "created": 1796108339,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1796108399
+        }
+      },
+      {
+        "id": "in_h1bhez9w",
+        "status": "paid",
+        "amount_paid": 26000,
+        "currency": "usd",
+        "created": 1796108340,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1796108400
+        }
+      },
+      {
+        "id": "in_zvdvbzi2",
+        "status": "paid",
+        "amount_paid": 13000,
+        "currency": "usd",
+        "created": 1796110140,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1796110200
+        }
+      },
+      {
+        "id": "in_qf6ylngx",
+        "status": "paid",
+        "amount_paid": 26000,
+        "currency": "usd",
+        "created": 1796748600,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1796748660
+        }
+      },
+      {
+        "id": "in_7r76gfgz",
+        "status": "paid",
+        "amount_paid": 13000,
+        "currency": "usd",
+        "created": 1796787480,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1796787540
+        }
+      },
+      {
+        "id": "in_s5ftu786",
+        "status": "paid",
+        "amount_paid": 26000,
+        "currency": "usd",
+        "created": 1796858820,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1796858880
+        }
+      },
+      {
+        "id": "in_vvcyt0jl",
+        "status": "paid",
+        "amount_paid": 26000,
+        "currency": "usd",
+        "created": 1797095400,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1797095460
+        }
+      },
+      {
+        "id": "in_bikis9ko",
+        "status": "paid",
+        "amount_paid": 26000,
+        "currency": "usd",
+        "created": 1797301560,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1797301620
+        }
+      },
+      {
+        "id": "in_macjdfri",
+        "status": "paid",
+        "amount_paid": 13000,
+        "currency": "usd",
+        "created": 1797393300,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1797393360
+        }
+      },
+      {
+        "id": "in_shny5ckc",
+        "status": "paid",
+        "amount_paid": 13000,
+        "currency": "usd",
+        "created": 1797538620,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1797538680
+        }
+      },
+      {
+        "id": "in_2ey6i071",
+        "status": "paid",
+        "amount_paid": 13000,
+        "currency": "usd",
+        "created": 1798218300,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1798218360
+        }
+      },
+      {
+        "id": "in_t3xbxrz1",
+        "status": "paid",
+        "amount_paid": 26000,
+        "currency": "usd",
+        "created": 1798784940,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1798785000
+        }
+      },
+      {
+        "id": "in_jawgks0l",
+        "status": "paid",
+        "amount_paid": 13000,
+        "currency": "usd",
+        "created": 1798786739,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1798786799
+        }
+      },
+      {
+        "id": "in_jxj3k3wp",
+        "status": "paid",
+        "amount_paid": 26000,
+        "currency": "usd",
+        "created": 1798786740,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1798786800
+        }
+      },
+      {
+        "id": "in_hz50xfr6",
+        "status": "paid",
+        "amount_paid": 13000,
+        "currency": "usd",
+        "created": 1798788540,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1798788600
+        }
+      },
+      {
+        "id": "in_qubgdrup",
+        "status": "paid",
+        "amount_paid": 13000,
+        "currency": "usd",
+        "created": 1799465880,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1799465940
+        }
+      },
+      {
+        "id": "in_vvn7tuf3",
+        "status": "paid",
+        "amount_paid": 26000,
+        "currency": "usd",
+        "created": 1799537220,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1799537280
+        }
+      },
+      {
+        "id": "in_go7sun8u",
+        "status": "paid",
+        "amount_paid": 26000,
+        "currency": "usd",
+        "created": 1799773800,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1799773860
+        }
+      },
+      {
+        "id": "in_29ca8kz9",
+        "status": "paid",
+        "amount_paid": 26000,
+        "currency": "usd",
+        "created": 1799979960,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1799980020
+        }
+      },
+      {
+        "id": "in_per7mvwe",
+        "status": "paid",
+        "amount_paid": 13000,
+        "currency": "usd",
+        "created": 1800071700,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1800071760
+        }
+      },
+      {
+        "id": "in_mjkfygvt",
+        "status": "paid",
+        "amount_paid": 13000,
+        "currency": "usd",
+        "created": 1800217020,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1800217080
+        }
+      },
+      {
+        "id": "in_3it77pvq",
+        "status": "paid",
+        "amount_paid": 13000,
+        "currency": "usd",
+        "created": 1800896700,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1800896760
+        }
+      },
+      {
+        "id": "in_v122zdxa",
+        "status": "paid",
+        "amount_paid": 26000,
+        "currency": "usd",
+        "created": 1801463340,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1801463400
+        }
+      },
+      {
+        "id": "in_4gj7ypm1",
+        "status": "paid",
+        "amount_paid": 13000,
+        "currency": "usd",
+        "created": 1801465139,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1801465199
+        }
+      },
+      {
+        "id": "in_owb19c9g",
+        "status": "paid",
+        "amount_paid": 26000,
+        "currency": "usd",
+        "created": 1801465140,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1801465200
+        }
+      },
+      {
+        "id": "in_m88kb2r9",
+        "status": "paid",
+        "amount_paid": 13000,
+        "currency": "usd",
+        "created": 1801466940,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1801467000
+        }
+      },
+      {
+        "id": "in_xevp9onz",
+        "status": "paid",
+        "amount_paid": 13000,
+        "currency": "usd",
+        "created": 1802144280,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1802144340
+        }
+      },
+      {
+        "id": "in_m3fxsz97",
+        "status": "paid",
+        "amount_paid": 26000,
+        "currency": "usd",
+        "created": 1802215620,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1802215680
+        }
+      },
+      {
+        "id": "in_qr4284zh",
+        "status": "paid",
+        "amount_paid": 26000,
+        "currency": "usd",
+        "created": 1802452200,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1802452260
+        }
+      },
+      {
+        "id": "in_5swrq0q3",
+        "status": "paid",
+        "amount_paid": 26000,
+        "currency": "usd",
+        "created": 1802658360,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1802658420
+        }
+      },
+      {
+        "id": "in_zyszlppu",
+        "status": "paid",
+        "amount_paid": 13000,
+        "currency": "usd",
+        "created": 1802750100,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1802750160
+        }
+      },
+      {
+        "id": "in_g0rnev6q",
+        "status": "paid",
+        "amount_paid": 13000,
+        "currency": "usd",
+        "created": 1802895420,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1802895480
+        }
+      },
+      {
+        "id": "in_p862nilp",
+        "status": "paid",
+        "amount_paid": 13000,
+        "currency": "usd",
+        "created": 1803575100,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1803575160
+        }
+      },
+      {
+        "id": "in_afkw8xwi",
+        "status": "paid",
+        "amount_paid": 26000,
+        "currency": "usd",
+        "created": 1803882540,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1803882600
+        }
+      },
+      {
+        "id": "in_nomedcpv",
+        "status": "paid",
+        "amount_paid": 13000,
+        "currency": "usd",
+        "created": 1803884339,
+        "livemode": true,
+        "status_transitions": {
+          "paid_at": 1803884399
+        }
+      }
+    ],
+    "refunds": [
+      {
+        "id": "re_as0il8hf",
+        "amount": 5000,
+        "currency": "usd",
+        "created": 1797189060,
+        "status": "succeeded"
+      }
+    ],
+    "disputes": [
+      {
+        "id": "dp_k7odc9zz",
+        "amount": 26000,
+        "currency": "usd",
+        "created": 1797575220,
+        "status": "lost",
+        "livemode": true
+      },
+      {
+        "id": "dp_6jbcw5lx",
+        "amount": 26000,
+        "currency": "usd",
+        "created": 1799886480,
+        "status": "won",
+        "livemode": true
+      }
+    ],
+    "payouts": [
+      {
+        "id": "po_1",
+        "amount": 113427,
+        "currency": "usd",
+        "created": 1794502800,
+        "status": "paid",
+        "livemode": true
+      },
+      {
+        "id": "po_2",
+        "amount": 226854,
+        "currency": "usd",
+        "created": 1797094800,
+        "status": "paid",
+        "livemode": true
+      },
+      {
+        "id": "po_3",
+        "amount": 170638,
+        "currency": "usd",
+        "created": 1799773200,
+        "status": "paid",
+        "livemode": true
+      },
+      {
+        "id": "po_4",
+        "amount": 201638,
+        "currency": "usd",
+        "created": 1802451600,
+        "status": "paid",
+        "livemode": true
+      },
+      {
+        "id": "po_5",
+        "amount": 88211,
+        "currency": "usd",
+        "created": 1803747600,
+        "status": "paid",
+        "livemode": true
+      }
+    ],
+    "balanceTransactions": [
+      {
+        "id": "txn_in_tg2yyhhc",
+        "amount": 26000,
+        "fee": 784,
+        "net": 25216,
+        "currency": "usd",
+        "created": 1793602800,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_ewjqmptn",
+        "amount": 13000,
+        "fee": 407,
+        "net": 12593,
+        "currency": "usd",
+        "created": 1793604600,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_cue1fn53",
+        "amount": 26000,
+        "fee": 784,
+        "net": 25216,
+        "currency": "usd",
+        "created": 1794156660,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_31668nst",
+        "amount": 13000,
+        "fee": 407,
+        "net": 12593,
+        "currency": "usd",
+        "created": 1794195540,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_mosfj0m3",
+        "amount": 26000,
+        "fee": 784,
+        "net": 25216,
+        "currency": "usd",
+        "created": 1794266880,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_iy6z4aa1",
+        "amount": 13000,
+        "fee": 407,
+        "net": 12593,
+        "currency": "usd",
+        "created": 1794499200,
+        "type": "charge"
+      },
+      {
+        "id": "txn_po_1",
+        "amount": -113427,
+        "fee": 0,
+        "net": -113427,
+        "currency": "usd",
+        "created": 1794502800,
+        "type": "payout"
+      },
+      {
+        "id": "txn_in_11agvo7p",
+        "amount": 26000,
+        "fee": 784,
+        "net": 25216,
+        "currency": "usd",
+        "created": 1794503460,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_y6gxfi38",
+        "amount": 26000,
+        "fee": 784,
+        "net": 25216,
+        "currency": "usd",
+        "created": 1794709620,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_dtvn7f35",
+        "amount": 13000,
+        "fee": 407,
+        "net": 12593,
+        "currency": "usd",
+        "created": 1794801360,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_1gg9oh8v",
+        "amount": 13000,
+        "fee": 407,
+        "net": 12593,
+        "currency": "usd",
+        "created": 1794946680,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_g8b41vbk",
+        "amount": 13000,
+        "fee": 407,
+        "net": 12593,
+        "currency": "usd",
+        "created": 1795626360,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_cgqyg306",
+        "amount": 26000,
+        "fee": 784,
+        "net": 25216,
+        "currency": "usd",
+        "created": 1796106600,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_01yeff4l",
+        "amount": 13000,
+        "fee": 407,
+        "net": 12593,
+        "currency": "usd",
+        "created": 1796108399,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_h1bhez9w",
+        "amount": 26000,
+        "fee": 784,
+        "net": 25216,
+        "currency": "usd",
+        "created": 1796108400,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_zvdvbzi2",
+        "amount": 13000,
+        "fee": 407,
+        "net": 12593,
+        "currency": "usd",
+        "created": 1796110200,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_qf6ylngx",
+        "amount": 26000,
+        "fee": 784,
+        "net": 25216,
+        "currency": "usd",
+        "created": 1796748660,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_7r76gfgz",
+        "amount": 13000,
+        "fee": 407,
+        "net": 12593,
+        "currency": "usd",
+        "created": 1796787540,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_s5ftu786",
+        "amount": 26000,
+        "fee": 784,
+        "net": 25216,
+        "currency": "usd",
+        "created": 1796858880,
+        "type": "charge"
+      },
+      {
+        "id": "txn_po_2",
+        "amount": -226854,
+        "fee": 0,
+        "net": -226854,
+        "currency": "usd",
+        "created": 1797094800,
+        "type": "payout"
+      },
+      {
+        "id": "txn_in_vvcyt0jl",
+        "amount": 26000,
+        "fee": 784,
+        "net": 25216,
+        "currency": "usd",
+        "created": 1797095460,
+        "type": "charge"
+      },
+      {
+        "id": "txn_re_as0il8hf",
+        "amount": -5000,
+        "fee": 0,
+        "net": -5000,
+        "currency": "usd",
+        "created": 1797189060,
+        "type": "refund"
+      },
+      {
+        "id": "txn_in_bikis9ko",
+        "amount": 26000,
+        "fee": 784,
+        "net": 25216,
+        "currency": "usd",
+        "created": 1797301620,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_macjdfri",
+        "amount": 13000,
+        "fee": 407,
+        "net": 12593,
+        "currency": "usd",
+        "created": 1797393360,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_shny5ckc",
+        "amount": 13000,
+        "fee": 407,
+        "net": 12593,
+        "currency": "usd",
+        "created": 1797538680,
+        "type": "charge"
+      },
+      {
+        "id": "txn_dp_k7odc9zz",
+        "amount": -26000,
+        "fee": 0,
+        "net": -26000,
+        "currency": "usd",
+        "created": 1797575220,
+        "type": "adjustment"
+      },
+      {
+        "id": "txn_in_2ey6i071",
+        "amount": 13000,
+        "fee": 407,
+        "net": 12593,
+        "currency": "usd",
+        "created": 1798218360,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_t3xbxrz1",
+        "amount": 26000,
+        "fee": 784,
+        "net": 25216,
+        "currency": "usd",
+        "created": 1798785000,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_jawgks0l",
+        "amount": 13000,
+        "fee": 407,
+        "net": 12593,
+        "currency": "usd",
+        "created": 1798786799,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_jxj3k3wp",
+        "amount": 26000,
+        "fee": 784,
+        "net": 25216,
+        "currency": "usd",
+        "created": 1798786800,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_hz50xfr6",
+        "amount": 13000,
+        "fee": 407,
+        "net": 12593,
+        "currency": "usd",
+        "created": 1798788600,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_qubgdrup",
+        "amount": 13000,
+        "fee": 407,
+        "net": 12593,
+        "currency": "usd",
+        "created": 1799465940,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_vvn7tuf3",
+        "amount": 26000,
+        "fee": 784,
+        "net": 25216,
+        "currency": "usd",
+        "created": 1799537280,
+        "type": "charge"
+      },
+      {
+        "id": "txn_po_3",
+        "amount": -170638,
+        "fee": 0,
+        "net": -170638,
+        "currency": "usd",
+        "created": 1799773200,
+        "type": "payout"
+      },
+      {
+        "id": "txn_in_go7sun8u",
+        "amount": 26000,
+        "fee": 784,
+        "net": 25216,
+        "currency": "usd",
+        "created": 1799773860,
+        "type": "charge"
+      },
+      {
+        "id": "txn_dp_6jbcw5lx",
+        "amount": -26000,
+        "fee": 0,
+        "net": -26000,
+        "currency": "usd",
+        "created": 1799886480,
+        "type": "adjustment"
+      },
+      {
+        "id": "txn_in_29ca8kz9",
+        "amount": 26000,
+        "fee": 784,
+        "net": 25216,
+        "currency": "usd",
+        "created": 1799980020,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_per7mvwe",
+        "amount": 13000,
+        "fee": 407,
+        "net": 12593,
+        "currency": "usd",
+        "created": 1800071760,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_mjkfygvt",
+        "amount": 13000,
+        "fee": 407,
+        "net": 12593,
+        "currency": "usd",
+        "created": 1800217080,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_3it77pvq",
+        "amount": 13000,
+        "fee": 407,
+        "net": 12593,
+        "currency": "usd",
+        "created": 1800896760,
+        "type": "charge"
+      },
+      {
+        "id": "txn_dp_6jbcw5lx_won",
+        "amount": 26000,
+        "fee": 0,
+        "net": 26000,
+        "currency": "usd",
+        "created": 1801189680,
+        "type": "adjustment"
+      },
+      {
+        "id": "txn_in_v122zdxa",
+        "amount": 26000,
+        "fee": 784,
+        "net": 25216,
+        "currency": "usd",
+        "created": 1801463400,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_4gj7ypm1",
+        "amount": 13000,
+        "fee": 407,
+        "net": 12593,
+        "currency": "usd",
+        "created": 1801465199,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_owb19c9g",
+        "amount": 26000,
+        "fee": 784,
+        "net": 25216,
+        "currency": "usd",
+        "created": 1801465200,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_m88kb2r9",
+        "amount": 13000,
+        "fee": 407,
+        "net": 12593,
+        "currency": "usd",
+        "created": 1801467000,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_xevp9onz",
+        "amount": 13000,
+        "fee": 407,
+        "net": 12593,
+        "currency": "usd",
+        "created": 1802144340,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_m3fxsz97",
+        "amount": 26000,
+        "fee": 784,
+        "net": 25216,
+        "currency": "usd",
+        "created": 1802215680,
+        "type": "charge"
+      },
+      {
+        "id": "txn_po_4",
+        "amount": -201638,
+        "fee": 0,
+        "net": -201638,
+        "currency": "usd",
+        "created": 1802451600,
+        "type": "payout"
+      },
+      {
+        "id": "txn_in_qr4284zh",
+        "amount": 26000,
+        "fee": 784,
+        "net": 25216,
+        "currency": "usd",
+        "created": 1802452260,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_5swrq0q3",
+        "amount": 26000,
+        "fee": 784,
+        "net": 25216,
+        "currency": "usd",
+        "created": 1802658420,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_zyszlppu",
+        "amount": 13000,
+        "fee": 407,
+        "net": 12593,
+        "currency": "usd",
+        "created": 1802750160,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_g0rnev6q",
+        "amount": 13000,
+        "fee": 407,
+        "net": 12593,
+        "currency": "usd",
+        "created": 1802895480,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_p862nilp",
+        "amount": 13000,
+        "fee": 407,
+        "net": 12593,
+        "currency": "usd",
+        "created": 1803575160,
+        "type": "charge"
+      },
+      {
+        "id": "txn_po_5",
+        "amount": -88211,
+        "fee": 0,
+        "net": -88211,
+        "currency": "usd",
+        "created": 1803747600,
+        "type": "payout"
+      },
+      {
+        "id": "txn_in_afkw8xwi",
+        "amount": 26000,
+        "fee": 784,
+        "net": 25216,
+        "currency": "usd",
+        "created": 1803882600,
+        "type": "charge"
+      },
+      {
+        "id": "txn_in_nomedcpv",
+        "amount": 13000,
+        "fee": 407,
+        "net": 12593,
+        "currency": "usd",
+        "created": 1803884399,
+        "type": "charge"
+      }
+    ]
+  }
+}
