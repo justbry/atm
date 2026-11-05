@@ -220,18 +220,18 @@ const decide = (
 				...common,
 				invoice: resolved.invoice,
 			});
-			return {
-				ok: true,
-				result,
-				reason: "invoice",
-				money: paymentEvents({
-					invoice: resolved.invoice,
-					fee: input.fee,
-					labels: result.labels,
-					booker: bookerOf(input, holder),
-					holder,
-				}),
-			};
+			const money = paymentEvents({
+				invoice: resolved.invoice,
+				fee: input.fee,
+				labels: result.labels,
+				booker: bookerOf(input, holder),
+				holder,
+			});
+			// Remember that the books hold this payment: a refund takes back only a payment that was booked. `result.state` is
+			// this decision's own copy.
+			const record = result.state.invoices[resolved.invoice.id];
+			if (record && money.length > 0) record.paid = resolved.invoice.amountPaid;
+			return { ok: true, result, reason: "invoice", money };
 		}
 		case "BillingRefund": {
 			const refund = withInvoiceId(fact as BillingRefund, input);
@@ -242,10 +242,12 @@ const decide = (
 			);
 			if (unlinked) return { ok: false, refusal: unlinked };
 			const result = refundToCommands({ ...common, refund });
-			// Only a refund of a payment this holder was paid is the school's money: a charge that names no handled invoice
-			// may be another product's on the same Stripe account.
+			// Only a refund of a payment the books hold is the school's money: a charge that names no handled invoice may be
+			// another product's on the same Stripe account, and an invoice whose payment was never booked (handled before
+			// payments were, or paid nothing) has none to take back from.
 			const ours =
-				refund.invoiceId != null && grants.invoices[refund.invoiceId];
+				refund.invoiceId != null &&
+				grants.invoices[refund.invoiceId]?.paid !== undefined;
 			return {
 				ok: true,
 				result,

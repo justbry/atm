@@ -727,6 +727,12 @@ export type InvoiceRecord = {
 	granted: GrantedRow[];
 	/** A refund or a lost dispute has already taken this invoice's unused credits back. */
 	removed: boolean;
+	/**
+	 * The cents the books took for this invoice (its `payment.succeeded`). Absent when none was booked: an invoice handled
+	 * before payments were booked, one that paid nothing or paid in another currency, or one a caller adopted. A refund of
+	 * such an invoice makes no `payment.refunded`: there is no payment for it to take back from.
+	 */
+	paid?: number;
 };
 
 /** Everything the rules need to remember between facts. Plain JSON: store it as is. */

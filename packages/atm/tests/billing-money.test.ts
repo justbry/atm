@@ -44,17 +44,18 @@ const menu = JSON.parse(
 ) as Menu;
 const metadata = { b4u_school: SCHOOL, family_id: FAMILY };
 
-const tierKey = () => {
+const tierKeyOf = (tierId: string) => {
 	const price = menu.tiers
-		.find((t) => t.id === "sparkle-2")
+		.find((t) => t.id === tierId)
 		?.prices.find((p) => p.interval === "month");
 	return lookupKeyOf(
 		SCHOOL,
-		tierPriceKey("sparkle-2", "month"),
+		tierPriceKey(tierId, "month"),
 		price?.amount as number,
 		menu.currency,
 	);
 };
+const tierKey = () => tierKeyOf("sparkle-2");
 
 const paid = (invoiceId = "in_1", amountPaid = GROSS) =>
 	invoicePaid({
@@ -189,6 +190,54 @@ describe("a paid invoice", () => {
 	});
 });
 
+describe("the income of an invoice", () => {
+	// An upgrade's invoice credits the tier left and charges the tier moved to; the income is the tier it pays for.
+	const upgrade = (credit: "first" | "last") => {
+		const lines = [
+			{
+				lookupKey: tierKeyOf("sparkle-2"),
+				amount: -13_000,
+				interval: "month" as const,
+				proration: true,
+			},
+			{
+				lookupKey: tierKeyOf("sparkle-4"),
+				amount: 30_000,
+				interval: "month" as const,
+				proration: true,
+			},
+		];
+		return invoicePaid({
+			eventId: "evt_in_up",
+			invoiceId: "in_up",
+			at: T0 + 24 * HOUR,
+			subscriptionId: "sub_1",
+			reason: "subscription_update",
+			periodStart: T0 + 24 * HOUR,
+			periodEnd: T1,
+			lines: credit === "first" ? lines : [...lines].reverse(),
+			metadata,
+		});
+	};
+
+	test("an upgrade's invoice is income of the tier moved to, not of the tier whose unused time it credits", () => {
+		for (const order of ["first", "last"] as const) {
+			const store = newStore();
+			store.handle(paid(), T0, { fee: FEE });
+			const result = store.handle(upgrade(order), T0 + 24 * HOUR);
+			expect(result.refused).toBeUndefined();
+			const [payment] = money(result.events, "payment.succeeded");
+			expect([order, amounts(payment as AtmEvent)]).toEqual([
+				order,
+				{
+					"assets:stripe": "170.00",
+					"income:billing:membership:sparkle-4": "-170.00",
+				},
+			]);
+		}
+	});
+});
+
 describe("a refund", () => {
 	test("books what this event refunded: two partial refunds are their own amounts, not the running total", () => {
 		const store = newStore();
@@ -216,6 +265,30 @@ describe("a refund", () => {
 		expect(again.rowChanges).toBeNull();
 		expect(again.events).toEqual(money(first.events, "payment.refunded"));
 		expect(money(store.events, "payment.refunded")).toHaveLength(1);
+	});
+
+	test("an invoice whose payment the books never took (handled before payments were booked) has no refund line either", () => {
+		const first = newStore();
+		first.handle(paid(), T0, { fee: FEE });
+		// the grants row as a writer that booked no payments left it: the invoice is there, no payment is recorded with it
+		const rows = first.rows.map((row) => {
+			const data = structuredClone(row.data) as {
+				invoices?: Record<string, Record<string, unknown>>;
+			};
+			for (const record of Object.values(data.invoices ?? {}))
+				delete record.paid;
+			return { ...row, data };
+		});
+		const store = createStore({
+			menu,
+			school: SCHOOL,
+			family: FAMILY,
+			start: { rows, revision: first.revision },
+		});
+		store.handle(paid(), T0, { fee: FEE });
+		const result = store.handle(refundOf("a", 5000, 5000), T0 + HOUR);
+		expect(result.refused).toBeUndefined();
+		expect(money(result.events, "payment.refunded")).toEqual([]);
 	});
 
 	test("a charge that names no handled invoice is not the school's money: no line", () => {

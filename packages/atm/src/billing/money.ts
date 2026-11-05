@@ -38,12 +38,18 @@ export const feeProblem = (
 
 /**
  * Which income account a payment goes to, from the lines the menu named: the tier's (`membership:<tier>`), else the first
- * add-on's (`addon:<add-on>`), else `other`. An invoice that pays for both books all of it under the tier.
+ * add-on's (`addon:<add-on>`), else `other`. An invoice that pays for both books all of it under the tier. The tier is
+ * the one the invoice pays for: a line of its own, else the line that charges (an upgrade's invoice also lists the credit
+ * for the tier it leaves, which is no income of that tier).
  */
 const incomeKindOf = (invoice: BillingInvoice): string => {
-	const tier = invoice.lines.find(
+	const tiers = invoice.lines.filter(
 		(line) => line.kind === "tier" && line.tierId,
 	);
+	const tier =
+		tiers.find((line) => !line.proration) ??
+		tiers.find((line) => line.amount > 0) ??
+		tiers[0];
 	if (tier?.tierId) return `membership:${tier.tierId}`;
 	const addon = invoice.lines.find(
 		(line) => line.kind === "addon" && line.addonId,
