@@ -27,6 +27,9 @@ const POLICY: BillingPolicy = {
 	memberCode: null,
 	deductionOrder: "expiry",
 	lowCreditThreshold: 2,
+	cancelCutoffHours: 24,
+	noShow: "spend",
+	lateCancel: "spend",
 };
 const MEMBER: BillingPolicy = {
 	...POLICY,
