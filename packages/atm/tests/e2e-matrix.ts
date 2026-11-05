@@ -69,8 +69,9 @@ export type Step =
 /**
  * Cents (USD) or credit units, by name:
  *   `income:<kind>`          revenue of `income:billing:<kind>`, positive (hledger's sign)
- *   `refunds`, `disputes`    money handed back / lost, positive
- *   `fees`                   Stripe's fees as an expense
+ *   `refunds`, `disputes`    money handed back / lost, positive (a won dispute nets to zero)
+ *   `fees`                   Stripe's fees on payments, as an expense (`expenses:billing:stripe-fees`)
+ *   `disputeFees`            Stripe's dispute fees, as an expense (`expenses:billing:dispute-fees`)
  *   `stripe`, `clearing`     assets:stripe and assets:clearing:stripe-payouts
  *   `net`                    net income (= the balance sheet's net, as the books are cash basis)
  *   `avail:<holder>:<feature>`, `held:<holder>:<feature>`  credit balances
@@ -88,6 +89,12 @@ export type Book = {
 	stripe: ReconcileStripe;
 	/** Expected reconcile differences per month ("kind object id"); a month listed here is reconciled. */
 	reconcile: Record<string, string[]>;
+	/**
+	 * The `money.skipped` markers the log holds, by reason, per month: `reconcile`'s own `skipped` count must be exactly this.
+	 * Differences listed in `reconcile` for a book with `skipped` are the ones the count explains (Stripe's records in a
+	 * currency the books do not hold), so they do not make the case a discrepancy.
+	 */
+	skipped?: Record<string, Record<string, number>>;
 	/** Also print the monthly income statement (a case that crosses a month). */
 	monthly?: boolean;
 	/** With `monthly`: what each month column of the income statement must say, by hand (`income:<kind>`, `refunds`, `fees`). */
@@ -241,6 +248,8 @@ export type BookRun = {
 
 export type CaseRun = {
 	answers: Answer[];
+	/** The lines the handler warned with (`deps.warn`), in order. */
+	warnings: string[];
 	books: BookRun[];
 };
 
@@ -320,6 +329,7 @@ const readReports = (reports: Record<string, string>): Numbers => {
 	numbers.refunds = 0 - usd(statement, REFUNDS);
 	numbers.disputes = usd(statement, "expenses:billing:disputes");
 	numbers.fees = usd(statement, "expenses:billing:stripe-fees");
+	numbers.disputeFees = usd(statement, "expenses:billing:dispute-fees");
 	numbers.net = usd(statement, "Net:");
 	numbers.stripe = usd(sheet, "assets:stripe");
 	numbers.clearing = usd(sheet, "assets:clearing:stripe-payouts");
@@ -335,7 +345,7 @@ const readReports = (reports: Record<string, string>): Numbers => {
 
 /**
  * The monthly income statement (`is -M`) as numbers per month column ("Jan", "Feb"): `income:<kind>`, `refunds`,
- * `disputes` and `fees`, in the same names and signs as `readReports`.
+ * `disputes`, `fees` and `disputeFees`, in the same names and signs as `readReports`.
  */
 const monthlyNumbers = (csv: string): Record<string, Numbers> => {
 	const lines = csv.trim().split("\n").map(cellsOf);
@@ -352,6 +362,8 @@ const monthlyNumbers = (csv: string): Record<string, Numbers> => {
 				numbers[`income:${label.slice(INCOME_PREFIX.length)}`] = cents;
 			else if (label === "expenses:billing:stripe-fees") numbers.fees = cents;
 			else if (label === "expenses:billing:disputes") numbers.disputes = cents;
+			else if (label === "expenses:billing:dispute-fees")
+				numbers.disputeFees = cents;
 		}
 		out[month] = numbers;
 	}
@@ -483,6 +495,9 @@ export const runCase = async (c: Case): Promise<CaseRun> => {
 		return found;
 	};
 	const answers: Answer[] = [];
+	const warnings: string[] = [];
+	for (const served of endpoints.values())
+		served.deps.warn = (line) => warnings.push(line);
 	for (const step of c.steps) {
 		const served = endpoint(step.school);
 		if (step.kind === "erase") {
@@ -493,17 +508,21 @@ export const runCase = async (c: Case): Promise<CaseRun> => {
 						event.key === `family:${step.family}` &&
 						event.event_type.startsWith("payment."),
 				);
-			appendToOutbox(served.db, [
-				ledgerEvent({
-					type: "subject.erased",
-					school: step.school ?? (schools[0] as string),
-					tz: menu.timeZone,
-					eventTime: step.at,
-					key: `family:${step.family}`,
-					idem: `erase:${step.family}`,
-					payload: { objects: own.map((event) => `event:${event.id}`) },
-				}),
-			]);
+			appendToOutbox(
+				served.db,
+				[
+					ledgerEvent({
+						type: "subject.erased",
+						school: step.school ?? (schools[0] as string),
+						tz: menu.timeZone,
+						eventTime: step.at,
+						key: `family:${step.family}`,
+						idem: `erase:${step.family}`,
+						payload: { objects: own.map((event) => `event:${event.id}`) },
+					}),
+				],
+				c.env ?? "live",
+			);
 			continue;
 		}
 		failing.fee = step.feeFails === true;
@@ -601,7 +620,7 @@ export const runCase = async (c: Case): Promise<CaseRun> => {
 				reconciled,
 			});
 		}
-		return { answers, books };
+		return { answers, warnings, books };
 	} finally {
 		await rm(root, { recursive: true, force: true });
 	}

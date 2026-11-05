@@ -11,7 +11,8 @@
  *   - `reconcile` the differences `atm reconcile` must print for each month ("kind object id"); empty is clean.
  *
  * `// DISCREPANCY: <id>` marks each pin and each expected difference; the ids are those of docs/e2e-reconciliation.md.
- * K1 and K2 are KNOWN: other branches are fixing them (claude/atm-dispute-fee, claude/atm-non-usd-loud).
+ * K1 (a dispute's money and fee, #66) and K2 (a non-USD invoice or payout, #68) were KNOWN here and are now fixed on dev:
+ * their cases reconcile, with hand numbers worked out from the recorded dispute (26,000 withdrawn with a 1,500 fee).
  *
  * The price list (fixtures/billing/grants/menu.json, USD cents): sparkle-1 13,000 and 1 visit a month; sparkle-2 26,000
  * (260,000 a year) and 2 visits; sparkle-4 52,000, 4 visits and a retreat a year; glow 5,000 a month and 1 visit; pack
@@ -49,6 +50,8 @@ import type { RawEvent } from "./stripe-events.js";
 
 const SPARKLE_1 = 13_000;
 const SPARKLE_2 = 26_000;
+/** Stripe's dispute fee in the recorded sandbox dispute (`fee_details`: "Dispute fee", 1,500). */
+const DISPUTE_FEE = 1500;
 const FIRST_AT = ms(JAN15);
 const SECOND_SCHOOL = "sch_two";
 const OTHER_FAMILY = "fam_b2";
@@ -133,6 +136,29 @@ const FIRST_INVOICE = stripeInvoice("in_1", SPARKLE_2, JAN15);
 const JAN: string[] = [];
 const ONLY_JANUARY = { "2026-01": JAN };
 const FEES_26 = { in_1: 784 };
+
+/** The opening of the dispute on `in_1`, with Stripe's withdrawal (260.00 and the 15.00 dispute fee). */
+const disputeCreated = (id: string): RawEvent =>
+	disputeOf({
+		type: "charge.dispute.created",
+		id,
+		invoiceId: "in_1",
+		status: "needs_response",
+		at: days(2),
+		fee: DISPUTE_FEE,
+	});
+
+/** The closing of that dispute as lost; it lists the same withdrawal as the opening. */
+const disputeLost = (id: string): RawEvent =>
+	disputeOf({
+		type: "charge.dispute.closed",
+		id,
+		invoiceId: "in_1",
+		status: "lost",
+		at: days(12),
+		openedAt: days(2),
+		fee: DISPUTE_FEE,
+	});
 
 export const CASES: Case[] = [
 	{
@@ -992,7 +1018,7 @@ export const CASES: Case[] = [
 	{
 		id: "dispute-opened",
 		title: "dispute opened",
-		path: "charge.dispute.created (needs_response)",
+		path: "charge.dispute.created (needs_response, 260.00 withdrawn with a 15.00 fee)",
 		fees: FEES_26,
 		steps: [
 			...paidAndLinked(),
@@ -1004,25 +1030,27 @@ export const CASES: Case[] = [
 					invoiceId: "in_1",
 					status: "needs_response",
 					at: days(2),
+					fee: DISPUTE_FEE,
 				}),
 			),
 		],
-		verdict: "KNOWN",
-		discrepancies: ["K1"],
+		verdict: "OK",
 		books: [
 			{
 				school: SCHOOL,
-				// Stripe took the 260.00 back at once and charged a 15.00 dispute fee: the cash is 252.16 - 260.00 - 15.00 = -22.84
+				// Stripe takes the 260.00 out of the balance when the dispute opens and charges its 15.00 dispute fee: the
+				// opening is assets:stripe -275.00, disputes +260.00, dispute fees +15.00 (a different account from the 7.84 of
+				// the payment). The income stays: 260.00 - 260.00 - 7.84 - 15.00 = -22.84 net, and the cash 252.16 - 275.00 = -22.84.
+				// The member keeps the two visits: only a lost dispute takes credits back.
 				hand: {
 					"income:membership:sparkle-2": 26_000,
 					disputes: 26_000,
-					fees: 2284,
+					fees: 784,
+					disputeFees: DISPUTE_FEE,
 					stripe: -2284,
 					net: -2284,
 					[visits()]: 2,
 				},
-				// DISCREPANCY: K1 the handler books nothing for a dispute (payment.disputed is never made)
-				pinned: { disputes: 0, fees: 784, stripe: 25_216, net: 25_216 },
 				stripe: {
 					invoices: [FIRST_INVOICE],
 					refunds: [],
@@ -1036,26 +1064,19 @@ export const CASES: Case[] = [
 							"txn_dp_1",
 							"adjustment",
 							-SPARKLE_2,
-							1500,
+							DISPUTE_FEE,
 							stamp(days(2)),
 						),
 					],
 				},
-				reconcile: {
-					"2026-01": [
-						// DISCREPANCY: K1
-						"missing_in_log dispute dp_1",
-						"amount_differs fees -",
-						"amount_differs net -",
-					],
-				},
+				reconcile: ONLY_JANUARY,
 			},
 		],
 	},
 	{
 		id: "dispute-lost",
 		title: "dispute lost",
-		path: "charge.dispute.created, charge.dispute.closed (lost: credits taken back)",
+		path: "charge.dispute.created, charge.dispute.closed (lost: credits taken back, the opening stands)",
 		fees: FEES_26,
 		steps: [
 			...paidAndLinked(),
@@ -1067,8 +1088,10 @@ export const CASES: Case[] = [
 					invoiceId: "in_1",
 					status: "needs_response",
 					at: days(2),
+					fee: DISPUTE_FEE,
 				}),
 			),
+			// the closing event lists the same withdrawal again: it must not be booked a second time
 			applied(
 				days(12),
 				disputeOf({
@@ -1077,24 +1100,26 @@ export const CASES: Case[] = [
 					invoiceId: "in_1",
 					status: "lost",
 					at: days(12),
+					openedAt: days(2),
+					fee: DISPUTE_FEE,
 				}),
 			),
 		],
-		verdict: "KNOWN",
-		discrepancies: ["K1"],
+		verdict: "OK",
 		books: [
 			{
 				school: SCHOOL,
-				// the dispute is lost: the 260.00 stays with the cardholder and the 15.00 fee with Stripe; the two visits go back
+				// lost: the opening stands (assets:stripe -275.00, disputes +260.00, dispute fees +15.00) and the close books
+				// nothing: the 260.00 stays with the cardholder and the 15.00 with Stripe, the income stays, and the two visits
+				// go back. Net 260.00 - 260.00 - 7.84 - 15.00 = -22.84; cash 252.16 - 275.00 = -22.84.
 				hand: {
 					"income:membership:sparkle-2": 26_000,
 					disputes: 26_000,
-					fees: 2284,
+					fees: 784,
+					disputeFees: DISPUTE_FEE,
 					stripe: -2284,
 					net: -2284,
 				},
-				// DISCREPANCY: K1 the credits are taken back, the money is not booked
-				pinned: { disputes: 0, fees: 784, stripe: 25_216, net: 25_216 },
 				stripe: {
 					invoices: [FIRST_INVOICE],
 					refunds: [],
@@ -1106,27 +1131,19 @@ export const CASES: Case[] = [
 							"txn_dp_1",
 							"adjustment",
 							-SPARKLE_2,
-							1500,
+							DISPUTE_FEE,
 							stamp(days(2)),
 						),
 					],
 				},
-				reconcile: {
-					"2026-01": [
-						// DISCREPANCY: K1 (the opening and the outcome are both missing)
-						"missing_in_log dispute dp_1",
-						"missing_in_log dispute dp_1",
-						"amount_differs fees -",
-						"amount_differs net -",
-					],
-				},
+				reconcile: ONLY_JANUARY,
 			},
 		],
 	},
 	{
 		id: "dispute-won",
 		title: "dispute won",
-		path: "charge.dispute.created, charge.dispute.closed (won: nothing changes)",
+		path: "charge.dispute.created, charge.dispute.closed (won: the amount comes back, the fee does not)",
 		fees: FEES_26,
 		steps: [
 			...paidAndLinked(),
@@ -1138,6 +1155,7 @@ export const CASES: Case[] = [
 					invoiceId: "in_1",
 					status: "needs_response",
 					at: days(2),
+					fee: DISPUTE_FEE,
 				}),
 			),
 			applied(
@@ -1148,26 +1166,28 @@ export const CASES: Case[] = [
 					invoiceId: "in_1",
 					status: "won",
 					at: days(12),
+					openedAt: days(2),
+					fee: DISPUTE_FEE,
+					reversed: true,
 				}),
 			),
 		],
-		verdict: "KNOWN",
-		discrepancies: ["K1"],
+		verdict: "OK",
 		books: [
 			{
 				school: SCHOOL,
-				// won: the 260.00 comes back, but the 15.00 dispute fee does not (Stripe's recorded won dispute,
-				// fixtures/billing/stripe/recorded/delivered/dispute-won, returns 26,000 with fee 0): the school is 15.00 down
-				// cash 252.16 - 15.00 = 237.16
+				// won: the opening (assets:stripe -275.00, disputes +260.00, dispute fees +15.00) is followed by the return of
+				// the 260.00 (assets:stripe +260.00, disputes -260.00, so disputes net to 0). The 15.00 dispute fee stays an
+				// expense: Stripe's recorded won dispute (fixtures/billing/stripe/recorded/delivered/dispute-won) returns 26,000
+				// with a fee of 0. Net 260.00 - 7.84 - 15.00 = 237.16; cash 252.16 - 275.00 + 260.00 = 237.16.
 				hand: {
 					"income:membership:sparkle-2": 26_000,
-					fees: 2284,
+					fees: 784,
+					disputeFees: DISPUTE_FEE,
 					stripe: 23_716,
 					net: 23_716,
 					[visits()]: 2,
 				},
-				// DISCREPANCY: K1 the 15.00 fee of a dispute that was won is not booked
-				pinned: { fees: 784, stripe: 25_216, net: 25_216 },
 				stripe: {
 					invoices: [FIRST_INVOICE],
 					refunds: [],
@@ -1179,7 +1199,7 @@ export const CASES: Case[] = [
 							"txn_dp_1",
 							"adjustment",
 							-SPARKLE_2,
-							1500,
+							DISPUTE_FEE,
 							stamp(days(2)),
 						),
 						stripeBalance(
@@ -1191,15 +1211,62 @@ export const CASES: Case[] = [
 						),
 					],
 				},
-				reconcile: {
-					"2026-01": [
-						// DISCREPANCY: K1 neither the dispute nor its outcome is in the log, and the fee is not booked
-						"missing_in_log dispute dp_1",
-						"missing_in_log dispute dp_1",
-						"amount_differs fees -",
-						"amount_differs net -",
+				reconcile: ONLY_JANUARY,
+			},
+		],
+	},
+	{
+		id: "dispute-redelivered",
+		title: "a dispute's events delivered again",
+		path: "charge.dispute.created and .closed again: same event id, new event id; the withdrawal is booked once",
+		fees: FEES_26,
+		steps: [
+			...paidAndLinked(),
+			applied(days(2), disputeCreated("evt_dp_1")),
+			// Stripe's retry: the same event id
+			deliver(days(2) + 60_000, disputeCreated("evt_dp_1"), 200, "duplicate"),
+			// the same dispute under a second event id: the fee is not booked twice
+			applied(days(2) + 120_000, disputeCreated("evt_dp_1_second_event")),
+			applied(days(12), disputeLost("evt_dp_1_closed")),
+			deliver(
+				days(12) + 60_000,
+				disputeLost("evt_dp_1_closed"),
+				200,
+				"duplicate",
+			),
+			applied(days(12) + 120_000, disputeLost("evt_dp_1_closed_second_event")),
+		],
+		verdict: "OK",
+		books: [
+			{
+				school: SCHOOL,
+				// one dispute, however many times Stripe said so: the same books as a lost dispute delivered once.
+				// Net 260.00 - 260.00 - 7.84 - 15.00 = -22.84; cash 252.16 - 275.00 = -22.84; the two visits are taken back once.
+				hand: {
+					"income:membership:sparkle-2": 26_000,
+					disputes: 26_000,
+					fees: 784,
+					disputeFees: DISPUTE_FEE,
+					stripe: -2284,
+					net: -2284,
+				},
+				stripe: {
+					invoices: [FIRST_INVOICE],
+					refunds: [],
+					disputes: [stripeDispute("dp_1", SPARKLE_2, stamp(days(2)), "lost")],
+					payouts: [],
+					balanceTransactions: [
+						FIRST_CHARGE,
+						stripeBalance(
+							"txn_dp_1",
+							"adjustment",
+							-SPARKLE_2,
+							DISPUTE_FEE,
+							stamp(days(2)),
+						),
 					],
 				},
+				reconcile: ONLY_JANUARY,
 			},
 		],
 	},
@@ -1696,11 +1763,16 @@ export const CASES: Case[] = [
 	{
 		id: "non-usd",
 		title: "non-USD invoice and payout",
-		path: "invoice.paid and payout.paid in eur: 200 applied, no money line",
+		path: "invoice.paid and payout.paid in eur: 200 non_usd, a money.skipped marker each, no money line",
 		fees: { in_eur: 784 },
 		steps: [
-			applied(FIRST_AT, firstInvoice("in_eur", { currency: "eur" })),
-			applied(
+			deliver(
+				FIRST_AT,
+				firstInvoice("in_eur", { currency: "eur" }),
+				200,
+				"non_usd",
+			),
+			deliver(
 				days(2),
 				payoutOf({
 					id: "evt_po_eur",
@@ -1709,30 +1781,23 @@ export const CASES: Case[] = [
 					at: days(2),
 					currency: "eur",
 				}),
+				200,
+				"non_usd",
 			),
 		],
-		verdict: "KNOWN",
-		discrepancies: ["K2"],
+		verdict: "OK",
 		books: [
 			{
 				school: SCHOOL,
-				// in euro cents: 260.00 EUR in, 7.84 fee, 200.00 paid out, 52.16 left in Stripe's balance; two visits are granted
-				hand: {
-					"income:membership:sparkle-2": 26_000,
-					fees: 784,
-					stripe: 5216,
-					clearing: 20_000,
-					net: 25_216,
-					[visits()]: 2,
-				},
-				// DISCREPANCY: K2 an eur invoice and payout are answered 200 applied and booked nowhere; the credits are granted
-				pinned: {
-					"income:membership:sparkle-2": 0,
-					fees: 0,
-					stripe: 0,
-					clearing: 0,
-					net: 0,
-				},
+				// The books are in dollars: a euro invoice and a euro payout make no money line, so every money number is 0 and
+				// the report says nothing of the 260.00 EUR. What the handler does instead is answer 200 `non_usd`, grant the
+				// invoice's credits (two visits, as for a USD invoice) and leave one `money.skipped` marker for each of the two
+				// lines it left out: reconcile's count of them is 2 in January (the invoice on the 15th, the payout on the 17th).
+				hand: { [visits()]: 2 },
+				skipped: { "2026-01": { non_usd: 2 } },
+				// Stripe's side holds what the books do not: 260.00 EUR charged with a 7.84 fee, 200.00 EUR paid out, which
+				// leaves 52.16 EUR in its balance; that is the count of 2 skipped lines explaining the two differences below.
+				foreign: { balance: 5216, fees: 784 },
 				stripe: {
 					invoices: [stripeInvoice("in_eur", SPARKLE_2, JAN15, "eur")],
 					refunds: [],
@@ -1753,11 +1818,8 @@ export const CASES: Case[] = [
 					],
 				},
 				reconcile: {
-					"2026-01": [
-						// DISCREPANCY: K2
-						"missing_in_log invoice in_eur",
-						"not_in_log payout -",
-					],
+					// the euro invoice and payout are in Stripe's lists and not in the dollar books, which the `skipped` count says
+					"2026-01": ["missing_in_log invoice in_eur", "not_in_log payout -"],
 				},
 			},
 		],

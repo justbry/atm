@@ -35,7 +35,7 @@ const GOLDEN = join(import.meta.dir, "golden/e2e");
 const INCOME = "income:";
 const CREDIT_PREFIXES = ["avail:", "held:"];
 const MATRIX_HEADER =
-	"case,school,verdict,hand_income,report_income,hand_refunds,report_refunds,hand_disputes,report_disputes,hand_fees,report_fees,hand_stripe,report_stripe,hand_clearing,report_clearing,hand_net,report_net,reconcile";
+	"case,school,verdict,hand_income,report_income,hand_refunds,report_refunds,hand_disputes,report_disputes,hand_fees,report_fees,hand_dispute_fees,report_dispute_fees,hand_stripe,report_stripe,hand_clearing,report_clearing,hand_net,report_net,reconcile";
 
 const sumIncome = (numbers: Numbers): number =>
 	Object.entries(numbers)
@@ -107,7 +107,8 @@ const expectBook = async (c: Case, index: number, got: BookRun) => {
 		sumIncome(report) -
 			(report.refunds ?? 0) -
 			(report.disputes ?? 0) -
-			(report.fees ?? 0),
+			(report.fees ?? 0) -
+			(report.disputeFees ?? 0),
 	);
 	expect((report.stripe ?? 0) + (report.clearing ?? 0), `${label}: cash`).toBe(
 		report.net ?? 0,
@@ -121,7 +122,7 @@ const expectBook = async (c: Case, index: number, got: BookRun) => {
 		`${label}: Stripe's balance`,
 	).toBe(hand.stripe ?? 0);
 	expect(stripeFeesOf(book.stripe) - strayFees, `${label}: Stripe's fees`).toBe(
-		hand.fees ?? 0,
+		(hand.fees ?? 0) + (hand.disputeFees ?? 0),
 	);
 	expect(
 		(book.stripe.refunds ?? []).reduce(
@@ -155,6 +156,13 @@ const expectBook = async (c: Case, index: number, got: BookRun) => {
 			(got.reconciled[month]?.differences ?? []).map(differenceLine),
 			`${label}: reconcile ${month}`,
 		).toEqual(book.reconcile[month] as string[]);
+
+	// the markers for money the books do not hold: reconcile's count is the hand number
+	for (const month of months(book))
+		expect(
+			got.reconciled[month]?.skipped ?? {},
+			`${label}: skipped in ${month}`,
+		).toEqual(book.skipped?.[month] ?? {});
 
 	// the goldens: the handler's decisions, the reports, the registers and the reconcile text
 	const dir =
@@ -210,6 +218,13 @@ const matrixRow = (c: Case, index: number, got: BookRun): string => {
 		(total, month) => total + (got.reconciled[month]?.differences.length ?? 0),
 		0,
 	);
+	// the differences the log's own `money.skipped` count explains
+	const skipped = Object.values(book.skipped ?? {}).reduce(
+		(total, reasons) =>
+			total + Object.values(reasons).reduce((sum, n) => sum + n, 0),
+		0,
+	);
+	const explained = skipped > 0 ? ` (${skipped} skipped)` : "";
 	return [
 		c.id,
 		book.school,
@@ -222,6 +237,8 @@ const matrixRow = (c: Case, index: number, got: BookRun): string => {
 		dollars(report.disputes ?? 0),
 		dollars(hand.fees ?? 0),
 		dollars(report.fees ?? 0),
+		dollars(hand.disputeFees ?? 0),
+		dollars(report.disputeFees ?? 0),
 		dollars(hand.stripe ?? 0),
 		dollars(report.stripe ?? 0),
 		dollars(hand.clearing ?? 0),
@@ -230,7 +247,7 @@ const matrixRow = (c: Case, index: number, got: BookRun): string => {
 		dollars(report.net ?? 0),
 		differences === 0
 			? "clean"
-			: `${differences} difference${differences === 1 ? "" : "s"}`,
+			: `${differences} difference${differences === 1 ? "" : "s"}${explained}`,
 	].join(",");
 };
 
@@ -244,6 +261,10 @@ describe.skipIf(!hasHledger)("the end-to-end reconciliation matrix", () => {
 				step.kind === "erase" ? [] : [step.answer],
 			);
 			expect(run.answers).toEqual(delivered);
+			// a delivery answered `non_usd` warns once, and nothing else does
+			expect(run.warnings).toHaveLength(
+				delivered.filter(([, outcome]) => outcome === "non_usd").length,
+			);
 			expect(run.books).toHaveLength(c.books.length);
 			const caseRows: string[] = [];
 			for (const [index, got] of run.books.entries()) {
@@ -256,8 +277,11 @@ describe.skipIf(!hasHledger)("the end-to-end reconciliation matrix", () => {
 			const pinnedAny = c.books.some(
 				(book) => Object.keys(book.pinned ?? {}).length > 0,
 			);
-			const differs = c.books.some((book) =>
-				Object.values(book.reconcile).some((lines) => lines.length > 0),
+			// differences the log's own `skipped` count explains are by design, not a discrepancy
+			const differs = c.books.some(
+				(book) =>
+					book.skipped === undefined &&
+					Object.values(book.reconcile).some((lines) => lines.length > 0),
 			);
 			if (c.verdict === "OK") {
 				expect(

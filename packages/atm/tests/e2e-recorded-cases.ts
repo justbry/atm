@@ -31,7 +31,6 @@ const GROSS = 26_000;
 const DISPUTED = 26_000;
 const DISPUTE_FEE = 1500;
 const MONTH = { "2026-11": [] as string[] };
-const DISPUTE_LINES = ["amount_differs fees -", "amount_differs net -"];
 
 const step = (
 	scenario: string,
@@ -208,21 +207,22 @@ const disputeLost = (): Case => {
 			step(scenario, "04", 200, "applied", MINUTE),
 			step(scenario, "05", 200, "applied", MINUTE),
 		],
-		verdict: "KNOWN",
-		discrepancies: ["K1"],
+		verdict: "OK",
 		books: [
 			{
 				school: RECORDED_SCHOOL,
-				// the 260.00 went back to the cardholder and Stripe charged its 15.00 dispute fee: 252.16 - 260.00 - 15.00 = -22.84
+				// Stripe's recorded withdrawal is 26,000 with a fee of 1,500 (net -27,500), listed on the opening and again on
+				// the closing: it is booked once, as assets:stripe -275.00, disputes +260.00, dispute fees +15.00. Lost: the
+				// income stays, the close books nothing and the two visits are taken back.
+				// Net 260.00 - 260.00 - 7.84 - 15.00 = -22.84; cash 252.16 - 275.00 = -22.84.
 				hand: {
 					"income:membership:sparkle": 26_000,
 					disputes: 26_000,
-					fees: 2284,
+					fees: 784,
+					disputeFees: 1500,
 					stripe: -2284,
 					net: -2284,
 				},
-				// DISCREPANCY: K1 the credits are taken back (the real events do it) and no money line is made
-				pinned: { disputes: 0, fees: 784, stripe: 25_216, net: 25_216 },
 				stripe: {
 					invoices: [invoice],
 					refunds: [],
@@ -241,14 +241,7 @@ const disputeLost = (): Case => {
 						),
 					],
 				},
-				reconcile: {
-					"2026-11": [
-						// DISCREPANCY: K1
-						`missing_in_log dispute ${disputeId}`,
-						`missing_in_log dispute ${disputeId}`,
-						...DISPUTE_LINES,
-					],
-				},
+				reconcile: MONTH,
 			},
 		],
 	};
@@ -275,21 +268,21 @@ const disputeWon = (): Case => {
 			step(scenario, "05", 200, "applied"),
 			step(scenario, "01", 200, "applied", MINUTE),
 		],
-		verdict: "KNOWN",
-		discrepancies: ["K1"],
+		verdict: "OK",
 		books: [
 			{
 				school: RECORDED_SCHOOL,
-				// won: the 260.00 comes back; the 15.00 fee does not (the recorded reversal has fee 0): 252.16 - 15.00 = 237.16
+				// won: the opening (assets:stripe -275.00, disputes +260.00, dispute fees +15.00) and the recorded reversal of
+				// 26,000 (assets:stripe +260.00, disputes -260.00, so disputes net to 0); the reversal has a fee of 0, so the
+				// 15.00 stays an expense. Net 260.00 - 7.84 - 15.00 = 237.16; cash 252.16 - 275.00 + 260.00 = 237.16.
 				hand: {
 					"income:membership:sparkle": 26_000,
-					fees: 2284,
+					fees: 784,
+					disputeFees: 1500,
 					stripe: 23_716,
 					net: 23_716,
 					[`avail:family:${family}:visit`]: 2,
 				},
-				// DISCREPANCY: K1 the 15.00 fee of a dispute that was won is not booked
-				pinned: { fees: 784, stripe: 25_216, net: 25_216 },
 				stripe: {
 					invoices: [invoice],
 					refunds: [],
@@ -315,14 +308,7 @@ const disputeWon = (): Case => {
 						),
 					],
 				},
-				reconcile: {
-					"2026-11": [
-						// DISCREPANCY: K1
-						`missing_in_log dispute ${disputeId}`,
-						`missing_in_log dispute ${disputeId}`,
-						...DISPUTE_LINES,
-					],
-				},
+				reconcile: MONTH,
 			},
 		],
 	};

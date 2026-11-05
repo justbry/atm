@@ -1,3 +1,5 @@
 date,event_type,idem,postings
 2026-11-05,payment.succeeded,stripe:in_1UYPRcScrubTest0bbF1HWHx,"assets:stripe 252.16 USD | expenses:billing:stripe-fees 7.84 USD | income:billing:membership:sparkle -260.00 USD"
+2026-11-05,payment.disputed,stripe:du_1UYPRdScrubTest0IhJbNanO,"assets:stripe -275.00 USD | expenses:billing:disputes 260.00 USD | expenses:billing:dispute-fees 15.00 USD"
 2026-11-05,credit.granted,engine:01M6NSP2FR00000YWB3G360286:1:granted,"credits:avail:family:fam_F2b:visit 2 VISIT | credits:issued:sparkle@v3 -2 VISIT"
+2026-11-05,dispute.closed,stripe:du_1UYPRdScrubTest0IhJbNanO:closed,"assets:stripe 260.00 USD | expenses:billing:disputes -260.00 USD"

@@ -185,6 +185,12 @@ export const disputeOf = (o: {
 	invoiceId: string;
 	status: "needs_response" | "won" | "lost";
 	at: number;
+	/** When the dispute was opened (ms); a closing event is later than that. */
+	openedAt?: number;
+	/** What Stripe took from the balance when it opened, as the recorded events carry it: the dispute fee, in cents. */
+	fee?: number;
+	/** A won dispute: the reversal of the amount (fee 0) is listed after the withdrawal. */
+	reversed?: boolean;
 }): RawEvent =>
 	disputeEvent({
 		type: o.type,
@@ -194,6 +200,9 @@ export const disputeOf = (o: {
 		invoiceId: o.invoiceId,
 		status: o.status,
 		at: o.at,
+		...(o.openedAt === undefined ? {} : { openedAt: o.openedAt }),
+		...(o.fee === undefined ? {} : { withdrawal: { fee: o.fee } }),
+		...(o.reversed ? { reversed: true } : {}),
 	});
 
 export const payoutOf = (o: {
