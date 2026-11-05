@@ -30,6 +30,7 @@ export const OBJECT_OF_EVENT: Record<string, string> = {
 	"invoice.paid": "invoice",
 	"invoice_payment.paid": "invoice_payment",
 	"charge.refunded": "charge",
+	"payout.paid": "payout",
 	"charge.dispute.created": "dispute",
 	"charge.dispute.closed": "dispute",
 	"customer.subscription.created": "subscription",
@@ -163,8 +164,15 @@ export const pathProblems = (mapping: Mapping): string[] => {
 	) => {
 		const tokens = parsePath(path);
 		const dataObject = tokens[0] === "data" && tokens[1] === "object";
+		// `previous_attributes` is the object as it was, a part of it: its fields are the object's own
+		const previous =
+			tokens[0] === "data" && tokens[1] === "previous_attributes";
 		const relative =
-			base === root ? (dataObject ? tokens.slice(2) : null) : tokens;
+			base === root
+				? dataObject || previous
+					? tokens.slice(2)
+					: null
+				: tokens;
 		if (relative === null) {
 			// event-level paths ($.type, $.created, ...): one field, nothing under it
 			if (tokens.length !== 1 || !ENVELOPE_FIELDS.has(String(tokens[0])))

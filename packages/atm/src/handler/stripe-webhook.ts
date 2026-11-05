@@ -72,6 +72,15 @@
  *   invoice's rows, so callers that already know the payment (an expanded invoice, their own records) keep working.
  *   Only its non-empty strings are used. `invoice.payments` is read too when the event came expanded.
  *
+ * - The books. An `invoice.paid` also writes a `payment.succeeded` (gross, the fee, the net), a `charge.refunded` a
+ *   `payment.refunded` (what that event refunded), and a `payout.paid` a `payout.paid`, all to the outbox beside the
+ *   credit events. No webhook event carries Stripe's fee (it is the `fee` of the charge's balance transaction), so the
+ *   optional `deps.paymentFee` supplies it, read from Stripe by the caller before the call; without it the payment books
+ *   no fee line. The fee is fixed at the first delivery of the invoice: it is not booked later. A payout names no family
+ *   and no school, so it is booked to `deps.schoolId` whatever its `account` says: serve each school from its own
+ *   endpoint, on the school's own Stripe account (a Connect endpoint would send every connected account's payouts here).
+ *   Not built: `payout.failed` (a payout that fails after `payout.paid` is not reversed) and disputes' money lines.
+ *
  * Answers (Stripe retries every non-2xx for up to three days)
  *
  *   200 applied            rows, outbox and claim done committed (also when the event changes nothing)
@@ -139,6 +148,9 @@ const DEFAULT_CLAIM_STALE_AFTER_MS = 300_000;
 const MAX_ATTEMPTS = 3;
 const SUBSCRIPTION_EVENT_PREFIX = "customer.subscription.";
 const INVOICE_PAYMENT_EVENT = "invoice_payment.paid";
+const PAYOUT_EVENT = "payout.paid";
+/** The customer id the books key a payout by; a payout names no family, so this stands in for the subject. */
+const PAYOUT_CUSTOMER_ID = "stripe:payouts";
 const HANDLED_TYPES: ReadonlySet<string> = new Set([
 	"invoice.paid",
 	INVOICE_PAYMENT_EVENT,
@@ -148,6 +160,7 @@ const HANDLED_TYPES: ReadonlySet<string> = new Set([
 	"charge.refunded",
 	"charge.dispute.created",
 	"charge.dispute.closed",
+	PAYOUT_EVENT,
 ]);
 const RETRYABLE_REFUSALS: ReadonlySet<StripeEventRefusal["reason"]> = new Set([
 	"unmatched_invoice",
@@ -348,6 +361,19 @@ const locateSubject = (
 		event.type.startsWith(SUBSCRIPTION_EVENT_PREFIX)
 	)
 		return locateHolder(deps, env, event);
+	// A payout is the endpoint's own school's, whatever it says: nothing in it names a family or a school (see the
+	// header). The key only carries the school to `applyOnce`; no row is stored under it.
+	if (event.type === PAYOUT_EVENT)
+		return {
+			kind: "subject",
+			subjectKey: subjectKey({
+				orgId: deps.schoolId,
+				env,
+				customerId: PAYOUT_CUSTOMER_ID,
+				entityId: null,
+			}),
+			invoiceIds: {},
+		};
 	const refs = paymentRefsOf(event);
 	// payment ref -> invoice (written by invoice_payment.paid) -> subject (written by invoice.paid)
 	const hits =
@@ -521,6 +547,13 @@ const writeRows = (db: SqlDatabase, changes: RowChanges): void => {
 
 // ---- One attempt ----
 
+/** The fee the caller knows for an `invoice.paid`, or undefined (no fee line). A value that is not a number is passed on for `handleStripeEvent` to refuse. */
+const feeOf = (deps: WebhookDeps, event: StripeEvent): number | undefined => {
+	if (event.type !== "invoice.paid") return undefined;
+	const fee: unknown = deps.paymentFee?.(event.raw);
+	return fee === null || fee === undefined ? undefined : (fee as number);
+};
+
 const applyOnce = ({
 	deps,
 	env,
@@ -543,6 +576,7 @@ const applyOnce = ({
 		return { kind: "unknown_school" };
 	}
 	const { rows, revision } = loadSubject(db, located.subjectKey);
+	const fee = feeOf(deps, event);
 	const result = handleStripeEvent({
 		event: event.raw,
 		eventId: deterministicUlid({
@@ -561,6 +595,8 @@ const applyOnce = ({
 		priceIds: context.priceIds,
 		invoiceIds: located.invoiceIds,
 		env,
+		school,
+		...(fee === undefined ? {} : { fee }),
 	});
 	if (result.refused) {
 		releaseClaim(deps, event.id, claim);

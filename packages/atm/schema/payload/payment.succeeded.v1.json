@@ -18,6 +18,10 @@
 			"type": "integer",
 			"minimum": 0
 		},
+		"fee_known": {
+			"description": "false when the writer was given no fee (the books then hold the gross amount and `fee` is 0 for want of one); absent in logs written before the handler wrote payments.",
+			"type": "boolean"
+		},
 		"currency": {
 			"type": "string",
 			"minLength": 1

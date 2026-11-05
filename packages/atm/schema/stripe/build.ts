@@ -21,6 +21,7 @@ export const ROOTS = {
 	dispute: "dispute",
 	subscription: "subscription",
 	invoice_payment: "invoice_payment",
+	payout: "payout",
 } as const;
 
 type Json = Record<string, unknown>;
