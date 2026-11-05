@@ -23,9 +23,39 @@
 			"type": "array",
 			"maxItems": 6,
 			"items": { "$ref": "#/$defs/addon" }
+		},
+		"codes": {
+			"description": "Member discount codes (0.8.0): a percentage off membership tiers, never add-ons or gifts. Absent: none (policy.memberCode still names one). validateMenu checks that ids are unique, that codes are unique without regard to case and that tierIds name tiers.",
+			"type": "array",
+			"maxItems": 10,
+			"items": { "$ref": "#/$defs/code" }
 		}
 	},
 	"$defs": {
+		"code": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": ["id", "kind", "code", "percentOff"],
+			"properties": {
+				"id": { "$ref": "#/$defs/id" },
+				"kind": { "const": "member" },
+				"code": { "type": "string", "pattern": "^[A-Za-z0-9_-]{2,40}$" },
+				"percentOff": {
+					"type": "number",
+					"exclusiveMinimum": 0,
+					"maximum": 100
+				},
+				"tierIds": {
+					"type": "array",
+					"minItems": 1,
+					"maxItems": 4,
+					"uniqueItems": true,
+					"items": { "$ref": "#/$defs/id" }
+				},
+				"firstTimeOnly": { "type": "boolean" },
+				"expiresAt": { "type": "integer", "minimum": 1 }
+			}
+		},
 		"id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$" },
 		"amount": { "type": "integer", "minimum": 50, "maximum": 10000000 },
 		"interval": { "enum": ["month", "year"] },

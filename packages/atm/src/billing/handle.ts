@@ -24,6 +24,7 @@ import type {
 	BillingDispute,
 	BillingInvoice,
 	BillingRefund,
+	CheckoutSessionFact,
 	GrantResult,
 	GrantsState,
 	InvoiceLine,
@@ -34,6 +35,10 @@ import type {
 	StripePayout,
 	SubscriptionFact,
 } from "../types.js";
+import {
+	decideBookingRefund,
+	decideCheckoutSession,
+} from "./booking-events.js";
 import { resolveEnv } from "./env.js";
 import {
 	disputeToCommands,
@@ -644,6 +649,23 @@ const decideAndRun = (
 	if (target === "StripePayout")
 		return decidePayout(input, fact as StripePayout);
 	const grants = grantsFromRows(input.rows);
+	// A one-time booking payment (its Checkout Session, and the refund of its charge) is decided apart from the invoice rules.
+	if (target === "CheckoutSessionFact")
+		return decideCheckoutSession({
+			input,
+			env,
+			grants,
+			fact: fact as CheckoutSessionFact,
+		});
+	if (target === "BillingRefund") {
+		const booking = decideBookingRefund({
+			input,
+			env,
+			grants,
+			fact: fact as BillingRefund,
+		});
+		if (booking) return booking;
+	}
 	let holder = grants.identity ?? grants.holder;
 	if (!holder && target === "BillingInvoice") {
 		const invoice = fact as BillingInvoice;
