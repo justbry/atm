@@ -4,6 +4,7 @@ import {
 	checkoutParams,
 	lookupKeyOf,
 	menuToStripe,
+	oneTimeCheckoutParams,
 	toStripeForm,
 	withPriceIds,
 } from "../src/billing/stripe-menu.js";
@@ -697,6 +698,135 @@ describe("withPriceIds / toStripeForm", () => {
 			"metadata[tier_id]": "sparkle",
 			"subscription_data[metadata][tier_id]": "sparkle",
 			allow_promotion_codes: "true",
+		});
+	});
+});
+
+describe("oneTimeCheckoutParams", () => {
+	const base = {
+		schoolId: SCHOOL,
+		menu: MENU,
+		addonIds: ["workshop-seat"],
+		familyId: "fam1",
+		menuVersion: 7,
+		returnUrls: {
+			success: "https://b4uni.com/ok",
+			cancel: "https://b4uni.com/no",
+		},
+	};
+	const workshopKey = lk("a:workshop-seat:once", 2500);
+
+	test("payment mode with invoice_creation on, and our metadata on the invoice itself", () => {
+		const metadata = {
+			b4u_school: SCHOOL,
+			family_id: "fam1",
+			menu_version: "7",
+			addon_ids: "workshop-seat",
+		};
+		expect(oneTimeCheckoutParams(base)).toEqual({
+			ok: true,
+			params: {
+				mode: "payment",
+				client_reference_id: "fam1",
+				success_url: "https://b4uni.com/ok",
+				cancel_url: "https://b4uni.com/no",
+				line_items: [{ lookupKey: workshopKey, quantity: 1 }],
+				metadata,
+				invoice_creation: { enabled: true, invoice_data: { metadata } },
+			},
+		});
+	});
+
+	test("the lookup key is the one menuToStripe publishes", () => {
+		const published = publish(MENU, null).flatMap((op) =>
+			op.op === "price.create" ? [op.lookupKey] : [],
+		);
+		expect(published).toContain(workshopKey);
+	});
+
+	test("a profile, an invoice description and footer, and repeated add-ons", () => {
+		const result = oneTimeCheckoutParams({
+			...base,
+			addonIds: ["workshop-seat", "workshop-seat"],
+			forProfileId: "kid-uuid",
+			invoice: { description: "Workshop seat", footer: "Thank you" },
+		});
+		if (!result.ok) throw new Error("setup");
+		expect(result.params.line_items).toHaveLength(1);
+		expect(result.params.metadata.profile_id).toBe("kid-uuid");
+		expect(result.params.invoice_creation.invoice_data).toMatchObject({
+			description: "Workshop seat",
+			footer: "Thank you",
+			metadata: { profile_id: "kid-uuid", family_id: "fam1" },
+		});
+	});
+
+	test("refuses no add-ons, an unknown add-on and one that repeats", () => {
+		expect(oneTimeCheckoutParams({ ...base, addonIds: [] })).toEqual({
+			ok: false,
+			reason: "no_addons",
+		});
+		expect(oneTimeCheckoutParams({ ...base, addonIds: ["nope"] })).toEqual({
+			ok: false,
+			reason: "addon_not_found",
+			addonId: "nope",
+		});
+		expect(
+			oneTimeCheckoutParams({
+				...base,
+				addonIds: ["workshop-seat", "light-30"],
+			}),
+		).toEqual({
+			ok: false,
+			reason: "addon_not_one_time",
+			addonId: "light-30",
+		});
+	});
+
+	test("a membership's checkout is unchanged: still subscription mode, no invoice_creation", () => {
+		const result = checkoutParams({
+			schoolId: SCHOOL,
+			menu: MENU,
+			tierId: "sparkle",
+			interval: "month",
+			addonIds: ["workshop-seat"],
+			familyId: "fam1",
+			menuVersion: 7,
+			returnUrls: base.returnUrls,
+			policy: POLICY,
+		});
+		if (!result.ok) throw new Error("setup");
+		expect(result.params.mode).toBe("subscription");
+		expect("invoice_creation" in result.params).toBe(false);
+	});
+
+	test("withPriceIds and toStripeForm give Stripe's form fields", () => {
+		const result = oneTimeCheckoutParams({
+			...base,
+			invoice: { footer: "Thank you" },
+		});
+		if (!result.ok) throw new Error("setup");
+		expect(withPriceIds(result.params, {})).toBeNull();
+		const priced = withPriceIds(result.params, { [workshopKey]: "price_w" });
+		if (!priced) throw new Error("price ids missing");
+		expect(priced.line_items).toEqual([{ price: "price_w", quantity: 1 }]);
+		expect(toStripeForm(priced)).toEqual({
+			mode: "payment",
+			client_reference_id: "fam1",
+			success_url: "https://b4uni.com/ok",
+			cancel_url: "https://b4uni.com/no",
+			"line_items[0][price]": "price_w",
+			"line_items[0][quantity]": "1",
+			"metadata[b4u_school]": SCHOOL,
+			"metadata[family_id]": "fam1",
+			"metadata[menu_version]": "7",
+			"metadata[addon_ids]": "workshop-seat",
+			"invoice_creation[enabled]": "true",
+			"invoice_creation[invoice_data][metadata][b4u_school]": SCHOOL,
+			"invoice_creation[invoice_data][metadata][family_id]": "fam1",
+			"invoice_creation[invoice_data][metadata][menu_version]": "7",
+			"invoice_creation[invoice_data][metadata][addon_ids]": "workshop-seat",
+			"invoice_creation[invoice_data][footer]": "Thank you",
 		});
 	});
 });

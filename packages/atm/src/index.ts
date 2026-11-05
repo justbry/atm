@@ -78,6 +78,10 @@ import type {
 	NormalizeContext,
 	NormalizeError,
 	NormalizeResult,
+	OneTimeCheckoutInput,
+	OneTimeCheckoutParams,
+	OneTimeCheckoutParamsWithPrices,
+	OneTimeCheckoutResult,
 	PortalConfigIds,
 	ProrationLine,
 	ProrationPair,
@@ -350,11 +354,31 @@ export const menuToStripe = (input: MenuToStripeInput): StripeOp[] =>
 export const checkoutParams = (input: CheckoutInput): CheckoutResult =>
 	stripeMenu.checkoutParams(input);
 
-/** `params` with each line's lookup key swapped for its Stripe price id; null when a price is not published yet. */
-export const withPriceIds = (
+/**
+ * The payment-mode Checkout Session for add-ons priced `once` with no membership (a gift certificate, a pack), with
+ * `invoice_creation` on so Stripe makes the paid invoice atm grants from, or why not. See `OneTimeCheckoutParams`.
+ */
+export const oneTimeCheckoutParams = (
+	input: OneTimeCheckoutInput,
+): OneTimeCheckoutResult => stripeMenu.oneTimeCheckoutParams(input);
+
+/** `params` (a membership's or a one-time checkout's) with each line's lookup key swapped for its Stripe price id; null when a price is not published yet. */
+export function withPriceIds(
 	params: CheckoutParams,
 	priceIds: Readonly<Record<string, string>>,
-): CheckoutParamsWithPrices | null => stripeMenu.withPriceIds(params, priceIds);
+): CheckoutParamsWithPrices | null;
+export function withPriceIds(
+	params: OneTimeCheckoutParams,
+	priceIds: Readonly<Record<string, string>>,
+): OneTimeCheckoutParamsWithPrices | null;
+export function withPriceIds(
+	params: CheckoutParams | OneTimeCheckoutParams,
+	priceIds: Readonly<Record<string, string>>,
+): CheckoutParamsWithPrices | OneTimeCheckoutParamsWithPrices | null {
+	return params.mode === "payment"
+		? stripeMenu.withPriceIds(params, priceIds)
+		: stripeMenu.withPriceIds(params, priceIds);
+}
 
 /** Flattens nested params to Stripe's form encoding (`line_items[0][price]`). */
 export const toStripeForm = (

@@ -29,6 +29,10 @@ import type {
 	LineItem,
 	Menu,
 	MenuToStripeInput,
+	OneTimeCheckoutInput,
+	OneTimeCheckoutParams,
+	OneTimeCheckoutParamsWithPrices,
+	OneTimeCheckoutResult,
 	PortalConfigIds,
 	StripeOp,
 } from "./types.js";
@@ -397,11 +401,92 @@ export function checkoutParams(input: CheckoutInput): CheckoutResult {
 	};
 }
 
+/**
+ * The payment-mode Checkout Session for add-ons priced `once` with no membership (a gift certificate, a pack), or why
+ * not. Stripe makes no invoice for a payment-mode session unless `invoice_creation[enabled]=true`, and atm grants credits
+ * only from a paid invoice (a `manual` one, with no subscription), so this always turns it on. The invoice's own
+ * `metadata` carries `b4u_school` and `family_id` (the session's metadata does not reach the invoice), which is how
+ * `handleStripeEvent` finds the family. Stripe prices post-payment invoices for Checkout apart from Invoicing.
+ * `addon_not_one_time`: the add-on repeats (`month` or `year`), so it belongs on a membership's checkout. Add-ons are one
+ * each; repeats are dropped.
+ */
+export function oneTimeCheckoutParams(
+	input: OneTimeCheckoutInput,
+): OneTimeCheckoutResult {
+	const { schoolId, menu } = input;
+	const addonIds = [...new Set(input.addonIds)];
+	if (addonIds.length === 0) return { ok: false, reason: "no_addons" };
+	const lookupKeys: string[] = [];
+	for (const id of addonIds) {
+		const addon = menu.addons.find((candidate) => candidate.id === id);
+		if (!addon || !usable(addon.price.amount))
+			return { ok: false, reason: "addon_not_found", addonId: id };
+		if (addon.price.every !== "once")
+			return { ok: false, reason: "addon_not_one_time", addonId: id };
+		lookupKeys.push(
+			lookupKeyOf(
+				schoolId,
+				addonPriceKey(addon.id, addon.price.every, addon.gift),
+				addon.price.amount,
+				menu.currency,
+			),
+		);
+	}
+	const metadata: Record<string, string> = {
+		b4u_school: schoolId,
+		family_id: input.familyId,
+		menu_version: String(input.menuVersion),
+		addon_ids: addonIds.join(","),
+		...(input.forProfileId ? { profile_id: input.forProfileId } : {}),
+	};
+	return {
+		ok: true,
+		params: {
+			mode: "payment",
+			client_reference_id: input.familyId,
+			success_url: input.returnUrls.success,
+			cancel_url: input.returnUrls.cancel,
+			line_items: lookupKeys.map((lookupKey) => ({
+				lookupKey,
+				quantity: 1 as const,
+			})),
+			metadata,
+			invoice_creation: {
+				enabled: true,
+				invoice_data: {
+					metadata: { ...metadata },
+					...(input.invoice?.description
+						? { description: input.invoice.description }
+						: {}),
+					...(input.invoice?.footer ? { footer: input.invoice.footer } : {}),
+				},
+			},
+		},
+	};
+}
+
 /** `params` with each line's lookup key swapped for its Stripe price id, quantities kept; null when a price id is missing (not published yet). */
 export function withPriceIds(
 	params: CheckoutParams,
 	priceIds: Readonly<Record<string, string>>,
-): CheckoutParamsWithPrices | null {
+): CheckoutParamsWithPrices | null;
+export function withPriceIds(
+	params: OneTimeCheckoutParams,
+	priceIds: Readonly<Record<string, string>>,
+): OneTimeCheckoutParamsWithPrices | null;
+export function withPriceIds(
+	params: CheckoutParams | OneTimeCheckoutParams,
+	priceIds: Readonly<Record<string, string>>,
+): CheckoutParamsWithPrices | OneTimeCheckoutParamsWithPrices | null {
+	if (params.mode === "payment") {
+		const items: { price: string; quantity: 1 }[] = [];
+		for (const line of params.line_items) {
+			const price = priceIds[line.lookupKey];
+			if (!price) return null;
+			items.push({ price, quantity: line.quantity });
+		}
+		return { ...params, line_items: items };
+	}
 	const [tierLine, ...addonLines] = params.line_items;
 	const tierPrice = priceIds[tierLine.lookupKey];
 	if (!tierPrice) return null;
@@ -508,4 +593,7 @@ export type {
 	CheckoutRefusal,
 	CheckoutResult,
 	MenuToStripeInput,
+	OneTimeCheckoutInput,
+	OneTimeCheckoutParams,
+	OneTimeCheckoutResult,
 };

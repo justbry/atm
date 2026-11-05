@@ -50,6 +50,24 @@
 			"path": "$.data.object.period_end",
 			"type": "seconds"
 		},
+		"number": {
+			"path": "$.data.object.number",
+			"type": "string",
+			"optional": true,
+			"default": null
+		},
+		"hostedInvoiceUrl": {
+			"path": "$.data.object.hosted_invoice_url",
+			"type": "string",
+			"optional": true,
+			"default": null
+		},
+		"invoicePdf": {
+			"path": "$.data.object.invoice_pdf",
+			"type": "string",
+			"optional": true,
+			"default": null
+		},
 		"metadata": {
 			"path": "$.data.object.metadata",
 			"type": "map"
