@@ -2,7 +2,7 @@
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
 	"$id": "https://b4uni.com/_schema/payload/payment.refunded.v1.json",
 	"title": "payment.refunded payload v1",
-	"description": "A Stripe refund. Amounts in cents.",
+	"description": "A Stripe refund. Amounts in cents. id is the refund (re_...) when the booker had the refund object, else the Stripe event id (evt_...) of the charge.refunded that reported it.",
 	"type": "object",
 	"required": ["id", "amount", "currency"],
 	"properties": {
@@ -17,6 +17,26 @@
 		"currency": {
 			"type": "string",
 			"minLength": 1
+		},
+		"charge": {
+			"description": "The Stripe charge (ch_...) that was refunded. With payment_intent, how a refund event whose id is a Stripe event id (evt_...) is tied to Stripe's refund objects.",
+			"type": "string",
+			"minLength": 1
+		},
+		"payment_intent": {
+			"description": "The Stripe payment intent (pi_...) of the refunded charge, when it has one.",
+			"type": "string",
+			"minLength": 1
+		},
+		"invoice": {
+			"description": "The invoice (in_...) the refunded payment paid.",
+			"type": "string",
+			"minLength": 1
+		},
+		"amount_refunded": {
+			"description": "The charge's total refunded so far (cents), after this refund; amount is what this event added to it.",
+			"type": "integer",
+			"minimum": 1
 		},
 		"billing_email": {
 			"x-personal": true,
