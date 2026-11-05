@@ -1757,6 +1757,9 @@ export type StripeRefundRecord = {
 	amount: number;
 	currency: string;
 	created: number;
+	/** The refunded charge (`ch_...`); with `payment_intent`, what a refund event labelled with a Stripe event id is paired by. */
+	charge?: string | null;
+	payment_intent?: string | null;
 	/** `failed`, `canceled` and `requires_action` refunds moved no money and are ignored. */
 	status?: string | null;
 };
