@@ -459,9 +459,16 @@ const inputsShip = async (opts: InputsShipOptions): Promise<void> => {
 	}
 };
 
-/** Commander echoes `--flag=value` of an unknown flag; a secret given that way must not reach the log. */
+/**
+ * Commander echoes an unknown flag with its attached value (`--flag=value`, `-fvalue`); a secret given that way, quotes in it
+ * included, must not reach the log.
+ */
+const UNKNOWN_LONG_OPTION_VALUE = /(unknown option '--[^='\n]+)=[^\n]*'$/m;
+const UNKNOWN_SHORT_OPTION_VALUE = /(unknown option '-[^-'\n])[^\n]*'$/m;
 const redactUnknownOptionValue = (text: string): string =>
-	text.replace(/(unknown option '--[^=']+)=[^']*'/, "$1'");
+	text
+		.replace(UNKNOWN_LONG_OPTION_VALUE, "$1'")
+		.replace(UNKNOWN_SHORT_OPTION_VALUE, "$1'");
 
 const inputsCommand = program
 	.command("inputs")

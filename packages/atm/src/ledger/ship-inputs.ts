@@ -365,19 +365,23 @@ const conflictOf = (
 	message,
 });
 
-/** Marks a batch's rows shipped, but only if its rows still plan to the same key (none was erased since the plan). */
+/**
+ * Marks a batch's rows shipped, but only if its rows still plan to the same key (none was erased since the plan). `stale` is
+ * true when they do not: the object just put then holds what the rows no longer say (or nothing points at it at all).
+ */
 const markBatch = (
 	db: SqlDatabase,
 	args: { env: AtmEnv; school: string; batch: InputsBatch; nowMs: number },
-): number =>
+): { marked: number; stale: boolean } =>
 	db.transaction(() => {
 		const rows = readInputsOfBatch(db, { ...args, batchKey: args.batch.key });
 		if (rows.length === 0 || planGroup(args, rows).key !== args.batch.key)
-			return 0;
-		return db.run(
+			return { marked: 0, stale: true };
+		const { changes } = db.run(
 			`UPDATE atm_event_inputs SET shipped_at = ? WHERE env = ? AND school_id = ? AND batch_key = ? AND shipped_at IS NULL`,
 			[args.nowMs, args.env, args.school, args.batch.key],
-		).changes;
+		);
+		return { marked: changes, stale: false };
 	});
 
 type OpenErasure = {
@@ -462,10 +466,12 @@ const rewriteBatch = async (
 	const rewrite = planGroup(scope, rows);
 	if (rewrite.key === oldKey) return "keep";
 	await putOnce(store, rewrite.key, utf8(rewrite.text));
-	const repointed = db.transaction(() => {
+	const outcome = db.transaction((): "repointed" | "taken" | "changed" => {
 		const fresh = readInputsOfBatch(db, { ...scope, batchKey: oldKey });
-		if (fresh.length === 0 || planGroup(scope, fresh).key !== rewrite.key)
-			return false;
+		// Another shipper repointed the rows between the plan and here: the object just put (or found) is the one they point
+		// at now, so it must stay.
+		if (fresh.length === 0) return "taken";
+		if (planGroup(scope, fresh).key !== rewrite.key) return "changed";
 		db.run(
 			`UPDATE atm_event_inputs SET batch_key = ?, shipped_at = COALESCE(shipped_at, ?) WHERE env = ? AND school_id = ? AND batch_key = ?`,
 			[rewrite.key, nowMs(), env, school, oldKey],
@@ -474,9 +480,9 @@ const rewriteBatch = async (
 			`UPDATE atm_input_erasures SET replacement_key = ? WHERE env = ? AND school_id = ? AND object_key = ?`,
 			[rewrite.key, env, school, oldKey],
 		);
-		return true;
+		return "repointed";
 	});
-	if (repointed) return "delete";
+	if (outcome !== "changed") return "delete";
 	// A row was erased after the plan: the object just put holds its fact. Take it away.
 	await deleteObject(store, rewrite.key);
 	return "retry";
@@ -614,7 +620,15 @@ export const shipInputs = async (
 			);
 			continue;
 		}
-		const marked = markBatch(db, { ...scope, batch, nowMs: nowMs() });
+		const { marked, stale } = markBatch(db, {
+			...scope,
+			batch,
+			nowMs: nowMs(),
+		});
+		// A row was erased, or the key was settled and its rows pointed elsewhere (another shipper), since the plan: this put
+		// may have written a key the erasure queue had already closed. Queue it again, so that the settle below rewrites or
+		// deletes it.
+		if (stale) queueBatch(db, { ...scope, key: batch.key, nowMs: nowMs() });
 		shipped += marked;
 		batches.push({ key: batch.key, date: batch.date, inputs: marked, status });
 	}
