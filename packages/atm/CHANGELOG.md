@@ -10,6 +10,14 @@ Newest first. The version history before 0.3.0 and what a caller has to change f
 
   **How each was checked:** every PR above was merged on local gates (tests with `--timeout 60000`, `tsc`, Biome, the build, `knip`), run on the head and again on the tree with `dev` merged in; the inherited Autumn workflows never ran. The atm workflow ran on #43's head (`ea198874c`, run 42067266463, ubuntu-latest): hledger 1.52.1 installed with a matching sha256, 1061 pass, 51 skip, 0 fail, and the three `hledger agrees` tests passed (none skipped). Locally, on the merged tree of each: #41 1090 pass, #42 1094, #49 1124, #46 1138, #47 1166, #48 1223 (50 skipped, 0 failed in each). #41 to #49 had not run in CI when merged; `dev`'s own runs are the first. The skips are the staging R2 and SeaweedFS contract suites and the DuckDB DDL test (no credentials, no `weed`, no `duckdb`). Four of them (#46 to #49) were each reviewed with a high-effort pass that found and fixed real bugs before the merge.
 
+## Unreleased
+
+On `dev` after `atm-v0.8.0`, not released.
+
+| PR | Merge commit | What |
+|---|---|---|
+| #77 | `pending` | a non-USD dispute that moved money is answered 200 `non_usd` and leaves a `money.skipped` marker (`kind: "dispute"`) |
+
 ## 0.8.0
 
 **Release 0.8.0**: bookable items, paid bookings and codes, with the fixes made on `dev` since 0.6.0. There is no 0.7.0 (the number is held by the open design PR #65). Tag `atm-v0.8.0` at `6e0dbaf752bd6f69cb9727bb8b1f9c33a7709727` (2026-11-05; the merge of #79 on `dev`). Tarball `https://github.com/justbry/atm/releases/download/atm-v0.8.0/atm-0.8.0.tgz`, sha256 `e62dbc30fee01d7673e247834f6b3c2d6a34a6bf45431f8afe54691ae4b3b52d`, sha512 `sha512-ASfl407z51lHWUHSrf5jxaVmq7eHXyf3erMP2ulDgfHOi6cjuvBUBQ5ROqKveRjTilBrqxlYX32SWHhFmvtMFw==` (checked by downloading the published asset: the sha256 matches and the sha512 starts the same; built with bun 1.4.4; a second pack of the same commit gave the same bytes). #79 is the release PR (version bump and notes). What a caller has to change: `UPGRADING.md`, "Moving to 0.8.0 from 0.6.0".

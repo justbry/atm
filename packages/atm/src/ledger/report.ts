@@ -25,7 +25,7 @@ export class HledgerError extends Error {}
 
 export type ReportOutput = { report: ReportName; text: string };
 
-/** The `money.skipped` events (a non-USD invoice, refund or payout the handler applied but did not book), counted. */
+/** The `money.skipped` events (a non-USD invoice, refund, payout or dispute the handler applied but did not book), counted. */
 export type SkippedNonUsd = { inMonth: number; total: number };
 
 export type ReportRun = {
