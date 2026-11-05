@@ -357,6 +357,47 @@ export function mappingFor(
 	});
 }
 
+/**
+ * What to tell a person about a refused event. An event from another Stripe API version names that version (the
+ * endpoint's `api_version`, which decides the event's shape; the `Stripe-Version` header of a request does not) and the
+ * fix: recreate the webhook endpoint at the version atm reads. atm reads one version per event type and checks its
+ * mappings against that version's OpenAPI spec, so it does not guess a second shape.
+ */
+export function describeNormalizeError(error: NormalizeError): string {
+	switch (error.kind) {
+		case "unknown_mapping": {
+			if (error.known.length === 0)
+				return `atm has no mapping for the event type ${JSON.stringify(error.event)}`;
+			return wrongVersion(error.event, error.apiVersion, error.known);
+		}
+		case "api_version":
+			return wrongVersion(
+				"this",
+				typeof error.got === "string" ? error.got : null,
+				[error.expected],
+			);
+		case "event_type":
+			return `expected an ${JSON.stringify(error.expected)} event, got ${JSON.stringify(error.got)}`;
+		case "missing_path":
+			return `the event has nothing at ${error.path} (the mapping's ${error.field})`;
+		case "bad_type":
+			return `${error.path} (the mapping's ${error.field}) is not a ${error.expected}`;
+		case "bad_value":
+			return `${error.path} (the mapping's ${error.field}) holds a value atm does not accept`;
+		case "bad_path":
+			return `the mapping's path ${error.path} for ${error.field} is malformed`;
+	}
+}
+
+const wrongVersion = (
+	event: string,
+	apiVersion: string | null,
+	known: readonly string[],
+): string => {
+	const supported = known.join(" or ");
+	return `the ${event} event is at Stripe API version ${apiVersion === null ? "(none)" : apiVersion}, which atm does not read (it reads ${supported}). The webhook endpoint that sent it is on that version: recreate the endpoint with api_version ${supported} (the endpoint's version decides the shape of every event it sends), then retry or discard this event.`;
+};
+
 /** Every mapping file this package ships (generated index: `bun schema/mapping/build.ts`). */
 export const MAPPINGS: readonly Mapping[] =
 	MAPPING_FILES as unknown as readonly Mapping[];

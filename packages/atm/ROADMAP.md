@@ -19,6 +19,11 @@ The critical path. Simulation, corrections, the Parquet export, decoupling and t
 - [ ] An atm test workflow in `.github/workflows`. Today no workflow runs atm's tests on a PR: `knip.yml` runs on PRs to main, staging and dev; `build.yml` runs on pushes to main, staging and dev (it type-checks, and builds the server image only on main or a manual dispatch); `release-atm.yml` runs on an `atm-v*` tag push and calls `release --ci`, which builds the package and runs `tests/dist.test.ts` against the built output.
 - [ ] The contract suite under Node (only Bun has run) and against staging R2 (never run).
 
+- [x] **Adoption by a caller with its own grants** (the family service's move onto `handleStripeEvent`, without regranting): `grantsStateFromCallerRows` builds a member's atm rows from `school_memberships` and `school_credit_lots`; a renewal after it is tested against the caller's rule (`tests/billing-adopt.test.ts`). Details and the list of what the rows do not carry in `UPGRADING.md`. Not released yet: it needs a version bump.
+  - [x] An event from another Stripe API version is refused with the endpoint's version and the fix (recreate it at `2025-10-29.clover`) rather than read in a second, unchecked shape.
+  - [ ] Owner decisions, from `UPGRADING.md`: the rollover cap (the caller has none), rollover months on the school's calendar against the UTC calendar (an hour at a clock change), what a lapsed cycle that is not renewed does, whether a yearly grant on a monthly plan (the retreat) should be restored (the caller's lot expires with the first month), and `invoiceIds` for payments made before the import.
+  - [ ] Try the import on a copy of the family service's database before any member is moved.
+
 ### In `buzz-school` (not atm; listed because atm's release waits on it)
 - [ ] Move the family service off its own grant rules (`school-billing/grant.ts`, which grants only on create and cycle invoices) onto atm's `handleStripeEvent` or the reference handler, pinned to `atm-v0.3.0`.
 - [ ] Credit-spending bookings (`price_mode`, hold then book then cancel refund, no-show forfeit) with `commandOrg(policy)` on every `track`, `check` and `finalize`.

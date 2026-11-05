@@ -107,7 +107,11 @@
  * budget (3) for stale revisions; `now` for the engine is the event's `created`, in whole seconds.
  */
 import { handleStripeEvent } from "../billing/handle.js";
-import { mappingFor, normalize } from "../billing/normalize.js";
+import {
+	describeNormalizeError,
+	mappingFor,
+	normalize,
+} from "../billing/normalize.js";
 import { type BillingRow, StaleRevision, subjectKey } from "../billing/rows.js";
 import { deterministicUlid } from "../ledger/ids.js";
 import { canonicalize } from "../ledger/util.js";
@@ -652,7 +656,7 @@ const recordPaymentOnce = (
 			kind: "refused",
 			refusal: {
 				reason: mapping.ok ? "bad_event" : "unknown_mapping",
-				message: JSON.stringify(normalized.error),
+				message: describeNormalizeError(normalized.error),
 			},
 		};
 	}

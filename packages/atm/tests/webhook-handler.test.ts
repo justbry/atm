@@ -1114,6 +1114,11 @@ describe("refunds and disputes find their invoice through invoice_payment.paid",
 			outcome: "refused",
 			reason: "unknown_mapping",
 		});
+		// The answer names the endpoint's version and the fix, for whoever reads the 422 in Stripe's dashboard.
+		expect(response.body.message).toContain("2099-01-01.future");
+		expect(response.body.message).toContain(
+			"recreate the endpoint with api_version 2025-10-29.clover",
+		);
 		expect(h.claim("evt_pay_in_1")).toBeNull();
 		expect(h.count("atm_payment_index")).toBe(0);
 	});
