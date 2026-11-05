@@ -31,6 +31,7 @@ import type {
 	StripeEventResult,
 	SubscriptionFact,
 } from "../types.js";
+import { resolveEnv } from "./env.js";
 import {
 	disputeToCommands,
 	invoiceHolder,
@@ -173,6 +174,7 @@ const decide = (
 		now: input.now,
 		menuVersion: input.menuVersion,
 		policyVersion: input.policyVersion,
+		env: input.env,
 	};
 	switch (target) {
 		case "BillingInvoice": {
@@ -486,6 +488,8 @@ const sameJson = (a: unknown, b: unknown) =>
 export const handleStripeEvent = (
 	input: StripeEventInput,
 ): StripeEventResult => {
+	// Thrown, not refused: a bad env is the caller's code, not an event to retry.
+	resolveEnv(input.env);
 	// Every decision event names its input as `cause`, and the ledger's envelope takes only a ULID there.
 	if (!ULID.test(input.eventId))
 		return refuse(
@@ -537,7 +541,7 @@ const decideAndRun = (
 	if (!holder) return nothing();
 	const identity: AtmIdentity = {
 		orgId: holder.orgId,
-		env: "live",
+		env: resolveEnv(input.env),
 		customerId: holder.customerId,
 		entityId: null,
 	};

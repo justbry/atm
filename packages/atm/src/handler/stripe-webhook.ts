@@ -106,6 +106,7 @@
  * `invoice_payment.paid` of an unknown invoice (see "Another product" above); one attempt
  * budget (3) for stale revisions; `now` for the engine is the event's `created`, in whole seconds.
  */
+import { resolveEnv } from "../billing/env.js";
 import { handleStripeEvent } from "../billing/handle.js";
 import {
 	describeNormalizeError,
@@ -314,7 +315,7 @@ const locateHolder = (deps: WebhookDeps, event: StripeEvent): Located => {
 		try {
 			key = subjectKey({
 				orgId: school,
-				env: "live",
+				env: resolveEnv(deps.env),
 				customerId: `family:${family}`,
 				entityId: null,
 			});
@@ -545,6 +546,7 @@ const applyOnce = ({
 		now: event.created * 1000,
 		priceIds: context.priceIds,
 		invoiceIds: located.invoiceIds,
+		env: deps.env,
 	});
 	if (result.refused) {
 		releaseClaim(deps, event.id, claim);
@@ -775,6 +777,8 @@ export const handleStripeWebhook = (
 	deps: WebhookDeps,
 	request: WebhookRequest,
 ): WebhookResponse => {
+	// Before anything is verified or claimed: a bad env is the caller's code, and every delivery would hit it.
+	resolveEnv(deps.env);
 	const verdict = verifyStripeSignature({
 		payload: request.payload,
 		header: request.signatureHeader,
