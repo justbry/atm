@@ -1,0 +1,35 @@
+{
+	"id": "evt_1UYPMvScrubTest0lpRuM7qd",
+	"object": "event",
+	"api_version": "2025-10-29.clover",
+	"created": 1793880132,
+	"data": {
+		"object": {
+			"id": "inpay_1UYPMuScrubTest0YU20WksJ",
+			"object": "invoice_payment",
+			"amount_paid": 72000,
+			"amount_requested": 72000,
+			"created": 1793880126,
+			"currency": "usd",
+			"invoice": "in_1UYPMtScrubTest0VBCajGap",
+			"is_default": true,
+			"livemode": false,
+			"payment": {
+				"payment_intent": "pi_3UYPMtScrubTest00ZGTgi2k",
+				"type": "payment_intent"
+			},
+			"status": "paid",
+			"status_transitions": {
+				"canceled_at": null,
+				"paid_at": 1793880126
+			}
+		}
+	},
+	"livemode": false,
+	"pending_webhooks": 5,
+	"request": {
+		"id": "req_d0QnlQuQF7dKqg",
+		"idempotency_key": "scrubbed-idempotency-key"
+	},
+	"type": "invoice_payment.paid"
+}
