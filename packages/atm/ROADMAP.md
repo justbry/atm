@@ -36,7 +36,7 @@ All eight slices were reviewed by sub-agents and the findings fixed slice by sli
 - **`FolderStore` reserved names are case-insensitive**, and both object stores validate keys and ranges more strictly.
 - **Equal-second membership ordering.** Membership events that carry the same second now have a defined order (see the PR for the rule).
 - **`deterministicUlid` is exported** so a caller can derive `eventId` as the handler does.
-- **Replay of multi-feature commands.** See the PR for slice 3's fix; the open item under the log path stays until it is confirmed there.
+- **Replay of the log is broken beyond multi-feature tiers.** Slice 3's fix agent found `replayEvents` fails even on a plain create, renew, cancel of a one-feature tier ("the engine decides differently"). Causes: event ids are time-based, so a `reset` at the period start sorts before the `applyBillingPlan` at payment time; commands that make no event are not logged, so replay's revision falls behind; and each per-feature event records only its own slice of the mutation. It needs its own change (record every command once with its full mutation, replay in subject-revision order), which also moves the replay golden. Not in 0.3.0.
 
 ## Done
 
@@ -92,7 +92,7 @@ All eight slices were reviewed by sub-agents and the findings fixed slice by sli
 - [ ] Replace the third-party PyPI SeaweedFS wheel with the official release, pinned by version and checksum, before CI depends on it.
 - [ ] Check whether R2 honours `If-Match` on DELETE (undocumented; production code does not depend on it).
 - [ ] A Worker version of the handler. Blocked: Workers refuse `new Function`, which `ajv` uses.
-- [ ] Reported, not verified by me: `replayEvents` refuses a multi-feature create (for example sparkle-4) because `eventsOf` records a per-feature slice of the mutation.
+- [ ] Fix replay of the log (see the Review section): record each command once with its full mutation and replay in subject-revision order. `simulate`, parity and any rebuild-from-log depend on it. Confirmed by running: a sparkle-4 create fails to replay, and so does create, renew, cancel on sparkle-2.
 
 ### Ledger export
 - [ ] Parquet on R2 from DuckDB (`COPY (... ORDER BY ...)`, `SET threads = 1`), compared by a hash of the rows. After the log path.
