@@ -12,7 +12,7 @@ Newest first. The version history before 0.3.0 and what a caller has to change f
 
 ## 0.9.0
 
-**Release 0.9.0**: B4 Uni's revenue share in the ledger, and money lines for a paid booking. The release record (tag, commit, tarball URL, sha256 and sha512) is added after the release, as for 0.8.0. What a caller has to change: `UPGRADING.md`, "Moving to 0.9.0 from 0.8.0". Stripe Connect fees (taking the share out of the transaction) are a later item in `ROADMAP.md`.
+**Release 0.9.0**: B4 Uni's revenue share in the ledger, and money lines for a paid booking. Tag `atm-v0.9.0` at `85c995cb2` (2026-11-05; the merge of #91 on `dev`). Tarball `https://github.com/justbry/atm/releases/download/atm-v0.9.0/atm-0.9.0.tgz`, sha256 `7d6a1e2be85d6ae8dbb1f311de39fdd86e8cd90c2988dc0f21bd9f39b1403335`, sha512 `sha512-9dZZxb8oFxjMivJjIZYeyqxQn0gMsQ6VEZhrD/ClPvX9S3fBl2ees5iBD0bNj2dIGTgeIsujcr+7CKBouSBlfA==` (checked by downloading the published asset; built with bun 1.4.4; a second pack of the same commit gave the same bytes). #91 is the release PR (version bump and notes). What a caller has to change: `UPGRADING.md`, "Moving to 0.9.0 from 0.8.0". Stripe Connect fees (taking the share out of the transaction) are a later item in `ROADMAP.md`.
 
 Everything on `dev` after the `atm-v0.8.0` tag (`6e0dbaf75`):
 
