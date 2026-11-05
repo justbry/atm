@@ -86,6 +86,67 @@ describe("raiseUnits", () => {
 	test("takes a whole BillingPolicy as well", () => {
 		expect(raise({ policy: DEFAULT_POLICY })).toBe(3);
 	});
+
+	// plain JavaScript can pass anything, so the bad values are cast in
+	const bad = (over: Record<string, unknown>) => () =>
+		raise(over as Partial<Parameters<typeof raiseUnits>[0]>);
+
+	test("throws on a value that is not a finite number, naming the field", () => {
+		expect(bad({ perUnit: Number.NaN })).toThrow(/perUnit/);
+		expect(bad({ newQuantity: Number.POSITIVE_INFINITY })).toThrow(
+			/newQuantity/,
+		);
+		expect(bad({ at: Number.NaN })).toThrow(/\bat\b/);
+		expect(bad({ at: "2026-01-11" })).toThrow(/\bat\b/);
+	});
+
+	test("throws on a null oldQuantity from plain JavaScript", () => {
+		expect(bad({ oldQuantity: null })).toThrow(/oldQuantity/);
+	});
+
+	test("throws on an undefined field", () => {
+		expect(bad({ newQuantity: undefined })).toThrow(/newQuantity/);
+		expect(bad({ at: undefined })).toThrow(/\bat\b/);
+		expect(bad({ cycleEnd: undefined })).toThrow(/cycleEnd/);
+	});
+
+	test("throws on a negative count or per-unit grant", () => {
+		expect(bad({ perUnit: -1 })).toThrow(/perUnit/);
+		expect(bad({ oldQuantity: -1 })).toThrow(/oldQuantity/);
+		expect(bad({ newQuantity: -4 })).toThrow(/newQuantity/);
+	});
+
+	test("throws on a fraction where a whole number is needed", () => {
+		expect(bad({ perUnit: 1.5 })).toThrow(/perUnit/);
+		expect(bad({ oldQuantity: 2.5 })).toThrow(/oldQuantity/);
+		expect(bad({ newQuantity: 3.2 })).toThrow(/newQuantity/);
+	});
+
+	test("throws on a cycle bound that is neither null nor a finite number", () => {
+		expect(bad({ cycleStart: Number.NaN })).toThrow(/cycleStart/);
+		expect(bad({ cycleEnd: "later" })).toThrow(/cycleEnd/);
+	});
+
+	test("throws on a cycle in seconds against `at` in milliseconds, and the reverse", () => {
+		const seconds = (ms: number) => Math.floor(ms / 1000);
+		expect(
+			bad({ cycleStart: seconds(CYCLE_START), cycleEnd: seconds(CYCLE_END) }),
+		).toThrow(/cycleStart.*seconds against milliseconds/);
+		expect(bad({ cycleEnd: seconds(CYCLE_END) })).toThrow(/cycleEnd/);
+		expect(bad({ at: seconds(TEN_DAYS_IN) })).toThrow(/\bat\b/);
+	});
+
+	test("throws on a cycle that ends before it starts", () => {
+		expect(bad({ cycleStart: CYCLE_END, cycleEnd: CYCLE_START })).toThrow(
+			/cycleEnd.*before cycleStart/,
+		);
+	});
+
+	test("accepts zero counts, an empty cycle and a null cycle bound", () => {
+		expect(raise({ oldQuantity: 0, newQuantity: 0 })).toBe(0);
+		expect(raise({ cycleStart: CYCLE_START, cycleEnd: CYCLE_START })).toBe(4);
+		expect(raise({ cycleStart: null })).toBe(4);
+	});
 });
 
 describe("prorationPair", () => {
@@ -207,6 +268,97 @@ describe("prorationPair", () => {
 				policy: DEFAULT_POLICY,
 			}),
 		).toBe(0);
+	});
+
+	test("throws when lines is not an array or isTierPrice is not a function", () => {
+		expect(() =>
+			prorationPair(null as unknown as InvoiceLine[], isShine),
+		).toThrow(/lines must be an array/);
+		expect(() =>
+			prorationPair(
+				[charge(4)],
+				undefined as unknown as (l: InvoiceLine) => boolean,
+			),
+		).toThrow(/isTierPrice must be a function/);
+	});
+
+	test("throws on a tier proration line with a quantity that is not an integer", () => {
+		expect(() =>
+			prorationPair([credit(2), charge(Number.NaN)], isShine),
+		).toThrow(/lines\[1\]\.quantity/);
+		expect(() => prorationPair([credit(2), charge(2.5)], isShine)).toThrow(
+			/quantity/,
+		);
+		expect(() =>
+			prorationPair(
+				[credit(2), charge(undefined as unknown as number)],
+				isShine,
+			),
+		).toThrow(/quantity/);
+	});
+
+	test("throws on a tier proration line with an amount that is not finite", () => {
+		expect(() =>
+			prorationPair([credit(2), charge(4, { amount: Number.NaN })], isShine),
+		).toThrow(/lines\[1\]\.amount/);
+		expect(() =>
+			prorationPair(
+				[credit(2, { amount: "-2000" as unknown as number }), charge(4)],
+				isShine,
+			),
+		).toThrow(/lines\[0\]\.amount/);
+	});
+
+	test("throws on a period bound that is neither undefined nor a finite number", () => {
+		expect(() =>
+			prorationPair(
+				[credit(2), charge(4, { periodStart: null as unknown as number })],
+				isShine,
+			),
+		).toThrow(/lines\[1\]\.periodStart/);
+		expect(() =>
+			prorationPair(
+				[credit(2), charge(4, { periodEnd: Number.POSITIVE_INFINITY })],
+				isShine,
+			),
+		).toThrow(/lines\[1\]\.periodEnd/);
+	});
+
+	test("throws on a period that ends before it starts", () => {
+		expect(() =>
+			prorationPair(
+				[
+					credit(2),
+					charge(4, { periodStart: CYCLE_END, periodEnd: CYCLE_START }),
+				],
+				isShine,
+			),
+		).toThrow(/periodEnd.*before periodStart/);
+	});
+
+	test("never validates a line that is not a proration or that isTierPrice rejects", () => {
+		const junk = {
+			quantity: Number.NaN,
+			amount: Number.NaN,
+			periodEnd: 1,
+			periodStart: 2,
+		};
+		expect(
+			prorationPair(
+				[
+					credit(2),
+					charge(4),
+					line({ ...junk, proration: false, amount: 5000 }),
+					line({ ...junk, priceId: "price_other" }),
+				],
+				isShine,
+			),
+		).toEqual({
+			oldQuantity: 2,
+			newQuantity: 4,
+			start: TEN_DAYS_IN,
+			end: CYCLE_END,
+		});
 	});
 
 	test("takes lines a caller built from raw Stripe, not only InvoiceLine", () => {
