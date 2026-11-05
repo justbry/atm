@@ -184,11 +184,11 @@ const samePayment = (event: AtmEvent, refund: Item): boolean => {
 
 /**
  * Pairs the handler-made refund events with Stripe's refunds, one to one, and returns the Stripe id each event stands for.
- * Refunds of one payment are a multiset in time order: an event takes the earliest unpaired Stripe refund of the same
- * payment and amount (one on its own day first), so two equal refunds pair two to two, and a third on one side only is
- * left over. Left-over pairs of one payment, both in the period or both out, are the same refund with another amount:
- * paired so that it is `amount_differs`, not a missing record on each side. Refunds of equal amount on one payment cannot
- * be told apart, only counted.
+ * Refunds of one payment are a multiset in time order: an event takes the unpaired Stripe refund of the same payment
+ * and amount nearest to it in time (one on its own day first), so two equal refunds pair two to two, and a third on one
+ * side only is left over. Left-over pairs of one payment, both in the period or both out, are the same refund with
+ * another amount: paired so that it is `amount_differs`, not a missing record on each side. Refunds of equal amount on
+ * one payment cannot be told apart, only counted.
  */
 const tieRefunds = (
 	events: readonly AtmEvent[],
@@ -224,19 +224,34 @@ const tieRefunds = (
 		sameMoney,
 		(event, refund) => scope.has(event.date) === scope.has(refund.date),
 	];
-	for (const rule of rules)
-		for (const event of tied) {
-			if (paired.has(event.id)) continue;
-			const match = pool.find(
-				(refund) =>
-					!taken.has(refund.id) &&
-					samePayment(event, refund) &&
-					rule(event, refund),
-			);
-			if (!match) continue;
-			paired.set(event.id, match.id);
-			taken.add(match.id);
+	// Each rule pairs the closest in time first, over every event and refund at once: an event taking the earliest equal
+	// refund would take one that a later event is nearer to, and pair that one wrongly.
+	for (const rule of rules) {
+		const candidates = tied.flatMap((event) =>
+			pool
+				.filter(
+					(refund) =>
+						!paired.has(event.id) &&
+						!taken.has(refund.id) &&
+						samePayment(event, refund) &&
+						rule(event, refund),
+				)
+				.map((refund) => ({
+					event,
+					refund,
+					gap: Math.abs(
+						Date.parse(event.event_time) / MS_PER_SECOND - (refund.at ?? 0),
+					),
+				})),
+		);
+		// Stable: equal gaps keep the order of the events and then of the refunds.
+		candidates.sort((a, b) => a.gap - b.gap);
+		for (const { event, refund } of candidates) {
+			if (paired.has(event.id) || taken.has(refund.id)) continue;
+			paired.set(event.id, refund.id);
+			taken.add(refund.id);
 		}
+	}
 	return paired;
 };
 

@@ -416,6 +416,44 @@ describe("refunds of one payment are a multiset", () => {
 		).toEqual([]);
 	});
 
+	test("a refund pairs with the equal Stripe refund nearest in time, not an earlier one of another month", () => {
+		// The log's refund of 20 Jan falls just past midnight where Stripe's falls just before it, so no day matches; the
+		// December refund of the same amount is on the log only (Stripe's list is January's) and must not take January's.
+		const differences = refundDifferences(
+			[
+				booked({
+					id: "evt_dec",
+					amount: 900,
+					at: Date.parse("2025-12-15T18:00:00Z"),
+				}),
+				booked({
+					id: "evt_jan",
+					amount: 900,
+					at: Date.parse("2026-01-20T07:00:30Z"),
+				}),
+			],
+			[stripeRefund("re_jan", 900, Date.parse("2026-01-20T06:59:00Z"))],
+		);
+		expect(differences).toEqual([]);
+	});
+
+	test("a missing middle refund is reported as missing, not as a period shift of the last one", () => {
+		const day = (date: string) => Date.parse(`${date}T18:00:00Z`);
+		const differences = refundDifferences(
+			[
+				booked({ id: "evt_1", amount: 900, at: day("2026-01-06") }),
+				booked({ id: "evt_3", amount: 900, at: day("2026-02-04") }),
+			],
+			[
+				stripeRefund("re_1", 900, day("2026-01-05")),
+				stripeRefund("re_2", 900, day("2026-01-20")),
+				stripeRefund("re_3", 900, day("2026-02-03")),
+			],
+		);
+		expect(kinds(differences)).toEqual(["missing_in_log refund"]);
+		expect(differences[0]?.id).toBe("re_2");
+	});
+
 	test("a refund the log dates in another month than Stripe is period_differs", () => {
 		const differences = refundDifferences(
 			[booked({ id: "evt_a", amount: 900, at: T0 })],
@@ -442,11 +480,85 @@ describe("refunds of one payment are a multiset", () => {
 		).toEqual(["amount_differs refund"]);
 	});
 
-	test("a refund id (re_...) is never paired by payment: it keeps its own Stripe refund when an earlier equal one has no event", () => {
-		const log = [booked({ id: "re_b", amount: 2500, at: T0 + 2 * HOUR })];
+	test("a refund id (re_...) is never paired by payment: it keeps its own Stripe refund when another equal one is nearer in time", () => {
+		const log = [booked({ id: "re_b", amount: 2500, at: T0 + HOUR })];
 		const differences = refundDifferences(log, twoEqual);
 		expect(kinds(differences)).toEqual(["missing_in_log refund"]);
 		expect(differences[0]?.id).toBe("re_a");
+	});
+
+	test("a Stripe refund that an event with a refund id matches is not paired with an evt_ event", () => {
+		const log = [
+			booked({ id: "re_b", amount: 2500, at: T0 + 2 * HOUR }),
+			booked({ id: "evt_a", amount: 2500, at: T0 + 2 * HOUR }),
+		];
+		expect(refundDifferences(log, twoEqual)).toEqual([]);
+	});
+
+	test("refunds of unequal amounts pair by amount, not by order or day", () => {
+		const log = [
+			booked({ id: "evt_a", amount: 2500, at: T0 + HOUR }),
+			booked({ id: "evt_b", amount: 3000, at: T0 + 2 * HOUR }),
+		];
+		const stripe = [
+			stripeRefund("re_a", 3000, T0 + HOUR),
+			stripeRefund("re_b", 2500, T0 + 2 * HOUR),
+		];
+		expect(refundDifferences(log, stripe)).toEqual([]);
+	});
+
+	test("a payment is told by its payment intent, else its charge, and by nothing else", () => {
+		const intentOnly = { payment_intent: "pi_x" };
+		const chargeOnly = { charge: "ch_x" };
+		const log = (payment: Record<string, string>) => [
+			booked({ id: "evt_a", amount: 700, at: T0 + HOUR, payment }),
+		];
+		const stripe = (over: Partial<StripeRefundRecord>) => [
+			stripeRefund("re_a", 700, T0 + HOUR, over),
+		];
+		// the event names an intent and a charge, Stripe's refund only the charge
+		expect(
+			refundDifferences(
+				log({ payment_intent: "pi_x", charge: "ch_x" }),
+				stripe({ charge: "ch_x", payment_intent: null }),
+			),
+		).toEqual([]);
+		// the event names only a charge, Stripe's refund only an intent: nothing ties them
+		expect(
+			kinds(
+				refundDifferences(
+					log(chargeOnly),
+					stripe({ charge: null, payment_intent: "pi_x" }),
+				),
+			),
+		).toEqual(["missing_in_stripe refund", "missing_in_log refund"]);
+		// the reverse
+		expect(
+			kinds(
+				refundDifferences(
+					log(intentOnly),
+					stripe({ charge: "ch_x", payment_intent: null }),
+				),
+			),
+		).toEqual(["missing_in_stripe refund", "missing_in_log refund"]);
+		// two charges, no intent anywhere
+		expect(
+			kinds(
+				refundDifferences(
+					log(chargeOnly),
+					stripe({ charge: "ch_y", payment_intent: null }),
+				),
+			),
+		).toEqual(["missing_in_stripe refund", "missing_in_log refund"]);
+	});
+
+	test("a refund of another amount outside the period is not paired with one in it", () => {
+		// the log's refund is January's; Stripe's of another amount is February's, out of the period asked
+		const differences = refundDifferences(
+			[booked({ id: "evt_a", amount: 3000, at: T0 })],
+			[stripeRefund("re_a", 2000, Date.parse("2026-02-10T18:00:00Z"))],
+		);
+		expect(kinds(differences)).toEqual(["missing_in_stripe refund"]);
 	});
 
 	test("a log from the handler before these fields (an evt_ id, no charge) cannot be tied: reported on both sides", () => {
