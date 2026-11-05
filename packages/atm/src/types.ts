@@ -492,6 +492,18 @@ export type BillingInvoice = {
 	periodEnd: number;
 	lines: InvoiceLine[];
 	/**
+	 * The invoice's number as the school's Stripe account prints it (`EGXTP8OW-0001`): null until Stripe numbers it, absent on a
+	 * fact built by hand. For a receipt link, with `hostedInvoiceUrl` and `invoicePdf`.
+	 */
+	number?: string | null;
+	/**
+	 * Stripe's hosted invoice page. A bearer link: anyone who holds it can open the invoice, which shows the customer's name,
+	 * so hand it only to the family it belongs to and keep it out of logs. Null when Stripe has none, absent on a fact built by hand.
+	 */
+	hostedInvoiceUrl?: string | null;
+	/** Stripe's invoice PDF (a bearer link, as `hostedInvoiceUrl`). Null when Stripe has none, absent on a fact built by hand. */
+	invoicePdf?: string | null;
+	/**
 	 * Our metadata from checkout (`b4u_school`, `family_id`, `tier_id`, `profile_id`, `menu_version`, …). Checkout's
 	 * `subscription_data.metadata` sits on the invoice at `parent.subscription_details.metadata`; it is merged with the
 	 * invoice's own `metadata`, the invoice's own keys winning.
@@ -849,6 +861,61 @@ export type CheckoutParamsWithPrices = Omit<CheckoutParams, "line_items"> & {
 		{ price: string; quantity: number },
 		...{ price: string; quantity: 1 }[],
 	];
+};
+
+/**
+ * A one-time purchase (a gift certificate, a pack) with no membership. `addonIds` are add-ons priced `once`, one each.
+ * `invoice` is optional text for the paid invoice Stripe makes.
+ */
+export type OneTimeCheckoutInput = {
+	schoolId: string;
+	menu: Menu;
+	addonIds: readonly string[];
+	/** A child profile the purchase is for; omit for the buyer's own. */
+	forProfileId?: string | null;
+	familyId: string;
+	menuVersion: number | string;
+	returnUrls: { success: string; cancel: string };
+	invoice?: { description?: string; footer?: string };
+};
+
+/**
+ * A payment-mode Checkout Session's parameters (nested, Stripe's shape); `line_items` name prices by lookup key until
+ * `withPriceIds`. `invoice_creation` is always on: Stripe makes no invoice for a payment-mode session otherwise, and atm
+ * grants credits only from a paid invoice. The invoice carries our metadata, which is how atm finds the family.
+ */
+export type OneTimeCheckoutParams = {
+	mode: "payment";
+	client_reference_id: string;
+	success_url: string;
+	cancel_url: string;
+	line_items: { lookupKey: string; quantity: 1 }[];
+	metadata: Record<string, string>;
+	invoice_creation: {
+		enabled: true;
+		invoice_data: {
+			metadata: Record<string, string>;
+			description?: string;
+			footer?: string;
+		};
+	};
+};
+
+/** Why a one-time checkout was refused: no add-on named, an add-on not on the menu, or one that is not priced `once`. */
+export type OneTimeCheckoutRefusal =
+	| { ok: false; reason: "no_addons" }
+	| { ok: false; reason: "addon_not_found"; addonId: string }
+	| { ok: false; reason: "addon_not_one_time"; addonId: string };
+
+export type OneTimeCheckoutResult =
+	| { ok: true; params: OneTimeCheckoutParams }
+	| OneTimeCheckoutRefusal;
+
+export type OneTimeCheckoutParamsWithPrices = Omit<
+	OneTimeCheckoutParams,
+	"line_items"
+> & {
+	line_items: { price: string; quantity: 1 }[];
 };
 
 /**

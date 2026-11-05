@@ -127,6 +127,34 @@ describe("recorded Stripe payloads (2025-10-29.clover)", () => {
 		expect(invoice.metadata).toEqual({});
 	});
 
+	test("invoice.paid: the number, the hosted page and the PDF are on the fact, for a receipt link", () => {
+		for (const name of [
+			"invoice.paid.subscription_create.json",
+			"invoice.paid.subscription_cycle.json",
+			"invoice.paid.quantity_raise.json",
+		]) {
+			const event = load(name);
+			const invoice = normalized(event) as BillingInvoice;
+			expect(invoice.number).toBe(event.data.object.number);
+			expect(invoice.hostedInvoiceUrl).toBe(
+				event.data.object.hosted_invoice_url,
+			);
+			expect(invoice.invoicePdf).toBe(event.data.object.invoice_pdf);
+			expect(invoice.number).toMatch(/^[A-Z0-9]+-\d{4}$/);
+		}
+	});
+
+	test("invoice.paid: a missing or null number and links read as null", () => {
+		const event = load("invoice.paid.subscription_create.json");
+		event.data.object.number = null;
+		event.data.object.hosted_invoice_url = undefined;
+		event.data.object.invoice_pdf = null;
+		const invoice = normalized(event) as BillingInvoice;
+		expect(invoice.number).toBeNull();
+		expect(invoice.hostedInvoiceUrl).toBeNull();
+		expect(invoice.invoicePdf).toBeNull();
+	});
+
 	test("invoice.paid, subscription_cycle: the invoice's own period is the previous one; the line holds the new one", () => {
 		const event = load("invoice.paid.subscription_cycle.json");
 		const object = event.data.object;

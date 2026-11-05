@@ -73,6 +73,15 @@ A studio sells one tier at several counts (Vibes of Light: Shine at 1, 2 or 4 se
 - A tier change and a quantity change in one update grant `newAmount x newQuantity - oldAmount x oldQuantity`, not below 0. This case is not checked against real payloads.
 - **A raise on a yearly plan grants too** (it does not grant 0). A monthly grant on a yearly plan counts 12 per unit, so the extra units carry a year of it, prorated per `policy.upgradeGrant` by the share of the year left (2 -> 4 of a 2-a-month tier, ten days in: 2 x 12 x 2 = 48, x 355/365, rounded up: 47; `full` 48; `none` 0). A yearly grant on a monthly plan (a retreat a year) grants nothing at a raise: its next refill is already at the new count. Only synthetic fixtures pin this; no real yearly raise payload has been recorded.
 
+### Invoices and receipts (after 0.3.0)
+
+What a family service caller changes:
+
+- **Link a receipt.** `BillingInvoice` has `number`, `hostedInvoiceUrl` and `invoicePdf` (`string | null`, absent on a fact built by hand). `handleStripeEvent`'s result does not carry them (the grants state keeps no invoice facts), so read them from `normalize` of the same `invoice.paid` event (or from the raw event), then store or show the number and the two links. The URLs are bearer links: give them only to the family the invoice belongs to and keep them out of logs.
+- **Selling a gift certificate or a pack with no membership.** Do not build the Checkout by hand in `mode=payment` without `invoice_creation`: Stripe then makes no invoice and no `invoice.paid` arrives, so nothing is credited. Call `oneTimeCheckoutParams` (it returns payment-mode parameters with `invoice_creation[enabled]=true` and our metadata in `invoice_data.metadata`), then `withPriceIds` and `toStripeForm`, as you do for a membership. The webhook endpoint is the same (`invoice.paid`). A one-time add-on bought together with a membership needs nothing new: it rides the subscription's first invoice, as before.
+- **`checkoutParams` is unchanged.** Same output for the same input; still subscription mode only. `withPriceIds` now also accepts `oneTimeCheckoutParams`'s result (typed by overload; a membership's call still returns `CheckoutParamsWithPrices | null`).
+- **School setup, not code.** The invoice shows the school's name, address, branding and tax ID from the school's own Stripe account (the connected account is the issuer of a direct charge). The EIN prints only if the school has it as a tax ID on that account (`us_ein`) and as a default account tax ID. Idaho's itemised receipt also needs the child's legal name, subject, hours and tax, which the Stripe invoice does not hold; atm does not build that receipt yet (`ROADMAP.md`).
+
 ### Storage
 
 - `Store` and its errors, `FolderStore` and `R2Store` (on `aws4fetch`) are exported, with a contract suite that runs against the folder and SeaweedFS. Live balances stay in the caller's SQLite; the object store holds the append-only log.
