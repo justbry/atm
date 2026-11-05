@@ -849,12 +849,17 @@ export type StripeOp =
 			idempotencyKey: string;
 	  }
 	| { op: "coupon.archive"; id: string; idempotencyKey: string }
-	/** `firstTimeOnly`: the code works once per customer (Stripe `restrictions[first_time_transaction]`). */
+	/**
+	 * `firstTimeOnly`: the code works once per customer (Stripe `restrictions[first_time_transaction]`). `expiresAt` (ms; the
+	 * caller divides by 1000 for Stripe's `expires_at`): the code stops working then. Only a menu code that has one makes it;
+	 * Stripe cannot change it afterwards, so a changed expiry is a deactivate and a new ensure.
+	 */
 	| {
 			op: "promotion_code.ensure";
 			code: string;
 			couponId: string;
 			firstTimeOnly: boolean;
+			expiresAt?: number;
 			idempotencyKey: string;
 	  }
 	| { op: "promotion_code.deactivate"; code: string; idempotencyKey: string };
@@ -1093,7 +1098,7 @@ export type CheckoutParams = {
 	metadata: Record<string, string>;
 	subscription_data: { metadata: Record<string, string> };
 	allow_promotion_codes?: true;
-	/** Set when `CheckoutInput.code` names a member code: the promotion code by its text until `withPromotionCodeIds` swaps in Stripe's id. */
+	/** Set when `CheckoutInput.code` names a member code: the promotion code by its text until `withPriceIds` (its third argument) swaps in Stripe's id. */
 	discounts?: [{ promotionCode: string }];
 };
 
@@ -1110,11 +1115,16 @@ export type CheckoutResult =
 	| { ok: true; params: CheckoutParams }
 	| CheckoutRefusal;
 
-export type CheckoutParamsWithPrices = Omit<CheckoutParams, "line_items"> & {
+export type CheckoutParamsWithPrices = Omit<
+	CheckoutParams,
+	"line_items" | "discounts"
+> & {
 	line_items: [
 		{ price: string; quantity: number },
 		...{ price: string; quantity: 1 }[],
 	];
+	/** Stripe's shape: the promotion code's id (`promo_...`), swapped in by `withPriceIds` for the text `CheckoutParams.discounts` carries. */
+	discounts?: [{ promotion_code: string }];
 };
 
 /**
@@ -1518,7 +1528,8 @@ export type GiftCodeRefusalReason =
 	| "expired"
 	| "already_redeemed"
 	| "wrong_school"
-	| "below_minimum";
+	| "below_minimum"
+	| "nothing_to_sell";
 
 export type GiftCodeRefusal = {
 	ok: false;
@@ -1624,7 +1635,7 @@ export type SubscriptionStatus = {
 
 // ---- Normalizing Stripe events ----
 
-export type FieldType = "string" | "int" | "seconds" | "bool" | "map";
+export type FieldType = "string" | "int" | "seconds" | "bool" | "map" | "sum";
 
 export type FieldSpec = {
 	/** JSONPath from the event root (for top-level fields) or from the line (for `lines.fields`). */
@@ -1643,6 +1654,8 @@ export type FieldSpec = {
 	min?: number;
 	/** For an `int` field: the largest value accepted; a larger number is a `bad_value`. */
 	max?: number;
+	/** Sum fields: the list is at `path`; each element's whole number is at `each` (from the element). A total of 0 leaves the field out. */
+	each?: string;
 };
 
 export type MappingTarget =
