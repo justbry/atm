@@ -5,21 +5,33 @@
 	"target": "BillingRefund",
 	"stripeApiVersion": "2025-10-29.clover",
 	"fields": {
-		"id": { "path": "$.data.object.refunds.data[0].id", "type": "string" },
-		"invoiceId": {
-			"path": "$.data.object.invoice",
+		"id": {
+			"path": "$.data.object.refunds.data[0].id",
+			"type": "string"
+		},
+		"paymentIntentId": {
+			"path": "$.data.object.payment_intent",
 			"type": "string",
 			"optional": true,
 			"default": null
 		},
-		"chargeId": { "path": "$.data.object.id", "type": "string" },
-		"amount": { "path": "$.data.object.refunds.data[0].amount", "type": "int" },
+		"chargeId": {
+			"path": "$.data.object.id",
+			"type": "string"
+		},
+		"amount": {
+			"path": "$.data.object.refunds.data[0].amount",
+			"type": "int"
+		},
 		"full": {
 			"path": "$.data.object.amount_refunded",
 			"type": "bool",
 			"equalsPath": "$.data.object.amount"
 		},
-		"at": { "path": "$.created", "type": "seconds" }
+		"at": {
+			"path": "$.created",
+			"type": "seconds"
+		}
 	},
 	"personal": [
 		"$.data.object.billing_details",

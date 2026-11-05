@@ -16,6 +16,12 @@ const template = (name: string): RawEvent =>
 
 const seconds = (ms: number) => Math.floor(ms / 1000);
 
+/** The Stripe price id a test gives a lookup key; pass the same pairs as `priceIds`. */
+export const priceIdOf = (lookupKey: string) => `price_${lookupKey}`;
+
+/** The payment intent a test gives an invoice's payment; pass the pairs as `invoiceIds`. */
+export const paymentIntentOf = (invoiceId: string) => `pi_${invoiceId}`;
+
 export type EventLine = {
 	lookupKey: string;
 	amount: number;
@@ -25,8 +31,6 @@ export type EventLine = {
 	proration?: boolean;
 	periodStart?: number;
 	periodEnd?: number;
-	/** The Stripe price's metadata, e.g. `{ b4u_gift: "sessions" }`. */
-	priceMetadata?: Record<string, string>;
 };
 
 export type InvoiceEvent = {
@@ -78,20 +82,15 @@ export const invoicePaid = (e: InvoiceEvent): RawEvent => {
 		out.id = `il_${e.invoiceId}_${i}`;
 		out.amount = l.amount;
 		out.quantity = l.quantity ?? 1;
-		out.proration = l.proration ?? false;
 		out.period = {
 			start: seconds(l.periodStart ?? e.periodStart),
 			end: seconds(l.periodEnd ?? e.periodEnd),
 		};
-		out.price.id = `price_${l.lookupKey}`;
-		out.price.lookup_key = l.lookupKey;
-		out.price.unit_amount = l.amount;
-		out.price.recurring = l.interval
-			? { interval: l.interval, interval_count: 1 }
-			: null;
-		out.price.type = l.interval ? "recurring" : "one_time";
-		if (l.priceMetadata) out.price.metadata = l.priceMetadata;
-		out.pricing.price_details.price = `price_${l.lookupKey}`;
+		// API 2025-10-29.clover: a line names its price by id only, and proration sits on its parent.
+		out.pricing.price_details.price = priceIdOf(l.lookupKey);
+		out.pricing.unit_amount_decimal = String(l.amount);
+		out.parent.subscription_item_details.proration = l.proration ?? false;
+		out.parent.subscription_item_details.subscription_item = `si_${e.invoiceId}_${i}`;
 		return out;
 	});
 	return event;
@@ -101,6 +100,7 @@ export const chargeRefunded = (e: {
 	eventId: string;
 	refundId: string;
 	chargeId: string;
+	/** The invoice the charge paid: a charge names only its payment intent (`paymentIntentOf`). */
 	invoiceId: string | null;
 	amount: number;
 	/** The charge's amount: a refund of all of it is a full refund. */
@@ -114,7 +114,7 @@ export const chargeRefunded = (e: {
 	event.id = e.eventId;
 	event.created = seconds(e.at);
 	charge.id = e.chargeId;
-	charge.invoice = e.invoiceId;
+	charge.payment_intent = e.invoiceId ? paymentIntentOf(e.invoiceId) : null;
 	charge.amount = e.chargeAmount;
 	charge.amount_captured = e.chargeAmount;
 	charge.amount_refunded = e.refundedTotal ?? e.amount;
@@ -149,7 +149,7 @@ export const disputeEvent = (e: {
 	event.created = seconds(e.at);
 	dispute.id = e.disputeId;
 	dispute.charge = e.chargeId;
-	dispute.invoice = e.invoiceId;
+	dispute.payment_intent = e.invoiceId ? paymentIntentOf(e.invoiceId) : null;
 	dispute.status = e.status;
 	return event;
 };

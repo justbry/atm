@@ -113,6 +113,21 @@ type Rules = {
 	subject: ReturnType<typeof subjectFromRows> | null;
 };
 
+/** A refund or dispute with the invoice its payment paid, found by the payment intent, else the charge. */
+const withInvoiceId = <T extends BillingRefund | BillingDispute>(
+	fact: T,
+	input: StripeEventInput,
+): T => {
+	if (fact.invoiceId) return fact;
+	const invoiceId =
+		(fact.paymentIntentId
+			? input.invoiceIds?.[fact.paymentIntentId]
+			: undefined) ??
+		input.invoiceIds?.[fact.chargeId] ??
+		null;
+	return { ...fact, invoiceId };
+};
+
 const decide = (
 	target: string,
 	fact: unknown,
@@ -149,7 +164,10 @@ const decide = (
 		case "BillingRefund":
 			return {
 				ok: true,
-				result: refundToCommands({ ...common, refund: fact as BillingRefund }),
+				result: refundToCommands({
+					...common,
+					refund: withInvoiceId(fact as BillingRefund, input),
+				}),
 				reason: "refund",
 			};
 		case "BillingDispute":
@@ -157,7 +175,7 @@ const decide = (
 				ok: true,
 				result: disputeToCommands({
 					...common,
-					dispute: fact as BillingDispute,
+					dispute: withInvoiceId(fact as BillingDispute, input),
 				}),
 				reason: "dispute lost",
 			};

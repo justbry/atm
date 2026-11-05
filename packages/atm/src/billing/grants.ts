@@ -1193,7 +1193,7 @@ export const refundToCommands = (
 			state: input.state,
 		};
 	return removeInvoice({
-		invoiceId: refund.invoiceId,
+		invoiceId: refund.invoiceId ?? null,
 		source: refund.source,
 		input,
 	});
@@ -1211,7 +1211,7 @@ export const disputeToCommands = (
 			state: input.state,
 		};
 	return removeInvoice({
-		invoiceId: dispute.invoiceId,
+		invoiceId: dispute.invoiceId ?? null,
 		source: dispute.source,
 		input,
 	});

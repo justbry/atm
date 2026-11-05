@@ -414,7 +414,12 @@ export type BillingInvoice = {
 export type BillingRefund = {
 	source: FactSource;
 	id: string;
-	invoiceId: string | null;
+	/**
+	 * The invoice the refunded charge paid. Stripe's charge (API 2025-10-29.clover) does not name it: the mapping gives
+	 * the payment intent, and `handleStripeEvent` fills this from the caller's `invoiceIds`.
+	 */
+	invoiceId?: string | null;
+	paymentIntentId?: string | null;
 	chargeId: string;
 	amount: number;
 	full: boolean;
@@ -423,7 +428,9 @@ export type BillingRefund = {
 export type BillingDispute = {
 	source: FactSource;
 	id: string;
-	invoiceId: string | null;
+	/** As on `BillingRefund`: filled from the caller's `invoiceIds` by the payment intent. */
+	invoiceId?: string | null;
+	paymentIntentId?: string | null;
 	chargeId: string;
 	status: "open" | "won" | "lost";
 	at: number;
@@ -754,9 +761,17 @@ export type NormalizeResult<T> =
 export type NormalizeContext = { eventId: string };
 
 /** A line item of the menu, found by a line's lookup key or price id. */
-export type LineItem =
+export type LineItem = (
 	| { kind: "tier"; tierId: string }
-	| { kind: "addon"; addonId: string };
+	| { kind: "addon"; addonId: string }
+) & {
+	/** The price's lookup key, which a Stripe invoice line (API 2025-10-29.clover) does not carry. */
+	lookupKey?: string;
+	/** The price's interval (null: one-time), likewise not on the line. */
+	interval?: Interval | null;
+	/** An add-on that is a gift certificate. */
+	gift?: GiftKind;
+};
 
 // ---- One entry point for a Stripe event ----
 
@@ -777,8 +792,16 @@ export type StripeEventInput = {
 	catalog: readonly AtmCatalogRow[];
 	/** The time of the event being handled (ms), not the clock. */
 	now: number;
-	/** Stripe price ids by lookup key, for invoice lines that name a price by id only. Optional. */
+	/**
+	 * Stripe price ids by lookup key (what publishing the menu made). A Stripe invoice line (API 2025-10-29.clover)
+	 * names its price by id only, so without this no line matches the menu.
+	 */
 	priceIds?: Readonly<Record<string, string>>;
+	/**
+	 * Invoice ids by payment intent id (or charge id). A Stripe charge or dispute does not name its invoice, so a refund
+	 * or lost dispute finds the invoice to take credits back from here. Learn it from `invoice_payment.paid`.
+	 */
+	invoiceIds?: Readonly<Record<string, string>>;
 };
 
 /** Why an event was set aside: nothing was decided and nothing is to be written. Keep the event and retry after the cause is fixed. */

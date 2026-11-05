@@ -35,10 +35,35 @@ const mapping = (event: string): Mapping => {
 	return r.value;
 };
 
+// A Stripe invoice line (API 2025-10-29.clover) names its price by id only.
 const menu = new Map<string, LineItem>([
-	["vol_sparkle_2s_month", { kind: "tier", tierId: "sparkle" }],
-	["vol_shine_1s_month", { kind: "tier", tierId: "shine" }],
-	["vol_addon_human_design_month", { kind: "addon", addonId: "human_design" }],
+	[
+		"price_SYNTH_sparkle_2s_month",
+		{
+			kind: "tier",
+			tierId: "sparkle",
+			lookupKey: "vol_sparkle_2s_month",
+			interval: "month",
+		},
+	],
+	[
+		"price_SYNTH_shine_1s_month",
+		{
+			kind: "tier",
+			tierId: "shine",
+			lookupKey: "vol_shine_1s_month",
+			interval: "month",
+		},
+	],
+	[
+		"price_SYNTH_addon_hd_month",
+		{
+			kind: "addon",
+			addonId: "human_design",
+			lookupKey: "vol_addon_human_design_month",
+			interval: "month",
+		},
+	],
 ]);
 
 const expectOk = (r: ReturnType<typeof normalize>): Fact => {
@@ -115,21 +140,27 @@ describe("mapping files", () => {
 });
 
 describe("fixtures normalize to their facts", () => {
-	test("invoice.paid: a line's gift kind is read from the price metadata, an unknown kind is null, none is absent", () => {
+	test("invoice.paid: a line has only its price id; the menu gives the rest, a gift kind included", () => {
 		const raw = load("invoice.paid.json");
-		const giftOf = (metadata?: Record<string, string>) => {
-			const event = clone(raw);
-			event.data.object.lines.data[0].price.metadata = metadata;
-			const inv = expectOk(
-				normalize(event, mapping("invoice.paid"), { eventId: raw.id }),
-			) as BillingInvoice;
-			return inv.lines[0]?.gift;
-		};
-		expect(giftOf({ b4u_gift: "sessions" })).toBe("sessions");
-		expect(giftOf({ b4u_gift: "dollars" })).toBe("dollars");
-		expect(giftOf({ b4u_gift: "other" })).toBeNull();
-		expect(giftOf({ b4u_key: "a:x:once" })).toBeUndefined();
-		expect(giftOf(undefined)).toBeUndefined();
+		const inv = expectOk(
+			normalize(raw, mapping("invoice.paid"), { eventId: raw.id }),
+		) as BillingInvoice;
+		expect(inv.lines.map((l) => [l.lookupKey, l.interval, l.gift])).toEqual([
+			[undefined, null, undefined],
+			[undefined, null, undefined],
+		]);
+		const gift = new Map<string, LineItem>([
+			[
+				"price_SYNTH_addon_hd_month",
+				{ kind: "addon", addonId: "gift", interval: null, gift: "sessions" },
+			],
+		]);
+		expect(resolveLines(inv.lines, gift)[1]).toMatchObject({
+			kind: "addon",
+			addonId: "gift",
+			interval: null,
+			gift: "sessions",
+		});
 	});
 
 	test("invoice.paid: a monthly join with a tier line and an add-on line", () => {
@@ -176,9 +207,8 @@ describe("fixtures normalize to their facts", () => {
 		expect(inv.lines).toEqual([
 			{
 				kind: "unknown",
-				lookupKey: "vol_sparkle_2s_month",
 				priceId: "price_SYNTH_sparkle_2s_month",
-				interval: "month",
+				interval: null,
 				quantity: 1,
 				proration: false,
 				amount: 26000,
@@ -187,9 +217,8 @@ describe("fixtures normalize to their facts", () => {
 			},
 			{
 				kind: "unknown",
-				lookupKey: "vol_addon_human_design_month",
 				priceId: "price_SYNTH_addon_hd_month",
-				interval: "month",
+				interval: null,
 				quantity: 1,
 				proration: false,
 				amount: 4000,
@@ -201,6 +230,11 @@ describe("fixtures normalize to their facts", () => {
 		expect(resolved.lines.map((l) => [l.kind, l.tierId ?? l.addonId])).toEqual([
 			["tier", "sparkle"],
 			["addon", "human_design"],
+		]);
+		// the menu's item gives the line its lookup key and interval
+		expect(resolved.lines.map((l) => [l.lookupKey, l.interval])).toEqual([
+			["vol_sparkle_2s_month", "month"],
+			["vol_addon_human_design_month", "month"],
 		]);
 	});
 
@@ -233,7 +267,7 @@ describe("fixtures normalize to their facts", () => {
 				stripeApiVersion: API,
 			},
 			id: "re_SYNTH_0001",
-			invoiceId: "in_SYNTH_0001",
+			paymentIntentId: "pi_SYNTH_0001",
 			chargeId: "ch_SYNTH_0001",
 			amount: 26000,
 			full: true,
@@ -253,7 +287,7 @@ describe("fixtures normalize to their facts", () => {
 				stripeApiVersion: API,
 			},
 			id: "dp_SYNTH_0001",
-			invoiceId: null,
+			paymentIntentId: "pi_SYNTH_0002",
 			chargeId: "ch_SYNTH_0002",
 			status: "open",
 			at: 1793600000000,
@@ -463,23 +497,61 @@ describe("values", () => {
 });
 
 describe("line resolution", () => {
-	test("a line matches by price id when no lookup key matches; lookup keys stay on the line", () => {
+	test("a line matches by its price id and takes the item's lookup key and interval; an unknown line stays as read", () => {
 		const raw = load("invoice.paid.json");
 		const inv = expectOk(
 			normalize(raw, mapping("invoice.paid"), { eventId: raw.id }),
 		) as BillingInvoice;
 		const byPrice = new Map<string, LineItem>([
-			["price_SYNTH_sparkle_2s_month", { kind: "tier", tierId: "sparkle" }],
+			[
+				"price_SYNTH_sparkle_2s_month",
+				{
+					kind: "tier",
+					tierId: "sparkle",
+					lookupKey: "vol_sparkle_2s_month",
+					interval: "month",
+				},
+			],
 		]);
 		const lines = resolveLines(inv.lines, byPrice);
 		expect(lines.map((l) => l.kind)).toEqual(["tier", "unknown"]);
 		expect(lines[0]).toMatchObject({
 			lookupKey: "vol_sparkle_2s_month",
 			priceId: "price_SYNTH_sparkle_2s_month",
+			interval: "month",
 		});
 		expect(lines[1]).toMatchObject({
 			kind: "unknown",
-			lookupKey: "vol_addon_human_design_month",
+			priceId: "price_SYNTH_addon_hd_month",
+			interval: null,
+		});
+		expect(lines[1]?.lookupKey).toBeUndefined();
+	});
+
+	test("a line's own lookup key still matches the menu by key, for a payload that carries one", () => {
+		const byKey = new Map<string, LineItem>([
+			[
+				"vol_sparkle_2s_month",
+				{ kind: "tier", tierId: "sparkle", interval: "month" },
+			],
+		]);
+		const [line] = resolveLines(
+			[
+				{
+					kind: "unknown",
+					lookupKey: "vol_sparkle_2s_month",
+					interval: null,
+					quantity: 1,
+					proration: false,
+					amount: 26000,
+				},
+			],
+			byKey,
+		);
+		expect(line).toMatchObject({
+			kind: "tier",
+			tierId: "sparkle",
+			interval: "month",
 		});
 	});
 });

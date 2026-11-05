@@ -14,6 +14,7 @@ import {
 import {
 	addonPriceKey,
 	lookupKeyOf,
+	menuLineItems,
 	tierPriceKey,
 } from "../src/billing/stripe-menu.js";
 import type { Menu, StripeEventResult } from "../src/billing/types.js";
@@ -24,6 +25,8 @@ import {
 	chargeRefunded,
 	disputeEvent,
 	invoicePaid,
+	paymentIntentOf,
+	priceIdOf,
 	subscriptionDeleted,
 } from "./stripe-events.js";
 
@@ -65,6 +68,11 @@ const addonKey = (addonId: string) => {
 };
 const metadata = { b4u_school: SCHOOL, family_id: FAMILY };
 
+/** What publishing the menu would have recorded: each lookup key's Stripe price id. */
+const priceIds = Object.fromEntries(
+	[...menuLineItems(SCHOOL, menu).keys()].map((key) => [key, priceIdOf(key)]),
+);
+
 /** The family service in miniature: stored rows and revision, the event log, one write per event. */
 const store = (world: Menu = menu) => {
 	const worldRows = menuCatalogRows({ menu: world, school: SCHOOL });
@@ -73,6 +81,8 @@ const store = (world: Menu = menu) => {
 	let revision = 0;
 	const events: AtmEvent[] = [];
 	const results: StripeEventResult[] = [];
+	/** The payment intent of each paid invoice: what the caller learns from `invoice_payment.paid`. */
+	const invoiceIds: Record<string, string> = {};
 	const api = {
 		get rows() {
 			return rows;
@@ -84,6 +94,9 @@ const store = (world: Menu = menu) => {
 		results,
 		handle(event: unknown, at: number) {
 			const id = (event as { id: string }).id;
+			const paid = event as { type: string; data: { object: { id: string } } };
+			if (paid.type === "invoice.paid")
+				invoiceIds[paymentIntentOf(paid.data.object.id)] = paid.data.object.id;
 			const result = handleStripeEvent({
 				event,
 				eventId: id,
@@ -95,6 +108,8 @@ const store = (world: Menu = menu) => {
 				revision,
 				catalog: worldRows,
 				now: at,
+				priceIds,
+				invoiceIds,
 			});
 			results.push(result);
 			if (result.rowChanges) {
@@ -358,13 +373,9 @@ describe("handleStripeEvent", () => {
 		expect(s.avail(D("2026-03-15T18:00:01Z"))).toBe(0);
 	});
 
-	test("a gift whose price says so is credited for the policy's months; a dollar gift is a grants-only write", () => {
+	test("a gift add-on is credited for the policy's months; a dollar gift is a grants-only write", () => {
 		const s = store();
-		const gift = (
-			lookupKey: string,
-			amount: number,
-			meta?: Record<string, string>,
-		) =>
+		const gift = (lookupKey: string, amount: number) =>
 			invoicePaid({
 				eventId: "evt_gift",
 				invoiceId: "in_gift",
@@ -373,13 +384,10 @@ describe("handleStripeEvent", () => {
 				reason: "manual",
 				periodStart: T0,
 				periodEnd: T0,
-				lines: [{ lookupKey, amount, interval: null, priceMetadata: meta }],
+				lines: [{ lookupKey, amount }],
 				metadata,
 			});
-		const r = s.handle(
-			gift(addonKey("gift-visit"), 13000, { b4u_gift: "sessions" }),
-			T0,
-		);
+		const r = s.handle(gift(addonKey("gift-visit"), 13000), T0);
 		expect(r.events.map((e) => [e.event_type, e.labels.plan])).toEqual([
 			["credit.granted", "gift"],
 		]);
@@ -437,6 +445,7 @@ describe("refusals", () => {
 		revision: 0,
 		catalog: catalogRows,
 		now: T0,
+		priceIds,
 	});
 	const paid = () =>
 		invoicePaid({
@@ -488,18 +497,24 @@ describe("refusals", () => {
 
 	test("money for one of our prices that the menu does not know is refused, not silently ignored", () => {
 		const event = paid();
-		event.data.object.lines.data[0].price.lookup_key =
-			"b4u_sch_vol_t_old_month_9900_usd";
+		event.data.object.lines.data[0].pricing.price_details.price =
+			"price_for_an_old_amount";
 		expect(refusedAs(event)).toBe("unmatched_line");
 	});
 
-	test("a line that is not ours is left alone", () => {
+	test("without the price ids no line can match the menu (a Stripe line carries only its price id)", () => {
+		const r = handleStripeEvent({ ...input(paid()), priceIds: undefined });
+		expect(r.refused?.reason).toBe("unmatched_line");
+	});
+
+	test("an unknown line that is free or a credit is left alone", () => {
 		const event = paid();
-		event.data.object.lines.data.push({
-			...structuredClone(event.data.object.lines.data[0]),
-			price: { id: "price_other", lookup_key: "other_thing", recurring: null },
-			amount: 1000,
-		});
+		for (const amount of [0, -500]) {
+			const extra = structuredClone(event.data.object.lines.data[0]);
+			extra.amount = amount;
+			extra.pricing.price_details.price = "price_something_else";
+			event.data.object.lines.data.push(extra);
+		}
 		const r = handleStripeEvent(input(event));
 		expect(r.refused).toBeUndefined();
 		expect(r.events).toHaveLength(1);

@@ -57,18 +57,10 @@
 						"amount": 26000,
 						"currency": "usd",
 						"description": "Sparkle, 2 sessions a month",
-						"proration": false,
 						"quantity": 1,
-						"period": { "start": 1793491200, "end": 1796083200 },
-						"price": {
-							"id": "price_SYNTH_sparkle_2s_month",
-							"object": "price",
-							"active": true,
-							"currency": "usd",
-							"lookup_key": "vol_sparkle_2s_month",
-							"recurring": { "interval": "month", "interval_count": 1 },
-							"unit_amount": 26000,
-							"type": "recurring"
+						"period": {
+							"start": 1793491200,
+							"end": 1796083200
 						},
 						"pricing": {
 							"type": "price_details",
@@ -77,6 +69,17 @@
 								"product": "prod_SYNTH_sparkle"
 							},
 							"unit_amount_decimal": "26000"
+						},
+						"parent": {
+							"type": "subscription_item_details",
+							"invoice_item_details": null,
+							"subscription_item_details": {
+								"proration": false,
+								"proration_details": null,
+								"invoice_item": null,
+								"subscription": "sub_SYNTH_0001",
+								"subscription_item": "si_SYNTH_0001"
+							}
 						}
 					},
 					{
@@ -85,18 +88,10 @@
 						"amount": 4000,
 						"currency": "usd",
 						"description": "Human Design reading, monthly",
-						"proration": false,
 						"quantity": 1,
-						"period": { "start": 1793491200, "end": 1796083200 },
-						"price": {
-							"id": "price_SYNTH_addon_hd_month",
-							"object": "price",
-							"active": true,
-							"currency": "usd",
-							"lookup_key": "vol_addon_human_design_month",
-							"recurring": { "interval": "month", "interval_count": 1 },
-							"unit_amount": 4000,
-							"type": "recurring"
+						"period": {
+							"start": 1793491200,
+							"end": 1796083200
 						},
 						"pricing": {
 							"type": "price_details",
@@ -105,6 +100,17 @@
 								"product": "prod_SYNTH_addon_hd"
 							},
 							"unit_amount_decimal": "4000"
+						},
+						"parent": {
+							"type": "subscription_item_details",
+							"invoice_item_details": null,
+							"subscription_item_details": {
+								"proration": false,
+								"proration_details": null,
+								"invoice_item": null,
+								"subscription": "sub_SYNTH_0001",
+								"subscription_item": "si_SYNTH_0002"
+							}
 						}
 					}
 				]
