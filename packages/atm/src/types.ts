@@ -1635,6 +1635,52 @@ export type ShipOutboxResult = {
 	shipped: number;
 };
 
+/**
+ * How the events of one command the family service ran are booked: `AtmEventContext` without what `recordEngineCommand`
+ * sets from the mutation and the state (`school`, `before`) or keeps for itself (`payload`, `idemPrefix`, `slice`).
+ */
+export type AtmCommandContext = Omit<
+	AtmEventContext,
+	"school" | "before" | "payload" | "idemPrefix" | "slice"
+>;
+
+export type RecordEngineCommandInput = {
+	/** The database the handler writes. The caller's own transaction must be open: this opens none. */
+	db: SqlDatabase;
+	/** What `runEngineCommand` returned; null when the engine decided nothing. */
+	mutation: AtmMutation | null;
+	/** The subject as it was when the command ran (the state the engine ran on). Needed for the alerts, a delete and a lapsed rollover. */
+	before: AtmSubjectState | null;
+	/** The feature, service, reason and the rest the postings need; the school is the mutation's `identity.orgId`. */
+	context: AtmCommandContext;
+	/**
+	 * The caller's claim that it records every engine command it runs for this subject, written as `payload.complete`.
+	 * `replayEvents` reads it only for a command named `<ULID>:<step>` (the handler's names); a caller whose command ids
+	 * are anything else needs nothing here. Default false: a claim a writer cannot keep is worse than none.
+	 */
+	logsEveryCommand?: boolean;
+};
+
+export type RecordLapseInput = {
+	/** The database the handler writes. The caller's own transaction must be open: this opens none. */
+	db: SqlDatabase;
+	/** The subject as the cron read it; its identity names the school, the key and the holder, and its revision orders the events. */
+	state: AtmSubjectState;
+	featureOf: (internalFeatureId: string) => string | undefined;
+	feature: string;
+	atMs: number;
+	tz: string;
+	/** Opt in to `credit.depleted` (see `lapseAlertEvents`): the units of the feature the holder drew after an instant. */
+	drawnAfter?: (instantMs: number) => number;
+	labels?: Record<string, string>;
+};
+
+/** What a `record*` call made, and how many of those events were new to the outbox (a retry inserts none). */
+export type RecordedEvents = {
+	events: AtmEvent[];
+	inserted: number;
+};
+
 /** Thrown by `replayEvents` where the engine disagrees with the log; `eventId` names the event. */
 export interface ReplayErrorType extends Error {
 	readonly eventId: string;
