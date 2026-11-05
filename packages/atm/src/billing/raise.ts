@@ -59,8 +59,9 @@ export const raiseLine = <Line extends ProrationLine>(
  * line, negative, holds the OLD quantity (what was left of the cycle at that count); the charge line, positive, holds
  * the NEW total, not the difference. `isTierPrice` picks the lines of the tier's price (the caller knows its price ids;
  * add-on and other lines are ignored). With several pairs on one invoice, the charge that starts last is the raise, and
- * its credit is the one that starts with it. Null when the invoice has no such charge line (no raise, a decrease's pair
- * has no positive line).
+ * its credit is the one that starts with it. Null when the invoice has no such charge line. A decrease made with
+ * `create_prorations` leaves a pair too (the credit at the old count, a positive charge for the time left at the lower
+ * one), so a non-null result is not always a raise: its `newQuantity` is below `oldQuantity`, and `raiseUnits` gives 0.
  *
  * `start` and `end` are the charge line's period: when the raise took effect and the end of the cycle (ms; null when the
  * line gives none). `oldQuantity` is Stripe's count and is null without a credit line. It is not the baseline for
