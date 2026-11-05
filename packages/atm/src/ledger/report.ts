@@ -40,12 +40,18 @@ export const skippedNote = ({
 		? null
 		: `atm report: ${skippedNonUsd.inMonth} non-USD money line(s) skipped in ${month} (${skippedNonUsd.total} in all events); the reports are USD only and leave them out\n`;
 
+/** Node's `spawnSync` stops a child at 1 MiB of output (ENOBUFS); a year of CSV can pass that, and Bun's never did. */
+const HLEDGER_MAX_BUFFER = 256 * 1024 * 1024;
+
 const oneLine = (text: string): string =>
 	text.trim().split("\n")[0] || "no message";
 
 /** Throws a `HledgerError` that says so when `hledger` does not run, so a missing tool is never a silent skip. Node's `spawnSync`, not Bun's: the library bundle also runs under Node. */
 const assertHledgerRuns = (): void => {
-	const probe = spawnSync("hledger", ["--version"], { encoding: "utf8" });
+	const probe = spawnSync("hledger", ["--version"], {
+		encoding: "utf8",
+		maxBuffer: HLEDGER_MAX_BUFFER,
+	});
 	if (probe.error)
 		throw new HledgerError(
 			"hledger is not installed or not on PATH; atm report needs it (https://hledger.org/install.html)",
@@ -69,7 +75,7 @@ const runHledger = ({
 	const run = spawnSync(
 		"hledger",
 		["-f", "main.journal", ...HLEDGER_COMMANDS[report], ...output],
-		{ cwd: books, encoding: "utf8" },
+		{ cwd: books, encoding: "utf8", maxBuffer: HLEDGER_MAX_BUFFER },
 	);
 	if (run.error || run.status !== 0)
 		throw new HledgerError(
