@@ -17,6 +17,7 @@
  * instant as input; its own month arithmetic is for resets and rollovers).
  */
 import type {
+	AtmSubject,
 	BillingDispute,
 	BillingInvoice,
 	BillingPolicy,
@@ -34,12 +35,15 @@ import type {
 	Menu,
 	MenuGrant,
 	GrantRemovalInput as RemovalInput,
+	Rollover,
+	SubscriptionEndInput,
 	GrantVersions as Versions,
 } from "./types.js";
 
 export const EMPTY_GRANTS_STATE: GrantsState = {
 	v: 1,
 	identity: null,
+	holder: null,
 	subscriptionId: null,
 	tierId: null,
 	interval: null,
@@ -47,7 +51,9 @@ export const EMPTY_GRANTS_STATE: GrantsState = {
 	cycleStart: null,
 	cycleEnd: null,
 	addonIds: [],
+	endedAt: null,
 	rows: {},
+	retired: {},
 	invoices: {},
 };
 
@@ -344,6 +350,63 @@ const labelsOf = (source: FactSource, v: Versions): GrantLabels => ({
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
+/** When a refill's leftovers lapse if the engine rolls them over at `boundary` (the end of the cycle that refilled the row). */
+const rolloverExpiry = (rollover: Rollover | undefined, boundary: number) =>
+	rollover ? addUtcMonths(boundary, rollover.months) : null;
+
+type HeldRollover = {
+	id: string;
+	balance: number;
+	expiresAt: number | null;
+	row: Record<string, unknown>;
+};
+type Held = {
+	balance: number;
+	nextResetAt: number | null;
+	expiresAt: number | null;
+	rollovers: HeldRollover[];
+};
+
+const numberOrNull = (v: unknown): number | null =>
+	typeof v === "number" ? v : null;
+
+/** What each credit row of the subject holds now: balance, next reset, own expiry and its rollovers. No subject, no rows. */
+const heldOf = (subject: AtmSubject | null): Map<string, Held> => {
+	const held = new Map<string, Held>();
+	if (!subject) return held;
+	const rows = [
+		...subject.customer_products.flatMap(
+			(p) =>
+				(p.customer_entitlements as Record<string, unknown>[] | undefined) ??
+				[],
+		),
+		...subject.extra_customer_entitlements,
+	];
+	for (const r of rows) {
+		const rollovers =
+			(r.rollovers as Record<string, unknown>[] | undefined) ?? [];
+		held.set(r.id as string, {
+			balance: typeof r.balance === "number" ? r.balance : 0,
+			nextResetAt: numberOrNull(r.next_reset_at),
+			expiresAt: numberOrNull(r.expires_at),
+			rollovers: rollovers.map((o) => ({
+				id: o.id as string,
+				balance: typeof o.balance === "number" ? o.balance : 0,
+				expiresAt: numberOrNull(o.expires_at),
+				row: {
+					id: o.id,
+					cus_ent_id: o.cus_ent_id,
+					balance: o.balance,
+					usage: o.usage ?? 0,
+					expires_at: o.expires_at,
+					entities: o.entities ?? {},
+				},
+			})),
+		});
+	}
+	return held;
+};
+
 /** Units of an upgrade: `diff` x share of the cycle left, rounded up (integer math; never negative). */
 const upgradeUnits = ({
 	diff,
@@ -547,6 +610,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 		return { commands: [], labels, state: input.state };
 	const state = clone(input.state);
 	const who = identityFrom(invoice, state);
+	state.holder ??= who;
 	const b = new Builder(invoice.source, who);
 	const record: InvoiceRecord = {
 		paidAt: invoice.paidAt,
@@ -554,20 +618,29 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 		removed: false,
 	};
 	const lines = invoice.lines.filter((l: InvoiceLine) => l.kind !== "unknown");
-	const tierLine = lines.find(
-		(l) => l.kind === "tier" && !l.proration && l.tierId && l.interval,
-	);
-	const upLine = lines.find(
-		(l) =>
-			l.kind === "tier" &&
-			l.proration &&
-			l.tierId &&
-			l.interval &&
-			l.amount > 0,
-	);
-	const recurring = lines.filter(
-		(l) => l.kind === "addon" && !l.proration && l.addonId && l.interval,
-	);
+	// Once the subscription has ended nothing more is granted for it, whatever invoice still arrives.
+	const live =
+		state.endedAt === null || invoice.subscriptionId !== state.subscriptionId;
+	const tierLine = live
+		? lines.find(
+				(l) => l.kind === "tier" && !l.proration && l.tierId && l.interval,
+			)
+		: undefined;
+	const upLine = live
+		? lines.find(
+				(l) =>
+					l.kind === "tier" &&
+					l.proration &&
+					l.tierId &&
+					l.interval &&
+					l.amount > 0,
+			)
+		: undefined;
+	const recurring = live
+		? lines.filter(
+				(l) => l.kind === "addon" && !l.proration && l.addonId && l.interval,
+			)
+		: [];
 	const once = lines.filter(
 		(l) => l.kind === "addon" && !l.proration && l.addonId && !l.interval,
 	);
@@ -581,12 +654,15 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 	let needReset = false;
 	let created = false;
 
-	const grantRow = (s: RowSpec, units: number) => {
+	/** Remember what this invoice put into a row; `boundary` is the end of the cycle that refilled it. */
+	const grantRow = (s: RowSpec, units: number, boundary: number) => {
 		record.granted.push({
+			invoiceId: invoice.id,
 			rowId: s.rowId,
 			feature: s.feature,
 			units,
 			epoch: state.rows[s.rowId] ?? 1,
+			rolloverExpiresAt: rolloverExpiry(s.rollover, boundary),
 		});
 	};
 	/** Insert a plan's row: full allowance now when its cycle is the invoice's, else seeded and refilled by `reset`. */
@@ -615,10 +691,11 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 		);
 		state.rows[s.rowId] = 1;
 		if (matches) {
-			if (balance > 0) grantRow(s, balance);
+			if (balance > 0) grantRow(s, balance, cycleEnd);
 		} else {
 			needReset = true;
-			grantRow(s, full);
+			// An off-cycle row (a yearly grant on a monthly plan) is refilled by the engine a full interval after its seed date.
+			grantRow(s, full, addUtcMonths(seedAt, s.interval === "year" ? 12 : 1));
 		}
 	};
 	const attachAddon = (line: InvoiceLine, share: "full" | "prorate") => {
@@ -657,6 +734,11 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 	const isCreate =
 		tierLine !== undefined &&
 		(invoice.reason === "subscription_create" || state.tierId === null);
+	if (isCreate && tierLine && state.endedAt !== null)
+		// The tier's credit rows and product have fixed ids; a second subscription would insert them again.
+		throw new Error(
+			`invoice ${invoice.id} starts subscription ${invoice.subscriptionId}, but ${state.subscriptionId} ended: a second subscription for the same family is not supported yet`,
+		);
 	if (isCreate && tierLine) {
 		const tierId = tierLine.tierId as string;
 		const interval = tierLine.interval as Interval;
@@ -696,6 +778,27 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 				ops,
 				insert: (s) =>
 					insertSpec(s, TIER_CP, s.amount, end, invoice.periodStart),
+				// The reset at the period start refills it: what is left rolls over, the allowance comes back.
+				revive: (s) => {
+					ops.push({
+						op: "update",
+						table: "customerEntitlements",
+						id: s.rowId,
+						set: { next_reset_at: invoice.periodStart },
+					});
+					state.rows[s.rowId] = (state.rows[s.rowId] ?? 0) + 1;
+					grantRow(
+						s,
+						s.amount,
+						s.interval === s.plan
+							? end
+							: addUtcMonths(
+									invoice.periodStart,
+									s.interval === "year" ? 12 : 1,
+								),
+					);
+					needReset = true;
+				},
 				units: () => 0,
 			});
 		}
@@ -705,6 +808,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 			if (!want.has(id)) {
 				for (const s of addonSpecs(menu, id)) {
 					ops.push(stopRefill(s.rowId));
+					state.retired[s.rowId] = state.rows[s.rowId] ?? 1;
 					delete state.rows[s.rowId];
 				}
 			}
@@ -722,12 +826,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 			const fresh = record.granted.some((g) => g.rowId === s.rowId);
 			if (!fresh) {
 				state.rows[s.rowId] = (state.rows[s.rowId] ?? 0) + 1;
-				record.granted.push({
-					rowId: s.rowId,
-					feature: s.feature,
-					units: s.amount,
-					epoch: state.rows[s.rowId] as number,
-				});
+				grantRow(s, s.amount, end);
 			}
 		}
 		needReset = true;
@@ -768,6 +867,40 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 					});
 					insertSpec(s, TIER_CP, units, newEnd, at);
 				},
+				revive: (s) => {
+					if (s.interval === s.plan) {
+						// the cycle's own row: what is left stays, the prorated difference is added
+						ops.push({
+							op: "update",
+							table: "customerEntitlements",
+							id: s.rowId,
+							set: { next_reset_at: newEnd },
+						});
+						const units = upgradeUnits({
+							diff: s.amount,
+							policy,
+							at,
+							start: state.cycleStart,
+							end: state.cycleEnd,
+						});
+						if (units > 0) adds.push({ s, units });
+						return;
+					}
+					// a row on its own interval is refilled by a reset from now
+					ops.push({
+						op: "update",
+						table: "customerEntitlements",
+						id: s.rowId,
+						set: { next_reset_at: at },
+					});
+					state.rows[s.rowId] = (state.rows[s.rowId] ?? 0) + 1;
+					grantRow(
+						s,
+						s.amount,
+						addUtcMonths(at, s.interval === "year" ? 12 : 1),
+					);
+					needReset = true;
+				},
 				units: (s) => {
 					const diff = s.amount - (oldAmount.get(s.rowId) ?? 0);
 					const units = upgradeUnits({
@@ -784,12 +917,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 			b.plan(now, ops.splice(0));
 			for (const { s, units } of adds) {
 				b.add(now, s.feature, s.rowId, units);
-				record.granted.push({
-					rowId: s.rowId,
-					feature: s.feature,
-					units,
-					epoch: state.rows[s.rowId] ?? 1,
-				});
+				grantRow(s, units, newEnd);
 			}
 			if (interval !== state.interval) {
 				state.cycleStart = invoice.periodStart;
@@ -800,7 +928,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 			if (needReset) b.reset(at + 1);
 			needReset = false;
 		}
-	} else if (state.tierId && invoice.reason === "subscription_update") {
+	} else if (live && state.tierId && invoice.reason === "subscription_update") {
 		// Add-ons bought mid-cycle.
 		for (const l of lines.filter(
 			(x) => x.kind === "addon" && x.addonId && x.interval && x.amount > 0,
@@ -842,7 +970,14 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 					t: now,
 				}),
 			);
-			record.granted.push({ rowId, feature: g.featureId, units, epoch: 1 });
+			record.granted.push({
+				invoiceId: invoice.id,
+				rowId,
+				feature: g.featureId,
+				units,
+				epoch: 1,
+				rolloverExpiresAt: null,
+			});
 			state.rows[rowId] = 1;
 		}
 	}
@@ -872,7 +1007,14 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 				t: now,
 			}),
 		);
-		record.granted.push({ rowId, feature, units, epoch: 1 });
+		record.granted.push({
+			invoiceId: invoice.id,
+			rowId,
+			feature,
+			units,
+			epoch: 1,
+			rolloverExpiresAt: null,
+		});
 		state.rows[rowId] = 1;
 	}
 
@@ -894,6 +1036,7 @@ const moveTier = ({
 	to,
 	ops,
 	insert,
+	revive,
 	units,
 }: {
 	menu: Menu;
@@ -901,6 +1044,8 @@ const moveTier = ({
 	to: { tierId: string; interval: Interval };
 	ops: Op[];
 	insert: (s: RowSpec) => void;
+	/** A row the plan once moved off and now moves back onto: it still exists, so it is updated, not inserted. */
+	revive: (s: RowSpec) => void;
 	units: (s: RowSpec) => number;
 }) => {
 	const oldSpecs = tierSpecs(
@@ -929,12 +1074,23 @@ const moveTier = ({
 				set: { entitlement_id: s.entId },
 			});
 			units(s);
+		} else if (s.rowId in state.retired) {
+			state.rows[s.rowId] = state.retired[s.rowId] as number;
+			delete state.retired[s.rowId];
+			ops.push({
+				op: "update",
+				table: "customerEntitlements",
+				id: s.rowId,
+				set: { entitlement_id: s.entId },
+			});
+			revive(s);
 		} else insert(s);
 	}
 	const newIds = new Set(newSpecs.map((s) => s.rowId));
 	for (const s of oldSpecs) {
 		if (!newIds.has(s.rowId)) {
 			ops.push(stopRefill(s.rowId));
+			state.retired[s.rowId] = state.rows[s.rowId] ?? 1;
 			delete state.rows[s.rowId];
 		}
 	}
@@ -946,6 +1102,13 @@ const moveTier = ({
 // Refund and dispute -> commands
 // ---------------------------------------------------------------------------------------------------------------
 
+/**
+ * Takes one invoice's unused credits back, reading what the rows hold from the subject so no row goes below zero:
+ * - credits still in the refill they were granted into come off the row (`increment`);
+ * - credits of a refill that has since reset were carried over by the engine as a rollover that lapses at
+ *   `rolloverExpiresAt`: that rollover is cut by what the invoice granted (delete, then insert what stays).
+ * A row that already lapsed, or is not in the subject, gives nothing back.
+ */
 const removeInvoice = ({
 	invoiceId,
 	source,
@@ -957,21 +1120,135 @@ const removeInvoice = ({
 }): GrantResult => {
 	const labels = labelsOf(source, input);
 	const record = invoiceId ? input.state.invoices[invoiceId] : undefined;
-	if (!record || record.removed || !input.state.identity)
+	if (!record || record.removed)
 		return { commands: [], labels, state: input.state };
 	const state = clone(input.state);
-	const b = new Builder(
-		source,
-		state.identity as { orgId: string; customerId: string },
-	);
-	for (const g of record.granted) {
-		// A row refilled since holds a later cycle's credits: this invoice's unused ones are carried over, not here.
-		if ((state.rows[g.rowId] ?? 1) !== g.epoch) continue;
-		const have = input.available?.[g.rowId] ?? g.units;
-		const units = Math.min(g.units, Math.max(0, have));
-		if (units > 0) b.add(input.now, g.feature, g.rowId, -units);
+	// An invoice that granted nothing (a dollar gift, before any credit row) is marked all the same: handling the
+	// event again later, once the subject exists, must not change anything.
+	if (!state.identity) {
+		(state.invoices[invoiceId as string] as InvoiceRecord).removed = true;
+		return { commands: [], labels, state };
 	}
+	const b = new Builder(source, state.identity);
+	const held = heldOf(input.subject);
+	const cut = new Map<string, number>();
+	const ops: Op[] = [];
+	for (const g of record.granted) {
+		const row = held.get(g.rowId);
+		if (!row) continue;
+		const refills = state.rows[g.rowId] ?? g.epoch;
+		if (refills === g.epoch) {
+			const alive = row.expiresAt === null || row.expiresAt > input.now;
+			const units = alive ? Math.min(g.units, Math.max(0, row.balance)) : 0;
+			if (units <= 0) continue;
+			row.balance -= units;
+			ops.push({
+				op: "increment",
+				table: "customerEntitlements",
+				id: g.rowId,
+				add: { balance: -units },
+			});
+			continue;
+		}
+		if (g.rolloverExpiresAt === null) continue;
+		let left = g.units;
+		for (const roll of row.rollovers) {
+			if (left <= 0) break;
+			if (roll.expiresAt !== g.rolloverExpiresAt) continue;
+			if (roll.expiresAt <= input.now) continue;
+			const units = Math.min(
+				left,
+				Math.max(0, roll.balance - (cut.get(roll.id) ?? 0)),
+			);
+			if (units <= 0) continue;
+			cut.set(roll.id, (cut.get(roll.id) ?? 0) + units);
+			left -= units;
+		}
+	}
+	for (const row of held.values()) {
+		for (const roll of row.rollovers) {
+			const units = cut.get(roll.id);
+			if (units === undefined) continue;
+			ops.push({ op: "delete", table: "rollovers", id: roll.id });
+			if (roll.balance - units > 0)
+				ops.push({
+					op: "insert",
+					table: "rollovers",
+					row: {
+						...roll.row,
+						id: `roll_cut_${roll.id}`,
+						balance: roll.balance - units,
+					},
+				});
+		}
+	}
+	b.plan(input.now, ops);
 	(state.invoices[invoiceId as string] as InvoiceRecord).removed = true;
+	return { commands: b.commands, labels, state };
+};
+
+/**
+ * A canceled subscription ends the refills and lets the last cycle's unused credits live out their own life: each
+ * tier and recurring add-on row stops resetting and expires where its unused credits would have lapsed had the
+ * subscription gone on (the end of the cycle that paid for them plus the row's rollover months), not now. Credits
+ * already used are untouched; credits rolled over earlier keep their own expiry. Any status but `canceled`, another
+ * subscription, or a second end gives no commands.
+ */
+export const subscriptionEndedToCommands = (
+	input: SubscriptionEndInput,
+): GrantResult => {
+	const { subscription: fact, menu, state: prior, now } = input;
+	const labels = labelsOf(fact.source, input);
+	const none = { commands: [], labels, state: prior };
+	if (
+		fact.status !== "canceled" ||
+		prior.identity === null ||
+		prior.tierId === null ||
+		prior.interval === null ||
+		prior.subscriptionId !== fact.id ||
+		prior.endedAt !== null
+	)
+		return none;
+	const state = clone(prior);
+	state.endedAt = fact.at;
+	const held = heldOf(input.subject);
+	const ops: Op[] = [];
+	const specs = [
+		...tierSpecs(menu, prior.tierId, prior.interval),
+		...prior.addonIds.flatMap((id) => addonSpecs(menu, id)),
+	];
+	for (const s of specs) {
+		const row = held.get(s.rowId);
+		if (!row || !(s.rowId in state.rows)) continue;
+		const boundary = row.nextResetAt ?? prior.cycleEnd ?? fact.at;
+		ops.push({
+			op: "update",
+			table: "customerEntitlements",
+			id: s.rowId,
+			set: {
+				next_reset_at: null,
+				expires_at: rolloverExpiry(s.rollover, boundary) ?? boundary,
+			},
+		});
+	}
+	// Rows the plan had moved off keep what they hold, but not for ever: they lapse as their old tier's rollover would.
+	const everySpec = menu.tiers.flatMap((t) =>
+		t.prices.flatMap((p) => tierSpecs(menu, t.id, p.interval)),
+	);
+	for (const rowId of Object.keys(prior.retired)) {
+		const row = held.get(rowId);
+		if (!row || row.expiresAt !== null) continue;
+		const rollover = everySpec.find((s) => s.rowId === rowId)?.rollover;
+		const boundary = prior.cycleEnd ?? fact.at;
+		ops.push({
+			op: "update",
+			table: "customerEntitlements",
+			id: rowId,
+			set: { expires_at: rolloverExpiry(rollover, boundary) ?? boundary },
+		});
+	}
+	const b = new Builder(fact.source, prior.identity);
+	b.plan(now, ops);
 	return { commands: b.commands, labels, state };
 };
 
