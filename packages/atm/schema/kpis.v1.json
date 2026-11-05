@@ -1,0 +1,181 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://b4uni.com/_schema/kpis.v1.json",
+	"title": "KPI spec v1",
+	"description": "The key metrics of a school's books, pinned once. Every channel (the atm fold, hledger, DuckDB) computes the base aggregates (sum, count, distinct) from the ledger events as this file says; the derived ones (ratio, combine) are evaluated in one place, from the base values. Regexes are the POSIX extended subset all three engines share: literals, [..] classes, ^ $ ( ) | * + ? . and a backslash before a literal dot; no \\d \\w \\s, no lookaround, no lazy quantifiers.",
+	"type": "object",
+	"required": ["version", "grain", "kpis"],
+	"additionalProperties": false,
+	"properties": {
+		"$schema": { "type": "string" },
+		"version": { "const": 1 },
+		"grain": {
+			"const": "month",
+			"description": "The period of every value: a calendar month of the event's local date, YYYY-MM."
+		},
+		"kpis": {
+			"type": "array",
+			"minItems": 1,
+			"uniqueItems": true,
+			"items": { "$ref": "#/$defs/kpi" }
+		}
+	},
+	"$defs": {
+		"regex": {
+			"type": "string",
+			"minLength": 1,
+			"pattern": "^([A-Za-z0-9:_@.,|()*+?^$ \\[\\]\\-]|\\\\\\.)+$"
+		},
+		"kpiId": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,59}$" },
+		"where": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"eventType": {
+					"type": "array",
+					"minItems": 1,
+					"items": { "type": "string", "minLength": 1 },
+					"description": "The event's type is one of these; absent: any."
+				},
+				"account": {
+					"$ref": "#/$defs/regex",
+					"description": "A posting's account matches. For `sum` it selects the postings that are added up; for `count` and `distinct` the event needs one such posting."
+				},
+				"label": {
+					"type": "object",
+					"required": ["name", "pattern"],
+					"additionalProperties": false,
+					"properties": {
+						"name": { "type": "string", "pattern": "^[a-z_]+$" },
+						"pattern": { "$ref": "#/$defs/regex" }
+					},
+					"description": "The event's label `name` exists and matches."
+				}
+			}
+		},
+		"by": {
+			"type": "object",
+			"required": ["from", "pattern"],
+			"additionalProperties": false,
+			"properties": {
+				"from": {
+					"type": "string",
+					"pattern": "^(account|label:[a-z_]+)$",
+					"description": "What the dimension is read from: a posting's account, or an event label."
+				},
+				"pattern": {
+					"$ref": "#/$defs/regex",
+					"description": "One capture group: its text is the dimension value, and the KPI's id becomes `<id>:<value>`. A value that does not match is left out."
+				}
+			}
+		},
+		"kpi": {
+			"type": "object",
+			"required": ["id", "title", "unit", "precision", "definition", "compute"],
+			"additionalProperties": false,
+			"properties": {
+				"id": { "$ref": "#/$defs/kpiId" },
+				"title": { "type": "string", "minLength": 1 },
+				"unit": {
+					"enum": ["cents", "count", "ratio"],
+					"description": "cents: USD minor units; count: whole numbers (members, events, credit units); ratio: a number between 0 and 1 and beyond, no unit."
+				},
+				"precision": {
+					"type": "integer",
+					"minimum": 0,
+					"maximum": 6,
+					"description": "Decimal places the value is rounded to (half up, in integer arithmetic). Base aggregates are whole numbers: 0."
+				},
+				"definition": {
+					"type": "string",
+					"minLength": 1,
+					"description": "The formula in words; the `compute` is the machine reading of it."
+				},
+				"compute": {
+					"oneOf": [
+						{
+							"type": "object",
+							"required": ["op", "commodity", "sign", "where"],
+							"additionalProperties": false,
+							"properties": {
+								"op": { "const": "sum" },
+								"commodity": {
+									"enum": ["usd", "credits"],
+									"description": "usd: USD postings, in cents; credits: every other commodity, in units."
+								},
+								"sign": {
+									"enum": [1, -1],
+									"description": "Multiplies the sum (income is a negative posting)."
+								},
+								"where": { "$ref": "#/$defs/where" },
+								"cumulative": {
+									"type": "boolean",
+									"description": "The sum of every period up to and including this one (a closing balance)."
+								},
+								"by": { "$ref": "#/$defs/by" }
+							}
+						},
+						{
+							"type": "object",
+							"required": ["op", "where"],
+							"additionalProperties": false,
+							"properties": {
+								"op": { "const": "count" },
+								"where": { "$ref": "#/$defs/where" },
+								"by": { "$ref": "#/$defs/by" }
+							}
+						},
+						{
+							"type": "object",
+							"required": ["op", "where"],
+							"additionalProperties": false,
+							"properties": {
+								"op": { "const": "distinct" },
+								"where": { "$ref": "#/$defs/where" },
+								"first": {
+									"type": "boolean",
+									"description": "Count a holder only in the first period it matches inside the periods asked for (a holder first seen before the window counts in the window's first period)."
+								},
+								"by": { "$ref": "#/$defs/by" }
+							},
+							"description": "Distinct holders (the event's `key`) in the period."
+						},
+						{
+							"type": "object",
+							"required": ["op", "num", "den"],
+							"additionalProperties": false,
+							"properties": {
+								"op": { "const": "ratio" },
+								"num": { "$ref": "#/$defs/kpiId" },
+								"den": { "$ref": "#/$defs/kpiId" }
+							},
+							"description": "num / den of two KPIs without a dimension, in the same period; 0 when den is 0."
+						},
+						{
+							"type": "object",
+							"required": ["op", "terms"],
+							"additionalProperties": false,
+							"properties": {
+								"op": { "const": "combine" },
+								"terms": {
+									"type": "array",
+									"minItems": 2,
+									"items": {
+										"type": "object",
+										"required": ["kpi", "sign"],
+										"additionalProperties": false,
+										"properties": {
+											"kpi": { "$ref": "#/$defs/kpiId" },
+											"sign": { "enum": [1, -1] }
+										}
+									}
+								}
+							},
+							"description": "A signed sum of KPIs without a dimension."
+						}
+					]
+				}
+			}
+		}
+	}
+}

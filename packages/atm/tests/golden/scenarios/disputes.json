@@ -1,0 +1,50 @@
+{
+  "profile": "disputes",
+  "seed": 105,
+  "params": {
+    "months": 12,
+    "start": "2026-01",
+    "members": 24,
+    "newMembersPerMonth": 0,
+    "tierMix": {
+      "audit": 3,
+      "scholar": 4,
+      "seminar": 2,
+      "fellow": 1
+    },
+    "yearlyShare": 0,
+    "addonRate": 0.25,
+    "freeShare": 0,
+    "churnRate": 0.03,
+    "refundRate": 0.02,
+    "partialRefundShare": 0.5,
+    "disputeRate": 0.08,
+    "disputeLostShare": 0.5,
+    "usageRate": 0.6,
+    "currency": "usd",
+    "feePercent": 2.9,
+    "feeFixedCents": 30
+  },
+  "fixtureHash": "b4f87341fd5b72aa954e39a2aca16a0cac69a624eac0556e35cbbd22d6f9024a",
+  "kpisHash": "998eb27f40bf1f5118a1cca3fb9d23917954ab58172e798bec60ccca2f2d9c75",
+  "events": 1520,
+  "periods": 12,
+  "summary": {
+    "gross_collected": 618500,
+    "refunds": 7900,
+    "disputes_lost": 30600,
+    "dispute_fees": 37500,
+    "stripe_fees": 25974,
+    "net_income": 516526,
+    "payouts": 485171,
+    "payments_count": 268,
+    "refunds_count": 4,
+    "disputes_opened": 25,
+    "new_paying_members": 24,
+    "credits_granted": 241,
+    "credits_consumed": 243,
+    "credits_expired": 138,
+    "paying_members_last_period": 20
+  },
+  "skippedNonUsd": 0
+}
