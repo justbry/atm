@@ -16,6 +16,8 @@
  * The one date calculation here is `addUtcMonths`, for the `expires_at` of a one-off grant (the engine takes that
  * instant as input; its own month arithmetic is for resets and rollovers).
  */
+
+import { subscriptionStatus } from "./status.js";
 import type {
 	AtmSubject,
 	BillingDispute,
@@ -32,11 +34,13 @@ import type {
 	InvoiceGrantInput,
 	InvoiceLine,
 	InvoiceRecord,
+	MembershipRecord,
 	Menu,
 	MenuGrant,
 	GrantRemovalInput as RemovalInput,
 	Rollover,
 	SubscriptionEndInput,
+	SubscriptionFact,
 	GrantVersions as Versions,
 } from "./types.js";
 
@@ -54,6 +58,7 @@ export const EMPTY_GRANTS_STATE: GrantsState = {
 	endedAt: null,
 	rows: {},
 	retired: {},
+	membership: null,
 	invoices: {},
 };
 
@@ -1310,6 +1315,51 @@ export const subscriptionEndedToCommands = (
 	const b = new Builder(fact.source, prior.identity);
 	b.plan(now, ops);
 	return { commands: b.commands, labels, state };
+};
+
+/** Who a subscription's credits belong to, from the checkout metadata it carries; null when it names neither school nor family. */
+export const subscriptionHolder = (
+	fact: SubscriptionFact,
+): { orgId: string; customerId: string } | null => {
+	const orgId = fact.metadata.b4u_school;
+	const family = fact.metadata.family_id;
+	return orgId && family ? { orgId, customerId: `family:${family}` } : null;
+};
+
+/**
+ * A `customer.subscription.*` event. Records what Stripe says the membership is (status via `subscriptionStatus`, the
+ * tier and interval the menu names for its price, renewal or end date) in `state.membership`; a canceled subscription
+ * also lets its credits lapse (`subscriptionEndedToCommands`). Nothing is granted here: credits come from paid invoices,
+ * so `state.tierId` and `state.interval` stay where the invoices put them. An event about another subscription than the
+ * holder's, or older than the one on record, changes nothing; replaying one changes nothing.
+ */
+export const subscriptionToCommands = (
+	input: SubscriptionEndInput,
+): GrantResult => {
+	const { subscription: fact, plan } = input;
+	const ended = subscriptionEndedToCommands(input);
+	const current = ended.state.membership;
+	// The membership follows the holder's own subscription: an event about another one (an older subscription that
+	// ended late, say) says nothing about it.
+	if (
+		ended.state.subscriptionId !== null &&
+		fact.id !== ended.state.subscriptionId
+	)
+		return ended;
+	if (current?.subscriptionId === fact.id && fact.at < current.at) return ended;
+	const shown = subscriptionStatus(fact);
+	const membership: MembershipRecord = {
+		subscriptionId: fact.id,
+		status: shown.status,
+		tierId: plan?.tierId ?? null,
+		interval: plan?.interval ?? null,
+		renewsAt: shown.renewsAt,
+		cancelAtPeriodEnd: shown.cancelAtPeriodEnd,
+		endsAt: shown.endsAt,
+		at: fact.at,
+	};
+	if (JSON.stringify(current) === JSON.stringify(membership)) return ended;
+	return { ...ended, state: { ...ended.state, membership } };
 };
 
 /** A full refund (policy.removeOnFullRefund) takes back that invoice's unused credits; a partial refund changes nothing. */

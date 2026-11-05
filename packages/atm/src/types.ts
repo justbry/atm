@@ -437,6 +437,17 @@ export type BillingDispute = {
 	at: number;
 };
 
+/**
+ * One item of a subscription: the tier's price or a recurring add-on's. The menu names what it is, by the price's
+ * lookup key, else by its id (`resolveSubscriptionPlan`): the subscription's metadata is written once at checkout and
+ * goes stale when the plan changes in the billing portal.
+ */
+export type SubscriptionItem = {
+	priceId: string;
+	lookupKey: string | null;
+	interval: Interval | null;
+};
+
 /** A subscription's state after a `customer.subscription.*` event. */
 export type SubscriptionFact = {
 	source: FactSource;
@@ -451,8 +462,7 @@ export type SubscriptionFact = {
 		| "incomplete_expired"
 		| "canceled"
 		| "paused";
-	tierId: string | null;
-	interval: Interval | null;
+	items: SubscriptionItem[];
 	currentPeriodStart: number;
 	currentPeriodEnd: number;
 	cancelAtPeriodEnd: boolean;
@@ -576,8 +586,28 @@ export type GrantsState = {
 	 * stopped refilling and keep what is left. A later move back onto the feature revives the same row.
 	 */
 	retired: Record<string, number>;
+	/**
+	 * What Stripe says the membership is, from the latest `customer.subscription.*` event. It never grants credits:
+	 * `tierId` and `interval` above move with paid invoices, so a plan change Stripe has made but no invoice has paid
+	 * yet shows here as a different `membership.tierId`. Null until a subscription event is seen.
+	 */
+	membership: MembershipRecord | null;
 	/** Every invoice seen, by id: a replayed invoice finds its record and decides nothing. */
 	invoices: Record<string, InvoiceRecord>;
+};
+
+/** A subscription as the membership shows it (`subscriptionStatus`), with the plan the menu names for its price. */
+export type MembershipRecord = {
+	subscriptionId: string;
+	status: MembershipStatus;
+	/** The tier the subscription's price is on the menu, or null when no item is a menu tier. */
+	tierId: string | null;
+	interval: Interval | null;
+	renewsAt: number | null;
+	cancelAtPeriodEnd: boolean;
+	endsAt: number | null;
+	/** The time of the subscription event this came from (ms): an older event arriving late changes nothing. */
+	at: number;
 };
 
 export type GrantResult = {
@@ -616,6 +646,8 @@ export type GrantRemovalInput = {
 export type SubscriptionEndInput = {
 	/** A `canceled` subscription fact (`customer.subscription.deleted`). Any other status gives no commands. */
 	subscription: SubscriptionFact;
+	/** The tier and interval the menu names for the subscription's items (`resolveSubscriptionPlan`); null when none is a tier. */
+	plan?: { tierId: string; interval: Interval | null } | null;
 	menu: Menu;
 	policy: BillingPolicy;
 	state: GrantsState;

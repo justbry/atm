@@ -328,8 +328,13 @@ describe("fixtures normalize to their facts", () => {
 			id: "sub_SYNTH_0001",
 			customerId: "cus_SYNTH_0001",
 			status: "active",
-			tierId: "sparkle",
-			interval: "month",
+			items: [
+				{
+					priceId: "price_SYNTH_sparkle_2s_month",
+					lookupKey: "vol_sparkle_2s_month",
+					interval: "month",
+				},
+			],
 			currentPeriodStart: 1793491200000,
 			currentPeriodEnd: 1796083200000,
 			cancelAtPeriodEnd: false,
@@ -495,13 +500,13 @@ describe("values", () => {
 
 	test("an optional missing field takes its default", () => {
 		const raw = load("customer.subscription.created.json");
-		delete raw.data.object.metadata.tier_id;
+		delete raw.data.object.items.data[0].price.lookup_key;
 		const s = expectOk(
 			normalize(raw, mapping("customer.subscription.created"), {
 				eventId: raw.id,
 			}),
 		) as SubscriptionFact;
-		expect(s.tierId).toBeNull();
+		expect(s.items[0]?.lookupKey).toBeNull();
 	});
 });
 

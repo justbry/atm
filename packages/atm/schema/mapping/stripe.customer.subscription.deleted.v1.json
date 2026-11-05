@@ -5,8 +5,14 @@
 	"target": "SubscriptionFact",
 	"stripeApiVersion": "2025-10-29.clover",
 	"fields": {
-		"id": { "path": "$.data.object.id", "type": "string" },
-		"customerId": { "path": "$.data.object.customer", "type": "string" },
+		"id": {
+			"path": "$.data.object.id",
+			"type": "string"
+		},
+		"customerId": {
+			"path": "$.data.object.customer",
+			"type": "string"
+		},
 		"status": {
 			"path": "$.data.object.status",
 			"type": "string",
@@ -21,20 +27,6 @@
 				"paused": "paused"
 			}
 		},
-		"tierId": {
-			"path": "$.data.object.metadata.tier_id",
-			"type": "string",
-			"optional": true,
-			"default": null
-		},
-		"interval": {
-			"path": "$.data.object.items.data[0].price.recurring.interval",
-			"type": "string",
-			"optional": true,
-			"default": null,
-			"values": { "month": "month", "year": "year" },
-			"fallback": null
-		},
 		"currentPeriodStart": {
 			"path": "$.data.object.items.data[0].current_period_start",
 			"type": "seconds"
@@ -47,8 +39,40 @@
 			"path": "$.data.object.cancel_at_period_end",
 			"type": "bool"
 		},
-		"at": { "path": "$.created", "type": "seconds" },
-		"metadata": { "path": "$.data.object.metadata", "type": "map" }
+		"at": {
+			"path": "$.created",
+			"type": "seconds"
+		},
+		"metadata": {
+			"path": "$.data.object.metadata",
+			"type": "map"
+		}
+	},
+	"lines": {
+		"path": "$.data.object.items.data",
+		"fields": {
+			"priceId": {
+				"path": "$.price.id",
+				"type": "string"
+			},
+			"lookupKey": {
+				"path": "$.price.lookup_key",
+				"type": "string",
+				"optional": true,
+				"default": null
+			},
+			"interval": {
+				"path": "$.price.recurring.interval",
+				"type": "string",
+				"optional": true,
+				"default": null,
+				"values": {
+					"month": "month",
+					"year": "year"
+				},
+				"fallback": null
+			}
+		}
 	},
 	"personal": [
 		"$.data.object.customer.email",
