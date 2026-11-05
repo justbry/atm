@@ -45,22 +45,27 @@
 						"amount": -13000,
 						"currency": "usd",
 						"description": "Unused time on Sparkle, 2 sessions a month",
-						"proration": true,
 						"quantity": 1,
-						"period": { "start": 1793574000, "end": 1796083200 },
-						"price": {
-							"id": "price_SYNTH_sparkle_2s_month",
-							"object": "price",
-							"lookup_key": "vol_sparkle_2s_month",
-							"recurring": { "interval": "month", "interval_count": 1 },
-							"unit_amount": 26000,
-							"type": "recurring"
+						"period": {
+							"start": 1793574000,
+							"end": 1796083200
 						},
 						"pricing": {
 							"type": "price_details",
 							"price_details": {
 								"price": "price_SYNTH_sparkle_2s_month",
 								"product": "prod_SYNTH_sparkle"
+							}
+						},
+						"parent": {
+							"type": "subscription_item_details",
+							"invoice_item_details": null,
+							"subscription_item_details": {
+								"proration": true,
+								"proration_details": null,
+								"invoice_item": null,
+								"subscription": "sub_SYNTH_0001",
+								"subscription_item": "si_SYNTH_0001"
 							}
 						}
 					},
@@ -70,22 +75,27 @@
 						"amount": 18000,
 						"currency": "usd",
 						"description": "Remaining time on Shine, 1 session a month",
-						"proration": true,
 						"quantity": 1,
-						"period": { "start": 1793574000, "end": 1796083200 },
-						"price": {
-							"id": "price_SYNTH_shine_1s_month",
-							"object": "price",
-							"lookup_key": "vol_shine_1s_month",
-							"recurring": { "interval": "month", "interval_count": 1 },
-							"unit_amount": 18000,
-							"type": "recurring"
+						"period": {
+							"start": 1793574000,
+							"end": 1796083200
 						},
 						"pricing": {
 							"type": "price_details",
 							"price_details": {
 								"price": "price_SYNTH_shine_1s_month",
 								"product": "prod_SYNTH_shine"
+							}
+						},
+						"parent": {
+							"type": "subscription_item_details",
+							"invoice_item_details": null,
+							"subscription_item_details": {
+								"proration": true,
+								"proration_details": null,
+								"invoice_item": null,
+								"subscription": "sub_SYNTH_0001",
+								"subscription_item": "si_SYNTH_0002"
 							}
 						}
 					}

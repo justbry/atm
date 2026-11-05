@@ -24,7 +24,8 @@
 		"test": "bun test tests",
 		"ts": "tsc --noEmit",
 		"fixtures": "bun ./fixtures/generate.ts",
-		"schema": "bun ./schema/build.ts"
+		"schema": "bun ./schema/build.ts",
+		"stripe-spec": "bun ./schema/stripe/build.ts"
 	},
 	"dependencies": {
 		"@autumn/balance-engine": "workspace:*",

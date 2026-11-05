@@ -410,7 +410,12 @@ export type BillingInvoice = {
 export type BillingRefund = {
 	source: FactSource;
 	id: string;
-	invoiceId: string | null;
+	/**
+	 * The invoice the refunded charge paid. Stripe's charge (API 2025-10-29.clover) does not name it: the mapping gives
+	 * the payment intent, and the caller finds the invoice from it.
+	 */
+	invoiceId?: string | null;
+	paymentIntentId?: string | null;
 	chargeId: string;
 	amount: number;
 	full: boolean;
@@ -419,7 +424,9 @@ export type BillingRefund = {
 export type BillingDispute = {
 	source: FactSource;
 	id: string;
-	invoiceId: string | null;
+	/** As on `BillingRefund`: the caller finds the invoice from the payment intent. */
+	invoiceId?: string | null;
+	paymentIntentId?: string | null;
 	chargeId: string;
 	status: "open" | "won" | "lost";
 	at: number;
@@ -729,9 +736,15 @@ export type NormalizeResult<T> =
 export type NormalizeContext = { eventId: string };
 
 /** A line item of the menu, found by a line's lookup key or price id. */
-export type LineItem =
+export type LineItem = (
 	| { kind: "tier"; tierId: string }
-	| { kind: "addon"; addonId: string };
+	| { kind: "addon"; addonId: string }
+) & {
+	/** The price's lookup key, which a Stripe invoice line (API 2025-10-29.clover) does not carry. */
+	lookupKey?: string;
+	/** The price's interval (null: one-time), likewise not on the line. Required: "not given" must not read as one-time. */
+	interval: Interval | null;
+};
 
 // ---- Storage rows ----
 
