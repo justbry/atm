@@ -665,8 +665,6 @@ const PAID_INVOICE_REFUSALS: ReadonlySet<StripeEventRefusal["reason"]> =
 		"rejected",
 	]);
 
-const TRAILING_FULL_STOP = /\.$/;
-
 /**
  * The payment of a refused paid invoice, made as `decide` makes it for an applied one (same events, same idem
  * `stripe:<invoice id>`), from the menu's reading of the lines (an unknown line is `other`). Total: whatever cannot be
@@ -700,7 +698,10 @@ const certainPayment = (
 	}
 };
 
-/** A refusal in `PAID_INVOICE_REFUSALS` with the money line of its invoice, and a sentence that says so. */
+/**
+ * A refusal in `PAID_INVOICE_REFUSALS` with the money line of its invoice. The message is the refusal's own: whether the
+ * payment is booked is the caller's doing (the reference handler appends it and says so in its answer).
+ */
 const withCertainPayment = (
 	input: StripeEventInput,
 	result: StripeEventResult,
@@ -710,18 +711,7 @@ const withCertainPayment = (
 	if (!refused || !PAID_INVOICE_REFUSALS.has(refused.reason)) return result;
 	const payment = certainPayment(input, invoice);
 	if (payment.length === 0) return result;
-	const booked = payment.some((e) => e.event_type === "payment.succeeded");
-	const note = booked
-		? `The payment itself is booked (payment.succeeded, idem stripe:${invoice.id}) because Stripe has collected it; the delivery that is applied after the cause is fixed does not book it again. A refund or dispute of it waits (409) until then.`
-		: "The payment is not in USD, so it is not booked as money; a money.skipped marker says so.";
-	return {
-		...result,
-		refused: {
-			...refused,
-			message: `${refused.message.replace(TRAILING_FULL_STOP, "")}. ${note}`,
-			payment,
-		},
-	};
+	return { ...result, refused: { ...refused, payment } };
 };
 
 /** A payout belongs to no family: it is booked for the school the caller names, and writes no rows. */

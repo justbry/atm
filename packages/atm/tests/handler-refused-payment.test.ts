@@ -21,6 +21,7 @@ import { formatReconcile } from "../src/ledger/reconcile-files.js";
 import { shipOutbox } from "../src/ledger/ship.js";
 import { FolderStore } from "../src/store/folder-store.js";
 import type { AtmEvent } from "../src/types.js";
+import { createStore } from "./billing-store.js";
 import { stripeInvoice, stripeRefund } from "./e2e-matrix.js";
 import {
 	FAMILY,
@@ -658,4 +659,76 @@ describe("the books of a refused invoice, through hledger", () => {
 			});
 		},
 	);
+});
+
+describe("review of the refused payment: what the message says, and the cases the first tests did not reach", () => {
+	const otherSubscriptionInvoice = (): RawEvent =>
+		invoicePaid({
+			eventId: "evt_in_other",
+			invoiceId: "in_other",
+			at: T1,
+			subscriptionId: "sub_2",
+			reason: "subscription_cycle",
+			periodStart: T1,
+			periodEnd: T1 + 30 * 24 * HOUR,
+			lines: [{ lookupKey: tierKey(), amount: GROSS, interval: "month" }],
+			metadata,
+		});
+
+	test("handleStripeEvent alone books nothing, so its message does not claim the payment is booked", () => {
+		const store = createStore({
+			menu: menuWithoutSparkle2,
+			school: SCHOOL,
+			family: FAMILY,
+		});
+		const result = store.handle(tierInvoice(), T0, { fee: FEE });
+		expect(result.refused?.reason).toBe("unmatched_line");
+		// the line is there for the caller to book; the pure function wrote nothing
+		expect(
+			ofType(result.refused?.payment ?? [], "payment.succeeded"),
+		).toHaveLength(1);
+		expect(result.events).toEqual([]);
+		expect(result.refused?.message).not.toContain("is booked");
+	});
+
+	test("a refund instead of a fix is not booked: the 422 says so, and the refund waits for good", () => {
+		const h = harness({ in_1: FEE, in_other: FEE });
+		expect(h.deliver(tierInvoice()).body.outcome).toBe("applied");
+		const response = h.deliver(otherSubscriptionInvoice(), T1);
+		expect(response.body.reason).toBe("tier_on_other_subscription");
+		// the advice is to refund it; the booked income stays, and the refund of an unapplied invoice is never booked
+		expect(response.body.message).toContain("refund this invoice");
+		expect(response.body.message).toContain("by hand");
+		const link = h.deliver(linked("in_other"), T1 + HOUR);
+		expect([link.status, link.body.outcome]).toEqual([
+			409,
+			"unmatched_invoice",
+		]);
+		expect(ofType(h.outbox(), "payment.refunded")).toEqual([]);
+	});
+
+	test("the test endpoint books the refused payment in the test env, not the live one", () => {
+		const h = harness(
+			{ in_1: FEE },
+			{ menu: menuWithoutSparkle2, env: "test" },
+		);
+		expect(h.deliver(tierInvoice()).status).toBe(422);
+		expect(h.raw.query("SELECT env FROM ledger_outbox").all()).toEqual([
+			{ env: "test" },
+		]);
+	});
+
+	test("a payment that cannot be built (a time zone no calendar knows) leaves the refusal as it was: 422, nothing booked, claim released", () => {
+		const h = harness(
+			{ in_1: FEE },
+			{ menu: { ...menuWithoutSparkle2, timeZone: "Mars/Phobos" } },
+		);
+		const response = h.deliver(tierInvoice());
+		expect([response.status, response.body.reason]).toEqual([
+			422,
+			"unmatched_line",
+		]);
+		expect(h.outbox()).toEqual([]);
+		expect(h.claim("evt_in_1")).toBeNull();
+	});
 });
