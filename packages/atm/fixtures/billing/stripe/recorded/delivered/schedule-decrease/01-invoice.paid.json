@@ -1,0 +1,180 @@
+{
+	"id": "evt_1UYPMvScrubTest0XhMSNL7Y",
+	"object": "event",
+	"api_version": "2025-10-29.clover",
+	"created": 1793880132,
+	"data": {
+		"object": {
+			"id": "in_1UYPMtScrubTest0VBCajGap",
+			"object": "invoice",
+			"account_country": "US",
+			"account_name": "Example Account",
+			"account_tax_ids": null,
+			"amount_due": 72000,
+			"amount_overpaid": 0,
+			"amount_paid": 72000,
+			"amount_remaining": 0,
+			"amount_shipping": 0,
+			"application": null,
+			"attempt_count": 1,
+			"attempted": true,
+			"auto_advance": false,
+			"automatic_tax": {
+				"disabled_reason": null,
+				"enabled": false,
+				"liability": null,
+				"provider": null,
+				"status": null
+			},
+			"automatically_finalizes_at": null,
+			"billing_reason": "subscription_create",
+			"collection_method": "charge_automatically",
+			"created": 1793880126,
+			"currency": "usd",
+			"custom_fields": null,
+			"customer": "cus_VZYTjtlgVAQtxO",
+			"customer_account": null,
+			"customer_address": null,
+			"customer_email": null,
+			"customer_name": "Example Customer",
+			"customer_phone": null,
+			"customer_shipping": null,
+			"customer_tax_exempt": "none",
+			"customer_tax_ids": [],
+			"default_payment_method": null,
+			"default_source": null,
+			"default_tax_rates": [],
+			"description": null,
+			"discounts": [],
+			"due_date": null,
+			"effective_at": 1793880126,
+			"ending_balance": 0,
+			"footer": null,
+			"from_invoice": null,
+			"hosted_invoice_url": "https://example.test/invoice",
+			"invoice_pdf": "https://example.test/pay",
+			"issuer": {
+				"type": "self"
+			},
+			"last_finalization_error": null,
+			"latest_revision": null,
+			"lines": {
+				"object": "list",
+				"data": [
+					{
+						"id": "il_1UYPMoScrubTest07KFvbcJl",
+						"object": "line_item",
+						"amount": 72000,
+						"currency": "usd",
+						"description": "4 \u00d7 Shine (at $180.00 / month)",
+						"discount_amounts": [],
+						"discountable": true,
+						"discounts": [],
+						"invoice": "in_1UYPMtScrubTest0VBCajGap",
+						"livemode": false,
+						"metadata": {
+							"family_id": "fam_D2",
+							"tier_id": "shine",
+							"quantity": "4",
+							"interval": "month",
+							"b4u_school": "spike-school",
+							"menu_version": "1"
+						},
+						"parent": {
+							"invoice_item_details": null,
+							"license_fee_subscription_details": null,
+							"subscription_item_details": {
+								"invoice_item": null,
+								"proration": false,
+								"proration_details": {
+									"credited_items": null
+								},
+								"subscription": "sub_1UYPMtScrubTest0zxTZ2TwN",
+								"subscription_item": "si_VZYTSZDWgt1Ipd"
+							},
+							"type": "subscription_item_details"
+						},
+						"period": {
+							"end": 1796472126,
+							"start": 1793880126
+						},
+						"pretax_credit_amounts": [],
+						"pricing": {
+							"price_details": {
+								"price": "price_1UYPJyScrubTest0IpPYbAa2",
+								"product": "prod_VZYQZErBWqlctn"
+							},
+							"type": "price_details",
+							"unit_amount_decimal": "18000"
+						},
+						"quantity": 4,
+						"quantity_decimal": "4",
+						"subtotal": 72000,
+						"taxes": []
+					}
+				],
+				"has_more": false,
+				"total_count": 1,
+				"url": "/v1/invoices/in_1UYPMtScrubTest0VBCajGap/lines"
+			},
+			"livemode": false,
+			"metadata": {},
+			"next_payment_attempt": null,
+			"number": "LZSYSB4G-0001",
+			"on_behalf_of": null,
+			"parent": {
+				"quote_details": null,
+				"subscription_details": {
+					"metadata": {
+						"family_id": "fam_D2",
+						"tier_id": "shine",
+						"quantity": "4",
+						"interval": "month",
+						"b4u_school": "spike-school",
+						"menu_version": "1"
+					},
+					"subscription": "sub_1UYPMtScrubTest0zxTZ2TwN"
+				},
+				"type": "subscription_details"
+			},
+			"payment_settings": {
+				"default_mandate": null,
+				"payment_method_options": null,
+				"payment_method_types": null
+			},
+			"period_end": 1793880126,
+			"period_start": 1793880126,
+			"post_payment_credit_notes_amount": 0,
+			"pre_payment_credit_notes_amount": 0,
+			"receipt_number": null,
+			"rendering": null,
+			"shipping_cost": null,
+			"shipping_details": null,
+			"starting_balance": 0,
+			"statement_descriptor": null,
+			"status": "paid",
+			"status_transitions": {
+				"finalized_at": 1793880126,
+				"marked_uncollectible_at": null,
+				"paid_at": 1793880126,
+				"voided_at": null
+			},
+			"subtotal": 72000,
+			"subtotal_excluding_tax": 72000,
+			"test_clock": "clock_1UYPMpScrubTest03rgJnMGT",
+			"total": 72000,
+			"total_discount_amounts": [],
+			"total_excluding_tax": 72000,
+			"total_pretax_credit_amounts": [],
+			"total_taxes": [],
+			"webhooks_delivered_at": null
+		}
+	},
+	"livemode": false,
+	"pending_webhooks": 8,
+	"request": {
+		"id": "req_d0QnlQuQF7dKqg",
+		"idempotency_key": "scrubbed-idempotency-key"
+	},
+	"type": "invoice.paid"
+}

@@ -1,0 +1,220 @@
+{
+	"id": "evt_1UYPLsScrubTest0jcExLWkU",
+	"object": "event",
+	"api_version": "2025-10-29.clover",
+	"created": 1793880067,
+	"data": {
+		"object": {
+			"id": "in_1UYPLpScrubTest07yNCRWAF",
+			"object": "invoice",
+			"account_country": "US",
+			"account_name": "Example Account",
+			"account_tax_ids": null,
+			"amount_due": 216987,
+			"amount_overpaid": 0,
+			"amount_paid": 216987,
+			"amount_remaining": 0,
+			"amount_shipping": 0,
+			"application": null,
+			"attempt_count": 1,
+			"attempted": true,
+			"auto_advance": false,
+			"automatic_tax": {
+				"disabled_reason": null,
+				"enabled": false,
+				"liability": null,
+				"provider": null,
+				"status": null
+			},
+			"automatically_finalizes_at": null,
+			"billing_reason": "subscription_update",
+			"collection_method": "charge_automatically",
+			"created": 1801656052,
+			"currency": "usd",
+			"custom_fields": null,
+			"customer": "cus_VZYSMKwVcuWe3M",
+			"customer_account": null,
+			"customer_address": null,
+			"customer_email": null,
+			"customer_name": "Example Customer",
+			"customer_phone": null,
+			"customer_shipping": null,
+			"customer_tax_exempt": "none",
+			"customer_tax_ids": [],
+			"default_payment_method": null,
+			"default_source": null,
+			"default_tax_rates": [],
+			"description": null,
+			"discounts": [],
+			"due_date": null,
+			"effective_at": 1801656052,
+			"ending_balance": 0,
+			"footer": null,
+			"from_invoice": null,
+			"hosted_invoice_url": "https://example.test/invoice",
+			"invoice_pdf": "https://example.test/pay",
+			"issuer": {
+				"type": "self"
+			},
+			"last_finalization_error": null,
+			"latest_revision": null,
+			"lines": {
+				"object": "list",
+				"data": [
+					{
+						"id": "il_1V52EyScrubTest0z6ubvQrE",
+						"object": "line_item",
+						"amount": -216986,
+						"currency": "usd",
+						"description": "Unused time on 2 \u00d7 Sparkle after 03 Feb 2027",
+						"discount_amounts": [],
+						"discountable": false,
+						"discounts": [],
+						"invoice": "in_1UYPLpScrubTest07yNCRWAF",
+						"livemode": false,
+						"metadata": {},
+						"parent": {
+							"invoice_item_details": null,
+							"license_fee_subscription_details": null,
+							"subscription_item_details": {
+								"invoice_item": "ii_1UYPLpScrubTest027JmbD4c",
+								"proration": true,
+								"proration_details": {
+									"credited_items": {
+										"invoice": "in_1UYPLgScrubTest0bekHz2bQ",
+										"invoice_line_items": ["il_1UYPLcScrubTest0jWTFtHM9"]
+									}
+								},
+								"subscription": "sub_1UYPLgScrubTest00QHxzguf",
+								"subscription_item": "si_VZYS7ZQf6kqPT2"
+							},
+							"type": "subscription_item_details"
+						},
+						"period": {
+							"end": 1825416052,
+							"start": 1801656052
+						},
+						"pretax_credit_amounts": [],
+						"pricing": {
+							"price_details": {
+								"price": "price_1UYPJxScrubTest02foNcKrl",
+								"product": "prod_VZYQqWbC539BDN"
+							},
+							"type": "price_details",
+							"unit_amount_decimal": null
+						},
+						"quantity": 2,
+						"quantity_decimal": "2",
+						"subtotal": -216986,
+						"taxes": []
+					},
+					{
+						"id": "il_1V52EzScrubTest0VSAILk7S",
+						"object": "line_item",
+						"amount": 433973,
+						"currency": "usd",
+						"description": "Remaining time on 4 \u00d7 Sparkle after 03 Feb 2027",
+						"discount_amounts": [],
+						"discountable": false,
+						"discounts": [],
+						"invoice": "in_1UYPLpScrubTest07yNCRWAF",
+						"livemode": false,
+						"metadata": {},
+						"parent": {
+							"invoice_item_details": null,
+							"license_fee_subscription_details": null,
+							"subscription_item_details": {
+								"invoice_item": "ii_1UYPLpScrubTest0Frfh1TVs",
+								"proration": true,
+								"proration_details": {
+									"credited_items": null
+								},
+								"subscription": "sub_1UYPLgScrubTest00QHxzguf",
+								"subscription_item": "si_VZYS7ZQf6kqPT2"
+							},
+							"type": "subscription_item_details"
+						},
+						"period": {
+							"end": 1825416052,
+							"start": 1801656052
+						},
+						"pretax_credit_amounts": [],
+						"pricing": {
+							"price_details": {
+								"price": "price_1UYPJxScrubTest02foNcKrl",
+								"product": "prod_VZYQqWbC539BDN"
+							},
+							"type": "price_details",
+							"unit_amount_decimal": null
+						},
+						"quantity": 4,
+						"quantity_decimal": "4",
+						"subtotal": 433973,
+						"taxes": []
+					}
+				],
+				"has_more": false,
+				"total_count": 2,
+				"url": "/v1/invoices/in_1UYPLpScrubTest07yNCRWAF/lines"
+			},
+			"livemode": false,
+			"metadata": {},
+			"next_payment_attempt": null,
+			"number": "0L6GRR74-0002",
+			"on_behalf_of": null,
+			"parent": {
+				"quote_details": null,
+				"subscription_details": {
+					"metadata": {
+						"family_id": "fam_C",
+						"tier_id": "sparkle",
+						"quantity": "4",
+						"interval": "year",
+						"b4u_school": "spike-school",
+						"menu_version": "1"
+					},
+					"subscription": "sub_1UYPLgScrubTest00QHxzguf"
+				},
+				"type": "subscription_details"
+			},
+			"payment_settings": {
+				"default_mandate": null,
+				"payment_method_options": null,
+				"payment_method_types": null
+			},
+			"period_end": 1801656052,
+			"period_start": 1793880052,
+			"post_payment_credit_notes_amount": 0,
+			"pre_payment_credit_notes_amount": 0,
+			"receipt_number": null,
+			"rendering": null,
+			"shipping_cost": null,
+			"shipping_details": null,
+			"starting_balance": 0,
+			"statement_descriptor": null,
+			"status": "paid",
+			"status_transitions": {
+				"finalized_at": 1801656052,
+				"marked_uncollectible_at": null,
+				"paid_at": 1801656052,
+				"voided_at": null
+			},
+			"subtotal": 216987,
+			"subtotal_excluding_tax": 216987,
+			"test_clock": "clock_1UYPLdScrubTest0rogssg3S",
+			"total": 216987,
+			"total_discount_amounts": [],
+			"total_excluding_tax": 216987,
+			"total_pretax_credit_amounts": [],
+			"total_taxes": [],
+			"webhooks_delivered_at": null
+		}
+	},
+	"livemode": false,
+	"pending_webhooks": 8,
+	"request": {
+		"id": "req_nBNB81hMnpbWDs",
+		"idempotency_key": "scrubbed-idempotency-key"
+	},
+	"type": "invoice.paid"
+}
