@@ -36,16 +36,23 @@ export const upgradeUnits = ({
 };
 
 /**
- * The charge line of a raise: the positive proration line (of a price `isTierPrice` accepts) that starts LAST. A decrease
- * made with `create_prorations` leaves an older pair pending, and it rides on whichever invoice comes next (a later
- * raise, an add-on purchase, a renewal); that stale pair starts earlier and is not the raise.
+ * The proration lines of the tier's price: the ones the selection looks at. `isTierPrice` is the caller's predicate (it
+ * may be a menu lookup), so every selection step works from this one pass: it runs once per proration line, and never on
+ * a line that is not a proration.
  */
-export const raiseLine = <Line extends ProrationLine>(
+const acceptedLines = <Line extends ProrationLine>(
 	lines: readonly Line[],
 	isTierPrice: (line: Line) => boolean,
+): ReadonlySet<Line> =>
+	new Set(lines.filter((l) => l.proration && isTierPrice(l)));
+
+/** The accepted positive line that starts LAST (the raise's charge), if any. */
+const latestCharge = <Line extends ProrationLine>(
+	lines: readonly Line[],
+	accepted: ReadonlySet<Line>,
 ): Line | undefined =>
 	lines
-		.filter((l) => l.proration && l.amount > 0 && isTierPrice(l))
+		.filter((l) => accepted.has(l) && l.amount > 0)
 		.reduce<Line | undefined>(
 			(latest, l) =>
 				latest === undefined ||
@@ -55,6 +62,16 @@ export const raiseLine = <Line extends ProrationLine>(
 					: latest,
 			undefined,
 		);
+
+/**
+ * The charge line of a raise: the positive proration line (of a price `isTierPrice` accepts) that starts LAST. A decrease
+ * made with `create_prorations` leaves an older pair pending, and it rides on whichever invoice comes next (a later
+ * raise, an add-on purchase, a renewal); that stale pair starts earlier and is not the raise.
+ */
+export const raiseLine = <Line extends ProrationLine>(
+	lines: readonly Line[],
+	isTierPrice: (line: Line) => boolean,
+): Line | undefined => latestCharge(lines, acceptedLines(lines, isTierPrice));
 
 const isFiniteNumber = (value: unknown): value is number =>
 	typeof value === "number" && Number.isFinite(value);
@@ -69,12 +86,6 @@ const assertOptionalInstant = (
 		`prorationPair: lines[${index}].${name} must be undefined or a finite number (ms), got ${String(value)}`,
 	);
 };
-
-/** The lines of the tier's price that are prorations: the ones the selection looks at. */
-const acceptedLines = <Line extends ProrationLine>(
-	lines: readonly Line[],
-	isTierPrice: (line: Line) => boolean,
-): Line[] => lines.filter((l) => l.proration && isTierPrice(l));
 
 /** Checks the two arguments. */
 const assertPairArguments = <Line extends ProrationLine>(
@@ -104,9 +115,9 @@ const assertQuantity = (index: number, line: ProrationLine): void => {
  */
 const assertSelectionInput = <Line extends ProrationLine>(
 	lines: readonly Line[],
-	isTierPrice: (line: Line) => boolean,
+	accepted: ReadonlySet<Line>,
 ): void => {
-	for (const line of acceptedLines(lines, isTierPrice)) {
+	for (const line of accepted) {
 		const index = lines.indexOf(line);
 		if (!isFiniteNumber(line.amount)) {
 			assertQuantity(index, line);
@@ -135,13 +146,11 @@ const assertChosenLine = (index: number, line: ProrationLine): void => {
 /** The raise's charge line and the credit line that starts with it (if any). */
 const choosePair = <Line extends ProrationLine>(
 	lines: readonly Line[],
-	isTierPrice: (line: Line) => boolean,
+	accepted: ReadonlySet<Line>,
 ): { charge: Line; credit: Line | undefined } | null => {
-	const charge = raiseLine(lines, isTierPrice);
+	const charge = latestCharge(lines, accepted);
 	if (!charge) return null;
-	const credits = lines.filter(
-		(l) => l.proration && l.amount < 0 && isTierPrice(l),
-	);
+	const credits = lines.filter((l) => accepted.has(l) && l.amount < 0);
 	const credit =
 		charge.periodStart === undefined
 			? credits[0]
@@ -168,7 +177,7 @@ export const prorationPairUnchecked = <Line extends ProrationLine>(
 	lines: readonly Line[],
 	isTierPrice: (line: Line) => boolean,
 ): ProrationPair | null => {
-	const chosen = choosePair(lines, isTierPrice);
+	const chosen = choosePair(lines, acceptedLines(lines, isTierPrice));
 	return chosen ? pairOf(chosen.charge, chosen.credit) : null;
 };
 
@@ -199,17 +208,15 @@ export const prorationPair = <Line extends ProrationLine>(
 	isTierPrice: (line: Line) => boolean,
 ): ProrationPair | null => {
 	assertPairArguments(lines, isTierPrice);
-	assertSelectionInput(lines, isTierPrice);
-	const chosen = choosePair(lines, isTierPrice);
+	const accepted = acceptedLines(lines, isTierPrice);
+	assertSelectionInput(lines, accepted);
+	const chosen = choosePair(lines, accepted);
 	if (!chosen) return null;
 	assertChosenLine(lines.indexOf(chosen.charge), chosen.charge);
 	if (chosen.credit)
 		assertChosenLine(lines.indexOf(chosen.credit), chosen.credit);
 	return pairOf(chosen.charge, chosen.credit);
 };
-
-/** Two instants of one clock differ by far less than this factor; seconds against milliseconds differ by 1000. */
-const UNIT_MIX_FACTOR = 100;
 
 const assertCount = (name: string, value: unknown): void => {
 	if (typeof value !== "number" || !Number.isFinite(value))
@@ -230,14 +237,6 @@ const assertCycleBound = (name: string, value: unknown): void => {
 		);
 };
 
-/** True when two nonzero instants differ in magnitude by `UNIT_MIX_FACTOR` or more. */
-const looksMixed = (a: number, b: number): boolean => {
-	if (a === 0 || b === 0) return false;
-	const small = Math.min(Math.abs(a), Math.abs(b));
-	const large = Math.max(Math.abs(a), Math.abs(b));
-	return small * UNIT_MIX_FACTOR <= large;
-};
-
 const assertRaiseInput = (input: RaiseUnitsInput): void => {
 	const { perUnit, oldQuantity, newQuantity, at, cycleStart, cycleEnd } = input;
 	assertCount("perUnit", perUnit);
@@ -253,15 +252,6 @@ const assertRaiseInput = (input: RaiseUnitsInput): void => {
 		throw new Error(
 			`raiseUnits: cycleEnd (${cycleEnd}) is before cycleStart (${cycleStart})`,
 		);
-	for (const [name, bound] of [
-		["cycleStart", cycleStart],
-		["cycleEnd", cycleEnd],
-	] as const) {
-		if (bound !== null && looksMixed(at, bound))
-			throw new Error(
-				`raiseUnits: at (${at}) and ${name} (${bound}) look like different units (seconds against milliseconds); pass both in ms`,
-			);
-	}
 };
 
 /**
@@ -293,11 +283,13 @@ export const raiseUnitsUnchecked = ({
  *
  * Throws an `Error` naming the field when the input is bad, instead of returning a wrong number: `perUnit`,
  * `oldQuantity`, `newQuantity` or `at` that is not a finite number (NaN, Infinity, null, undefined, a string);
- * `perUnit`, `oldQuantity` or `newQuantity` that is negative or not an integer; a cycle bound that is neither null nor a
- * finite number; `cycleEnd` before `cycleStart`; or `at` and a cycle bound in different units. The last is a heuristic:
- * the function cannot see a unit, so it rejects an `at` and a nonzero cycle bound whose magnitudes differ by a factor of
- * 100 or more (seconds against milliseconds differ by about 1000, while instants within years of each other in one unit
- * differ by far less). Seconds on both sides pass, and are read as milliseconds.
+ * `perUnit`, `oldQuantity` or `newQuantity` that is negative or not an integer (a menu grant is a whole number, and the
+ * `full` policy returns the difference as is, so a fraction would come back as a fractional count of units); a cycle
+ * bound that is neither null nor a finite number; or `cycleEnd` before `cycleStart`.
+ *
+ * The function cannot see a unit: `at`, `cycleStart` and `cycleEnd` must all be milliseconds (the unit of
+ * `prorationPair`'s `start` and `end`). It does not guess: a cycle in seconds against `at` in milliseconds is not
+ * detected, and gives a wrong share. Any instants on one clock are fine, so small synthetic values work.
  */
 export const raiseUnits = (input: RaiseUnitsInput): number => {
 	assertRaiseInput(input);

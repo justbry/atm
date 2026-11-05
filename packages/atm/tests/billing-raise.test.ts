@@ -116,7 +116,8 @@ describe("raiseUnits", () => {
 		expect(bad({ newQuantity: -4 })).toThrow(/newQuantity/);
 	});
 
-	test("throws on a fraction where a whole number is needed", () => {
+	test("throws on a fraction where a whole number is needed (a menu grant is whole; `full` would return a fractional count)", () => {
+		expect(bad({ perUnit: 0.5 })).toThrow(/perUnit/);
 		expect(bad({ perUnit: 1.5 })).toThrow(/perUnit/);
 		expect(bad({ oldQuantity: 2.5 })).toThrow(/oldQuantity/);
 		expect(bad({ newQuantity: 3.2 })).toThrow(/newQuantity/);
@@ -127,13 +128,22 @@ describe("raiseUnits", () => {
 		expect(bad({ cycleEnd: "later" })).toThrow(/cycleEnd/);
 	});
 
-	test("throws on a cycle in seconds against `at` in milliseconds, and the reverse", () => {
+	test("does not guess units: small synthetic instants and a cycle in seconds both pass", () => {
+		// at 5 in a cycle of 0..1000: 995 of 1000 left, 4 units x 995/1000 rounded up
+		expect(raise({ at: 5, cycleStart: 0, cycleEnd: 1000 })).toBe(4);
+		expect(raise({ at: 5, cycleStart: 1, cycleEnd: 1000 })).toBe(4);
+		// the function cannot see a unit: a cycle in seconds against `at` in ms is read as it is (the caller passes ms)
 		const seconds = (ms: number) => Math.floor(ms / 1000);
 		expect(
-			bad({ cycleStart: seconds(CYCLE_START), cycleEnd: seconds(CYCLE_END) }),
-		).toThrow(/cycleStart.*seconds against milliseconds/);
-		expect(bad({ cycleEnd: seconds(CYCLE_END) })).toThrow(/cycleEnd/);
-		expect(bad({ at: seconds(TEN_DAYS_IN) })).toThrow(/\bat\b/);
+			raise({ cycleStart: seconds(CYCLE_START), cycleEnd: seconds(CYCLE_END) }),
+		).toBe(0);
+		expect(
+			raise({
+				at: seconds(TEN_DAYS_IN),
+				cycleStart: seconds(CYCLE_START),
+				cycleEnd: seconds(CYCLE_END),
+			}),
+		).toBe(3);
 	});
 
 	test("throws on a cycle that ends before it starts", () => {
@@ -268,6 +278,28 @@ describe("prorationPair", () => {
 				policy: DEFAULT_POLICY,
 			}),
 		).toBe(0);
+	});
+
+	test("runs isTierPrice at most once per line, and never on a line that is not a proration", () => {
+		const calls: InvoiceLine[] = [];
+		const counting = (l: InvoiceLine) => {
+			calls.push(l);
+			return isShine(l);
+		};
+		const lines = [credit(2), charge(4)];
+		expect(prorationPair(lines, counting)).toEqual({
+			oldQuantity: 2,
+			newQuantity: 4,
+			start: TEN_DAYS_IN,
+			end: CYCLE_END,
+		});
+		expect(calls).toHaveLength(2);
+		expect(new Set(calls).size).toBe(2);
+		calls.length = 0;
+		const renewal = line({ proration: false, quantity: 4, amount: 4000 });
+		prorationPair([renewal, ...lines], counting);
+		expect(calls).toHaveLength(2);
+		expect(calls).not.toContain(renewal);
 	});
 
 	test("throws when lines is not an array or isTierPrice is not a function", () => {
