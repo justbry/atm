@@ -342,6 +342,8 @@ export const addUtcMonths = (ms: number, months: number): number => {
 	);
 };
 
+const DAY_MS = 86_400_000;
+
 const WALL_PARTS = {
 	hourCycle: "h23",
 	year: "numeric",
@@ -382,10 +384,15 @@ export const addZonedMonths = (
 	timeZone: string,
 ): number => {
 	const target = addUtcMonths(wallMs(ms, timeZone), months);
-	// Wall time back to an instant: guess with the zone's offset at the wall time, then correct with the offset at the guess.
-	let guess = target - (wallMs(target, timeZone) - target);
-	guess = target - (wallMs(guess, timeZone) - guess);
-	return guess;
+	// The zone's offset a day before and a day after the target bracket any clock change near it.
+	const offsetAt = (instant: number) => wallMs(instant, timeZone) - instant;
+	const before = target - offsetAt(target - DAY_MS);
+	const after = target - offsetAt(target + DAY_MS);
+	const fits = (instant: number) => wallMs(instant, timeZone) === target;
+	// A wall time that happens twice (clocks back) is its first time; one that never happens (clocks forward) is read
+	// with the offset from before the change, which lands just after the gap. Either way the same rule in every zone.
+	if (fits(before) && fits(after)) return Math.min(before, after);
+	return fits(after) && !fits(before) ? after : before;
 };
 
 const labelsOf = (source: FactSource, v: Versions): GrantLabels => ({
@@ -625,6 +632,8 @@ const identityFrom = (
 	state: GrantsState,
 ): { orgId: string; customerId: string } => {
 	if (state.identity) return state.identity;
+	// Known from an earlier invoice (a dollar gift): the checkout metadata is not needed again.
+	if (state.holder) return state.holder;
 	const orgId = invoice.metadata.b4u_school;
 	const family = invoice.metadata.family_id;
 	if (!orgId || !family)
@@ -708,6 +717,8 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 	const ops: Op[] = [];
 	let needReset = false;
 	let created = false;
+	/** Rows this cycle invoice refills, and the Stripe end of the cycle they now run to. */
+	let cycleRows: { rowIds: string[]; end: number } | null = null;
 
 	/** Remember what this invoice put into a row; `boundary` is the end of the cycle that refilled it. */
 	const grantRow = (s: RowSpec, units: number, boundary: number) => {
@@ -872,12 +883,14 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 			if (!state.addonIds.includes(l.addonId as string)) attachAddon(l, "full");
 		}
 		state.addonIds = state.addonIds.filter((id) => want.has(id));
+		const refilled: string[] = [];
 		for (const s of [
 			...tierSpecs(menu, tierId, interval),
 			...state.addonIds.flatMap((id) => addonSpecs(menu, id)),
 		]) {
 			if (s.interval !== s.plan) continue;
 			if (!(s.rowId in state.rows)) continue;
+			refilled.push(s.rowId);
 			const fresh = record.granted.some((g) => g.rowId === s.rowId);
 			if (!fresh) {
 				state.rows[s.rowId] = (state.rows[s.rowId] ?? 0) + 1;
@@ -885,6 +898,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 			}
 		}
 		needReset = true;
+		cycleRows = { rowIds: refilled, end };
 		state.cycleStart = invoice.periodStart;
 		state.cycleEnd = end;
 	} else if (
@@ -1046,6 +1060,23 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 
 	b.plan(now, ops);
 	if (needReset) b.reset(anchorAt);
+	if (cycleRows) {
+		// The engine steps a row's next reset a month on from the last one, so after a month-end it drifts from Stripe's
+		// periods (Jan 31, Feb 28, then Mar 28, not Mar 31). Put each refilled row's next reset on Stripe's cycle end, so
+		// rollover expiries, and the leftovers traced to an invoice, follow the cycle Stripe bills.
+		const { rowIds, end } = cycleRows;
+		b.plan(
+			anchorAt,
+			rowIds.map(
+				(id): Op => ({
+					op: "update",
+					table: "customerEntitlements",
+					id,
+					set: { next_reset_at: end },
+				}),
+			),
+		);
+	}
 	if (b.commands.length > 0 && state.identity === null) state.identity = who;
 	state.invoices[invoice.id] = record;
 	return { commands: b.commands, labels, state };
@@ -1162,7 +1193,7 @@ const removeInvoice = ({
 	for (const g of record.granted) {
 		const row = held.get(g.rowId);
 		if (!row) continue;
-		const refills = state.rows[g.rowId] ?? g.epoch;
+		const refills = state.rows[g.rowId] ?? state.retired[g.rowId] ?? g.epoch;
 		if (refills === g.epoch) {
 			const alive = row.expiresAt === null || row.expiresAt > input.now;
 			const units = alive ? Math.min(g.units, Math.max(0, row.balance)) : 0;
@@ -1258,9 +1289,12 @@ export const subscriptionEndedToCommands = (
 		});
 	}
 	// Rows the plan had moved off keep what they hold, but not for ever: they lapse as their old tier's rollover would.
-	const everySpec = menu.tiers.flatMap((t) =>
-		t.prices.flatMap((p) => tierSpecs(menu, t.id, p.interval)),
-	);
+	const everySpec = [
+		...menu.tiers.flatMap((t) =>
+			t.prices.flatMap((p) => tierSpecs(menu, t.id, p.interval)),
+		),
+		...menu.addons.flatMap((a) => addonSpecs(menu, a.id)),
+	];
 	for (const rowId of Object.keys(prior.retired)) {
 		const row = held.get(rowId);
 		if (!row || row.expiresAt !== null) continue;

@@ -163,6 +163,15 @@ describe("fixtures normalize to their facts", () => {
 		});
 	});
 
+	test("invoice.paid: a line with no quantity (Stripe's is nullable) is one", () => {
+		const raw = load("invoice.paid.json");
+		raw.data.object.lines.data[0].quantity = null;
+		const inv = expectOk(
+			normalize(raw, mapping("invoice.paid"), { eventId: raw.id }),
+		) as BillingInvoice;
+		expect(inv.lines.map((l) => l.quantity)).toEqual([1, 1]);
+	});
+
 	test("invoice.paid: a monthly join with a tier line and an add-on line", () => {
 		const raw = load("invoice.paid.json");
 		const r = expectOk(

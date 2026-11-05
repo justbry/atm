@@ -70,6 +70,39 @@ describe("mapping paths", () => {
 	});
 });
 
+describe("mapping paths through references", () => {
+	const dispute = () =>
+		structuredClone(
+			MAPPINGS.find((m) => m.event === "charge.dispute.created"),
+		) as Mapping;
+
+	test("a path cannot go inside a field Stripe sends as a plain id", () => {
+		for (const path of [
+			"$.data.object.payment_intent.invoice",
+			"$.data.object.charge.id",
+		]) {
+			const mapping = dispute();
+			mapping.fields.deep = {
+				path,
+				type: "string",
+				optional: true,
+				default: null,
+			};
+			expect(pathProblems(mapping)).toEqual([
+				`charge.dispute.created deep: ${path} is not in Stripe's dispute`,
+			]);
+		}
+	});
+
+	test("an event-level path is one field, with nothing under it", () => {
+		const mapping = dispute();
+		mapping.fields.deep = { path: "$.created.bogus", type: "int" };
+		expect(pathProblems(mapping)).toEqual([
+			"charge.dispute.created deep: $.created.bogus is not an event field",
+		]);
+	});
+});
+
 describe("synthetic events", () => {
 	test.each(fixtures)(
 		"fixtures/billing/stripe/%s fits Stripe's shape",

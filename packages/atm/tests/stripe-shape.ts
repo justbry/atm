@@ -124,12 +124,17 @@ const resolve = (schema: unknown): Json[] => {
 	return branches.length > 0 ? branches : [schema];
 };
 
-/** The schemas a path can end at inside `schema`; empty when no branch has the path. `{}` (any value) ends any path. */
+/**
+ * The schemas a path can end at inside `schema`; empty when no branch has the path. A webhook event sends a reference
+ * field (`customer`, `payment_intent`, `charge`) as a plain id string, so a path cannot go deeper through a place that may
+ * be a string, nor through a pruned `{}` (any value); either can only be the end of a path.
+ */
 const walk = (schema: unknown, tokens: (string | number)[]): Json[] => {
 	let current = resolve(schema);
 	for (const token of tokens) {
+		if (current.some((s) => s.type === "string")) return [];
 		current = current.flatMap((s) => {
-			if (Object.keys(s).length === 0) return [{}];
+			if (Object.keys(s).length === 0) return [];
 			if (typeof token === "number") return s.items ? resolve(s.items) : [];
 			const props = s.properties as Json | undefined;
 			if (props && token in props) return resolve(props[token]);
@@ -160,8 +165,8 @@ export const pathProblems = (mapping: Mapping): string[] => {
 		const relative =
 			base === root ? (dataObject ? tokens.slice(2) : null) : tokens;
 		if (relative === null) {
-			// event-level paths ($.type, $.created, ...)
-			if (!ENVELOPE_FIELDS.has(String(tokens[0])))
+			// event-level paths ($.type, $.created, ...): one field, nothing under it
+			if (tokens.length !== 1 || !ENVELOPE_FIELDS.has(String(tokens[0])))
 				problems.push(`${label}: ${path} is not an event field`);
 			return;
 		}
