@@ -750,7 +750,7 @@ export const R2Store: new (options: R2StoreOptions) => Store = r2Store.R2Store;
 
 // ---- The reference webhook handler (Bun or Node; not a Worker) ----
 
-/** The tables the handler keeps in the caller's SQLite: rows, event claims, the payment index and the ledger outbox. */
+/** The tables the handler keeps in the caller's SQLite: rows, event claims, the payment index, the ledger outbox and the stored inputs (`atm_event_inputs` and its three helper tables; additive, nothing is rebuilt). */
 export const HANDLER_DDL: string = handlerDdl;
 
 /**

@@ -191,7 +191,7 @@ describe("a delivery stores its input", () => {
 	test("two events with the same context share one context row", () => {
 		const h = harness();
 		h.deliver(paid("in_1"));
-		h.deliver(paid("in_2"), T0 + HOUR);
+		expect(h.deliver(renewal("in_2", T1), T1).body.outcome).toBe("applied");
 		expect(count(h.raw, "atm_event_inputs")).toBe(2);
 		expect(count(h.raw, "atm_input_contexts")).toBe(1);
 	});
