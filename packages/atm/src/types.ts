@@ -14,6 +14,9 @@ export type AtmCommandType =
 	| "updateBalance"
 	| "deleteBalance";
 
+/** The Stripe mode a subject belongs to; it is part of the subject key (`<school>|<env>|<customer>`). */
+export type AtmEnv = "live" | "test";
+
 export type AtmIdentity = {
 	orgId: string;
 	env: string;
@@ -781,6 +784,11 @@ export type InvoiceGrantInput = {
 	state: GrantsState;
 	/** The time of the event being handled, not the clock. */
 	now: number;
+	/**
+	 * Stripe's mode for this subject, part of its subject key. Default `"live"`; a school with both a test and a live
+	 * endpoint passes it so the two do not share a subject. Anything else throws.
+	 */
+	env?: AtmEnv;
 } & GrantVersions;
 
 /**
@@ -793,6 +801,11 @@ export type GrantRemovalInput = {
 	state: GrantsState;
 	subject: AtmSubject | null;
 	now: number;
+	/**
+	 * Stripe's mode for this subject, part of its subject key. Default `"live"`; a school with both a test and a live
+	 * endpoint passes it so the two do not share a subject. Anything else throws.
+	 */
+	env?: AtmEnv;
 } & GrantVersions;
 
 export type SubscriptionEndInput = {
@@ -810,6 +823,11 @@ export type SubscriptionEndInput = {
 	state: GrantsState;
 	subject: AtmSubject | null;
 	now: number;
+	/**
+	 * Stripe's mode for this subject, part of its subject key. Default `"live"`; a school with both a test and a live
+	 * endpoint passes it so the two do not share a subject. Anything else throws.
+	 */
+	env?: AtmEnv;
 } & GrantVersions;
 
 // ---- Stripe menu and checkout ----
@@ -1086,6 +1104,12 @@ export type StripeEventInput = {
 	 * or lost dispute finds the invoice to take credits back from here. Learn it from `invoice_payment.paid`.
 	 */
 	invoiceIds?: Readonly<Record<string, string>>;
+	/**
+	 * Stripe's mode for this subject, part of its subject key and of `identity.env` on every command. Default `"live"`.
+	 * A school with both a test and a live endpoint passes it so the two do not share a subject; build `catalog` with
+	 * the same `env` (`menuCatalogRows`). Anything else throws.
+	 */
+	env?: AtmEnv;
 };
 
 /** Why an event was set aside: nothing was decided and nothing is to be written. Keep the event and retry after the cause is fixed. */
@@ -1425,6 +1449,12 @@ export type WebhookDeps = {
 	workerId: string;
 	/** A claim older than this is taken over. Default 300_000. */
 	claimStaleAfterMs?: number;
+	/**
+	 * The Stripe mode this endpoint receives, part of the subject key it writes (`<school>|<env>|family:<id>`). Default
+	 * `"live"`. A school with both a test and a live endpoint passes it so the two do not share a subject; build the
+	 * context's catalog with the same `env`. Anything else throws.
+	 */
+	env?: AtmEnv;
 	/**
 	 * The school's menu, policy and catalog; null when this service does not serve the school. Called once per attempt,
 	 * inside the transaction, so a throw here leaves nothing written.

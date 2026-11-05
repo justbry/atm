@@ -36,6 +36,7 @@ import type {
 	AtmCatalogRow,
 	AtmCommand,
 	AtmCommandType,
+	AtmEnv,
 	AtmEvent,
 	AtmEventContext,
 	AtmIdentity,
@@ -261,6 +262,8 @@ export const menuCatalogRows = (input: {
 	menu: Menu;
 	school: string;
 	createdAt?: number;
+	/** The Stripe mode of the subjects the catalog serves; default `"live"`. */
+	env?: AtmEnv;
 }): AtmCatalogRow[] => grants.menuCatalogRows(input);
 
 /** The engine commands a paid invoice makes (grants, resets, upgrades), and the next state. A replayed invoice gives none. */

@@ -131,7 +131,8 @@ All eight slices were reviewed by sub-agents and the findings fixed slice by sli
 
 ### Decouple, the cheap parts
 - [ ] A metadata prefix in the policy instead of the hardcoded `b4u_`; menu limits (4 tiers, 6 add-ons, 12 features) in the policy; a generic `holderId` instead of `family_id`.
-- [ ] `env` is fixed to `"live"` in `handle.ts` and `grants.ts`. The owner's note says it is hardcoded in the B4 Uni family service: check which and fix where it is.
+- [x] `env` is fixed to `"live"` in `handle.ts` and `grants.ts`. It was atm's (five sites: `handle.ts`, `stripe-webhook.ts` and three in `grants.ts`); it is now an option that defaults to `"live"` on `handleStripeEvent`, the grants functions, `menuCatalogRows` and `WebhookDeps`. The family service has `billingKeyMode` and still has to pass it; it has not yet.
+- [ ] The handler's `atm_event_claims`, `atm_invoice_index`, `atm_payment_index` and `ledger_outbox` keys carry no env (nor does the event id atm derives from the school and Stripe's id). Stripe's ids differ between test and live mode, so two endpoints sharing one database do not collide; the same id delivered under both envs would be claimed once. Closing it changes the DDL, so it waits for a schema version.
 - Separate task: tree-shaking the ~1,200 `@autumn/shared` files the engine pulls in.
 
 ### Kept from the quantities and adoption work

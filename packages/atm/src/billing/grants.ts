@@ -17,6 +17,8 @@
  * instant as input; its own month arithmetic is for resets and rollovers).
  */
 
+import type { AtmEnv } from "../types.js";
+import { resolveEnv } from "./env.js";
 import { prorationPair, raiseLine, raiseUnits, upgradeUnits } from "./raise.js";
 import { subscriptionStatus } from "./status.js";
 import type {
@@ -222,11 +224,15 @@ export const menuCatalogRows = ({
 	menu,
 	school,
 	createdAt = 0,
+	env,
 }: {
 	menu: Menu;
 	school: string;
 	createdAt?: number;
+	/** The Stripe mode the rows belong to; default `"live"`. Use the one the subjects' identities carry. */
+	env?: AtmEnv;
 }): CatalogRowOut[] => {
+	const rowEnv = resolveEnv(env);
 	const rows: CatalogRowOut[] = [];
 	const ent = (
 		id: string,
@@ -268,7 +274,7 @@ export const menuCatalogRows = ({
 				deleted_at: null,
 				previous_version_slug: null,
 				group: isAddOn ? "addon" : "membership",
-				env: "live",
+				env: rowEnv,
 				internal_id: internalProduct(id),
 				org_id: school,
 				created_at: createdAt,
@@ -285,7 +291,7 @@ export const menuCatalogRows = ({
 				internal_id: featId(f.id),
 				org_id: school,
 				created_at: createdAt,
-				env: "live",
+				env: rowEnv,
 				id: f.id,
 				name: f.name,
 				type: "metered",
@@ -486,17 +492,21 @@ export type Op = Record<string, unknown>;
 
 class Builder {
 	readonly commands: GrantCommand[] = [];
+	private readonly env: AtmEnv;
 	constructor(
 		private readonly source: FactSource,
 		private readonly identity: {
 			orgId: string;
 			customerId: string;
 		},
-	) {}
+		env?: AtmEnv,
+	) {
+		this.env = resolveEnv(env);
+	}
 	get ident() {
 		return {
 			orgId: this.identity.orgId,
-			env: "live",
+			env: this.env,
 			customerId: this.identity.customerId,
 			entityId: null,
 		};
@@ -689,7 +699,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 	const state = clone(input.state);
 	const who = identityFrom(invoice, state);
 	state.holder ??= who;
-	const b = new Builder(invoice.source, who);
+	const b = new Builder(invoice.source, who, input.env);
 	const record: InvoiceRecord = {
 		paidAt: invoice.paidAt,
 		granted: [],
@@ -1271,7 +1281,7 @@ const removeInvoice = ({
 		(state.invoices[invoiceId as string] as InvoiceRecord).removed = true;
 		return { commands: [], labels, state };
 	}
-	const b = new Builder(source, state.identity);
+	const b = new Builder(source, state.identity, input.env);
 	const held = heldOf(input.subject);
 	const cut = new Map<string, number>();
 	const ops: Op[] = [];
@@ -1392,7 +1402,7 @@ export const subscriptionEndedToCommands = (
 			set: { expires_at: rolloverExpiry(rollover, boundary) ?? boundary },
 		});
 	}
-	const b = new Builder(fact.source, prior.identity);
+	const b = new Builder(fact.source, prior.identity, input.env);
 	b.plan(now, ops);
 	return { commands: b.commands, labels, state };
 };
