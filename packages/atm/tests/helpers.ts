@@ -18,12 +18,20 @@ export const readTree = async (
 	return out;
 };
 
-export const hasHledger =
-	Bun.spawnSync(["hledger", "--version"], { stdout: "pipe", stderr: "pipe" })
-		.exitCode === 0;
-export const hasDuckdb =
-	Bun.spawnSync(["duckdb", "--version"], { stdout: "pipe", stderr: "pipe" })
-		.exitCode === 0;
+/** Whether `command --version` runs. Bun's `spawnSync` throws ENOENT for a binary that is not installed, so a missing tool is caught here and reads as false (a skip), not as an error that fails the suite. */
+const runsWithVersion = (command: string): boolean => {
+	try {
+		return (
+			Bun.spawnSync([command, "--version"], { stdout: "pipe", stderr: "pipe" })
+				.exitCode === 0
+		);
+	} catch {
+		return false;
+	}
+};
+
+export const hasHledger = runsWithVersion("hledger");
+export const hasDuckdb = runsWithVersion("duckdb");
 
 /** The `weed` binary for the SeaweedFS contract run: env ATM_WEED when it runs, else `weed` on PATH, else null. */
 export const weedBinary = (() => {
