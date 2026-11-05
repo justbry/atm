@@ -1,0 +1,49 @@
+{
+  "profile": "adhoc-annual-refunds",
+  "seed": 7,
+  "params": {
+    "months": 14,
+    "start": "2026-01",
+    "members": 24,
+    "newMembersPerMonth": 0,
+    "tierMix": {
+      "audit": 3,
+      "scholar": 4,
+      "fellow": 1
+    },
+    "yearlyShare": 1,
+    "addonRate": 0.25,
+    "freeShare": 0,
+    "churnRate": 0.02,
+    "refundRate": 0.2,
+    "partialRefundShare": 0.5,
+    "disputeRate": 0.005,
+    "disputeLostShare": 0.6,
+    "usageRate": 0.6,
+    "currency": "usd",
+    "feePercent": 2.9,
+    "feeFixedCents": 30
+  },
+  "fixtureHash": "4f55431fba59be0dd7a2a3c05213b0de379dcc93c296dff39af516d712c881c6",
+  "kpisHash": "ba1b877142ae88ef5c41e2d4da6d4f94f7a29499195cadfccc2479ee9b0363cc",
+  "events": 759,
+  "periods": 14,
+  "summary": {
+    "gross_collected": 1191500,
+    "refunds": 223000,
+    "disputes_lost": 0,
+    "dispute_fees": 0,
+    "stripe_fees": 35875,
+    "net_income": 932625,
+    "payouts": 932625,
+    "payments_count": 44,
+    "refunds_count": 10,
+    "disputes_opened": 0,
+    "new_members": 24,
+    "credits_granted": 1289,
+    "credits_consumed": 272,
+    "credits_expired": 200,
+    "billed_members_last_period": 0
+  },
+  "skippedNonUsd": 0
+}

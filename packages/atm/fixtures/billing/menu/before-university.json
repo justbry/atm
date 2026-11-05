@@ -1,0 +1,107 @@
+{
+	"currency": "usd",
+	"timeZone": "America/Denver",
+	"features": [
+		{
+			"id": "class",
+			"name": "Class",
+			"unit": { "one": "class", "other": "classes" }
+		},
+		{
+			"id": "workshop",
+			"name": "Workshop",
+			"unit": { "one": "workshop", "other": "workshops" }
+		},
+		{
+			"id": "coaching",
+			"name": "Coaching hour",
+			"unit": { "one": "coaching hour", "other": "coaching hours" }
+		}
+	],
+	"tiers": [
+		{
+			"id": "audit",
+			"name": "Audit",
+			"blurb": "Sit in on one class a month",
+			"public": true,
+			"prices": [
+				{ "interval": "month", "amount": 1200 },
+				{ "interval": "year", "amount": 12000 }
+			],
+			"grants": [{ "featureId": "class", "amount": 1, "every": "month" }]
+		},
+		{
+			"id": "scholar",
+			"name": "Scholar",
+			"blurb": "Four classes a month and a yearly workshop",
+			"public": true,
+			"prices": [
+				{ "interval": "month", "amount": 2900 },
+				{ "interval": "year", "amount": 29000 }
+			],
+			"grants": [
+				{
+					"featureId": "class",
+					"amount": 4,
+					"every": "month",
+					"rollover": { "max": 4, "months": 1 }
+				},
+				{ "featureId": "workshop", "amount": 1, "every": "year" }
+			]
+		},
+		{
+			"id": "seminar",
+			"name": "Seminar",
+			"blurb": "Pick 1, 2 or 4 seminar seats a month",
+			"public": true,
+			"prices": [{ "interval": "month", "amount": 900 }],
+			"grants": [{ "featureId": "class", "amount": 2, "every": "month" }],
+			"quantities": [1, 2, 4]
+		},
+		{
+			"id": "fellow",
+			"name": "Fellow",
+			"blurb": "Eight classes and two workshops a month, with rollover",
+			"public": true,
+			"prices": [
+				{ "interval": "month", "amount": 5900 },
+				{ "interval": "year", "amount": 59000 }
+			],
+			"grants": [
+				{
+					"featureId": "class",
+					"amount": 8,
+					"every": "month",
+					"rollover": { "max": 16, "months": 3 }
+				},
+				{ "featureId": "workshop", "amount": 2, "every": "month" }
+			]
+		}
+	],
+	"addons": [
+		{
+			"id": "library-pass",
+			"name": "Library pass",
+			"price": { "amount": 500, "every": "month" },
+			"grants": [{ "featureId": "workshop", "amount": 1, "every": "month" }]
+		},
+		{
+			"id": "annual-lab",
+			"name": "Annual lab",
+			"price": { "amount": 4000, "every": "year" },
+			"grants": [{ "featureId": "workshop", "amount": 4, "every": "year" }]
+		},
+		{
+			"id": "starter-kit",
+			"name": "Starter kit",
+			"price": { "amount": 1500, "every": "once" },
+			"grants": [{ "featureId": "workshop", "amount": 1, "every": "month" }]
+		},
+		{
+			"id": "tutor-hour",
+			"name": "Tutor hour",
+			"price": { "amount": 4000, "every": "once" },
+			"grants": [{ "featureId": "coaching", "amount": 1, "every": "month" }]
+		}
+	]
+}
