@@ -154,6 +154,10 @@ export const formatReconcile = (result: ReconcileResult): string => {
 		lines.push(`not supplied: ${STRIPE_FILES[list]} (its checks did not run)`);
 	for (const [reason, count] of Object.entries(result.ignored))
 		lines.push(`ignored ${count} Stripe record(s): ${reason}`);
+	for (const [reason, count] of Object.entries(result.skipped))
+		lines.push(
+			`skipped in the log: ${count} money line(s) not booked (${reason})`,
+		);
 	for (const [object, count] of Object.entries(result.counts))
 		lines.push(
 			`${object}: Stripe ${count.stripe ?? "not supplied"}, log ${count.log}`,

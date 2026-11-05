@@ -182,6 +182,15 @@ export function menuLineItems(
 	return out;
 }
 
+/**
+ * The product keys a dollar gift certificate may pay for: every public tier with a usable price and every add-on with one
+ * that is not a gift itself, in menu order (the keys `menuToStripe` publishes products under).
+ */
+export const giftProductKeys = (schoolId: string, menu: Menu): string[] =>
+	wantedOf(schoolId, menu)
+		.filter((w) => w.key.startsWith("t:") || !w.prices.some((p) => p.gift))
+		.map((w) => w.key);
+
 const desc = (w: Wanted): { description?: string } =>
 	w.description ? { description: w.description } : {};
 
@@ -195,18 +204,76 @@ const stamp = (schoolId: string, op: WithoutKey<StripeOp>): StripeOp =>
 		idempotencyKey: `atm:${schoolId}:${op.op}:${digest(JSON.stringify(op), 24)}`,
 	}) as StripeOp;
 
-/** The member discount a policy asks for, as Stripe objects: one coupon on the tier products, one code for it. Null when there is no code or no tier product. */
-function memberPlan(schoolId: string, menu: Menu, policy: BillingPolicy) {
+/** A member code as the menu and the policy together offer it: `menu.codes` first, then `policy.memberCode` unless a menu code has the same text (compared without case). */
+type EffectiveCode = {
+	/** The menu code's id; absent for `policy.memberCode`, which keeps the coupon id 0.6.0 made. */
+	menuId?: string;
+	code: string;
+	percentOff: number;
+	tierIds?: string[];
+	firstTimeOnly: boolean;
+	expiresAt?: number;
+};
+
+const memberCodesOf = (menu: Menu, policy: BillingPolicy): EffectiveCode[] => {
+	const out: EffectiveCode[] = (menu.codes ?? []).map((c) => ({
+		menuId: c.id,
+		code: c.code,
+		percentOff: c.percentOff,
+		...(c.tierIds ? { tierIds: c.tierIds } : {}),
+		firstTimeOnly: c.firstTimeOnly ?? true,
+		...(c.expiresAt === undefined ? {} : { expiresAt: c.expiresAt }),
+	}));
 	const mc = policy.memberCode;
-	if (!mc) return null;
-	const appliesToProductKeys = wantedOf(schoolId, menu)
+	if (mc && !out.some((c) => c.code.toLowerCase() === mc.code.toLowerCase()))
+		out.push({ code: mc.code, percentOff: mc.percentOff, firstTimeOnly: true });
+	return out;
+};
+
+type MemberPlan = {
+	id: string;
+	percentOff: number;
+	appliesToProductKeys: string[];
+	code: string;
+	firstTimeOnly: boolean;
+	expiresAt?: number;
+};
+
+/**
+ * The member discounts a menu and policy ask for, as Stripe objects: per code one coupon on the tier products the code
+ * covers (its `tierIds`, else every public tier; never add-ons) and one promotion code for it. A code with no tier product
+ * is left out. The coupon's product list cannot change in Stripe, so its id names the percentage and the list: another
+ * list or percentage is another coupon. A code with no menu id (the policy's) keeps the id 0.6.0 gave it.
+ */
+function memberPlans(
+	schoolId: string,
+	menu: Menu,
+	policy: BillingPolicy,
+): MemberPlan[] {
+	const tierKeys = wantedOf(schoolId, menu)
 		.filter((w) => w.key.startsWith("t:"))
-		.map((w) => w.key)
-		.sort();
-	if (appliesToProductKeys.length === 0) return null;
-	// The coupon's product list cannot change in Stripe, so the id names it: another list, another coupon.
-	const id = `b4u_${schoolId.slice(0, 8)}_member_${mc.percentOff}_${digest(appliesToProductKeys.join(","), 8)}`;
-	return { id, percentOff: mc.percentOff, appliesToProductKeys, code: mc.code };
+		.map((w) => w.key);
+	const plans: MemberPlan[] = [];
+	for (const c of memberCodesOf(menu, policy)) {
+		const appliesToProductKeys = tierKeys
+			.filter((key) => !c.tierIds || c.tierIds.includes(key.slice(2)))
+			.sort();
+		if (appliesToProductKeys.length === 0) continue;
+		const list = digest(appliesToProductKeys.join(","), 8);
+		const id =
+			c.menuId === undefined
+				? `b4u_${schoolId.slice(0, 8)}_member_${c.percentOff}_${list}`
+				: `b4u_${schoolId.slice(0, 8)}_code_${c.menuId}_${c.percentOff}_${list}`;
+		plans.push({
+			id,
+			percentOff: c.percentOff,
+			appliesToProductKeys,
+			code: c.code,
+			firstTimeOnly: c.firstTimeOnly,
+			...(c.expiresAt === undefined ? {} : { expiresAt: c.expiresAt }),
+		});
+	}
+	return plans;
 }
 
 /**
@@ -288,37 +355,45 @@ export function menuToStripe(input: MenuToStripeInput): StripeOp[] {
 				}),
 			);
 
-	const now = memberPlan(schoolId, menu, policy);
-	const before = previous
-		? memberPlan(schoolId, previous, input.previousPolicy ?? policy)
-		: null;
-	if (JSON.stringify(now) !== JSON.stringify(before)) {
-		// Old code and coupon go first, so no old code stays live and a code name is free to move to a new coupon.
-		if (before && (before.code !== now?.code || before.id !== now?.id))
-			ops.push(
-				stamp(schoolId, { op: "promotion_code.deactivate", code: before.code }),
-			);
-		if (before && before.id !== now?.id)
-			ops.push(stamp(schoolId, { op: "coupon.archive", id: before.id }));
-		if (now) {
-			if (now.id !== before?.id)
-				ops.push(
-					stamp(schoolId, {
-						op: "coupon.ensure",
-						id: now.id,
-						percentOff: now.percentOff,
-						appliesToProductKeys: now.appliesToProductKeys,
-					}),
-				);
+	const wantedPlans = memberPlans(schoolId, menu, policy);
+	const hadPlans = previous
+		? memberPlans(schoolId, previous, input.previousPolicy ?? policy)
+		: [];
+	const same = (x: MemberPlan, y: MemberPlan) =>
+		JSON.stringify(x) === JSON.stringify(y);
+	// Old codes and coupons go first, so no old code stays live and a code name is free to move to a new coupon.
+	const gone = hadPlans.filter(
+		(old) => !wantedPlans.some((wanted) => same(old, wanted)),
+	);
+	for (const old of gone)
+		ops.push(
+			stamp(schoolId, { op: "promotion_code.deactivate", code: old.code }),
+		);
+	for (const old of gone)
+		if (!wantedPlans.some((wanted) => wanted.id === old.id))
+			ops.push(stamp(schoolId, { op: "coupon.archive", id: old.id }));
+	for (const wanted of wantedPlans) {
+		if (hadPlans.some((old) => same(old, wanted))) continue;
+		if (!hadPlans.some((old) => old.id === wanted.id))
 			ops.push(
 				stamp(schoolId, {
-					op: "promotion_code.ensure",
-					code: now.code,
-					couponId: now.id,
-					firstTimeOnly: true,
+					op: "coupon.ensure",
+					id: wanted.id,
+					percentOff: wanted.percentOff,
+					appliesToProductKeys: wanted.appliesToProductKeys,
 				}),
 			);
-		}
+		ops.push(
+			stamp(schoolId, {
+				op: "promotion_code.ensure",
+				code: wanted.code,
+				couponId: wanted.id,
+				firstTimeOnly: wanted.firstTimeOnly,
+				...(wanted.expiresAt === undefined
+					? {}
+					: { expiresAt: wanted.expiresAt }),
+			}),
+		);
 	}
 	return ops;
 }
@@ -367,6 +442,23 @@ export function checkoutParams(input: CheckoutInput): CheckoutResult {
 			),
 		);
 	}
+	// One code per checkout (Stripe refuses `discounts` and `allow_promotion_codes` together, and takes one code).
+	let appliedCode: string | null = null;
+	if (input.code !== undefined) {
+		const wanted = input.code.trim().toLowerCase();
+		const found = memberCodesOf(menu, policy).find(
+			(c) => c.code.toLowerCase() === wanted,
+		);
+		if (!found)
+			return { ok: false, reason: "code_not_found", code: input.code };
+		if (found.tierIds && !found.tierIds.includes(tier.id))
+			return { ok: false, reason: "code_not_applicable", code: input.code };
+		appliedCode = found.code;
+	}
+	// A buyer may type a member code, or the code of a dollar gift certificate (made after the menu, so the menu cannot name it).
+	const mayTypeCode =
+		memberCodesOf(menu, policy).length > 0 ||
+		menu.addons.some((addon) => addon.gift === "dollars");
 	const metadata: Record<string, string> = {
 		b4u_school: schoolId,
 		family_id: input.familyId,
@@ -396,7 +488,15 @@ export function checkoutParams(input: CheckoutInput): CheckoutResult {
 						? { ...metadata }
 						: { ...metadata, quantity: String(quantity) },
 			},
-			...(policy.memberCode ? { allow_promotion_codes: true as const } : {}),
+			...(appliedCode === null
+				? mayTypeCode
+					? { allow_promotion_codes: true as const }
+					: {}
+				: {
+						discounts: [{ promotionCode: appliedCode }] as [
+							{ promotionCode: string },
+						],
+					}),
 		},
 	};
 }
@@ -465,10 +565,16 @@ export function oneTimeCheckoutParams(
 	};
 }
 
-/** `params` with each line's lookup key swapped for its Stripe price id, quantities kept; null when a price id is missing (not published yet). */
+/**
+ * `params` with each line's lookup key swapped for its Stripe price id, quantities kept; null when a price id is missing
+ * (not published yet). A membership's `discounts` names its promotion code by text: pass `promotionCodeIds` (Stripe's
+ * `promo_...` id by code text, compared without case) to swap it for the id; null when the code has no id yet. Without
+ * the map a `discounts` entry cannot be completed, so that too is null.
+ */
 export function withPriceIds(
 	params: CheckoutParams,
 	priceIds: Readonly<Record<string, string>>,
+	promotionCodeIds?: Readonly<Record<string, string>>,
 ): CheckoutParamsWithPrices | null;
 export function withPriceIds(
 	params: OneTimeCheckoutParams,
@@ -477,6 +583,7 @@ export function withPriceIds(
 export function withPriceIds(
 	params: CheckoutParams | OneTimeCheckoutParams,
 	priceIds: Readonly<Record<string, string>>,
+	promotionCodeIds: Readonly<Record<string, string>> = {},
 ): CheckoutParamsWithPrices | OneTimeCheckoutParamsWithPrices | null {
 	if (params.mode === "payment") {
 		const items: { price: string; quantity: 1 }[] = [];
@@ -496,12 +603,23 @@ export function withPriceIds(
 		if (!price) return null;
 		addonItems.push({ price, quantity: line.quantity });
 	}
+	const { discounts, ...rest } = params;
+	let promotion: { discounts: [{ promotion_code: string }] } | null = null;
+	if (discounts) {
+		const wanted = discounts[0].promotionCode.toLowerCase();
+		const id = Object.entries(promotionCodeIds).find(
+			([text]) => text.toLowerCase() === wanted,
+		)?.[1];
+		if (!id) return null;
+		promotion = { discounts: [{ promotion_code: id }] };
+	}
 	return {
-		...params,
+		...rest,
 		line_items: [
 			{ price: tierPrice, quantity: tierLine.quantity },
 			...addonItems,
 		],
+		...(promotion ?? {}),
 	};
 }
 

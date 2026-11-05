@@ -907,7 +907,7 @@ describe("handleStripeWebhook", () => {
 		const h = harness();
 		h.deliver(create());
 		expect(h.raw.query(`SELECT * FROM atm_invoice_index`).all()).toEqual([
-			{ invoice_id: "in_1", subject_key: SUBJECT_KEY },
+			{ env: "live", invoice_id: "in_1", subject_key: SUBJECT_KEY },
 		]);
 		expect(h.count("atm_payment_index")).toBe(0);
 		h.clock.now += MINUTE;
@@ -1026,7 +1026,7 @@ describe("refunds and disputes find their invoice through invoice_payment.paid",
 			},
 		});
 		expect(h.raw.query(`SELECT * FROM atm_payment_index`).all()).toEqual([
-			{ payment_ref: paymentIntentOf("in_1"), invoice_id: "in_1" },
+			{ env: "live", payment_ref: paymentIntentOf("in_1"), invoice_id: "in_1" },
 		]);
 		expect(h.claim("evt_pay_in_1")).toMatchObject({
 			state: "done",
@@ -1164,8 +1164,8 @@ describe("refunds and disputes find their invoice through invoice_payment.paid",
 		expect(
 			h.raw.query(`SELECT * FROM atm_invoice_index ORDER BY invoice_id`).all(),
 		).toEqual([
-			{ invoice_id: "in_1", subject_key: SUBJECT_KEY },
-			{ invoice_id: "in_9", subject_key: otherSubject },
+			{ env: "live", invoice_id: "in_1", subject_key: SUBJECT_KEY },
+			{ env: "live", invoice_id: "in_9", subject_key: otherSubject },
 		]);
 		const otherRows = () =>
 			h.raw
@@ -1194,7 +1194,7 @@ describe("refunds and disputes find their invoice through invoice_payment.paid",
 		expect(shapeProblems(event)).toEqual([]);
 		expect(h.deliver(event).body.outcome).toBe("applied");
 		expect(h.raw.query(`SELECT * FROM atm_payment_index`).all()).toEqual([
-			{ payment_ref: "ch_in_1", invoice_id: "in_1" },
+			{ env: "live", payment_ref: "ch_in_1", invoice_id: "in_1" },
 		]);
 		h.clock.now = T1 + 3_600_000;
 		expect(h.deliver(refund("in_1")).body.outcome).toBe("applied");
@@ -1247,7 +1247,7 @@ describe("refunds and disputes find their invoice through invoice_payment.paid",
 		const h = harness({ paymentRefsHook: true });
 		h.deliver(create());
 		expect(h.raw.query(`SELECT * FROM atm_payment_index`).all()).toEqual([
-			{ payment_ref: paymentIntentOf("in_1"), invoice_id: "in_1" },
+			{ env: "live", payment_ref: paymentIntentOf("in_1"), invoice_id: "in_1" },
 		]);
 		h.clock.now = T1 + 3_600_000;
 		expect(h.deliver(refund("in_1")).body.outcome).toBe("applied");
@@ -1269,7 +1269,7 @@ describe("refunds and disputes find their invoice through invoice_payment.paid",
 		};
 		expect(h.deliver(create(), sloppy).body.outcome).toBe("applied");
 		expect(h.raw.query(`SELECT * FROM atm_payment_index`).all()).toEqual([
-			{ payment_ref: paymentIntentOf("in_1"), invoice_id: "in_1" },
+			{ env: "live", payment_ref: paymentIntentOf("in_1"), invoice_id: "in_1" },
 		]);
 		expect(h.claim("evt_create")?.state).toBe("done");
 	});
@@ -1339,6 +1339,7 @@ describe("refunds and disputes find their invoice through invoice_payment.paid",
 		expect(h.deliver(event).body.outcome).toBe("applied");
 		expect(h.raw.query(`SELECT * FROM atm_payment_index`).all()).toEqual([
 			{
+				env: "live",
 				payment_ref: event.data.object.payment.payment_intent,
 				invoice_id: event.data.object.invoice,
 			},

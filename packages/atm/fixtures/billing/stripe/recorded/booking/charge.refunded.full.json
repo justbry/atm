@@ -1,0 +1,149 @@
+{
+	"api_version": "2025-10-29.clover",
+	"created": 1793909006,
+	"data": {
+		"object": {
+			"amount": 3000,
+			"amount_captured": 3000,
+			"amount_refunded": 3000,
+			"application": null,
+			"application_fee": null,
+			"application_fee_amount": null,
+			"balance_transaction": "txn_3UYWsHScrubTest01IukLl9X",
+			"billing_details": {
+				"address": {
+					"city": "Example City",
+					"country": "US",
+					"line1": "1 Example Street",
+					"line2": null,
+					"postal_code": "00000",
+					"state": "CA"
+				},
+				"email": "member@example.test",
+				"name": "Example Customer",
+				"phone": null,
+				"tax_id": null
+			},
+			"calculated_statement_descriptor": "EXAMPLE ACCOUNT",
+			"captured": true,
+			"created": 1793908985,
+			"currency": "usd",
+			"customer": null,
+			"description": null,
+			"destination": null,
+			"dispute": null,
+			"disputed": false,
+			"failure_balance_transaction": null,
+			"failure_code": null,
+			"failure_message": null,
+			"fraud_details": {},
+			"id": "ch_3UYWsHScrubTest01B30m61J",
+			"livemode": false,
+			"metadata": {
+				"booking_id": "bk_trig1"
+			},
+			"object": "charge",
+			"on_behalf_of": null,
+			"order": null,
+			"outcome": {
+				"advice_code": null,
+				"network_advice_code": null,
+				"network_decline_code": null,
+				"network_status": "approved_by_network",
+				"reason": null,
+				"risk_level": "normal",
+				"risk_score": 43,
+				"seller_message": "Payment complete.",
+				"type": "authorized"
+			},
+			"paid": true,
+			"payment_intent": "pi_3UYWsHScrubTest010cbV46R",
+			"payment_method": "pm_1UYWsGScrubTest0H7ZtOajs",
+			"payment_method_details": {
+				"card": {
+					"amount_authorized": 3000,
+					"authorization_code": "000000",
+					"brand": "visa",
+					"checks": {
+						"address_line1_check": "pass",
+						"address_postal_code_check": "pass",
+						"cvc_check": "pass"
+					},
+					"country": "US",
+					"electronic_commerce_indicator": "07",
+					"exp_month": 11,
+					"exp_year": 2027,
+					"extended_authorization": {
+						"status": "disabled"
+					},
+					"fingerprint": "ScrubbedFingerprint",
+					"funding": "credit",
+					"incremental_authorization": {
+						"status": "unavailable"
+					},
+					"installments": null,
+					"last4": "4242",
+					"mandate": null,
+					"multicapture": {
+						"status": "unavailable"
+					},
+					"network": "visa",
+					"network_token": {
+						"used": false
+					},
+					"network_transaction_id": "ScrubbedNetworkTransactionId",
+					"overcapture": {
+						"maximum_amount_capturable": 3000,
+						"status": "unavailable"
+					},
+					"regulated_status": "unregulated",
+					"three_d_secure": null,
+					"transaction_link_id": null,
+					"wallet": null
+				},
+				"type": "card"
+			},
+			"radar_options": {},
+			"receipt_email": null,
+			"receipt_number": null,
+			"receipt_url": "https://example.test/pay.stripe.com",
+			"refunded": true,
+			"review": null,
+			"shipping": {
+				"address": {
+					"city": "Example City",
+					"country": "US",
+					"line1": "1 Example Street",
+					"line2": null,
+					"postal_code": "00000",
+					"state": "CA"
+				},
+				"carrier": null,
+				"name": "Example Customer",
+				"phone": null,
+				"tracking_number": null
+			},
+			"source": null,
+			"source_transfer": null,
+			"statement_descriptor": null,
+			"statement_descriptor_suffix": null,
+			"status": "succeeded",
+			"transfer_data": null,
+			"transfer_group": null
+		},
+		"previous_attributes": {
+			"amount_refunded": 0,
+			"receipt_url": "https://example.test/pay.stripe.com",
+			"refunded": false
+		}
+	},
+	"id": "evt_3UYWsHScrubTest01hVj2eFs",
+	"livemode": false,
+	"object": "event",
+	"pending_webhooks": 0,
+	"request": {
+		"id": "req_GRtNjeva9IRaxv",
+		"idempotency_key": "scrubbed-idempotency-key"
+	},
+	"type": "charge.refunded"
+}

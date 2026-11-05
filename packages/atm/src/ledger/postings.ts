@@ -18,6 +18,9 @@ import {
 	unitsToString,
 } from "./util.js";
 
+/** The money commodity: dollars in the books. A credit's commodity must never be this one. */
+export const MONEY_COMMODITY = "USD";
+
 /** `visit` -> `VISIT`: a credit commodity is the feature id in capitals, letters only (hledger needs quotes otherwise). */
 export const commodityOf = (feature: string): string => {
 	const code = feature.toUpperCase().replace(/[^A-Z]/g, "");
@@ -180,7 +183,7 @@ const creditPostings = (
 };
 
 const usd = (account: string, cents: number) =>
-	post(account, centsToString(cents), "USD");
+	post(account, centsToString(cents), MONEY_COMMODITY);
 
 /** Money and bookkeeping events, which have no engine mutation behind them. */
 export const moneyPostings = (i: AtmLedgerEventInput): AtmPosting[] => {
@@ -207,13 +210,25 @@ export const moneyPostings = (i: AtmLedgerEventInput): AtmPosting[] => {
 				usd("assets:stripe", -positive()),
 				usd("income:billing:refunds", amount),
 			];
-		case "payment.disputed":
-			return [
-				usd("assets:stripe", -positive()),
-				usd("expenses:billing:disputes", amount),
+		case "payment.disputed": {
+			// Stripe withdraws the disputed amount and its dispute fee together, when the dispute opens: the cash falls by
+			// both, the amount is the disputes expense and the fee is its own line.
+			const disputed = positive();
+			const fee = i.fee ?? 0;
+			if (!Number.isInteger(fee) || fee < 0)
+				throw new Error(
+					"payment.disputed needs a whole, non-negative fee in cents",
+				);
+			const lines = [
+				usd("assets:stripe", -(disputed + fee)),
+				usd("expenses:billing:disputes", disputed),
 			];
+			if (fee !== 0) lines.push(usd("expenses:billing:dispute-fees", fee));
+			return lines;
+		}
 		case "dispute.closed":
-			// Won: the money comes back. Lost: the dispute's own debit already stands.
+			// Won: the amount comes back, the fee does not (nothing here books the fee back). Lost: the dispute's own debit
+			// already stands.
 			return i.won
 				? [
 						usd("assets:stripe", positive()),
@@ -241,6 +256,7 @@ export const moneyPostings = (i: AtmLedgerEventInput): AtmPosting[] => {
 				usd("liabilities:b4uni", -amount),
 			];
 		case "plan.attached":
+		case "money.skipped":
 		case "plan.changed":
 		case "plan.canceled":
 		case "subject.erased":
@@ -258,7 +274,8 @@ const defaultSource = (type: AtmEventType): string => {
 	if (
 		type.startsWith("payment.") ||
 		type === "dispute.closed" ||
-		type === "payout.paid"
+		type === "payout.paid" ||
+		type === "money.skipped"
 	)
 		return "stripe";
 	if (type.startsWith("fundraise.")) return "zeffy";

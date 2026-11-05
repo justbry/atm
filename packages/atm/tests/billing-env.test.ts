@@ -296,15 +296,24 @@ describe("env on the reference webhook handler", () => {
 		expect(claims).toHaveLength(2);
 	});
 
-	test("the claim, invoice index and outbox are keyed by Stripe's ids, not by env: one id delivered under both envs in one database is claimed once", () => {
-		// Documents a known limit: the tables' primary keys carry no env. It cannot arise from Stripe (an event id is
-		// never shared between test and live mode); it is what happens if a caller reuses one id for both.
+	test("the claim, invoice index and outbox are keyed by env as well as Stripe's id: one id delivered under both envs in one database is decided once in each", () => {
+		// It cannot arise from Stripe (an event id is never shared between test and live mode); it is what happens if a
+		// caller reuses one id for both. Before the tables carried env, the second delivery was answered `duplicate`.
 		const { db } = harness();
 		const live = harness({ db, env: "live" });
 		const test = harness({ db, env: "test" });
 		expect(live.deliver(invoiceEvent).body.outcome).toBe("applied");
-		expect(test.deliver(invoiceEvent).body.outcome).toBe("duplicate");
-		expect(subjectKeysOf(db)).toEqual([`${SCHOOL}|live|family:${familyId}`]);
+		expect(test.deliver(invoiceEvent).body.outcome).toBe("applied");
+		expect(subjectKeysOf(db)).toEqual([
+			`${SCHOOL}|live|family:${familyId}`,
+			`${SCHOOL}|test|family:${familyId}`,
+		]);
+		expect(
+			db.all("SELECT env, event_id, state FROM atm_event_claims ORDER BY env"),
+		).toEqual([
+			{ env: "live", event_id: invoiceEvent.id, state: "done" },
+			{ env: "test", event_id: invoiceEvent.id, state: "done" },
+		]);
 	});
 });
 

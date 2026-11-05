@@ -17,7 +17,7 @@ import { HANDLER_DDL } from "../src/handler/schema.js";
 import { signStripePayload } from "../src/handler/stripe-signature.js";
 import { handleStripeWebhook } from "../src/handler/stripe-webhook.js";
 import type { WebhookDeps } from "../src/handler/types.js";
-import type { AtmEvent } from "../src/types.js";
+import type { AtmEnv, AtmEvent } from "../src/types.js";
 import {
 	chargeRefunded,
 	invoicePaid,
@@ -125,22 +125,22 @@ export type FeeLookup =
 /**
  * A live endpoint for the school; `fees` is what the caller read from Stripe for each invoice. The matrix serves a second
  * school with `school`, and the recorded sandbox deliveries with `env: "test"`, their own menu and their price ids.
+ * `options.env` makes it the school's test endpoint (events are sent with `livemode: false`), and `options.raw` puts it
+ * on a database that already exists, so a live and a test endpoint can share one.
  */
 export const harness = (
 	fees?: FeeLookup,
-	{
-		school = SCHOOL,
-		menu: served = menu,
-		env,
-		priceIds,
-	}: {
+	options: {
 		school?: string;
 		menu?: Menu;
-		env?: "test" | "live";
+		env?: AtmEnv;
 		priceIds?: Record<string, string>;
+		raw?: Database;
 	} = {},
 ) => {
-	const raw = new Database(":memory:");
+	const { school = SCHOOL, menu: served = menu, priceIds } = options;
+	const { env = "live" } = options;
+	const raw = options.raw ?? new Database(":memory:");
 	const db = bunSqlite(raw);
 	db.exec(HANDLER_DDL);
 	const clock = { now: T0 };
@@ -151,17 +151,13 @@ export const harness = (
 		schoolId: school,
 		nowMs: () => clock.now,
 		workerId: "worker-a",
-		...(env ? { env } : {}),
+		...(options.env === undefined ? {} : { env }),
 		context: () => ({
 			menu: served,
 			menuVersion: 3,
 			policy: DEFAULT_POLICY,
 			policyVersion: 1,
-			catalog: menuCatalogRows({
-				menu: served,
-				school,
-				...(env ? { env } : {}),
-			}),
+			catalog: menuCatalogRows({ menu: served, school, env }),
 			priceIds:
 				priceIds ??
 				Object.fromEntries(
@@ -186,7 +182,9 @@ export const harness = (
 	};
 	const deliver = (event: RawEvent, at = T0) => {
 		clock.now = at + 20_000;
-		const payload = JSON.stringify(event);
+		const payload = JSON.stringify(
+			env === "test" ? { ...event, livemode: false } : event,
+		);
 		return handleStripeWebhook(deps, {
 			payload,
 			signatureHeader: signStripePayload({
@@ -204,7 +202,9 @@ export const harness = (
 		).map((row) => JSON.parse(row.body) as AtmEvent);
 	const claim = (eventId: string) =>
 		raw
-			.query(`SELECT state FROM atm_event_claims WHERE event_id = ?`)
-			.get(eventId) as { state: string } | null;
-	return { db, deps, deliver, outbox, claim, asked };
+			.query(
+				`SELECT state FROM atm_event_claims WHERE env = ? AND event_id = ?`,
+			)
+			.get(env, eventId) as { state: string } | null;
+	return { db, raw, deps, deliver, outbox, claim, asked };
 };

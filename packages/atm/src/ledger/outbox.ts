@@ -2,7 +2,10 @@ import type {
 	SubjectState,
 	SubjectStateMutation,
 } from "@autumn/balance-engine";
+import { resolveEnv } from "../billing/env.js";
+import { assertCurrentSchema } from "../handler/schema.js";
 import type {
+	AtmEnv,
 	AtmEvent,
 	RecordEngineCommandInput,
 	RecordedEvents,
@@ -19,19 +22,30 @@ import {
 import { canonicalize } from "./util.js";
 
 /**
- * The one insert into `ledger_outbox`, for the handler and for the family service alike: the event's own school, id, idem
- * and date, its canonical line as the body, and `ON CONFLICT (school_id, idem) DO NOTHING`, so an event the outbox already
- * holds (a retry, a second run of a cron) is left as it was. Runs in the caller's transaction. Returns the rows inserted.
+ * The one insert into `ledger_outbox`, for the handler and for the family service alike: the Stripe mode the events were
+ * decided in (`env`), the event's own school, id, idem and date, its canonical line as the body, and `ON CONFLICT
+ * (school_id, env, idem) DO NOTHING`, so an event the outbox already holds in that env (a retry, a second run of a cron)
+ * is left as it was, while the same idem decided in the other env is a row of its own. Runs in the caller's transaction.
+ * Returns the rows inserted.
  */
 export const appendToOutbox = (
 	db: SqlDatabase,
 	events: readonly AtmEvent[],
+	env: AtmEnv,
 ): number => {
+	assertCurrentSchema(db);
 	let inserted = 0;
 	for (const event of events)
 		inserted += db.run(
-			`INSERT INTO ledger_outbox (school_id, id, idem, date, body, batch_key, shipped_at) VALUES (?, ?, ?, ?, ?, NULL, NULL) ON CONFLICT (school_id, idem) DO NOTHING`,
-			[event.school, event.id, event.idem, event.date, canonicalize(event)],
+			`INSERT INTO ledger_outbox (school_id, env, id, idem, date, body, batch_key, shipped_at) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL) ON CONFLICT (school_id, env, idem) DO NOTHING`,
+			[
+				event.school,
+				env,
+				event.id,
+				event.idem,
+				event.date,
+				canonicalize(event),
+			],
 		).changes;
 	return inserted;
 };
@@ -55,12 +69,14 @@ const refuseReusedCommandId = (
 	db: SqlDatabase,
 	mutation: SubjectStateMutation,
 ): void => {
+	assertCurrentSchema(db);
 	const { id: commandId, revision } = mutation;
 	const { orgId, customerId } = mutation.identity;
 	const held = db.all<{ body: string }>(
-		`SELECT body FROM ledger_outbox WHERE school_id = ? AND ((idem >= ? AND idem < ?) OR idem = ?)`,
+		`SELECT body FROM ledger_outbox WHERE school_id = ? AND env = ? AND ((idem >= ? AND idem < ?) OR idem = ?)`,
 		[
 			orgId,
+			resolveEnv(mutation.identity.env),
 			`engine:${commandId}:`,
 			`engine:${commandId};`,
 			`plan:${commandId}`,
@@ -128,7 +144,10 @@ export const recordEngineCommand = ({
 						complete: logsEveryCommand,
 					}),
 				];
-	return { events, inserted: appendToOutbox(db, events) };
+	return {
+		events,
+		inserted: appendToOutbox(db, events, resolveEnv(decided.identity.env)),
+	};
 };
 
 /**
@@ -184,5 +203,8 @@ export const recordLapse = ({
 					labels,
 				});
 	const events = [...expired, ...depleted];
-	return { events, inserted: appendToOutbox(db, events) };
+	return {
+		events,
+		inserted: appendToOutbox(db, events, resolveEnv(identity.env)),
+	};
 };

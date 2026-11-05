@@ -15,18 +15,19 @@ import p11 from "../../schema/payload/credit.spent.v1.json";
 import p12 from "../../schema/payload/dispute.closed.v1.json";
 import p13 from "../../schema/payload/fundraise.paid_out.v1.json";
 import p14 from "../../schema/payload/fundraise.received.v1.json";
-import p15 from "../../schema/payload/payment.disputed.v1.json";
-import p16 from "../../schema/payload/payment.refunded.v1.json";
-import p17 from "../../schema/payload/payment.succeeded.v1.json";
-import p18 from "../../schema/payload/payout.paid.v1.json";
-import p19 from "../../schema/payload/plan.attached.v1.json";
-import p20 from "../../schema/payload/plan.canceled.v1.json";
-import p21 from "../../schema/payload/plan.changed.v1.json";
-import p22 from "../../schema/payload/policy.published.v1.json";
-import p23 from "../../schema/payload/referral.qualified.v1.json";
-import p24 from "../../schema/payload/referral.rewarded.v1.json";
-import p25 from "../../schema/payload/share.charged.v1.json";
-import p26 from "../../schema/payload/subject.erased.v1.json";
+import p15 from "../../schema/payload/money.skipped.v1.json";
+import p16 from "../../schema/payload/payment.disputed.v1.json";
+import p17 from "../../schema/payload/payment.refunded.v1.json";
+import p18 from "../../schema/payload/payment.succeeded.v1.json";
+import p19 from "../../schema/payload/payout.paid.v1.json";
+import p20 from "../../schema/payload/plan.attached.v1.json";
+import p21 from "../../schema/payload/plan.canceled.v1.json";
+import p22 from "../../schema/payload/plan.changed.v1.json";
+import p23 from "../../schema/payload/policy.published.v1.json";
+import p24 from "../../schema/payload/referral.qualified.v1.json";
+import p25 from "../../schema/payload/referral.rewarded.v1.json";
+import p26 from "../../schema/payload/share.charged.v1.json";
+import p27 from "../../schema/payload/subject.erased.v1.json";
 
 export const envelopeSchema: Record<string, unknown> = envelope;
 export const payloadSchemas: Record<string, Record<string, unknown>> = {
@@ -45,16 +46,17 @@ export const payloadSchemas: Record<string, Record<string, unknown>> = {
 	"dispute.closed": p12,
 	"fundraise.paid_out": p13,
 	"fundraise.received": p14,
-	"payment.disputed": p15,
-	"payment.refunded": p16,
-	"payment.succeeded": p17,
-	"payout.paid": p18,
-	"plan.attached": p19,
-	"plan.canceled": p20,
-	"plan.changed": p21,
-	"policy.published": p22,
-	"referral.qualified": p23,
-	"referral.rewarded": p24,
-	"share.charged": p25,
-	"subject.erased": p26,
+	"money.skipped": p15,
+	"payment.disputed": p16,
+	"payment.refunded": p17,
+	"payment.succeeded": p18,
+	"payout.paid": p19,
+	"plan.attached": p20,
+	"plan.canceled": p21,
+	"plan.changed": p22,
+	"policy.published": p23,
+	"referral.qualified": p24,
+	"referral.rewarded": p25,
+	"share.charged": p26,
+	"subject.erased": p27,
 };
