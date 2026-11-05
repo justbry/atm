@@ -17,6 +17,7 @@ On `dev` after `atm-v0.8.0`, not released.
 | PR | Merge commit | What |
 |---|---|---|
 | #77 | `534a55f52` | a non-USD dispute that moved money is answered 200 `non_usd` and leaves a `money.skipped` marker (`kind: "dispute"`) |
+| #72 | `d186b73fc` | an end-to-end reconciliation matrix (tests and `docs/e2e-reconciliation.md` only, no source change): each case runs the handler, journal and `atm reconcile` against hand-computed numbers, and records six open discrepancies, D1 to D6 |
 
 ## 0.8.0
 

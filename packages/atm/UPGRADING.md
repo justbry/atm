@@ -11,7 +11,7 @@ Changes merged to `dev` after the `atm-v0.8.0` tag. Nothing here is in a release
 
 ## Moving to 0.8.0 from 0.6.0
 
-A minor release. There is no 0.7.0: that number is held by the design of simulating from stored inputs (#65, not built). Two kinds of change: what was fixed on `dev` after 0.6.0 (first block; some of it is not additive), and what 0.8.0 adds for the family service: credits that are held and spent by bookings, a price for a booking or an event, and three kinds of code (second block). Nothing is removed. A 0.6.0 caller that changes nothing and calls none of the new functions gets the same rows, keys, events and answers, except for the items in the first block.
+A minor release (released; tag `atm-v0.8.0`). There is no 0.7.0: the number was skipped, and the design of simulating from stored inputs (#65, not built) is planned as 0.9.0. Two kinds of change: what was fixed on `dev` after 0.6.0 (first block; some of it is not additive), and what 0.8.0 adds for the family service: credits that are held and spent by bookings, a price for a booking or an event, and three kinds of code (second block). Nothing is removed. A 0.6.0 caller that changes nothing and calls none of the new functions gets the same rows, keys, events and answers, except for the items in the first block.
 
 ### Changes since 0.6.0 that are not about bookings (read these first)
 
