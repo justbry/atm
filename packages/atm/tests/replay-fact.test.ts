@@ -37,6 +37,8 @@ import { HANDLER_DDL } from "../src/handler/schema.js";
 import { signStripePayload } from "../src/handler/stripe-signature.js";
 import { handleStripeWebhook } from "../src/handler/stripe-webhook.js";
 import type { WebhookContext, WebhookDeps } from "../src/handler/types.js";
+import { deterministicUlid } from "../src/ledger/ids.js";
+import { canonicalize } from "../src/ledger/util.js";
 import type { BillingFact, ReplayFact } from "../src/types.js";
 import { FAMILY, play, menu as propertyMenu, SCHOOL } from "./billing-play.js";
 import { createStore } from "./billing-store.js";
@@ -351,6 +353,25 @@ describe("the recorded events", () => {
 		},
 	);
 
+	test("a booking refund named only by its charge's metadata decides the same through the fact (the refund fact's booking id is read)", () => {
+		const dropBookingId = (fact: ReplayFact): ReplayFact => {
+			const { bookingId: _dropped, ...rest } = fact as { bookingId?: string };
+			return rest as ReplayFact;
+		};
+		let refunded = 0;
+		let caught = 0;
+		drive(bookingWorld, bookingEvents, (input) => {
+			// no index of payment intents to bookings: the charge's own `metadata.booking_id` is all the refund has
+			const bare: StripeEventInput = { ...input, bookingIds: undefined };
+			const direct = handleStripeEvent(bare);
+			if (direct.booking?.action === "refunded") refunded += 1;
+			expect(same(viaFact(bare), direct)).toBe(true);
+			if (!same(viaFact(bare, { trim: dropBookingId }), direct)) caught += 1;
+		});
+		expect(refunded).toBeGreaterThan(0);
+		expect(caught).toBeGreaterThan(0);
+	});
+
 	test("the booking events decide a booking outcome through the fact too", () => {
 		const outcomes: string[] = [];
 		drive(bookingWorld, bookingEvents, (input, result) => {
@@ -643,6 +664,21 @@ describe("inputCauseId is the cause the handler writes", () => {
 		).not.toBe(id);
 	});
 
+	test("it is the expression the handler computed inline before the extraction", () => {
+		const base = {
+			school: "sch_a",
+			eventId: "evt_1",
+			stripeCreated: 1_700_000_000,
+		};
+		expect(inputCauseId(base)).toBe(
+			deterministicUlid({
+				timeMs: base.stripeCreated * SECOND,
+				revision: 0,
+				seed: canonicalize([base.school, base.eventId]),
+			}),
+		);
+	});
+
 	test("contextHashOf is a stable hash of the menu, policy and price ids", () => {
 		const context = deliveredContext();
 		const hash = contextHashOf(context);
@@ -656,6 +692,18 @@ describe("inputCauseId is the cause the handler writes", () => {
 				priceIds: { ...context.priceIds, extra: "x" },
 			}),
 		).not.toBe(hash);
+		// the key order of the stored menu and policy does not change it
+		const reversed = (value: unknown): unknown =>
+			Array.isArray(value)
+				? value.map(reversed)
+				: value !== null && typeof value === "object"
+					? Object.fromEntries(
+							Object.entries(value)
+								.reverse()
+								.map(([key, item]) => [key, reversed(item)]),
+						)
+					: value;
+		expect(contextHashOf(reversed(context) as WebhookContext)).toBe(hash);
 	});
 });
 
