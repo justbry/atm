@@ -10,13 +10,44 @@ Newest first. The version history before 0.3.0 and what a caller has to change f
 
   **How each was checked:** every PR above was merged on local gates (tests with `--timeout 60000`, `tsc`, Biome, the build, `knip`), run on the head and again on the tree with `dev` merged in; the inherited Autumn workflows never ran. The atm workflow ran on #43's head (`ea198874c`, run 42067266463, ubuntu-latest): hledger 1.52.1 installed with a matching sha256, 1061 pass, 51 skip, 0 fail, and the three `hledger agrees` tests passed (none skipped). Locally, on the merged tree of each: #41 1090 pass, #42 1094, #49 1124, #46 1138, #47 1166, #48 1223 (50 skipped, 0 failed in each). #41 to #49 had not run in CI when merged; `dev`'s own runs are the first. The skips are the staging R2 and SeaweedFS contract suites and the DuckDB DDL test (no credentials, no `weed`, no `duckdb`). Four of them (#46 to #49) were each reviewed with a high-effort pass that found and fixed real bugs before the merge.
 
-## Unreleased: disputes' money lines
+## Unreleased
 
-- **The handler books a dispute and Stripe's dispute fee** (branch `claude/atm-dispute-fee`, not merged). `charge.dispute.created` makes a `payment.disputed` (`assets:stripe` -(amount + fee), `expenses:billing:disputes` +amount, `expenses:billing:dispute-fees` +fee) when Stripe withdrew money; `charge.dispute.closed` makes a `dispute.closed` (lost: nothing more; won: the amount comes back, the fee does not). The fee is in the dispute's own `balance_transactions` (recorded: amount 26000, fee 1500), so it is read from the event, not passed by the caller. `reconcile` counts the new account with the payment fees. Tested through the real handler with hand-computed amounts, shipper, journal and hledger (`check balanced accounts commodities`), and `reconcile` (`tests/handler-disputes.test.ts`). Not built: `charge.dispute.updated` / `funds_withdrawn`, closing statuses other than won and lost, non-USD (`docs/financial-reports.md`, "Disputes and Stripe's dispute fee").
+On `dev` after `atm-v0.8.0`, not released.
 
-## Unreleased: non-USD is loud
+| PR | Merge commit | What |
+|---|---|---|
+| #77 | `pending` | a non-USD dispute that moved money is answered 200 `non_usd` and leaves a `money.skipped` marker (`kind: "dispute"`) |
 
-- **A non-USD invoice, refund or payout is answered 200 `non_usd`, not `applied`** (branch `claude/atm-non-usd-loud`, not merged). Before, it was answered 200 `applied` with no money line and nothing said. Now the credits are granted as before (a refusal would hold back a paying family, and Stripe would retry a currency that cannot change), the response says `non_usd` with `body.skipped`, each line left out writes a `money.skipped` event (no postings), the claim keeps the outcome, `deps.warn` (default stderr) is called, and `reconcile` (`result.skipped`) and `atm report` (stderr) count them. Tested through the real handler for an invoice, its refund and a payout, with the shipper, `reconcile`, the CLI and hledger (`tests/handler-non-usd.test.ts`). Not built: books in another currency. `docs/financial-reports.md`, "Non-USD".
+## 0.8.0
+
+**Release 0.8.0**: bookable items, paid bookings and codes, with the fixes made on `dev` since 0.6.0. There is no 0.7.0 (the number is held by the open design PR #65). Tag `atm-v0.8.0` at `6e0dbaf752bd6f69cb9727bb8b1f9c33a7709727` (2026-11-05; the merge of #79 on `dev`). Tarball `https://github.com/justbry/atm/releases/download/atm-v0.8.0/atm-0.8.0.tgz`, sha256 `e62dbc30fee01d7673e247834f6b3c2d6a34a6bf45431f8afe54691ae4b3b52d`, sha512 `sha512-ASfl407z51lHWUHSrf5jxaVmq7eHXyf3erMP2ulDgfHOi6cjuvBUBQ5ROqKveRjTilBrqxlYX32SWHhFmvtMFw==` (checked by downloading the published asset: the sha256 matches and the sha512 starts the same; built with bun 1.4.4; a second pack of the same commit gave the same bytes). #79 is the release PR (version bump and notes). What a caller has to change: `UPGRADING.md`, "Moving to 0.8.0 from 0.6.0".
+
+Everything on `dev` after the `atm-v0.6.0` tag (`a0e31d0be`):
+
+| PR | Merge commit | What |
+|---|---|---|
+| #63 | `34deea3e4` | a cycle or update tier line of a subscription that is not the holder's is refused, 422 `tier_on_other_subscription` |
+| #64 | `ca801dacc` | a feature id that spells `USD` is refused (the money commodity) |
+| #69 | `2a65a90b2` | `env` in the keys of the handler's claims, indexes and outbox, with `migrateHandlerSchema` |
+| #68 | `c964c7554` | a non-USD invoice, refund or payout is answered 200 `non_usd` and counted |
+| #66 | `bc4cda27f` | the handler books a dispute and Stripe's dispute fee |
+| #67 | `0d412924d` | the 0.8.0 design note, shared types and three policy fields (`cancelCutoffHours`, `noShow`, `lateCancel`) |
+| #70 | `c99bd32d0` | bookable items: `validateBilling`, `quoteBooking`, hold, confirm, release, cancel, no-show and expired-hold commands |
+| #71 | `b2afeb6ff` | a booking paid with one-time Checkout: `bookingCheckoutParams`, and the handler's `booking` outcome for the session and its refund (real sandbox fixtures) |
+| #73 | `269e4862e` | `menu.codes` (member codes), discounts on invoice lines, `dollarGiftOps`, session gift codes |
+| #74 | `b284c26d5` | real discounted invoices recorded: a line's `amount` is gross, so a discount never changes credits |
+| #75 | `ae0890897` | review fixes: two gift codes never share a credit row; a dollar gift has an upper limit |
+| #78 | `9d7256a9d` | review fixes: a refund of held credits is not undone by a release; a hold across a renewal or a lapse does not give back last cycle's credits; no cancel after the start; ex-members can book with gift and pack credits; `labels.booking` is the booking id |
+
+**How the bookings and codes work was checked:** each part was merged on local gates (tests with `--timeout 60000`, `tsc`, Biome, the build, `knip`; the inherited Autumn workflows never ran), then an Opus reviewer hunted money edge cases (double spend under a held lock, release after expiry, refund after spend, a code redeemed twice, a discount with a quantity, rounding) and proved eight problems with failing tests; #75 and #78 fix them and add those tests. The merged tree (`9d7256a9d`) ran 1707 pass, 50 skip, 0 fail, with `hledger check --strict` on the booking events. Not verified: nothing was run against a real caller, a hosted Checkout, a delayed payment method or a non-USD booking (`ROADMAP.md`, "In atm after 0.8.0").
+
+### Disputes' money lines (#66)
+
+- **The handler books a dispute and Stripe's dispute fee**. `charge.dispute.created` makes a `payment.disputed` (`assets:stripe` -(amount + fee), `expenses:billing:disputes` +amount, `expenses:billing:dispute-fees` +fee) when Stripe withdrew money; `charge.dispute.closed` makes a `dispute.closed` (lost: nothing more; won: the amount comes back, the fee does not). The fee is in the dispute's own `balance_transactions` (recorded: amount 26000, fee 1500), so it is read from the event, not passed by the caller. `reconcile` counts the new account with the payment fees. Tested through the real handler with hand-computed amounts, shipper, journal and hledger (`check balanced accounts commodities`), and `reconcile` (`tests/handler-disputes.test.ts`). Not built: `charge.dispute.updated` / `funds_withdrawn`, closing statuses other than won and lost, non-USD (`docs/financial-reports.md`, "Disputes and Stripe's dispute fee").
+
+### Non-USD is loud (#68)
+
+- **A non-USD invoice, refund or payout is answered 200 `non_usd`, not `applied`**. Before, it was answered 200 `applied` with no money line and nothing said. Now the credits are granted as before (a refusal would hold back a paying family, and Stripe would retry a currency that cannot change), the response says `non_usd` with `body.skipped`, each line left out writes a `money.skipped` event (no postings), the claim keeps the outcome, `deps.warn` (default stderr) is called, and `reconcile` (`result.skipped`) and `atm report` (stderr) count them. Tested through the real handler for an invoice, its refund and a payout, with the shipper, `reconcile`, the CLI and hledger (`tests/handler-non-usd.test.ts`). Not built: books in another currency. `docs/financial-reports.md`, "Non-USD".
 
 ## 0.6.0
 

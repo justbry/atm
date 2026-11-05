@@ -200,7 +200,8 @@ const refusal = (
 	message: string,
 ): BookingRefusal => ({ ok: false, reason, message });
 
-const planHasFeature = ({
+/** Whether the tier or a recurring add-on of the membership grants the feature. */
+const membershipHasFeature = ({
 	grants,
 	menu,
 	tierId,
@@ -215,34 +216,43 @@ const planHasFeature = ({
 		list.some((grant) => grant.featureId === featureId);
 	const tier = tierId ? menu.tiers.find((t) => t.id === tierId) : undefined;
 	if (tier && grantsFeature(tier.grants)) return true;
-	for (const addonId of grants.addonIds) {
+	return grants.addonIds.some((addonId) => {
 		const addon = menu.addons.find((a) => a.id === addonId);
-		if (addon && grantsFeature(addon.grants)) return true;
-	}
-	// A pack, a session gift or a gift code the holder was given: rows of the feature that no tier or recurring add-on made.
-	const given = Object.values(grants.invoices).some(
-		(record) =>
-			!record.removed &&
-			record.granted.some((granted) => granted.feature === featureId),
-	);
-	if (given) return true;
-	return Object.values(grants.redeemed ?? {}).some(
-		(code) => code.feature === featureId,
-	);
+		return addon !== undefined && grantsFeature(addon.grants);
+	});
 };
 
-/** Why this holder cannot have the item's credits, or null when they can. */
-const creditRefusal = ({
+/** Credit rows the tier and recurring add-ons refill (`ce_tier_…`, `ce_addon_…`); every other row was given or bought once. */
+const MEMBERSHIP_ROW = /^ce_(tier|addon)_/;
+
+/**
+ * Whether the holder was given or bought credits of the feature outside the membership: a pack or a session gift on an
+ * invoice not refunded (its rows are not the tier's or a recurring add-on's), or a redeemed gift code.
+ */
+const hasGivenCredits = (grants: GrantsState, featureId: string): boolean =>
+	Object.values(grants.invoices).some(
+		(record) =>
+			!record.removed &&
+			record.granted.some(
+				(granted) =>
+					granted.feature === featureId && !MEMBERSHIP_ROW.test(granted.rowId),
+			),
+	) ||
+	Object.values(grants.redeemed ?? {}).some(
+		(code) => code.feature === featureId,
+	);
+
+/** Why the membership's own credits (the tier's and recurring add-ons') cannot pay for the item, or null when they can. */
+const membershipRefusal = ({
 	billing,
 	input,
+	tierId,
 }: {
 	billing: Extract<Billing, { kind: "included" | "included_or_price" }>;
 	input: QuoteInput;
+	tierId: string | null;
 }): BookingRefusal | null => {
-	const { grants, menu, now, available } = input;
-	const tierId = input.tierId === undefined ? grants.tierId : input.tierId;
-	if (tierId === null && grants.identity === null && grants.holder === null)
-		return refusal("not_a_member", "the holder has no credits or membership");
+	const { grants, menu, now } = input;
 	const endsAt = grants.membership?.endsAt ?? grants.endedAt;
 	const lapsed = endsAt !== null && endsAt <= now;
 	if ((grants.membership && grants.membership.status !== "active") || lapsed)
@@ -255,11 +265,39 @@ const creditRefusal = ({
 			"tier_not_included",
 			`the item's credits are for ${billing.tierIds.join(", ")}, the holder's tier is ${tierId ?? "none"}`,
 		);
-	if (!planHasFeature({ grants, menu, tierId, featureId: billing.featureId }))
+	if (
+		!membershipHasFeature({
+			grants,
+			menu,
+			tierId,
+			featureId: billing.featureId,
+		})
+	)
 		return refusal(
 			"feature_not_in_plan",
 			`the holder's plan has no credits of ${billing.featureId}`,
 		);
+	return null;
+};
+
+/**
+ * Why this holder cannot have the item's credits, or null when they can. The membership's status and `tierIds` limit the
+ * tier's and recurring add-ons' credits only: a holder given or sold credits of the feature once (a pack, a gift, a gift
+ * code) may book with them whatever the membership. `available` (when given) is what can be spent of the feature in all.
+ */
+const creditRefusal = ({
+	billing,
+	input,
+}: {
+	billing: Extract<Billing, { kind: "included" | "included_or_price" }>;
+	input: QuoteInput;
+}): BookingRefusal | null => {
+	const { grants, available } = input;
+	const tierId = input.tierId === undefined ? grants.tierId : input.tierId;
+	if (tierId === null && grants.identity === null && grants.holder === null)
+		return refusal("not_a_member", "the holder has no credits or membership");
+	const refused = membershipRefusal({ billing, input, tierId });
+	if (refused && !hasGivenCredits(grants, billing.featureId)) return refused;
 	if (typeof available === "number" && available < billing.credits)
 		return refusal(
 			"insufficient_credits",

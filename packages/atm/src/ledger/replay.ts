@@ -105,12 +105,12 @@ export const balancesOf = ({
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
+// `booking` is not derived: a booking command names the caller's booking id there, over the lock id the mutation names.
 const DERIVED_LABELS = new Set([
 	"feature",
 	"entity",
 	"plan",
 	"service",
-	"booking",
 	"rolled_over",
 	"expires_at",
 ]);
