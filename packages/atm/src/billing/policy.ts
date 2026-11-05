@@ -12,7 +12,23 @@ export const DEFAULT_POLICY: BillingPolicy = {
 	giftDollarMinimum: 2500,
 	giftDollarMonths: 12,
 	memberCode: { code: "MEMBER15", percentOff: 15 },
+	deductionOrder: "expiry",
 };
+
+/**
+ * The `org` every command that draws carries (`track`, `check`, `finalize`, `updateBalance`, `deleteBalance`,
+ * `recalculateBalance`): the engine reads its deduction settings from it, per command. The
+ * policy's `deductionOrder` is the only setting that varies; the others are the family service's fixed choices.
+ */
+export const commandOrg = (policy: BillingPolicy) => ({
+	config: {
+		reverse_deduction_order: false,
+		block_overdue_entitlements: false,
+		include_past_due: true,
+		// A policy read back from an event published before the field existed has none: that is the default.
+		deduction_order: policy.deductionOrder ?? DEFAULT_POLICY.deductionOrder,
+	},
+});
 
 let validate: ReturnType<Ajv2020["compile"]> | null = null;
 

@@ -381,6 +381,53 @@ const balanceMoves = (
 	return { inserted, delta, rolled, rolloverExpiry, refilled, replaced };
 };
 
+type ExpiryMove = {
+	rowId: string;
+	previousExpiresAt: number | null;
+	expiresAt: number;
+	/** The same write cleared `next_reset_at`: the row no longer refills. */
+	refillsEnded: boolean;
+};
+
+/**
+ * Balance rows whose `expires_at` the mutation moved to a date without touching their balance: the credits stay, their
+ * end date moves (a canceled subscription stops refilling and lets the last cycle's credits run out on their own clock).
+ * A row that gets a new balance in the same change is a reset or a refill, not this; an expiry cleared to none is not
+ * reported (nothing ends).
+ */
+const expiryMoves = (m: SubjectStateMutation): ExpiryMove[] => {
+	const moves: ExpiryMove[] = [];
+	// A row whose balance moves anywhere in the mutation (an increment as well as a set) is a draw or a refill.
+	const balanceMoved = new Set(
+		m.changes.flatMap((c) =>
+			c.table === "customerEntitlements" &&
+			c.op === "increment" &&
+			"balance" in ((c as { add?: Record<string, unknown> }).add ?? {})
+				? [c.id]
+				: [],
+		),
+	);
+	for (const c of m.changes) {
+		if (c.table !== "customerEntitlements" || c.op !== "update") continue;
+		const before = c.before as Row;
+		const after = c.after as Row;
+		if (!("expires_at" in after) || typeof after.expires_at !== "number")
+			continue;
+		const previous = (before.expires_at as number | null | undefined) ?? null;
+		if (previous === after.expires_at) continue;
+		if (balanceMoved.has(c.id)) continue;
+		if ("balance" in after && after.balance !== before.balance) continue;
+		moves.push({
+			rowId: c.id,
+			previousExpiresAt: previous,
+			expiresAt: after.expires_at,
+			refillsEnded:
+				after.next_reset_at === null && (before.next_reset_at ?? null) !== null,
+		});
+	}
+	return moves;
+};
+
 const bookingOf = (m: SubjectStateMutation): string | undefined => {
 	const lockInsert = m.changes.find(
 		(c) => c.table === "locks" && c.op === "insert",
@@ -428,7 +475,7 @@ export const mutationToEvents = ({
 	};
 	const made: AtmEvent[] = [];
 	const emit = (
-		type: CreditType,
+		type: CreditType | "credit.expiration_changed",
 		suffix: string,
 		units: number,
 		text: string,
@@ -459,7 +506,10 @@ export const mutationToEvents = ({
 				idem: `${context.idemPrefix ?? "engine"}:${mutationId}:${suffix}`,
 				cause: context.cause,
 				text,
-				postings: creditPostings(type, rule, extra.signed),
+				postings:
+					type === "credit.expiration_changed"
+						? []
+						: creditPostings(type, rule, extra.signed),
 				payload: {
 					command: mutation.command,
 					mutation: mutationWithoutCommand,
@@ -650,6 +700,25 @@ export const mutationToEvents = ({
 		}
 		default:
 			throw new Error(`no ledger events for a ${command.type} command`);
+	}
+	for (const moved of expiryMoves(mutation)) {
+		const date = isoInstant(moved.expiresAt);
+		// The key is scoped to the command: row ids repeat across holders (every family has a ce_tier_visit_month).
+		emit(
+			"credit.expiration_changed",
+			`expiry:${moved.rowId}`,
+			0,
+			`${feature} credits now expire ${date}${moved.refillsEnded ? ", refills ended" : ""}`,
+			{
+				labels: { expires_at: date },
+				payload: {
+					row_id: moved.rowId,
+					previous_expires_at: moved.previousExpiresAt,
+					expires_at: moved.expiresAt,
+					refills_ended: moved.refillsEnded,
+				},
+			},
+		);
 	}
 	void commodity;
 	return made;

@@ -10,6 +10,7 @@ import {
 } from "../src/ledger/postings.js";
 import { runOnState, toCatalog } from "../src/ledger/run.js";
 import { decimalToUnits, localDate } from "../src/ledger/util.js";
+import { validateEvent } from "../src/ledger/validate.js";
 import type {
 	AtmEvent,
 	AtmEventContext,
@@ -426,6 +427,129 @@ describe("one rule per event type", () => {
 		expect(e.event_time).toBe(
 			new Date(T + DAY).toISOString().replace(".000", ""),
 		);
+	});
+	describe("credit.expiration_changed", () => {
+		const setRow = (
+			set: Record<string, unknown>,
+			state: SubjectState,
+			t = T + DAY,
+		) =>
+			runOnState({
+				state,
+				catalog,
+				command: cmd("applyBillingPlan", t, {
+					entityIds: [],
+					expiringPooledBalanceIds: [],
+					ops: [
+						{ op: "update", table: "customerEntitlements", id: "ce_1", set },
+					],
+				}),
+			});
+
+		test("a new expiry with the balance untouched: no postings, the row, both dates, refills ended", () => {
+			const a = attach(2, "ent_s2", T + 30 * DAY);
+			const run = setRow(
+				{ next_reset_at: null, expires_at: T + 40 * DAY },
+				a.state as SubjectState,
+			);
+			const [e, ...rest] = events(run, {}, a.state as SubjectState);
+			expect(rest).toEqual([]);
+			expect(e?.event_type).toBe("credit.expiration_changed");
+			expect(e?.postings).toEqual([]);
+			expect(e?.idem).toMatch(/:expiry:ce_1$/);
+			expect(e?.payload).toMatchObject({
+				row_id: "ce_1",
+				previous_expires_at: null,
+				expires_at: T + 40 * DAY,
+				refills_ended: true,
+			});
+			expect(e?.labels.expires_at).toBe(
+				new Date(T + 40 * DAY).toISOString().replace(".000", ""),
+			);
+			expect(validateEvent({ ...(e as AtmEvent) }).errors).toEqual([]);
+			const broken = JSON.parse(JSON.stringify(e)) as AtmEvent;
+			delete broken.payload.refills_ended;
+			expect(validateEvent(broken).ok).toBe(false);
+		});
+
+		test("moving an expiry that was already set keeps the old date; the refill stays when next_reset_at is untouched", () => {
+			const a = attach(2, "ent_s2", T + 30 * DAY);
+			const first = setRow(
+				{ expires_at: T + 40 * DAY },
+				a.state as SubjectState,
+			);
+			const second = setRow(
+				{ expires_at: T + 50 * DAY },
+				first.state as SubjectState,
+				T + 2 * DAY,
+			);
+			const [e] = events(second, {}, first.state as SubjectState);
+			expect(e?.payload).toMatchObject({
+				previous_expires_at: T + 40 * DAY,
+				expires_at: T + 50 * DAY,
+				refills_ended: false,
+			});
+		});
+
+		test("no event when the expiry is unchanged, or when the balance moves in the same change", () => {
+			const a = attach(2, "ent_s2", T + 30 * DAY);
+			const state = setRow(
+				{ expires_at: T + 40 * DAY },
+				a.state as SubjectState,
+			).state as SubjectState;
+			const same = setRow({ expires_at: T + 40 * DAY }, state, T + 2 * DAY);
+			expect(events(same, {}, state)).toEqual([]);
+			const refill = setRow(
+				{ expires_at: T + 50 * DAY, balance: 5 },
+				state,
+				T + 2 * DAY,
+			);
+			expect(
+				events(refill, { reason: "test" }, state).map((e) => e.event_type),
+			).toEqual(["credit.granted"]);
+		});
+
+		test("no event when an increment moves the same row's balance in the mutation that moves its expiry", () => {
+			const a = attach(2, "ent_s2", T + 30 * DAY);
+			const run = runOnState({
+				state: a.state,
+				catalog,
+				command: cmd("applyBillingPlan", T + DAY, {
+					entityIds: [],
+					expiringPooledBalanceIds: [],
+					ops: [
+						{
+							op: "update",
+							table: "customerEntitlements",
+							id: "ce_1",
+							set: { expires_at: T + 40 * DAY },
+						},
+						{
+							op: "increment",
+							table: "customerEntitlements",
+							id: "ce_1",
+							add: { balance: 3 },
+						},
+					],
+				}),
+			});
+			const ops = run.mutation?.changes.map((c) => [c.op, c.id]);
+			expect(ops).toContainEqual(["update", "ce_1"]);
+			expect(ops).toContainEqual(["increment", "ce_1"]);
+			expect(
+				events(run, { reason: "test" }, a.state as SubjectState).map(
+					(e) => e.event_type,
+				),
+			).not.toContain("credit.expiration_changed");
+		});
+
+		test("the same mutation gives the same event, byte for byte", () => {
+			const a = attach(2, "ent_s2", T + 30 * DAY);
+			const run = setRow({ expires_at: T + 40 * DAY }, a.state as SubjectState);
+			expect(events(run, {}, a.state as SubjectState)).toEqual(
+				events(run, {}, a.state as SubjectState),
+			);
+		});
 	});
 	test("a mutation that moves nothing makes no events; a spend without a hold is refused", () => {
 		const a = attach(2, "ent_s2", T + 30 * DAY);

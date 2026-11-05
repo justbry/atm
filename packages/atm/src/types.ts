@@ -103,6 +103,7 @@ export type AtmEventType =
 	| "credit.forfeited"
 	| "credit.expired"
 	| "credit.adjusted"
+	| "credit.expiration_changed"
 	| "fundraise.received"
 	| "fundraise.paid_out"
 	| "subject.erased"
@@ -357,6 +358,14 @@ export type BillingPolicy = {
 	giftDollarMonths: number;
 	/** The member discount code, or null for none. Applies to membership tiers only. */
 	memberCode: { code: string; percentOff: number } | null;
+	/**
+	 * Which credit row a `track` draws from first when a holder has several for one feature. `expiry`: the row whose
+	 * unused credits lapse soonest (a refilling row lapses at its next reset, a one-off row at its expiry), then the
+	 * oldest grant; a row that never lapses goes last. `engine`: Autumn's own order (refilling rows first, shorter
+	 * interval first, then soonest expiry, add-ons after the main plan, oldest first). Reaches the engine through
+	 * `commandOrg(policy)`, which the caller puts on every `track` and `check` it runs.
+	 */
+	deductionOrder: "expiry" | "engine";
 };
 
 /**
@@ -711,14 +720,14 @@ export type CheckoutParamsWithPrices = Omit<CheckoutParams, "line_items"> & {
 /**
  * - `active`: paid up (Stripe `active`, `trialing`).
  * - `past_due`: a renewal failed; Stripe is retrying (`past_due`) or gave up on collecting (`unpaid`).
- * - `payment_incomplete`: the first payment is not finished (`incomplete`).
+ * - `incomplete`: the first payment is not finished (`incomplete`).
  * - `ended`: over (`canceled`, `incomplete_expired`).
  * - `inactive`: paused (`paused`).
  */
 export type MembershipStatus =
 	| "active"
 	| "past_due"
-	| "payment_incomplete"
+	| "incomplete"
 	| "ended"
 	| "inactive";
 

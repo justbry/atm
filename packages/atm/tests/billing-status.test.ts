@@ -27,7 +27,7 @@ describe("subscriptionStatus", () => {
 			["trialing", "active", true, 2_000],
 			["past_due", "past_due", false, 2_000],
 			["unpaid", "past_due", false, 2_000],
-			["incomplete", "payment_incomplete", false, null],
+			["incomplete", "incomplete", false, null],
 			["incomplete_expired", "ended", false, null],
 			["canceled", "ended", false, null],
 			["paused", "inactive", false, null],

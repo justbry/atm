@@ -10,7 +10,7 @@ const STATUS: Record<SubscriptionFact["status"], MembershipStatus> = {
 	trialing: "active",
 	past_due: "past_due",
 	unpaid: "past_due",
-	incomplete: "payment_incomplete",
+	incomplete: "incomplete",
 	incomplete_expired: "ended",
 	canceled: "ended",
 	paused: "inactive",

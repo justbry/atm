@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_POLICY, resolvePolicy } from "../src/billing/policy.js";
+import {
+	commandOrg,
+	DEFAULT_POLICY,
+	resolvePolicy,
+} from "../src/billing/policy.js";
 
 describe("resolvePolicy", () => {
 	test("defaults are the spec table", () => {
@@ -12,7 +16,38 @@ describe("resolvePolicy", () => {
 			giftDollarMinimum: 2500,
 			giftDollarMonths: 12,
 			memberCode: { code: "MEMBER15", percentOff: 15 },
+			deductionOrder: "expiry",
 		});
+	});
+
+	test("the deduction order is expiry or engine, nothing else", () => {
+		expect(resolvePolicy({ deductionOrder: "engine" }).deductionOrder).toBe(
+			"engine",
+		);
+		expect(() => resolvePolicy({ deductionOrder: "newest" })).toThrow(
+			/deductionOrder/,
+		);
+	});
+
+	test("commandOrg carries the policy's order and the family service's fixed settings", () => {
+		expect(commandOrg(DEFAULT_POLICY).config).toEqual({
+			reverse_deduction_order: false,
+			block_overdue_entitlements: false,
+			include_past_due: true,
+			deduction_order: "expiry",
+		});
+		expect(
+			commandOrg(resolvePolicy({ deductionOrder: "engine" })).config
+				.deduction_order,
+		).toBe("engine");
+	});
+
+	test("commandOrg falls back to the default for a stored policy that predates the field", () => {
+		const { deductionOrder: _removed, ...stored } = DEFAULT_POLICY;
+		expect(
+			commandOrg(stored as unknown as typeof DEFAULT_POLICY).config
+				.deduction_order,
+		).toBe("expiry");
 	});
 
 	test("nothing or an empty object gives the defaults, as a copy", () => {

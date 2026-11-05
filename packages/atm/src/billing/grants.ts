@@ -1382,7 +1382,7 @@ const STATUS_RANK: Record<MembershipRecord["status"], number> = {
 	active: 1,
 	past_due: 1,
 	inactive: 1,
-	payment_incomplete: 0,
+	incomplete: 0,
 };
 
 /**
