@@ -145,6 +145,10 @@ type Cached = { mutation: SubjectStateMutation; before: SubjectState | null };
  * with the event's own time as `occurredAt`; the mutation it decides must equal the one recorded, and the
  * events derived from it (postings included) must equal the recorded events. Any difference throws a ReplayError
  * naming the event. Stops after `lastEventId`. Balances are as of `asOf` (default: the last event applied).
+ *
+ * Not yet replayable from a `handleStripeEvent` log: a write whose commands run out of time order (a reset at the
+ * period start after a plan at payment time), a command that derives no event (the cycle-end update after a
+ * renewal), or a mutation booked as one event per feature (each event records only its feature's changes).
  */
 export const replayEvents = ({
 	events,

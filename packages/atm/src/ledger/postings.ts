@@ -483,8 +483,6 @@ export const mutationToEvents = ({
 			signed?: number;
 			labels?: Record<string, string>;
 			payload?: Record<string, unknown>;
-			/** Replaces the default `<prefix>:<mutation id>:<suffix>` key. */
-			idem?: string;
 		} = {},
 	) => {
 		const rule: CreditRule = {
@@ -505,9 +503,7 @@ export const mutationToEvents = ({
 				tz: context.tz,
 				key: mutation.identity.customerId,
 				labels: { ...baseLabels, ...(extra.labels ?? {}) },
-				idem:
-					extra.idem ??
-					`${context.idemPrefix ?? "engine"}:${mutationId}:${suffix}`,
+				idem: `${context.idemPrefix ?? "engine"}:${mutationId}:${suffix}`,
 				cause: context.cause,
 				text,
 				postings:
@@ -707,7 +703,7 @@ export const mutationToEvents = ({
 	}
 	for (const moved of expiryMoves(mutation)) {
 		const date = isoInstant(moved.expiresAt);
-		// The default key is scoped to the command: row ids repeat across holders (every family has a ce_tier_visit_month).
+		// The key is scoped to the command: row ids repeat across holders (every family has a ce_tier_visit_month).
 		emit(
 			"credit.expiration_changed",
 			`expiry:${moved.rowId}`,

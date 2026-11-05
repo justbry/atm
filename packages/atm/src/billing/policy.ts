@@ -16,7 +16,8 @@ export const DEFAULT_POLICY: BillingPolicy = {
 };
 
 /**
- * The `org` a `track` or `check` command carries: the engine reads its deduction settings from it, per command. The
+ * The `org` every command that draws carries (`track`, `check`, `finalize`, `updateBalance`, `deleteBalance`,
+ * `recalculateBalance`): the engine reads its deduction settings from it, per command. The
  * policy's `deductionOrder` is the only setting that varies; the others are the family service's fixed choices.
  */
 export const commandOrg = (policy: BillingPolicy) => ({

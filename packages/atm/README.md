@@ -30,7 +30,7 @@ const decision: AtmCheckResult = runEngineCommand({ subject, command }); // comm
 
 Pure rules for a school's menu, its Stripe facts, credit grants and storage rows. No I/O, no clock: every function takes its time and state as arguments, so the family service only does I/O around them (read rows, call Stripe, write rows) and the same input always gives the same output.
 
-- Policy: `DEFAULT_POLICY`, `resolvePolicy` (a school's overrides over the defaults), `commandOrg(policy)` (the `org` for every `track` and `check`; see Deduction order).
+- Policy: `DEFAULT_POLICY`, `resolvePolicy` (a school's overrides over the defaults), `commandOrg(policy)` (the `org` for every command that draws; see Deduction order).
 - Menu: `validateMenu`, `publishProblems`, `publicMenu`, `validTimeZone`, `MAX_TIERS`, `MAX_ADDONS`, `MAX_FEATURES`.
 - Menu to Stripe: `menuToStripe` (idempotent steps that make Stripe match a menu), `checkoutParams`, `withPriceIds`, `toStripeForm`, `lookupKeyOf`.
 - Stripe events to facts: `normalize`, `mappingFor`, `mappingLabels`, `MAPPINGS` (declarative mappings in `schema/mapping/`, bundled; regenerate the index with `bun schema/mapping/build.ts`), `resolveLines`, `resolveInvoice`, `resolveSubscriptionPlan`, `redactPersonal`, `subscriptionStatus`.
@@ -50,7 +50,7 @@ A `track` takes from a holder's credit rows for one feature in this order (Autum
 3. **Included** rows, in the order below.
 4. **Overage** (only where the plan allows it).
 
-`policy.deductionOrder` sets the order inside step 3. The caller puts `commandOrg(policy)` on every `track`, `check` and `finalize` it runs (a `finalize` draws too); a caller that sends its own org config gets `engine` (the second line below), because the engine reads the setting from the command, not from atm.
+`policy.deductionOrder` sets the order inside step 3. The caller puts `commandOrg(policy)` on every command that draws: `track`, `check`, `finalize`, `updateBalance` (the gap to a target balance, or the amount, is drawn like a `track`), `deleteBalance` (the usage moves to the rows left) and `recalculateBalance` (it redraws the usage); a caller that sends its own org config gets `engine` (the second line below), because the engine reads the setting from the command, not from atm.
 
 - `expiry` (default): the row whose unused credits lapse soonest goes first, then the oldest grant (`created_at`). A refilling row lapses at its `next_reset_at` (what is left rolls over within its `max`, or is lost); a one-off row (gift, pack, a cancelled plan's last cycle) at its `expires_at`; a row that never lapses goes last. The engine keeps its earlier groupings (listed balances, entity level, boolean, credit systems, unlimited) and reorders only within each.
 - `engine`: Autumn's own order. Rows that refill (have a `next_reset_at`) first, then the shorter reset interval, then soonest `expires_at` (none last), then add-ons after the main plan, then prepaid before pay-per-use, then oldest first. `reverse_deduction_order` (off in `commandOrg`) flips the first two steps; under `expiry` it has no effect.

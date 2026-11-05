@@ -509,6 +509,40 @@ describe("one rule per event type", () => {
 			).toEqual(["credit.granted"]);
 		});
 
+		test("no event when an increment moves the same row's balance in the mutation that moves its expiry", () => {
+			const a = attach(2, "ent_s2", T + 30 * DAY);
+			const run = runOnState({
+				state: a.state,
+				catalog,
+				command: cmd("applyBillingPlan", T + DAY, {
+					entityIds: [],
+					expiringPooledBalanceIds: [],
+					ops: [
+						{
+							op: "update",
+							table: "customerEntitlements",
+							id: "ce_1",
+							set: { expires_at: T + 40 * DAY },
+						},
+						{
+							op: "increment",
+							table: "customerEntitlements",
+							id: "ce_1",
+							add: { balance: 3 },
+						},
+					],
+				}),
+			});
+			const ops = run.mutation?.changes.map((c) => [c.op, c.id]);
+			expect(ops).toContainEqual(["update", "ce_1"]);
+			expect(ops).toContainEqual(["increment", "ce_1"]);
+			expect(
+				events(run, { reason: "test" }, a.state as SubjectState).map(
+					(e) => e.event_type,
+				),
+			).not.toContain("credit.expiration_changed");
+		});
+
 		test("the same mutation gives the same event, byte for byte", () => {
 			const a = attach(2, "ent_s2", T + 30 * DAY);
 			const run = setRow({ expires_at: T + 40 * DAY }, a.state as SubjectState);
