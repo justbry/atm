@@ -13,6 +13,7 @@ import * as rows from "./billing/rows.js";
 import * as status from "./billing/status.js";
 import * as stripeMenu from "./billing/stripe-menu.js";
 import { engineCommandTypes, runEngineCommand as run } from "./engine.js";
+import * as storedInputs from "./handler/inputs.js";
 import {
 	HANDLER_DDL as handlerDdl,
 	migrateHandlerSchema as migrateHandlerSchemaImpl,
@@ -125,6 +126,9 @@ import type {
 	HandlerMigrationResult,
 	HledgerErrorConstructor,
 	HoldBookingInput,
+	InputsRead,
+	InputsSource,
+	InputsStatus,
 	InvoiceGrantInput,
 	InvoiceLine,
 	JournalRun,
@@ -135,6 +139,7 @@ import type {
 	MenuToStripeInput,
 	MenuValidation,
 	NormalizeContext,
+	NormalizedStripeEvent,
 	NormalizeError,
 	NormalizeResult,
 	OneTimeCheckoutInput,
@@ -155,6 +160,7 @@ import type {
 	ReconcileResult,
 	RecordEngineCommandInput,
 	RecordedEvents,
+	RecordInputArgs,
 	RecordLapseInput,
 	RedeemSessionGiftCodeInput,
 	RedeemSessionGiftCodeResult,
@@ -744,7 +750,7 @@ export const R2Store: new (options: R2StoreOptions) => Store = r2Store.R2Store;
 
 // ---- The reference webhook handler (Bun or Node; not a Worker) ----
 
-/** The tables the handler keeps in the caller's SQLite: rows, event claims, the payment index and the ledger outbox. */
+/** The tables the handler keeps in the caller's SQLite: rows, event claims, the payment index, the ledger outbox and the stored inputs (`atm_event_inputs` and its three helper tables; additive, nothing is rebuilt). */
 export const HANDLER_DDL: string = handlerDdl;
 
 /**
@@ -776,6 +782,68 @@ export const handleStripeWebhook = (
 	deps: WebhookDeps,
 	request: WebhookRequest,
 ): WebhookResponse => webhook.handleStripeWebhook(deps, request);
+
+// ---- Stored inputs: what the handler keeps to decide an event again ----
+
+/**
+ * The ULID a Stripe event's decision events name as their `cause`: `deterministicUlid` of the school, Stripe's event id and
+ * its `created` (whole seconds). The reference handler passes it to `handleStripeEvent` as `eventId`; a caller that stores
+ * inputs itself (`recordInput`) should too, so that the value is derivable.
+ */
+export const inputCauseId = (input: {
+	school: string;
+	eventId: string;
+	stripeCreated: number;
+}): string => storedInputs.inputCauseId(input);
+
+/**
+ * The mapping and normalization step of `handleStripeEvent` alone: the fact the rules will decide on (or why there is none),
+ * which `recordInput` stores in its trimmed form. `eventId` becomes the fact's `source.eventId`. Pure.
+ */
+export const normalizeStripeEvent = (
+	event: unknown,
+	eventId: string,
+): NormalizedStripeEvent => handle.normalizeStripeEvent(event, eventId);
+
+/**
+ * Stores one handled Stripe input in `atm_event_inputs` (see `HANDLER_DDL`): the trimmed fact, the SHA-256 of the raw body, the
+ * fee, payment refs and booking refs the fact does not hold, and the menu and policy in force. The reference handler calls it
+ * itself. The family service's endpoint calls it for what the handler never decides, a booking's `checkout.session.*` and the
+ * refund of a booking's charge, after its rows and `appendToOutbox`, in its own write-serialized transaction. Runs in the
+ * caller's transaction (opens none) and throws on a storage error, so that the transaction rolls back. Returns `"existing"`
+ * and writes nothing when the event is already stored as applied. See `UPGRADING.md`, "Storing the inputs of a booking".
+ */
+export const recordInput = (
+	db: SqlDatabase,
+	args: RecordInputArgs,
+): "stored" | "existing" => storedInputs.recordInput(db, args);
+
+/** What a database holds of stored inputs; never throws on a database made before them (`{ available: false, reason: "no_table" }`). */
+export const inputsStatus = (
+	db: SqlDatabase,
+	filter?: { env?: AtmEnv; school?: string },
+): InputsStatus => storedInputs.inputsStatus(db, filter);
+
+/** The stored inputs of one school and env as a replay reads them: applied and erased inputs in applied order, refusals, seeds and contexts. */
+export const readInputs = (
+	db: SqlDatabase,
+	filter: { env: AtmEnv; school: string },
+): InputsRead => storedInputs.readInputs(db, filter);
+
+/** The handler's SQLite behind the `InputsSource` interface. */
+export const sqliteInputsSource = (db: SqlDatabase): InputsSource =>
+	storedInputs.sqliteInputsSource(db);
+
+/**
+ * The erasure hook: call it in the transaction that books `subject.erased` for a holder. Turns every stored input of the
+ * holder into a tombstone (fact, subject key, refs, fee and raw hash cleared, `erased_at` set), deletes its seed and queues the
+ * shipped objects that held its facts for a rewrite. Other holders' inputs and the ledger's money events stay. Idempotent.
+ */
+export const eraseStoredInputs = (
+	db: SqlDatabase,
+	args: { env: AtmEnv; school: string; subjectKey: string; nowMs: number },
+): { inputs: number; seeds: number; queued: number } =>
+	storedInputs.eraseStoredInputs(db, args);
 
 // ---- The shipper: the outbox to the log ----
 

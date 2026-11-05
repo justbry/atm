@@ -1993,6 +1993,160 @@ export type StripeFactInput = Omit<StripeEventInput, "event"> & {
 	mapping: string;
 };
 
+// ---- Stored inputs ----
+
+/** Whether a stored input was decided (`applied`) or set aside with a 422-type reason (`refused`). */
+export type InputOutcome = "applied" | "refused";
+
+/**
+ * One handled Stripe input as the handler's database keeps it (`atm_event_inputs`): the trimmed fact the grant rules decided
+ * on, the side inputs the fact does not hold, and the context it was decided under. Never the raw event.
+ */
+export type StoredInput = {
+	/** The order the inputs were applied in (an `AUTOINCREMENT`): the order of replay. */
+	appliedOrder: number;
+	env: AtmEnv;
+	/** Stripe's `evt_...`. */
+	eventId: string;
+	schoolId: string;
+	/** `<school>|<env>|family:<id>` (a payout: `stripe:payouts`); null after an erasure. */
+	subjectKey: string | null;
+	type: string;
+	apiVersion: string;
+	/** `stripe/invoice.paid@v1`: the mapping that read the event. */
+	mapping: string;
+	livemode: boolean | null;
+	/** Stripe's `created`, whole seconds: the decision clock. */
+	stripeCreated: number;
+	/** When the input was committed, ms. */
+	receivedAt: number;
+	outcome: InputOutcome;
+	reason: StripeEventRefusal["reason"] | null;
+	/** How often this event was handled: 1 for an applied input that never failed, more for one that was refused first. */
+	attempts: number;
+	revisionBefore: number | null;
+	revisionAfter: number | null;
+	/** The package version that decided it. */
+	atmVersion: string;
+	contextHash: string | null;
+	menuVersion: string | null;
+	policyVersion: string | null;
+	/** The caller's `paymentFee` answer, cents. */
+	fee: number | null;
+	/** The payment intent and charge ids an invoice paid with. */
+	paymentRefs: string[] | null;
+	/** The ULID the decision events name as their `cause`. */
+	inputId: string;
+	/** The caller's `bookingIds` entries this fact's decision used: payment intent or charge id to booking id; null after an erasure. */
+	bookingRefs: Record<string, string> | null;
+	/** SHA-256 of the verified raw body; null after an erasure. */
+	rawSha256: string | null;
+	/** The stored replay fact; null after an erasure. */
+	fact: ReplayFact | null;
+	erasedAt: number | null;
+	batchKey: string | null;
+	shippedAt: number | null;
+};
+
+/** The menu, policy and Stripe price ids that were in force when inputs were handled (`atm_input_contexts`). */
+export type StoredContext = {
+	env: AtmEnv;
+	schoolId: string;
+	contextHash: string;
+	menuVersion: string;
+	policyVersion: string;
+	firstUsedAt: number;
+	menu: Menu;
+	policy: BillingPolicy;
+	priceIds: Record<string, string>;
+};
+
+/** A holder's rows and revision as they were just before its first stored input (`atm_input_seeds`). */
+export type StoredSeed = {
+	env: AtmEnv;
+	subjectKey: string;
+	revision: number;
+	takenAt: number;
+	firstEventId: string;
+	rows: BillingRow[];
+};
+
+/** What `recordInput` takes. It runs in the caller's transaction. */
+export type RecordInputArgs = {
+	env: AtmEnv;
+	schoolId: string;
+	event: {
+		/** Stripe's `evt_...`. */
+		id: string;
+		type: string;
+		/** Stripe's `created`, whole seconds. */
+		created: number;
+		apiVersion: string;
+		livemode: boolean | null;
+	};
+	/** The verified raw body: hashed, never stored. */
+	rawBody: string;
+	/** `normalizeStripeEvent` of the event; the fact stored is its `replayFactOf`. */
+	normalized: Extract<NormalizedStripeEvent, { ok: true }>;
+	outcome: InputOutcome;
+	/** The 422-type reason of a refusal; null for an applied input. */
+	reason: StripeEventRefusal["reason"] | null;
+	subjectKey: string | null;
+	revisionBefore: number | null;
+	revisionAfter: number | null;
+	/** The rows the decision was made on; stored as the holder's seed when this is its first stored applied input. */
+	rowsBefore: readonly BillingRow[];
+	/** The context the decision ran under; null for an input that decided nothing and read none (`invoice_payment.paid`). */
+	context: WebhookContext | null;
+	fee: number | null;
+	/** An invoice's payment intent and charge ids; null for every other input. */
+	paymentRefs: readonly string[] | null;
+	/** The ULID passed to `handleStripeEvent` as `eventId` (the handler's is `inputCauseId`). */
+	inputId: string;
+	/** The `bookingIds` entries the decision used; null when none. */
+	bookingRefs: Readonly<Record<string, string>> | null;
+	nowMs: number;
+	/** The package version; default: this package's own. */
+	atmVersion?: string;
+};
+
+export type InputsStatus =
+	| { available: false; reason: "no_table" | "empty" }
+	| {
+			available: true;
+			applied: number;
+			refused: number;
+			erased: number;
+			seeds: number;
+			/** Applied or erased rows not yet shipped (`shipped_at` null). */
+			unshipped: number;
+			/** `received_at`, ms. */
+			firstStoredAt: number;
+			lastStoredAt: number;
+			schools: string[];
+			envs: AtmEnv[];
+			atmVersions: string[];
+	  };
+
+/** What a replay reads: the stored inputs of one school and env, from SQLite or from a shipped copy. */
+export type InputsRead = {
+	/** Applied and erased inputs, ordered by `appliedOrder`. */
+	inputs: StoredInput[];
+	/** 422 refusals, ordered by `stripeCreated`; empty from a shipped folder. */
+	refused: StoredInput[];
+	/** By `subjectKey`. */
+	seeds: Map<string, StoredSeed>;
+	/** By `contextHash`. */
+	contexts: Map<string, StoredContext>;
+	/** Where it came from, for messages: a file path, a folder, or "store". */
+	origin: string;
+};
+
+/** What the replay reads; the handler's SQLite (`sqliteInputsSource`) and a shipped copy both implement it. */
+export interface InputsSource {
+	read(filter: { env: AtmEnv; school: string }): Promise<InputsRead>;
+}
+
 // ---- Storage rows ----
 
 /**
