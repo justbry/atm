@@ -232,7 +232,7 @@ const feeColumn = (fee: number | null): number | null =>
  * `(env, event_id)` is the key. An event already stored as `applied` is left as it was and the answer is `"existing"`. A
  * refusal is stored as `refused` with its reason; handled again and refused again it counts one more attempt and keeps its
  * `applied_order`; applied later it replaces the refused row and takes a new `applied_order`, its `attempts` one above the
- * refusals before it.
+ * refusals before it. A refusal that was erased (a tombstone) and is refused again is left as the tombstone: `"existing"`.
  */
 export const recordInput = (
 	db: SqlDatabase,
@@ -243,11 +243,16 @@ export const recordInput = (
 		outcome: InputOutcome;
 		attempts: number;
 		applied_order: number;
+		erased_at: number | null;
 	}>(
-		`SELECT outcome, attempts, applied_order FROM atm_event_inputs WHERE env = ? AND event_id = ?`,
+		`SELECT outcome, attempts, applied_order, erased_at FROM atm_event_inputs WHERE env = ? AND event_id = ?`,
 		[args.env, args.event.id],
 	);
 	if (prior?.outcome === "applied") return "existing";
+	// An erased refusal stays a tombstone when it is refused again: a redelivery must not store the erased holder's fact anew.
+	// (Applied later, the event moves rows and has to be stored.)
+	if (prior && prior.erased_at !== null && args.outcome === "refused")
+		return "existing";
 	const contextHash = args.context
 		? recordContext(db, args, args.context)
 		: null;

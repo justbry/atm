@@ -43,7 +43,11 @@ import {
 	T1,
 	tierKey,
 } from "./handler-harness.js";
-import { invoicePaid, type RawEvent } from "./stripe-events.js";
+import {
+	invoicePaid,
+	type RawEvent,
+	subscriptionEvent,
+} from "./stripe-events.js";
 
 type Row = {
 	applied_order: number;
@@ -196,6 +200,31 @@ describe("a delivery stores its input", () => {
 		expect(count(h.raw, "atm_input_contexts")).toBe(1);
 	});
 
+	test("a changed policy is a new context row, and each input names the context it ran under", () => {
+		const h = harness();
+		h.deliver(paid("in_1"));
+		const context = h.deps.context;
+		h.deps.context = (school) => {
+			const current = context(school);
+			return (
+				current && {
+					...current,
+					policy: {
+						...current.policy,
+						memberCode: { code: "SAVE5", percentOff: 5 },
+					},
+					policyVersion: 2,
+				}
+			);
+		};
+		expect(h.deliver(renewal("in_2", T1), T1).body.outcome).toBe("applied");
+		expect(count(h.raw, "atm_input_contexts")).toBe(2);
+		const [first, second] = inputRows(h.raw);
+		expect(first?.context_hash).not.toBe(second?.context_hash);
+		expect([first?.policy_version, second?.policy_version]).toEqual(["1", "2"]);
+		expect(first?.livemode).toBe(1);
+	});
+
 	test("the same Stripe id under env live and env test stores two rows", () => {
 		const raw = new Database(":memory:");
 		const live = harness(undefined, { raw });
@@ -301,6 +330,87 @@ describe("a refused delivery", () => {
 		// a delivery after that is a duplicate and leaves the row as it is
 		expect(fixed.deliver(paid()).body.outcome).toBe("duplicate");
 		expect(inputRows(raw)).toEqual([applied as Row]);
+	});
+
+	test("a 409 wait decided after the claim (a cancel before any invoice) stores nothing: no input, no context", () => {
+		const h = harness();
+		const response = h.deliver(
+			subscriptionEvent({
+				type: "customer.subscription.deleted",
+				eventId: "evt_sub_del",
+				subscriptionId: "sub_1",
+				status: "canceled",
+				items: [{ lookupKey: tierKey(), interval: "month" }],
+				periodStart: T0,
+				periodEnd: T1,
+				at: T0 + HOUR,
+				metadata: { b4u_school: SCHOOL, family_id: FAMILY },
+			}),
+			T0 + HOUR,
+		);
+		expect(response.status).toBe(409);
+		expect(response.body.reason).toBe("unknown_subscription");
+		expect(count(h.raw, "atm_event_inputs")).toBe(0);
+		expect(count(h.raw, "atm_input_contexts")).toBe(0);
+	});
+
+	test("an erased refusal that is refused again stays a tombstone (the erased holder's fact is not stored anew)", () => {
+		const raw = new Database(":memory:");
+		const broken = harness(undefined, { raw, menu: brokenMenu });
+		const subjectKey = `${SCHOOL}|live|family:${FAMILY}`;
+		expect(broken.deliver(paid()).status).toBe(422);
+		expect(
+			eraseStoredInputs(broken.db, {
+				env: "live",
+				school: SCHOOL,
+				subjectKey,
+				nowMs: QUEUED_AT,
+			}).inputs,
+		).toBe(1);
+		const [tombstone] = inputRows(raw);
+		expect(tombstone).toMatchObject({
+			subject_key: null,
+			body: null,
+			raw_sha256: null,
+			erased_at: QUEUED_AT,
+		});
+		expect(broken.deliver(paid()).status).toBe(422);
+		expect(inputRows(raw)).toEqual([tombstone as Row]);
+		// applied later, the event moves rows, so it is stored (the holder's own new event)
+		const fixed = harness(undefined, { raw });
+		expect(fixed.deliver(paid()).body.outcome).toBe("applied");
+		expect(inputRows(raw)).toHaveLength(1);
+		expect(inputRows(raw)[0]).toMatchObject({
+			outcome: "applied",
+			subject_key: subjectKey,
+			erased_at: null,
+		});
+	});
+
+	test("a holder with rows whose first stored input is a refusal is seeded at its first applied input, with the rows of that moment", () => {
+		const raw = new Database(":memory:");
+		const fixed = harness({ in_1: 1 }, { raw });
+		fixed.deliver(paid("in_1"));
+		// the first delivery was before the upgrade
+		raw.run(`DELETE FROM atm_event_inputs`);
+		raw.run(`DELETE FROM atm_input_contexts`);
+		const broken = harness(undefined, { raw, menu: brokenMenu });
+		expect(broken.deliver(renewal("in_2", T1), T1).status).toBe(422);
+		expect(count(raw, "atm_input_seeds")).toBe(0);
+		expect(fixed.deliver(renewal("in_2", T1), T1).body.outcome).toBe("applied");
+		expect(
+			raw
+				.query(
+					`SELECT subject_key, revision, first_event_id FROM atm_input_seeds`,
+				)
+				.all(),
+		).toEqual([
+			{
+				subject_key: `${SCHOOL}|live|family:${FAMILY}`,
+				revision: 1,
+				first_event_id: "evt_in_2",
+			},
+		]);
 	});
 
 	test("a refusal on the 409 list (a wait) stores nothing", () => {
