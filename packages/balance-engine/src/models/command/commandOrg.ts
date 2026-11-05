@@ -31,6 +31,7 @@ export const commandOrgSchema = openSchema({
 				/**
 				 * "expiry": among peer included rows, soonest-lapsing first. Absent, null and "engine" keep the engine's order.
 				 * Expiry wins over `reverse_deduction_order`: set together, the reversed tiers inside each run are lost (atm always sends reverse false).
+				 * Set by the caller on the command (atm's `commandOrg`); `orgToCommandOrg` does not copy it, the server's org has none.
 				 */
 				deduction_order: z.enum(["expiry", "engine"]).nullish(),
 			})

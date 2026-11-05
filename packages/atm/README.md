@@ -50,10 +50,10 @@ A `track` takes from a holder's credit rows for one feature in this order (Autum
 3. **Included** rows, in the order below.
 4. **Overage** (only where the plan allows it).
 
-`policy.deductionOrder` sets the order inside step 3. The caller puts `commandOrg(policy)` on every `track` and `check` it runs; a caller that sends its own org config gets `engine` (the second line below), because the engine reads the setting from the command, not from atm.
+`policy.deductionOrder` sets the order inside step 3. The caller puts `commandOrg(policy)` on every `track`, `check` and `finalize` it runs (a `finalize` draws too); a caller that sends its own org config gets `engine` (the second line below), because the engine reads the setting from the command, not from atm.
 
 - `expiry` (default): the row whose unused credits lapse soonest goes first, then the oldest grant (`created_at`). A refilling row lapses at its `next_reset_at` (what is left rolls over within its `max`, or is lost); a one-off row (gift, pack, a cancelled plan's last cycle) at its `expires_at`; a row that never lapses goes last. The engine keeps its earlier groupings (listed balances, entity level, boolean, credit systems, unlimited) and reorders only within each.
-- `engine`: Autumn's own order. Rows that refill (have a `next_reset_at`) first, then the shorter reset interval, then soonest `expires_at` (none last), then add-ons after the main plan, then prepaid before pay-per-use, then oldest first. `reverse_deduction_order` (off in `commandOrg`) flips the first two steps.
+- `engine`: Autumn's own order. Rows that refill (have a `next_reset_at`) first, then the shorter reset interval, then soonest `expires_at` (none last), then add-ons after the main plan, then prepaid before pay-per-use, then oldest first. `reverse_deduction_order` (off in `commandOrg`) flips the first two steps; under `expiry` it has no effect.
 
 So a gift that lapses before the tier's next reset is spent first under `expiry` and after the tier row under `engine` (`tests/billing-handle.test.ts`, "deduction order"). The engine option (`org.config.deduction_order`, off unless set) is listed in `../../UPSTREAM.md`.
 

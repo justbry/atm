@@ -456,7 +456,7 @@ describe("one rule per event type", () => {
 			expect(rest).toEqual([]);
 			expect(e?.event_type).toBe("credit.expiration_changed");
 			expect(e?.postings).toEqual([]);
-			expect(e?.idem).toBe(`expiry:ce_1:${T + 40 * DAY}`);
+			expect(e?.idem).toMatch(/:expiry:ce_1$/);
 			expect(e?.payload).toMatchObject({
 				row_id: "ce_1",
 				previous_expires_at: null,

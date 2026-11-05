@@ -24,7 +24,8 @@ export const commandOrg = (policy: BillingPolicy) => ({
 		reverse_deduction_order: false,
 		block_overdue_entitlements: false,
 		include_past_due: true,
-		deduction_order: policy.deductionOrder,
+		// A policy read back from an event published before the field existed has none: that is the default.
+		deduction_order: policy.deductionOrder ?? DEFAULT_POLICY.deductionOrder,
 	},
 });
 

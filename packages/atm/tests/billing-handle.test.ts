@@ -389,7 +389,7 @@ describe("handleStripeEvent", () => {
 				},
 			],
 		]);
-		expect(r.events[0]?.idem).toBe(`expiry:ce_tier_visit_month:${T2}`);
+		expect(r.events[0]?.idem).toMatch(/:expiry:ce_tier_visit_month$/);
 		expect(r.events[0]?.labels.expires_at).toBe("2026-03-15T18:00:00Z");
 		expect(r.events[0]?.cause).toBe("evt_sub_del");
 		// `cause` carries the Stripe event id, which the envelope's ULID pattern for `cause` does not take
@@ -1436,6 +1436,47 @@ describe("subscription events", () => {
 			T0 + DAY,
 		);
 		expect(grantsOf(s).membership?.cancelAtPeriodEnd).toBe(true);
+	});
+
+	test("two families' cancels book distinct expiry events, though they share row ids", () => {
+		const idems = ["fam_a", "fam_b"].map((family) => {
+			const s = store();
+			const tagged = { b4u_school: SCHOOL, family_id: family };
+			s.handle(
+				invoicePaid({
+					eventId: `evt_create_${family}`,
+					invoiceId: `in_${family}`,
+					at: T0 + 10_000,
+					paidAt: T0 + 5000,
+					subscriptionId: "sub_1",
+					reason: "subscription_create",
+					periodStart: T0,
+					periodEnd: T1,
+					lines: [
+						{
+							lookupKey: tierKey("sparkle-2", "month"),
+							amount: 26000,
+							interval: "month",
+						},
+					],
+					metadata: tagged,
+				}),
+				T0 + 10_000,
+			);
+			const r = s.handle(
+				sub({
+					type: "customer.subscription.deleted",
+					status: "canceled",
+					eventId: `evt_del_${family}`,
+					metadata: tagged,
+					at: T0 + DAY,
+				}),
+				T0 + DAY,
+			);
+			return r.events.map((e) => e.idem);
+		});
+		expect(idems[0]).toHaveLength(1);
+		expect(idems[0]?.[0]).not.toBe(idems[1]?.[0]);
 	});
 
 	test("deleted records the end and still lapses the credits", () => {

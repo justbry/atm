@@ -42,6 +42,14 @@ describe("resolvePolicy", () => {
 		).toBe("engine");
 	});
 
+	test("commandOrg falls back to the default for a stored policy that predates the field", () => {
+		const { deductionOrder: _removed, ...stored } = DEFAULT_POLICY;
+		expect(
+			commandOrg(stored as unknown as typeof DEFAULT_POLICY).config
+				.deduction_order,
+		).toBe("expiry");
+	});
+
 	test("nothing or an empty object gives the defaults, as a copy", () => {
 		expect(resolvePolicy(undefined)).toEqual(DEFAULT_POLICY);
 		expect(resolvePolicy(null)).toEqual(DEFAULT_POLICY);

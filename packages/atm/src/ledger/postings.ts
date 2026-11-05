@@ -397,6 +397,16 @@ type ExpiryMove = {
  */
 const expiryMoves = (m: SubjectStateMutation): ExpiryMove[] => {
 	const moves: ExpiryMove[] = [];
+	// A row whose balance moves anywhere in the mutation (an increment as well as a set) is a draw or a refill.
+	const balanceMoved = new Set(
+		m.changes.flatMap((c) =>
+			c.table === "customerEntitlements" &&
+			c.op === "increment" &&
+			"balance" in ((c as { add?: Record<string, unknown> }).add ?? {})
+				? [c.id]
+				: [],
+		),
+	);
 	for (const c of m.changes) {
 		if (c.table !== "customerEntitlements" || c.op !== "update") continue;
 		const before = c.before as Row;
@@ -405,6 +415,7 @@ const expiryMoves = (m: SubjectStateMutation): ExpiryMove[] => {
 			continue;
 		const previous = (before.expires_at as number | null | undefined) ?? null;
 		if (previous === after.expires_at) continue;
+		if (balanceMoved.has(c.id)) continue;
 		if ("balance" in after && after.balance !== before.balance) continue;
 		moves.push({
 			rowId: c.id,
@@ -696,13 +707,13 @@ export const mutationToEvents = ({
 	}
 	for (const moved of expiryMoves(mutation)) {
 		const date = isoInstant(moved.expiresAt);
+		// The default key is scoped to the command: row ids repeat across holders (every family has a ce_tier_visit_month).
 		emit(
 			"credit.expiration_changed",
-			"expiration_changed",
+			`expiry:${moved.rowId}`,
 			0,
 			`${feature} credits now expire ${date}${moved.refillsEnded ? ", refills ended" : ""}`,
 			{
-				idem: `expiry:${moved.rowId}:${moved.expiresAt}`,
 				labels: { expires_at: date },
 				payload: {
 					row_id: moved.rowId,
