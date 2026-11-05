@@ -19,10 +19,11 @@ import p15 from "../../schema/payload/payout.paid.v1.json";
 import p16 from "../../schema/payload/plan.attached.v1.json";
 import p17 from "../../schema/payload/plan.canceled.v1.json";
 import p18 from "../../schema/payload/plan.changed.v1.json";
-import p19 from "../../schema/payload/referral.qualified.v1.json";
-import p20 from "../../schema/payload/referral.rewarded.v1.json";
-import p21 from "../../schema/payload/share.charged.v1.json";
-import p22 from "../../schema/payload/subject.erased.v1.json";
+import p19 from "../../schema/payload/policy.published.v1.json";
+import p20 from "../../schema/payload/referral.qualified.v1.json";
+import p21 from "../../schema/payload/referral.rewarded.v1.json";
+import p22 from "../../schema/payload/share.charged.v1.json";
+import p23 from "../../schema/payload/subject.erased.v1.json";
 
 export const envelopeSchema: Record<string, unknown> = envelope;
 export const payloadSchemas: Record<string, Record<string, unknown>> = {
@@ -45,8 +46,9 @@ export const payloadSchemas: Record<string, Record<string, unknown>> = {
 	"plan.attached": p16,
 	"plan.canceled": p17,
 	"plan.changed": p18,
-	"referral.qualified": p19,
-	"referral.rewarded": p20,
-	"share.charged": p21,
-	"subject.erased": p22,
+	"policy.published": p19,
+	"referral.qualified": p20,
+	"referral.rewarded": p21,
+	"share.charged": p22,
+	"subject.erased": p23,
 };

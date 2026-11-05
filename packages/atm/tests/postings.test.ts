@@ -256,6 +256,7 @@ describe("one rule per event type", () => {
 			"referral.qualified",
 			"referral.rewarded",
 			"catalog.published",
+			"policy.published",
 		] as const) {
 			expect(money({ type }).postings).toEqual([]);
 		}

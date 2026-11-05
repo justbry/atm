@@ -109,7 +109,8 @@ export type AtmEventType =
 	| "share.charged"
 	| "referral.qualified"
 	| "referral.rewarded"
-	| "catalog.published";
+	| "catalog.published"
+	| "policy.published";
 
 /** One line of a transaction. `amount` is a decimal string (two places for USD, none for credits), never a float. */
 export type AtmPosting = {
