@@ -253,6 +253,22 @@ describe("each difference is detected", () => {
 	});
 });
 
+describe("a log wrong in its postings only", () => {
+	test("a payment whose payload agrees with Stripe but whose postings book less is caught by the net", () => {
+		const result = run(
+			mutate("in_0_lw1hm", (event) => ({
+				...event,
+				postings: event.postings.map((posting) =>
+					posting.account === "assets:stripe"
+						? { ...posting, amount: "100.00" }
+						: posting,
+				),
+			})),
+		);
+		expect(kinds(result.differences)).toEqual(["amount_differs net"]);
+	});
+});
+
 describe("fees and payouts the log does not carry", () => {
 	test("no fee postings is one fees record, not one per payment", () => {
 		const bare = events.map((event) =>
@@ -533,6 +549,20 @@ describe("disputes", () => {
 			eventType: "dispute.closed",
 			id: "dp_1",
 		});
+	});
+
+	test("a dispute.closed that also carries an amount is still clean: the closing has none to compare", () => {
+		const closed = ledgerEvent({
+			type: "dispute.closed",
+			school: SCHOOL,
+			tz: TZ,
+			eventTime: "2026-05-02T12:00:00Z",
+			key: "family:fam_edge",
+			idem: "stripe:dp_1:dispute.closed",
+			amount: 5000,
+			payload: { id: "dp_1", status: "lost", amount: 5000 },
+		});
+		expect(check([opened, closed], "lost").differences).toEqual([]);
 	});
 
 	test("won in the log and lost in Stripe is outcome_differs", () => {

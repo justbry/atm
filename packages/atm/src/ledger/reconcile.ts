@@ -165,6 +165,8 @@ type Pairing = {
 	/** Whether Stripe's record should already be in the log (an open dispute has no `dispute.closed` yet). */
 	expectedInLog?: (item: Item) => boolean;
 	compareStatus?: boolean;
+	/** False for a record that has no amount of its own (a `dispute.closed` names the dispute, not its sum): amount and currency are not compared. */
+	compareAmount?: boolean;
 };
 
 const describeItem = (item: Item): string =>
@@ -245,7 +247,10 @@ const pair = (
 			stripe.currency !== null &&
 			log.currency !== null &&
 			stripe.currency !== log.currency;
-		if (stripe.amount !== log.amount || currencyDiffers)
+		if (
+			(pairing.compareAmount ?? true) &&
+			(stripe.amount !== log.amount || currencyDiffers)
+		)
 			add(
 				"amount_differs",
 				`Stripe has ${describeItem(stripe)}, the log has ${describeItem(log)}`,
@@ -426,6 +431,7 @@ export const reconcile = (input: ReconcileInput): ReconcileResult => {
 				events: ofType("dispute.closed"),
 				flagPeriodShift: false,
 				compareStatus: true,
+				compareAmount: false,
 				expectedInLog: (item) => DISPUTE_OUTCOMES.has(item.status ?? ""),
 			},
 			scope,
