@@ -1337,22 +1337,30 @@ export const subscriptionToCommands = (
 	input: SubscriptionEndInput,
 ): GrantResult => {
 	const { subscription: fact, plan } = input;
-	const ended = subscriptionEndedToCommands(input);
-	const current = ended.state.membership;
+	const prior = input.state;
+	const current = prior.membership;
+	const shown = subscriptionStatus(fact);
 	// The membership follows the holder's own subscription: an event about another one (an older subscription that
 	// ended late, say) says nothing about it.
-	if (
-		ended.state.subscriptionId !== null &&
-		fact.id !== ended.state.subscriptionId
-	)
-		return ended;
-	if (current?.subscriptionId === fact.id && fact.at < current.at) return ended;
-	const shown = subscriptionStatus(fact);
+	if (prior.subscriptionId !== null && fact.id !== prior.subscriptionId)
+		return unchanged(input);
+	// An event that does not supersede the membership on record changes nothing, a canceled one included: it must
+	// neither end the subscription nor lapse its credits.
+	if (current && !supersedes(current, fact.id, fact.at, shown.status))
+		return unchanged(input);
+	const ended = subscriptionEndedToCommands(input);
+	// A canceled subscription's price may have left the menu since: the tier on record (the membership's, else the
+	// one its invoices put in the plan) stays.
+	const keepTier = fact.status === "canceled";
+	const recorded =
+		current?.subscriptionId === fact.id
+			? { tierId: current.tierId, interval: current.interval }
+			: { tierId: prior.tierId, interval: prior.interval };
 	const membership: MembershipRecord = {
 		subscriptionId: fact.id,
 		status: shown.status,
-		tierId: plan?.tierId ?? null,
-		interval: plan?.interval ?? null,
+		tierId: plan?.tierId ?? (keepTier ? recorded.tierId : null),
+		interval: plan?.interval ?? (keepTier ? recorded.interval : null),
 		renewsAt: shown.renewsAt,
 		cancelAtPeriodEnd: shown.cancelAtPeriodEnd,
 		endsAt: shown.endsAt,
@@ -1360,6 +1368,37 @@ export const subscriptionToCommands = (
 	};
 	if (JSON.stringify(current) === JSON.stringify(membership)) return ended;
 	return { ...ended, state: { ...ended.state, membership } };
+};
+
+const unchanged = (input: SubscriptionEndInput): GrantResult => ({
+	commands: [],
+	labels: labelsOf(input.subscription.source, input),
+	state: input.state,
+});
+
+/** How final a membership status is: an ended one is not undone by a status Stripe sent in the same second. */
+const STATUS_RANK: Record<MembershipRecord["status"], number> = {
+	ended: 2,
+	active: 1,
+	past_due: 1,
+	inactive: 1,
+	payment_incomplete: 0,
+};
+
+/**
+ * Whether an event (its subscription, second and shown status) replaces the membership on record. Older never does.
+ * Another subscription's event replaces it from the same second on. For the same subscription, events of one second
+ * come in any order, so one does not replace a more final status.
+ */
+const supersedes = (
+	current: MembershipRecord,
+	subscriptionId: string,
+	at: number,
+	status: MembershipRecord["status"],
+): boolean => {
+	if (at < current.at) return false;
+	if (at > current.at || current.subscriptionId !== subscriptionId) return true;
+	return STATUS_RANK[status] >= STATUS_RANK[current.status];
 };
 
 /** A full refund (policy.removeOnFullRefund) takes back that invoice's unused credits; a partial refund changes nothing. */
