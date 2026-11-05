@@ -1,0 +1,162 @@
+/**
+ * The money lines a Stripe event leaves in the books: a paid invoice is a `payment.succeeded` (gross, the Stripe fee and
+ * the net that reaches `assets:stripe`), a refund is a `payment.refunded` and a payout is a `payout.paid`. The postings
+ * and their signs are `moneyPostings` in `../ledger/postings.ts`; this only says which event to make from a fact.
+ * USD only, as the postings are: a fact in another currency makes no money line.
+ *
+ * Pure. Each event's idem is the Stripe object's id (`stripe:in_...`, `stripe:evt_...`, `stripe:po_...`), so the same
+ * fact decided twice makes the same event, which the outbox's (school, idem) key drops.
+ */
+import { ledgerEvent } from "../ledger/postings.js";
+import type {
+	AtmEvent,
+	BillingInvoice,
+	BillingRefund,
+	GrantLabels,
+	StripePayout,
+} from "../types.js";
+
+const USD = "usd";
+const CENTS_PER_DOLLAR = 100;
+const PAYOUT_KEY = "stripe:payouts";
+
+type Booker = {
+	school: string;
+	tz: string;
+	/** The ULID of the stored input event, which is every decision event's `cause`. */
+	cause: string;
+};
+
+/** Why a fee cannot be booked, or null when it can: a whole number of cents, from 0 to what the invoice paid. */
+export const feeProblem = (
+	fee: number | undefined,
+	amountPaid: number,
+): string | null =>
+	fee === undefined || (Number.isInteger(fee) && fee >= 0 && fee <= amountPaid)
+		? null
+		: `fee must be a whole number of cents from 0 to the ${amountPaid} the invoice paid, got ${String(fee)}`;
+
+/**
+ * Which income account a payment goes to, from the lines the menu named: the tier's (`membership:<tier>`), else the first
+ * add-on's (`addon:<add-on>`), else `other`. An invoice that pays for both books all of it under the tier.
+ */
+const incomeKindOf = (invoice: BillingInvoice): string => {
+	const tier = invoice.lines.find(
+		(line) => line.kind === "tier" && line.tierId,
+	);
+	if (tier?.tierId) return `membership:${tier.tierId}`;
+	const addon = invoice.lines.find(
+		(line) => line.kind === "addon" && line.addonId,
+	);
+	return addon?.addonId ? `addon:${addon.addonId}` : "other";
+};
+
+/**
+ * A paid invoice: `payment.succeeded` for what it paid, with `fee` taken out of the cash and booked as an expense. No
+ * event for an invoice that paid nothing (a free trial, a fully credited invoice) or paid in another currency.
+ */
+export const paymentEvents = ({
+	invoice,
+	fee,
+	labels,
+	booker,
+	holder,
+}: {
+	invoice: BillingInvoice;
+	fee: number | undefined;
+	labels: GrantLabels;
+	booker: Booker;
+	holder: { customerId: string };
+}): AtmEvent[] => {
+	if (invoice.amountPaid <= 0 || invoice.currency !== USD) return [];
+	const taken = fee ?? 0;
+	const dollars = invoice.amountPaid / CENTS_PER_DOLLAR;
+	return [
+		ledgerEvent({
+			type: "payment.succeeded",
+			school: booker.school,
+			tz: booker.tz,
+			eventTime: invoice.paidAt,
+			key: holder.customerId,
+			idem: `stripe:${invoice.id}`,
+			cause: booker.cause,
+			labels,
+			amount: invoice.amountPaid,
+			fee: taken,
+			incomeKind: incomeKindOf(invoice),
+			text: `payment ${dollars} USD for invoice ${invoice.id}`,
+			payload: {
+				id: invoice.id,
+				amount_paid: invoice.amountPaid,
+				fee: taken,
+				currency: invoice.currency,
+				customer: invoice.customerId,
+			},
+		}),
+	];
+};
+
+/**
+ * A refund: `payment.refunded` for what this event refunded. A `charge.refunded` carries the charge's total refunded so
+ * far, so the amount is that total less what it was before the event (`previousAmount`). Stripe keeps its fee on a
+ * refund, so nothing is booked back from `expenses:billing:stripe-fees`.
+ */
+export const refundEvents = ({
+	refund,
+	labels,
+	booker,
+	holder,
+}: {
+	refund: BillingRefund;
+	labels: GrantLabels;
+	booker: Booker;
+	holder: { customerId: string };
+}): AtmEvent[] => {
+	const refunded = refund.amount - (refund.previousAmount ?? 0);
+	if (refunded <= 0 || (refund.currency ?? USD) !== USD) return [];
+	return [
+		ledgerEvent({
+			type: "payment.refunded",
+			school: booker.school,
+			tz: booker.tz,
+			eventTime: refund.at,
+			key: holder.customerId,
+			idem: `stripe:${refund.id}`,
+			cause: booker.cause,
+			labels,
+			amount: refunded,
+			text: `refunded ${refunded / CENTS_PER_DOLLAR} USD of charge ${refund.chargeId}`,
+			payload: { id: refund.id, amount: refunded, currency: USD },
+		}),
+	];
+};
+
+/** A payout: `payout.paid` moves the cash from `assets:stripe` to `assets:clearing:stripe-payouts`. Another currency makes none. */
+export const payoutEvents = ({
+	payout,
+	booker,
+}: {
+	payout: StripePayout;
+	booker: Booker;
+}): AtmEvent[] =>
+	payout.currency === USD
+		? [
+				ledgerEvent({
+					type: "payout.paid",
+					school: booker.school,
+					tz: booker.tz,
+					eventTime: payout.at,
+					key: PAYOUT_KEY,
+					idem: `stripe:${payout.id}`,
+					cause: booker.cause,
+					labels: { mapping: payout.source.mapping },
+					amount: payout.amount,
+					text: `payout ${payout.amount / CENTS_PER_DOLLAR} USD`,
+					payload: {
+						id: payout.id,
+						amount: payout.amount,
+						currency: payout.currency,
+					},
+				}),
+			]
+		: [];

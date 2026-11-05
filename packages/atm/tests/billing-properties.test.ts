@@ -369,7 +369,7 @@ describe("random histories of one family", () => {
 				expect(new Set(rowIds).size).toBe(rowIds.length);
 			}
 
-			// and handling any event again, in any order, writes nothing and says nothing
+			// and handling any event again, in any order, writes nothing and says nothing new
 			const before = JSON.stringify({
 				rows: store.rows,
 				events: store.events,
@@ -381,7 +381,11 @@ describe("random histories of one family", () => {
 				// a refusal has the same empty shape, so say it was not one
 				expect([id, again.refused]).toEqual([id, undefined]);
 				expect([id, again.rowChanges]).toEqual([id, null]);
-				expect([id, again.events]).toEqual([id, []]);
+				// a refund says its money line again, with the same idem: the log already holds it (the outbox drops it)
+				expect([
+					id,
+					again.events.filter((e) => !store.events.some((k) => k.idem === e.idem)),
+				]).toEqual([id, []]);
 			}
 			expect(
 				JSON.stringify({

@@ -7,6 +7,7 @@ import m4 from "./stripe.customer.subscription.deleted.v1.json";
 import m5 from "./stripe.customer.subscription.updated.v1.json";
 import m6 from "./stripe.invoice.paid.v1.json";
 import m7 from "./stripe.invoice_payment.paid.v1.json";
+import m8 from "./stripe.payout.paid.v1.json";
 
 /** Every mapping file, in filename order. */
 export const MAPPING_FILES: readonly unknown[] = [
@@ -18,4 +19,5 @@ export const MAPPING_FILES: readonly unknown[] = [
 	m5,
 	m6,
 	m7,
+	m8,
 ];

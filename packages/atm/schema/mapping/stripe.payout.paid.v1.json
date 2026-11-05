@@ -1,0 +1,27 @@
+{
+	"v": 1,
+	"source": "stripe",
+	"event": "payout.paid",
+	"target": "StripePayout",
+	"stripeApiVersion": "2025-10-29.clover",
+	"fields": {
+		"id": {
+			"path": "$.data.object.id",
+			"type": "string"
+		},
+		"amount": {
+			"path": "$.data.object.amount",
+			"type": "int",
+			"min": 1
+		},
+		"currency": {
+			"path": "$.data.object.currency",
+			"type": "string"
+		},
+		"at": {
+			"path": "$.created",
+			"type": "seconds"
+		}
+	},
+	"personal": []
+}

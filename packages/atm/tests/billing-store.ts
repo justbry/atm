@@ -121,7 +121,10 @@ export const createStore = ({
 					revision,
 					changes: result.rowChanges,
 				}));
-			events.push(...result.events);
+			// The outbox's key is (school, idem): an event the log already holds is not written again (a refund's money line
+			// comes back with the same idem when the refund is handled twice).
+			const known = new Set(events.map((e) => e.idem));
+			events.push(...result.events.filter((e) => !known.has(e.idem)));
 			return result;
 		},
 		/** The family service takes `n` visits out (a booking, short of the hold and finalize steps). */

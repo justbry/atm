@@ -311,6 +311,8 @@ describe("fixtures normalize to their facts", () => {
 			paymentIntentId: "pi_SYNTH_0001",
 			chargeId: "ch_SYNTH_0001",
 			amount: 26000,
+			previousAmount: 0,
+			currency: "usd",
 			full: true,
 			at: 1793495100000,
 		});
