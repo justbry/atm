@@ -18,6 +18,9 @@ import {
 	unitsToString,
 } from "./util.js";
 
+/** The money commodity: dollars in the books. A credit's commodity must never be this one. */
+export const MONEY_COMMODITY = "USD";
+
 /** `visit` -> `VISIT`: a credit commodity is the feature id in capitals, letters only (hledger needs quotes otherwise). */
 export const commodityOf = (feature: string): string => {
 	const code = feature.toUpperCase().replace(/[^A-Z]/g, "");
@@ -180,7 +183,7 @@ const creditPostings = (
 };
 
 const usd = (account: string, cents: number) =>
-	post(account, centsToString(cents), "USD");
+	post(account, centsToString(cents), MONEY_COMMODITY);
 
 /** Money and bookkeeping events, which have no engine mutation behind them. */
 export const moneyPostings = (i: AtmLedgerEventInput): AtmPosting[] => {

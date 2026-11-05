@@ -18,6 +18,9 @@ describe("resolvePolicy", () => {
 			memberCode: { code: "MEMBER15", percentOff: 15 },
 			deductionOrder: "expiry",
 			lowCreditThreshold: 2,
+			cancelCutoffHours: 24,
+			noShow: "spend",
+			lateCancel: "spend",
 		});
 	});
 

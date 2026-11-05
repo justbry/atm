@@ -19,6 +19,9 @@
 		"giftDollarMonths": { "type": "integer", "minimum": 1, "maximum": 120 },
 		"deductionOrder": { "enum": ["expiry", "engine"] },
 		"lowCreditThreshold": { "type": "integer", "minimum": 0 },
+		"cancelCutoffHours": { "type": "integer", "minimum": 0, "maximum": 720 },
+		"noShow": { "enum": ["spend", "release"] },
+		"lateCancel": { "enum": ["spend", "release"] },
 		"memberCode": {
 			"oneOf": [
 				{ "type": "null" },
