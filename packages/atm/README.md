@@ -177,11 +177,14 @@ Stripe is the system of record for money. `reconcile({ events, stripe, period, t
 ```bash
 # One school's files. The Stripe CLI reference documents `stripe <resource> list`, --limit, --starting-after, --stripe-account
 # and --live. `created[gte]` and `created[lte]` are the API's list filters, passed with -d (not run against Stripe here).
-# The window starts a month early: an invoice's `created` is when it was made, and reconcile keeps only those paid in the period.
+# The window starts a month early (an invoice's `created` is when it was made, and reconcile keeps only those paid in the period)
+# and ends a day and a half late (here 2026-03-02T00:00Z): the end of the month in the school's zone is up to 12 hours after midnight UTC, and a
+# window that stops at 23:59:59 UTC leaves out a Denver school's 17:00-23:59 on the last day, which reads as `missing_in_stripe`.
+# Records the window brings in from outside the period are ignored, or `period_differs` where the log dates one inside it.
 ACCOUNT=acct_...   # the school's connected account
 for resource in invoices refunds disputes payouts balance_transactions; do
   stripe "$resource" list --live --stripe-account "$ACCOUNT" --limit 100 \
-    -d "created[gte]=1767225600" -d "created[lte]=1772323199" > "stripe/$resource.json"
+    -d "created[gte]=1767225600" -d "created[lte]=1772409600" > "stripe/$resource.json"
 done
 atm reconcile --root <folder> --school <id> --month 2026-02 --stripe stripe   # --json for JSON; --from/--to for a range
 ```
