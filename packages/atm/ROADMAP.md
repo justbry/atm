@@ -2,7 +2,7 @@
 
 Status as of 2026-11-05. `- [x]` is built and tested; `- [ ]` is not. What is built is described in `README.md`; what a caller of 0.1.0 has to change is in `UPGRADING.md`. Competitor behaviour comes from the vendors' public docs as read on 2026-11-04, not from running their products.
 
-**Where the work is.** Everything through tier quantities is merged into `dev` (PRs #9 to #16, merge commits, bottom-up, on 2026-11-05; tier quantities in #17). The version bump to 0.3.0 is in #18; only `atm-v0.1.0` is tagged. What is left for 0.3.0 is the release itself and the verification items below.
+**Where the work is.** Everything through tier quantities is merged into `dev` (PRs #9 to #16, merge commits, bottom-up, on 2026-11-05; tier quantities in #17). 0.3.0 is released (tag `atm-v0.3.0`; the bump was #18). What is left is the verification items below and the `buzz-school` side.
 
 ## Priority: the B4 Uni update and Vibes of Light membership
 
@@ -14,7 +14,7 @@ The critical path. Simulation, corrections, the Parquet export, decoupling and t
 - [x] **Tier quantities.** Vibes of Light sells three tiers at 1, 2 or 4 sessions a month; as separate tiers that is 9, past `MAX_TIERS = 4`. A tier gets `quantities` with its price and grants per unit (details in `UPGRADING.md`). Built from real quantity payloads captured in the sandbox (`fixtures/billing/stripe/recorded/`). Left out of 0.3.0: a quantity member in the replay fixture year (`fixtures/vibes-year`); the grants tests cover raise, decrease, renewal, yearly refund and the two-item subscription.
   - [ ] Verify with real data: a tier change and a quantity change in one update; a raise on a yearly plan (grants 0 today); a decrease through a subscription schedule.
   - [ ] Align with the family service's stopgap, justbry/buzz-school#1285.
-- [ ] **Release 0.3.0**: bump `package.json` (0.3.0 in #18; no 0.2.0 tag or release exists), `just release-dry`, then `just release` from a clean, pushed `HEAD`; hand the tarball URL and sha512 to `buzz-school`'s `bun.lock`. `release.ts` has no draft mode.
+- [x] **Release 0.3.0**: tag `atm-v0.3.0` at `98f2488034e145260c3f9e8a2948160461665ef5` (2026-11-05), the tag-push workflow `Release atm` passed. Tarball `https://github.com/justbry/atm/releases/download/atm-v0.3.0/atm-0.3.0.tgz`, sha512 `sha512-nEBqWX7STue4O9U2bCrRr308yWgUkX8t+Cc2MPI4vgSTyv89lcdgOEMT1ASxCBx/Mksl8rbiS7e2dNTT1NIjOg==`. Built with bun 1.4.2 (the release script refuses another version). Still to do in `buzz-school`: pin it in `bun.lock`.
 - [ ] Verify webhook delivery at the pinned version: create a sandbox webhook endpoint with `api_version: "2025-10-29.clover"` that reaches a URL we control (the CLI's `listen` offers only the account default or the newest version), subscribed to the eight events in `UPGRADING.md`.
 - [ ] An atm test workflow in `.github/workflows`. Today no workflow runs atm's tests on a PR: `knip.yml` runs on PRs to main, staging and dev; `build.yml` runs on pushes to main, staging and dev (it type-checks, and builds the server image only on main or a manual dispatch); `release-atm.yml` runs on an `atm-v*` tag push and calls `release --ci`, which builds the package and runs `tests/dist.test.ts` against the built output.
 - [ ] The contract suite under Node (only Bun has run) and against staging R2 (never run).
