@@ -12,7 +12,7 @@ Newest first. The version history before 0.3.0 and what a caller has to change f
 
 ## 0.8.0
 
-**Release 0.8.0**: bookable items, paid bookings and codes, with the fixes made on `dev` since 0.6.0. There is no 0.7.0 (the number is held by the open design PR #65). The release record (tag, commit, tarball URL, sha256 and sha512) is added after the release, as for 0.6.0. What a caller has to change: `UPGRADING.md`, "Moving to 0.8.0 from 0.6.0".
+**Release 0.8.0**: bookable items, paid bookings and codes, with the fixes made on `dev` since 0.6.0. There is no 0.7.0 (the number is held by the open design PR #65). Tag `atm-v0.8.0` at `6e0dbaf752bd6f69cb9727bb8b1f9c33a7709727` (2026-11-05; the merge of #79 on `dev`). Tarball `https://github.com/justbry/atm/releases/download/atm-v0.8.0/atm-0.8.0.tgz`, sha256 `e62dbc30fee01d7673e247834f6b3c2d6a34a6bf45431f8afe54691ae4b3b52d`, sha512 `sha512-ASfl407z51lHWUHSrf5jxaVmq7eHXyf3erMP2ulDgfHOi6cjuvBUBQ5ROqKveRjTilBrqxlYX32SWHhFmvtMFw==` (checked by downloading the published asset: the sha256 matches and the sha512 starts the same; built with bun 1.4.4; a second pack of the same commit gave the same bytes). #79 is the release PR (version bump and notes). What a caller has to change: `UPGRADING.md`, "Moving to 0.8.0 from 0.6.0".
 
 Everything on `dev` after the `atm-v0.6.0` tag (`a0e31d0be`):
 
