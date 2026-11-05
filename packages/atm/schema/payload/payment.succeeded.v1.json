@@ -1,0 +1,38 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://b4uni.com/_schema/payload/payment.succeeded.v1.json",
+	"title": "payment.succeeded payload v1",
+	"description": "A Stripe invoice.paid as the family service stored it. Amounts in cents.",
+	"type": "object",
+	"required": ["id", "amount_paid", "fee", "currency", "customer"],
+	"properties": {
+		"id": {
+			"type": "string",
+			"minLength": 1
+		},
+		"amount_paid": {
+			"type": "integer",
+			"minimum": 1
+		},
+		"fee": {
+			"type": "integer",
+			"minimum": 0
+		},
+		"currency": {
+			"type": "string",
+			"minLength": 1
+		},
+		"customer": {
+			"type": "string",
+			"minLength": 1
+		},
+		"billing_email": {
+			"x-personal": true,
+			"type": "string"
+		},
+		"billing_name": {
+			"x-personal": true,
+			"type": "string"
+		}
+	}
+}

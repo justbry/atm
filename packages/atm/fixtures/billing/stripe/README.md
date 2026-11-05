@@ -1,0 +1,18 @@
+# Synthetic Stripe webhook fixtures
+
+These JSON files are **synthetic**: hand-written to match the shape of Stripe's documented event and object formats. They contain no real customer, card, or account data. Ids (`evt_SYNTH_…`, `in_SYNTH_…`, `cus_SYNTH_…`), emails (`@example.test`) and addresses are invented.
+
+One event per file, for each event type that `schema/mapping/` covers:
+
+| File | Event | Notes |
+|---|---|---|
+| `invoice.paid.json` | `invoice.paid` | New monthly join: tier line plus an add-on line |
+| `invoice.paid.upgrade.json` | `invoice.paid` | Mid-cycle upgrade: two proration lines |
+| `charge.refunded.json` | `charge.refunded` | Full refund |
+| `charge.dispute.created.json` | `charge.dispute.created` | Dispute opened |
+| `charge.dispute.closed.json` | `charge.dispute.closed` | Dispute won |
+| `customer.subscription.created.json` | `customer.subscription.created` | Active monthly subscription |
+| `customer.subscription.updated.json` | `customer.subscription.updated` | Cancel at period end |
+| `customer.subscription.deleted.json` | `customer.subscription.deleted` | Canceled |
+
+`api_version` is `2025-10-29.clover` in every file. That pin is **UNVERIFIED** against a real account: no account's real API version is recorded in the repository yet. The shapes are checked against Stripe's published OpenAPI spec for that version (`schema/stripe/objects.clover.json`, pruned by `bun schema/stripe/build.ts <spec3.json>`; `tests/stripe-shape.test.ts`): no field the spec lacks, none of the wrong type. So an invoice line has no `price` object and no `proration` (it names its price by id in `pricing.price_details.price`, and proration sits on `parent.subscription_item_details`), and a charge or dispute names its `payment_intent`, not an `invoice`. The spec cannot say which optional fields a real event omits, or in what order events arrive: replace the fixtures with recorded test-mode payloads once the account's version is confirmed.

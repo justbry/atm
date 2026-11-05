@@ -1,0 +1,37 @@
+{
+	"v": 1,
+	"source": "stripe",
+	"event": "charge.dispute.closed",
+	"target": "BillingDispute",
+	"stripeApiVersion": "2025-10-29.clover",
+	"fields": {
+		"id": {
+			"path": "$.data.object.id",
+			"type": "string"
+		},
+		"paymentIntentId": {
+			"path": "$.data.object.payment_intent",
+			"type": "string",
+			"optional": true,
+			"default": null
+		},
+		"chargeId": {
+			"path": "$.data.object.charge",
+			"type": "string"
+		},
+		"status": {
+			"path": "$.data.object.status",
+			"type": "string",
+			"values": {
+				"won": "won",
+				"lost": "lost"
+			},
+			"fallback": "open"
+		},
+		"at": {
+			"path": "$.created",
+			"type": "seconds"
+		}
+	},
+	"personal": ["$.data.object.evidence", "$.data.object.payment_method_details"]
+}

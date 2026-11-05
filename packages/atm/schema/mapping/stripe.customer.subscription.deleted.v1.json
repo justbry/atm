@@ -1,0 +1,59 @@
+{
+	"v": 1,
+	"source": "stripe",
+	"event": "customer.subscription.deleted",
+	"target": "SubscriptionFact",
+	"stripeApiVersion": "2025-10-29.clover",
+	"fields": {
+		"id": { "path": "$.data.object.id", "type": "string" },
+		"customerId": { "path": "$.data.object.customer", "type": "string" },
+		"status": {
+			"path": "$.data.object.status",
+			"type": "string",
+			"values": {
+				"active": "active",
+				"trialing": "trialing",
+				"past_due": "past_due",
+				"unpaid": "unpaid",
+				"incomplete": "incomplete",
+				"incomplete_expired": "incomplete_expired",
+				"canceled": "canceled",
+				"paused": "paused"
+			}
+		},
+		"tierId": {
+			"path": "$.data.object.metadata.tier_id",
+			"type": "string",
+			"optional": true,
+			"default": null
+		},
+		"interval": {
+			"path": "$.data.object.items.data[0].price.recurring.interval",
+			"type": "string",
+			"optional": true,
+			"default": null,
+			"values": { "month": "month", "year": "year" },
+			"fallback": null
+		},
+		"currentPeriodStart": {
+			"path": "$.data.object.items.data[0].current_period_start",
+			"type": "seconds"
+		},
+		"currentPeriodEnd": {
+			"path": "$.data.object.items.data[0].current_period_end",
+			"type": "seconds"
+		},
+		"cancelAtPeriodEnd": {
+			"path": "$.data.object.cancel_at_period_end",
+			"type": "bool"
+		},
+		"at": { "path": "$.created", "type": "seconds" },
+		"metadata": { "path": "$.data.object.metadata", "type": "map" }
+	},
+	"personal": [
+		"$.data.object.customer.email",
+		"$.data.object.customer.name",
+		"$.data.object.customer.address",
+		"$.data.object.customer.phone"
+	]
+}

@@ -30,6 +30,7 @@
 			"packages/errors",
 			"packages/logging",
 			"packages/balance-engine",
+			"packages/atm",
 			"packages/catalog-lru",
 			"packages/edge-config",
 			"packages/blue-green",

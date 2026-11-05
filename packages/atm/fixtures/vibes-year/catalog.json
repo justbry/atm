@@ -1,0 +1,128 @@
+[
+  {
+    "table": "features",
+    "row": {
+      "internal_id": "feat_visit",
+      "org_id": "sch_vol",
+      "created_at": 1767225600000,
+      "env": "live",
+      "id": "visit",
+      "name": "Visit",
+      "type": "metered",
+      "config": {},
+      "archived": false,
+      "event_names": []
+    }
+  },
+  {
+    "table": "entitlements",
+    "row": {
+      "id": "ent_s2",
+      "created_at": 1767225600000,
+      "internal_feature_id": "feat_visit",
+      "internal_product_id": "prod_sparkle-2",
+      "is_custom": false,
+      "allowance_type": "fixed",
+      "allowance": 2,
+      "interval": "month",
+      "interval_count": 1,
+      "org_id": "sch_vol",
+      "usage_limit": null,
+      "rollover": {
+        "max": 2,
+        "duration": "month",
+        "length": 1
+      }
+    }
+  },
+  {
+    "table": "entitlements",
+    "row": {
+      "id": "ent_s1",
+      "created_at": 1767225600000,
+      "internal_feature_id": "feat_visit",
+      "internal_product_id": "prod_sparkle-1",
+      "is_custom": false,
+      "allowance_type": "fixed",
+      "allowance": 1,
+      "interval": "month",
+      "interval_count": 1,
+      "org_id": "sch_vol",
+      "usage_limit": null,
+      "rollover": {
+        "max": 1,
+        "duration": "month",
+        "length": 1
+      }
+    }
+  },
+  {
+    "table": "entitlements",
+    "row": {
+      "id": "ent_gift",
+      "created_at": 1767225600000,
+      "internal_feature_id": "feat_visit",
+      "internal_product_id": null,
+      "is_custom": false,
+      "allowance_type": "fixed",
+      "allowance": 1,
+      "interval": "lifetime",
+      "interval_count": 1,
+      "org_id": "sch_vol",
+      "usage_limit": null,
+      "rollover": null
+    }
+  },
+  {
+    "table": "products",
+    "row": {
+      "id": "sparkle-2",
+      "name": "sparkle-2",
+      "description": null,
+      "is_add_on": false,
+      "is_default": false,
+      "version": 1,
+      "version_slug": "v1",
+      "active": true,
+      "deleted_at": null,
+      "previous_version_slug": null,
+      "group": "",
+      "env": "live",
+      "internal_id": "prod_sparkle-2",
+      "org_id": "sch_vol",
+      "created_at": 1767225600000,
+      "base_variant_id": null,
+      "archived": false,
+      "config": {
+        "ignore_past_due": false
+      },
+      "metadata": {}
+    }
+  },
+  {
+    "table": "products",
+    "row": {
+      "id": "sparkle-1",
+      "name": "sparkle-1",
+      "description": null,
+      "is_add_on": false,
+      "is_default": false,
+      "version": 1,
+      "version_slug": "v1",
+      "active": true,
+      "deleted_at": null,
+      "previous_version_slug": null,
+      "group": "",
+      "env": "live",
+      "internal_id": "prod_sparkle-1",
+      "org_id": "sch_vol",
+      "created_at": 1767225600000,
+      "base_variant_id": null,
+      "archived": false,
+      "config": {
+        "ignore_past_due": false
+      },
+      "metadata": {}
+    }
+  }
+]

@@ -1,0 +1,85 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://b4uni.com/_schema/payload/credit.expired.v1.json",
+	"title": "credit.expired payload v1",
+	"description": "Either the unused credits at a reset (command and mutation) or rows the clock lapsed (lapsed; no mutation, the engine drops them by time).",
+	"type": "object",
+	"required": [],
+	"properties": {
+		"command": {
+			"type": "object",
+			"required": ["type", "commandId", "occurredAt"],
+			"properties": {
+				"type": {
+					"type": "string",
+					"minLength": 1
+				},
+				"commandId": {
+					"type": "string",
+					"minLength": 1
+				},
+				"occurredAt": {
+					"type": "integer"
+				}
+			}
+		},
+		"mutation": {
+			"type": "object",
+			"required": ["id", "revision", "changes", "result"],
+			"properties": {
+				"id": {
+					"type": "string",
+					"minLength": 1
+				},
+				"revision": {
+					"type": "object",
+					"required": ["before", "after"]
+				},
+				"changes": {
+					"type": "array"
+				},
+				"result": {
+					"type": "object"
+				}
+			}
+		},
+		"leftover": {
+			"type": "number"
+		},
+		"rolled_over": {
+			"type": "number"
+		},
+		"lapsed": {
+			"type": "array",
+			"minItems": 1,
+			"items": {
+				"type": "object",
+				"required": ["table", "id", "balance", "expires_at"],
+				"properties": {
+					"table": {
+						"enum": ["customerEntitlements", "rollovers"]
+					},
+					"id": {
+						"type": "string",
+						"minLength": 1
+					},
+					"balance": {
+						"type": "integer",
+						"minimum": 1
+					},
+					"expires_at": {
+						"type": "integer"
+					}
+				}
+			}
+		}
+	},
+	"anyOf": [
+		{
+			"required": ["lapsed"]
+		},
+		{
+			"required": ["command", "mutation"]
+		}
+	]
+}

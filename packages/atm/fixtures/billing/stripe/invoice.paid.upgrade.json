@@ -1,0 +1,106 @@
+{
+	"id": "evt_SYNTH_0002",
+	"object": "event",
+	"api_version": "2025-10-29.clover",
+	"created": 1793574000,
+	"type": "invoice.paid",
+	"livemode": false,
+	"data": {
+		"object": {
+			"object": "invoice",
+			"id": "in_SYNTH_0002",
+			"customer": "cus_SYNTH_0001",
+			"customer_email": "synthetic.parent@example.test",
+			"customer_name": "Synthetic Parent",
+			"customer_address": null,
+			"customer_phone": null,
+			"currency": "usd",
+			"amount_due": 5000,
+			"amount_paid": 5000,
+			"amount_remaining": 0,
+			"billing_reason": "subscription_update",
+			"period_start": 1793491200,
+			"period_end": 1796083200,
+			"status": "paid",
+			"status_transitions": {
+				"finalized_at": 1793574000,
+				"paid_at": 1793574010
+			},
+			"parent": {
+				"type": "subscription_details",
+				"quote_details": null,
+				"subscription_details": {
+					"subscription": "sub_SYNTH_0001",
+					"metadata": {}
+				}
+			},
+			"metadata": {},
+			"lines": {
+				"object": "list",
+				"has_more": false,
+				"data": [
+					{
+						"object": "line_item",
+						"id": "il_SYNTH_0003",
+						"amount": -13000,
+						"currency": "usd",
+						"description": "Unused time on Sparkle, 2 sessions a month",
+						"quantity": 1,
+						"period": {
+							"start": 1793574000,
+							"end": 1796083200
+						},
+						"pricing": {
+							"type": "price_details",
+							"price_details": {
+								"price": "price_SYNTH_sparkle_2s_month",
+								"product": "prod_SYNTH_sparkle"
+							}
+						},
+						"parent": {
+							"type": "subscription_item_details",
+							"invoice_item_details": null,
+							"subscription_item_details": {
+								"proration": true,
+								"proration_details": null,
+								"invoice_item": null,
+								"subscription": "sub_SYNTH_0001",
+								"subscription_item": "si_SYNTH_0001"
+							}
+						}
+					},
+					{
+						"object": "line_item",
+						"id": "il_SYNTH_0004",
+						"amount": 18000,
+						"currency": "usd",
+						"description": "Remaining time on Shine, 1 session a month",
+						"quantity": 1,
+						"period": {
+							"start": 1793574000,
+							"end": 1796083200
+						},
+						"pricing": {
+							"type": "price_details",
+							"price_details": {
+								"price": "price_SYNTH_shine_1s_month",
+								"product": "prod_SYNTH_shine"
+							}
+						},
+						"parent": {
+							"type": "subscription_item_details",
+							"invoice_item_details": null,
+							"subscription_item_details": {
+								"proration": true,
+								"proration_details": null,
+								"invoice_item": null,
+								"subscription": "sub_SYNTH_0001",
+								"subscription_item": "si_SYNTH_0002"
+							}
+						}
+					}
+				]
+			}
+		}
+	}
+}

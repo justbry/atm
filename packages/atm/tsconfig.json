@@ -1,0 +1,25 @@
+{
+	"compilerOptions": {
+		"esModuleInterop": true,
+		"isolatedModules": true,
+		"module": "Preserve",
+		"moduleResolution": "bundler",
+		"noEmit": true,
+		"paths": {
+			"@api/*": ["../../shared/api/*"],
+			"@models/*": ["../../shared/models/*"],
+			"@utils/*": ["../../shared/utils/*"]
+		},
+		"skipLibCheck": true,
+		"strict": true,
+		"target": "ES2022",
+		"types": ["bun", "node"],
+		"resolveJsonModule": true
+	},
+	"include": [
+		"src/**/*.ts",
+		"tests/**/*.ts",
+		"fixtures/**/*.ts",
+		"schema/**/*.ts"
+	]
+}

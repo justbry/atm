@@ -1,0 +1,17 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://b4uni.com/_schema/payload/dispute.closed.v1.json",
+	"title": "dispute.closed payload v1",
+	"description": "A Stripe dispute closed; won returns the money.",
+	"type": "object",
+	"required": ["id", "status"],
+	"properties": {
+		"id": {
+			"type": "string",
+			"minLength": 1
+		},
+		"status": {
+			"enum": ["won", "lost"]
+		}
+	}
+}

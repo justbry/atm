@@ -391,6 +391,22 @@
         "typescript": "~5.8.3",
       },
     },
+    "packages/atm": {
+      "name": "atm",
+      "version": "0.0.1",
+      "bin": {
+        "atm": "./src/bin.ts",
+      },
+      "dependencies": {
+        "@autumn/balance-engine": "workspace:*",
+        "ajv": "8.20.0",
+        "commander": "14.0.3",
+      },
+      "devDependencies": {
+        "@types/bun": "1.4.2",
+        "typescript": "~5.8.3",
+      },
+    },
     "packages/atmn": {
       "name": "atmn",
       "version": "2.0.99",
@@ -3989,6 +4005,8 @@
     "async-sema": ["async-sema@3.1.1", "", {}, "sha512-tLRNUXati5MFePdAk8dw7Qt7DpxPB60ofAgn8WRhW6a2rcimZnYBP9oxHiv0OHy+Wz7kPMG+t4LGdt31+4EmGg=="],
 
     "asynckit": ["asynckit@0.4.0", "", {}, "sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q=="],
+
+    "atm": ["atm@workspace:packages/atm"],
 
     "atmn": ["atmn@workspace:packages/atmn"],
 
