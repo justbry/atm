@@ -37,6 +37,7 @@ import {
 	planOutbox as planOutboxImpl,
 	shipOutbox as shipOutboxImpl,
 } from "./ledger/ship.js";
+import { outboxStatus as outboxStatusImpl } from "./ledger/status.js";
 import { validateEvent as validateEventImpl } from "./ledger/validate.js";
 import * as folderStore from "./store/folder-store.js";
 import * as r2Store from "./store/r2-store.js";
@@ -94,6 +95,8 @@ import type {
 	OneTimeCheckoutResult,
 	OutboxBatch,
 	OutboxRow,
+	OutboxStatus,
+	OutboxStatusInput,
 	PortalConfigIds,
 	ProrationLine,
 	ProrationPair,
@@ -682,6 +685,14 @@ export const planOutbox = (input: {
  */
 export const shipOutbox = (input: ShipOutboxInput): Promise<ShipOutboxResult> =>
 	shipOutboxImpl(input);
+
+/**
+ * What a health check reads about a school's outbox: the counts, the newest shipment, and the oldest unshipped row's
+ * date and age. Alert when `unshipped` is above 0 and `oldestUnshippedAgeMs` is past a few shipping intervals (or when
+ * `shipOutbox` reports a conflict: those rows never move on their own). Reads only; see the README, "Running it".
+ */
+export const outboxStatus = (input: OutboxStatusInput): OutboxStatus =>
+	outboxStatusImpl(input);
 
 // ---- The family service's own commands: into the same outbox ----
 
