@@ -504,9 +504,9 @@ class Builder {
 			orgId: string;
 			customerId: string;
 		},
-		env?: AtmEnv,
+		env: AtmEnv,
 	) {
-		this.env = resolveEnv(env);
+		this.env = env;
 	}
 	get ident() {
 		return {
@@ -698,6 +698,7 @@ export const invoiceHolder = (
  * A replayed invoice (already in `state.invoices`) gives no commands.
  */
 export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
+	const env = resolveEnv(input.env);
 	const { invoice, menu, policy, now } = input;
 	const labels = labelsOf(invoice.source, input);
 	if (input.state.invoices[invoice.id])
@@ -705,7 +706,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 	const state = clone(input.state);
 	const who = identityFrom(invoice, state);
 	state.holder ??= who;
-	const b = new Builder(invoice.source, who, input.env);
+	const b = new Builder(invoice.source, who, env);
 	const record: InvoiceRecord = {
 		paidAt: invoice.paidAt,
 		granted: [],
@@ -1271,10 +1272,12 @@ const removeInvoice = ({
 	invoiceId,
 	source,
 	input,
+	env,
 }: {
 	invoiceId: string | null;
 	source: FactSource;
 	input: RemovalInput;
+	env: AtmEnv;
 }): GrantResult => {
 	const labels = labelsOf(source, input);
 	const record = invoiceId ? input.state.invoices[invoiceId] : undefined;
@@ -1287,7 +1290,7 @@ const removeInvoice = ({
 		(state.invoices[invoiceId as string] as InvoiceRecord).removed = true;
 		return { commands: [], labels, state };
 	}
-	const b = new Builder(source, state.identity, input.env);
+	const b = new Builder(source, state.identity, env);
 	const held = heldOf(input.subject);
 	const cut = new Map<string, number>();
 	const ops: Op[] = [];
@@ -1355,6 +1358,7 @@ const removeInvoice = ({
 export const subscriptionEndedToCommands = (
 	input: SubscriptionEndInput,
 ): GrantResult => {
+	const env = resolveEnv(input.env);
 	const { subscription: fact, menu, state: prior, now } = input;
 	const labels = labelsOf(fact.source, input);
 	const none = { commands: [], labels, state: prior };
@@ -1408,7 +1412,7 @@ export const subscriptionEndedToCommands = (
 			set: { expires_at: rolloverExpiry(rollover, boundary) ?? boundary },
 		});
 	}
-	const b = new Builder(fact.source, prior.identity, input.env);
+	const b = new Builder(fact.source, prior.identity, env);
 	b.plan(now, ops);
 	return { commands: b.commands, labels, state };
 };
@@ -1527,6 +1531,7 @@ const supersedes = (
 export const refundToCommands = (
 	input: RemovalInput & { refund: BillingRefund },
 ): GrantResult => {
+	const env = resolveEnv(input.env);
 	const { refund, policy } = input;
 	if (!refund.full || !policy.removeOnFullRefund)
 		return {
@@ -1538,6 +1543,7 @@ export const refundToCommands = (
 		invoiceId: refund.invoiceId ?? null,
 		source: refund.source,
 		input,
+		env,
 	});
 };
 
@@ -1545,6 +1551,7 @@ export const refundToCommands = (
 export const disputeToCommands = (
 	input: RemovalInput & { dispute: BillingDispute },
 ): GrantResult => {
+	const env = resolveEnv(input.env);
 	const { dispute, policy } = input;
 	if (dispute.status !== "lost" || !policy.removeOnLostDispute)
 		return {
@@ -1556,6 +1563,7 @@ export const disputeToCommands = (
 		invoiceId: dispute.invoiceId ?? null,
 		source: dispute.source,
 		input,
+		env,
 	});
 };
 
