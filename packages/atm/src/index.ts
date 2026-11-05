@@ -788,11 +788,12 @@ export const quoteBooking = (input: QuoteInput): BookingQuote =>
  * Holds a booking's credits on an engine lock (`track` with a lock, rejecting, `commandOrg(policy)` on it): they leave
  * what the member can spend but are not spent yet. Returns one write for the subject and its ledger events, like
  * `handleStripeEvent`; write it in one transaction after checking `revision`. The same call twice is a replay: ok, nothing to write.
+ * Makes `credit.held`, and `credit.low` or `credit.depleted` when the hold takes the balance to the policy's threshold or to zero.
  */
 export const holdBooking = (input: HoldBookingInput): BookingResult =>
 	bookable.holdBooking(input);
 
-/** Spends what a booking holds (`finalize` at the lock's value): the session happened. Makes `credit.spent`, and `credit.low` or `credit.depleted` at the policy's threshold. */
+/** Spends what a booking holds (`finalize` at the lock's value): the session happened. Makes `credit.spent`. */
 export const confirmBooking = (input: SettleBookingInput): BookingResult =>
 	bookable.confirmBooking(input);
 
@@ -802,7 +803,7 @@ export const releaseBooking = (input: SettleBookingInput): BookingResult =>
 
 /**
  * A member's cancel: before `policy.cancelCutoffHours` ahead of the start the credits are released; after it,
- * `policy.lateCancel` decides (`spend` confirms, `release` releases). The result says which (`late`).
+ * `policy.lateCancel` decides (`spend` confirms, `release` releases). The result says which (`late`). A spend here and a no-show's are `credit.forfeited`.
  */
 export const cancelBooking = (input: SettleBookingInput): BookingResult =>
 	bookable.cancelBooking(input);

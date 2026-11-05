@@ -695,6 +695,11 @@ export type BillingRefund = {
 	/** The charge's currency (lowercase ISO code). Absent on a fact built by hand; the books take it as USD then. */
 	currency?: string;
 	/**
+	 * The booking the charge paid, from the charge's own `metadata.booking_id` (`bookingCheckoutParams` puts it on the payment
+	 * intent, which Stripe copies to the charge). Absent when the charge carries none, as for an invoice's.
+	 */
+	bookingId?: string;
+	/**
 	 * The charge is refunded in full: Stripe's own `refunded` flag. Not a comparison of amounts: on a partly captured
 	 * charge `amount_refunded` may or may not count the released remainder, and the flag is right either way.
 	 */
@@ -709,6 +714,33 @@ export type BillingDispute = {
 	paymentIntentId?: string | null;
 	chargeId: string;
 	status: "open" | "won" | "lost";
+	at: number;
+};
+
+/**
+ * A Stripe Checkout Session event (`checkout.session.completed`, `.async_payment_succeeded`, `.expired`), normalized. Only a
+ * payment-mode session made by `bookingCheckoutParams` (its `metadata.booking_id`) is decided on; the handler ignores the rest.
+ */
+export type CheckoutSessionFact = {
+	source: FactSource;
+	/** Identifies the EVENT (`evt_…`), as on `BillingRefund`. */
+	id: string;
+	/** The session's own id (`cs_…`). */
+	sessionId: string;
+	/** `other` is a mode this version of atm does not know. */
+	mode: "payment" | "subscription" | "setup" | "other";
+	/** `complete` once the customer has finished, `expired` when the session lapsed unpaid. */
+	status: "open" | "complete" | "expired";
+	/** `paid` only when the money is in: a delayed payment method completes a session as `unpaid` first. */
+	paymentStatus: "paid" | "unpaid" | "no_payment_required" | "other";
+	/** The payment intent a payment-mode session made; null before it is paid or for a subscription. */
+	paymentIntentId: string | null;
+	/** What the session charged in all (minor units); null when Stripe sends none. */
+	amountTotal: number | null;
+	/** Lowercase ISO code; null when Stripe sends none. */
+	currency: string | null;
+	/** The session's own metadata (`b4u_school`, `family_id`, `booking_id`, `b4u_kind`, ...). */
+	metadata: Record<string, string>;
 	at: number;
 };
 
@@ -1205,7 +1237,7 @@ export type BookingCost =
  * - `booking_conflict`: the booking id is known and this call differs from what it held or paid (a replay of the same call is not an error).
  * - `no_hold`: nothing is held for this booking id.
  * - `already_settled`: the booking was already spent, released or paid and this call would undo that.
- * - `hold_expired`: the hold's expiry has passed and its expiry action already decided (`confirm`: spent; `release`: use `settleExpiredHold`).
+ * - `hold_expired`: the hold's expiry has passed and this call would do the opposite of its expiry action (a release or a free cancel of a `confirm` hold, a spend of a `release` hold): use `settleExpiredHold`. A call that does what the expiry action does still works.
  * - `not_credits`: the call is for credits and the booking's cost is free or a price.
  */
 export type BookingRefusalReason =
@@ -1340,8 +1372,11 @@ export type SettleBookingInput = BookingContext & { bookingId: string };
 
 /**
  * `rowChanges` is one write for the subject (the engine's rows and the grants row under one revision), null when the call
- * changes nothing (a replay). `events` are the ledger events: `credit.held`, `credit.released`, `credit.spent`, and a
- * `credit.low` or `credit.depleted` when a spend takes the holder's balance to the policy's `lowCreditThreshold` or to zero.
+ * changes nothing (a replay). `events` are the ledger events: a hold is `credit.held`; a release `credit.released`; a
+ * `confirmBooking` is `credit.spent`; a no-show, a late cancel and an expired hold that confirms are `credit.forfeited` (the
+ * credits leave `credits:held` for `credits:forfeited`, not for a service); and a hold that takes the holder's balance to
+ * the policy's `lowCreditThreshold` or to zero adds `credit.low` or `credit.depleted` (the balance falls when the credits are
+ * held, so that is where the alert is made). A command that moves no credits is a `plan.changed`.
  */
 export type BookingResult =
 	| {
@@ -1629,7 +1664,8 @@ export type MappingTarget =
 	| "BillingDispute"
 	| "SubscriptionFact"
 	| "InvoicePaymentFact"
-	| "StripePayout";
+	| "StripePayout"
+	| "CheckoutSessionFact";
 
 /** A declarative mapping: one Stripe event type at one API version, and where each fact field sits in the raw JSON. */
 export type Mapping = {
@@ -1652,7 +1688,8 @@ export type BillingFact =
 	| BillingDispute
 	| SubscriptionFact
 	| InvoicePaymentFact
-	| StripePayout;
+	| StripePayout
+	| CheckoutSessionFact;
 
 export type NormalizeError =
 	| { kind: "missing_path"; field: string; path: string }

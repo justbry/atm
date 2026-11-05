@@ -40,6 +40,11 @@
 		"at": {
 			"path": "$.created",
 			"type": "seconds"
+		},
+		"bookingId": {
+			"path": "$.data.object.metadata.booking_id",
+			"type": "string",
+			"optional": true
 		}
 	},
 	"personal": [
