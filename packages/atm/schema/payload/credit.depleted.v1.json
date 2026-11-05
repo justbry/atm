@@ -2,15 +2,19 @@
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
 	"$id": "https://b4uni.com/_schema/payload/credit.depleted.v1.json",
 	"title": "credit.depleted payload v1",
-	"description": "A draw took the holder's available balance of a feature from above zero to zero or below (\"pack used up\"). Made once per crossing. No postings: the draw's own event carries the balance move. Only a draw by the family's own activity makes it: a `track` (a booking's hold) or a `finalize`; never a refund or lost-dispute clawback (`applyBillingPlan`), an edit by hand, or a reset. Judged on the balance after holds: a cancel (`credit.released`) returns the credits with no event and booking again makes it again. atm does not remember that it already alerted: dedupe the notices per holder, feature and grant or cycle. Labelled with `feature`, not `plan`: the balance is the feature's total over every plan. The clock makes the same event (`lapseAlertEvents`, source `cron`) when rows lapse and take the total from above zero to zero or below: then `cause` is `expired` and there is no command or mutation.",
+	"description": "A draw took the holder's available balance of a feature from above zero to zero or below (\"pack used up\"). Made once per crossing. No postings: the draw's own event carries the balance move. Only a draw by the family's own activity makes it: a `track` (a booking's hold) or a `finalize`; never a refund or lost-dispute clawback (`applyBillingPlan`), an edit by hand, or a reset. Judged on the balance after holds: a cancel (`credit.released`) returns the credits with no event and booking again makes it again. atm does not remember that it already alerted: dedupe the notices per holder, feature and grant or cycle. Labelled with `feature`, not `plan`: the balance is the feature's total over every plan. The clock makes the same event (`lapseAlertEvents`, source `cron`) when rows lapse and take the total from above zero to zero or below: then `cause` is `expired` and there is no command or mutation: the two shapes are exclusive, so a payload with `cause` and a `command` or `mutation` is refused, and one without `cause` needs both.",
 	"type": "object",
 	"required": ["feature", "available", "threshold", "previous_available"],
 	"if": {
-		"not": {
-			"required": ["cause"]
-		}
+		"required": ["cause"]
 	},
 	"then": {
+		"properties": {
+			"command": false,
+			"mutation": false
+		}
+	},
+	"else": {
 		"required": ["command", "mutation"]
 	},
 	"properties": {
@@ -71,7 +75,7 @@
 		"cause": {
 			"type": "string",
 			"enum": ["expired"],
-			"description": "Absent: a draw made it. `expired`: rows lapsed by the clock took the available balance to zero or below (no command or mutation; `previous_available` is the balance just before the instant they lapsed)."
+			"description": "Absent: a draw made it. `expired`: rows lapsed by the clock took the available balance to zero or below (then `command` and `mutation` must be absent; `previous_available` is the balance just before the instant they lapsed)."
 		},
 		"slice": {
 			"type": "array",

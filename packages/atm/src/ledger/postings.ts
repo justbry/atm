@@ -968,6 +968,9 @@ export const lapseEvent = ({
 		revision,
 	});
 
+/** The largest revision an id holds (24 bits): `deterministicUlid` clamps above it, which would tie the alert with its expiries. */
+const MAX_REVISION = 0xffffff;
+
 /** The units drawn after `atMs`, as the caller counted them: a negative count is no draw, and one that is not finite is an error. */
 const drawnSince = (
 	drawnAfter: (instantMs: number) => number,
@@ -1032,8 +1035,13 @@ const liveTotalAt = ({
  * not a finite number throws. `() => 0` is right only when `state` is as of the lapse (the state the cron gave
  * `lapsedRows`, before it books anything later); on a later state it gives the wrong answer described above.
  *
- * The `credit.depleted` shares its `eventMs` with the `credit.expired` events of the same instant (`lapseEvent`), so
- * book it with a `revision` after theirs: with the same time and revision their order is a hash tie.
+ * The `credit.depleted` shares its `eventMs` with the `credit.expired` events of the same instant (`lapseEvent`), and
+ * every order the ledger has (`replayOrder`, the journal, the month files) compares ids: the instant, then 24 bits of
+ * revision, then a hash. So `revision` is the revision of the `credit.expired` events, the highest if you number them
+ * apart, and the alert takes `revision + 1` itself: it sorts after every `credit.expired` of that instant and holder,
+ * not by the hash that would order two events of one revision. Its `eventMs` stays the instant. The idempotency key does
+ * not carry the revision. A `revision` of 16777215 (the largest the id holds) or more, or one that is not a whole
+ * number, throws.
  */
 export const lapseAlertEvents = ({
 	state,
@@ -1061,6 +1069,10 @@ export const lapseAlertEvents = ({
 	labels?: Record<string, string>;
 	ingestTime?: string | number;
 }): AtmEvent[] => {
+	if (!Number.isInteger(revision) || revision < 0 || revision >= MAX_REVISION)
+		throw new Error(
+			`lapseAlertEvents: revision must be a whole number from 0 to ${MAX_REVISION - 1}, got ${String(revision)}`,
+		);
 	const instants = new Set<number>();
 	for (const row of lapsedRows({ state, featureOf, feature, atMs }))
 		instants.add(row.expires_at);
@@ -1101,7 +1113,7 @@ export const lapseAlertEvents = ({
 					previous_available: before,
 					cause: "expired",
 				},
-				revision,
+				revision: revision + 1,
 			}),
 		);
 	}

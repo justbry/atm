@@ -9,6 +9,7 @@ import {
 	ledgerEvent,
 	mutationToEvents,
 } from "../src/ledger/postings.js";
+import { replayOrder } from "../src/ledger/replay.js";
 import { runOnState, toCatalog } from "../src/ledger/run.js";
 import { decimalToUnits, localDate } from "../src/ledger/util.js";
 import { validateEvent } from "../src/ledger/validate.js";
@@ -497,6 +498,45 @@ describe("one rule per event type", () => {
 			const { cause: _cause, ...draw } = e.payload;
 			expect(validateEvent({ ...e, payload: draw }).ok).toBe(false);
 		});
+		test("the two payload shapes are exclusive: cause forbids command and mutation, no cause needs both", () => {
+			const [clock] = alerts(lapseState(2)) as [AtmEvent];
+			const command = {
+				type: "track",
+				commandId: "cmd_1",
+				occurredAt: T + DAY,
+			};
+			const mutation = {
+				id: "mut_1",
+				revision: { before: 1, after: 2 },
+				changes: [],
+				result: {},
+			};
+			const withPayload = (extra: Record<string, unknown>): AtmEvent => ({
+				...clock,
+				payload: { ...clock.payload, ...extra },
+			});
+			const { cause: _cause, ...base } = clock.payload;
+			const draw = (extra: Record<string, unknown>): AtmEvent => ({
+				...clock,
+				payload: { ...base, ...extra },
+			});
+			// A clock alert with only `cause` is valid.
+			expect(validateEvent(clock).errors).toEqual([]);
+			// `cause` plus a command, a mutation or both is refused.
+			expect(validateEvent(withPayload({ command })).ok).toBe(false);
+			expect(validateEvent(withPayload({ mutation })).ok).toBe(false);
+			expect(validateEvent(withPayload({ command, mutation })).ok).toBe(false);
+			// A draw alert has both and no `cause`; either alone, neither, or `cause` with both is refused.
+			expect(validateEvent(draw({ command, mutation })).errors).toEqual([]);
+			expect(validateEvent(draw({ command })).ok).toBe(false);
+			expect(validateEvent(draw({ mutation })).ok).toBe(false);
+			expect(validateEvent(draw({})).ok).toBe(false);
+			expect(
+				validateEvent(draw({ command, mutation, cause: "expired" })).ok,
+			).toBe(false);
+			// `cause` stays an enum of `expired`.
+			expect(validateEvent(withPayload({ cause: "refunded" })).ok).toBe(false);
+		});
 		test("a lapse that leaves other credits for the feature makes none", () => {
 			const state = lapseState(2);
 			addRow(state, "ce_pack", 3, T + 30 * DAY);
@@ -565,6 +605,76 @@ describe("one rule per event type", () => {
 			expect(expired.event_type).toBe("credit.expired");
 			expect(expired.idem).not.toBe(first[0]?.idem);
 			expect(expired.id).not.toBe(first[0]?.id);
+		});
+		test("the alert sorts after every credit.expired of its instant and holder, in the order the ledger replays and journals by", () => {
+			// Mechanism: the id is the instant, then 24 bits of revision, then a hash, and replayOrder (an event with no
+			// mutation ranks -1), the journal and the month files all compare ids. `lapseAlertEvents` books the alert at
+			// `revision + 1`, so it never reaches the hash. With one shared revision, the hash would put the alert first
+			// for about half of these 64 holders, so this fails if the alert were given the expiries' revision.
+			const holders = Array.from({ length: 64 }, (_, i) => `family:fam_${i}`);
+			for (const holder of holders) {
+				const state = lapseState(2);
+				addRow(state, "ce_pack", 3, T + DAY);
+				const [alert] = lapseAlertEvents({
+					state,
+					featureOf,
+					feature: "visit",
+					atMs: T + 2 * DAY,
+					drawnAfter: () => 0,
+					key: holder,
+					school: SCHOOL,
+					tz: "America/Denver",
+					revision: 3,
+				}) as [AtmEvent];
+				const expiries = lapsedRows({
+					state,
+					featureOf,
+					feature: "visit",
+					atMs: T + 2 * DAY,
+				}).map((row) =>
+					lapseEvent({
+						row,
+						holder,
+						key: holder,
+						feature: "visit",
+						school: SCHOOL,
+						tz: "America/Denver",
+						revision: 3,
+					}),
+				);
+				expect(expiries).toHaveLength(2);
+				expect(alert.event_time).toBe(expiries[0]?.event_time as string);
+				const ordered = replayOrder([alert, ...expiries]);
+				expect(ordered.map((e) => e.event_type)).toEqual([
+					"credit.expired",
+					"credit.expired",
+					"credit.depleted",
+				]);
+				for (const expired of expiries)
+					expect(alert.id > expired.id).toBe(true);
+			}
+		});
+		test("the alert's revision is the expiries' plus one; a revision the id cannot hold throws", () => {
+			const state = lapseState(2);
+			const at = (revision: number) =>
+				lapseAlertEvents({
+					state,
+					featureOf,
+					feature: "visit",
+					atMs: T + 2 * DAY,
+					drawnAfter: () => 0,
+					key: identity.customerId,
+					school: SCHOOL,
+					tz: "America/Denver",
+					revision,
+				});
+			const [low] = at(3) as [AtmEvent];
+			const [high] = at(4) as [AtmEvent];
+			expect(low.id.slice(0, 10)).toBe(high.id.slice(0, 10));
+			expect(low.id < high.id).toBe(true);
+			expect(low.idem).toBe(high.idem);
+			for (const bad of [0xffffff, -1, 1.5, Number.NaN])
+				expect(() => at(bad)).toThrow(/revision must be a whole number/);
 		});
 		test("a late cron: a draw from another live row after the lapse does not make a false credit.depleted", () => {
 			// Grant A holds 10 and lapses at T + DAY; grant B (no expiry) held 5, and the family drew all 5 at T + 2 DAY. At the
