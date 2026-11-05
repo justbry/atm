@@ -52,6 +52,11 @@
 			"type": "int",
 			"optional": true
 		},
+		"withdrawnAt": {
+			"path": "$.data.object.balance_transactions[0].created",
+			"type": "seconds",
+			"optional": true
+		},
 		"fee": {
 			"path": "$.data.object.balance_transactions[0].fee",
 			"type": "int",

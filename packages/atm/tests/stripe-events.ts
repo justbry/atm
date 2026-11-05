@@ -154,6 +154,10 @@ export const disputeEvent = (e: {
 	withdrawal?: { fee: number };
 	/** A won dispute: Stripe adds the reversal of the amount, with a fee of 0 (the recorded `dispute-won` events). */
 	reversed?: boolean;
+	/** When the withdrawal was made (ms), its `created`; the dispute's `created` when absent (recorded: the same second or one later). */
+	withdrawnAt?: number;
+	/** When the reversal was made (ms); the event's time when absent (recorded: the second before the event). */
+	reversedAt?: number;
 }): RawEvent => {
 	const event = template(
 		e.type === "charge.dispute.closed"
@@ -210,12 +214,17 @@ export const disputeEvent = (e: {
 				`txn_${e.disputeId}`,
 				-dispute.amount,
 				e.withdrawal.fee,
-				seconds(e.at),
+				seconds(e.withdrawnAt ?? e.openedAt ?? e.at),
 			),
 		];
 		if (e.reversed)
 			transactions.push(
-				transaction(`txn_${e.disputeId}_won`, dispute.amount, 0, seconds(e.at)),
+				transaction(
+					`txn_${e.disputeId}_won`,
+					dispute.amount,
+					0,
+					seconds(e.reversedAt ?? e.at),
+				),
 			);
 		dispute.balance_transaction = transactions[0]?.id;
 		dispute.balance_transactions = transactions;

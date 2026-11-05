@@ -536,7 +536,9 @@ export const reconcile = (input: ReconcileInput): ReconcileResult => {
 				eventType: "payment.disputed",
 				stripe: disputes,
 				events: ofType("payment.disputed"),
-				flagPeriodShift: true,
+				// The log dates the line by Stripe's withdrawal (its balance transaction, which `reconcile`'s fee and net checks
+				// scope by), not by the dispute's `created`: a second later, or weeks for an inquiry that became a chargeback.
+				flagPeriodShift: false,
 			},
 			scope,
 			scope.label,

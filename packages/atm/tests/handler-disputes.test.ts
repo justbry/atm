@@ -21,6 +21,7 @@ import type {
 	ReconcileStripe,
 } from "../src/types.js";
 import {
+	FAMILY,
 	FEE,
 	GROSS,
 	HOUR,
@@ -30,9 +31,11 @@ import {
 	SCHOOL,
 	SHIPPED_AT,
 	T0,
+	T1,
+	tierKey,
 } from "./handler-harness.js";
 import { hasHledger, tmp } from "./helpers.js";
-import { disputeEvent, type RawEvent } from "./stripe-events.js";
+import { disputeEvent, invoicePaid, type RawEvent } from "./stripe-events.js";
 
 /** What Stripe charges when a card dispute opens (the recorded events: `fee_details` "Dispute fee", 1500). */
 const DISPUTE_FEE = 1500;
@@ -543,5 +546,169 @@ describe("reconcile against Stripe's own numbers", () => {
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
+	});
+});
+
+/**
+ * Stripe stamps the withdrawal and the reversal on their own balance transactions, up to a second away from the dispute's
+ * `created` and from the event's `created` (the recorded `dispute-won` events: dispute 1793880425, withdrawal ...426, the
+ * reversal ...441, the closing event ...442). `reconcile` scopes the fee and net checks by that stamp, so the log has to
+ * date the lines by it: at a month's last second the other date puts the dispute in January and Stripe's cash in February.
+ */
+describe("a line is dated by its balance transaction, not by the dispute or the event", () => {
+	const seconds = (ms: number) => Math.floor(ms / 1000);
+	const stripeFor = (
+		disputeCreated: number,
+		status: "needs_response" | "won",
+		transactions: { at: number; amount: number; fee: number }[],
+	): ReconcileStripe => ({
+		invoices: [
+			{
+				id: "in_1",
+				status: "paid",
+				amount_paid: GROSS,
+				currency: "usd",
+				created: seconds(T0),
+				livemode: true,
+				status_transitions: { paid_at: seconds(T0) },
+			},
+		],
+		refunds: [],
+		payouts: [],
+		disputes: [
+			{
+				id: "du_1",
+				amount: DISPUTED,
+				currency: "usd",
+				created: seconds(disputeCreated),
+				status,
+				livemode: true,
+			},
+		],
+		balanceTransactions: [
+			{
+				id: "txn_charge",
+				amount: GROSS,
+				fee: FEE,
+				net: GROSS - FEE,
+				currency: "usd",
+				created: seconds(T0),
+				type: "charge",
+			},
+			...transactions.map(({ at, amount, fee }, index) => ({
+				id: `txn_${index}`,
+				amount,
+				fee,
+				net: amount - fee,
+				currency: "usd",
+				created: seconds(at),
+				type: "adjustment",
+			})),
+		],
+	});
+
+	test("the recorded won dispute: the withdrawal and the reversal are stamped after the dispute and before the event", () => {
+		const closing = JSON.parse(
+			readFileSync(
+				`${import.meta.dir}/../fixtures/billing/stripe/recorded/delivered/dispute-won/05-charge.dispute.closed.json`,
+				"utf8",
+			),
+		) as RawEvent;
+		const mapping = mappingFor(closing.type, closing.api_version);
+		if (!mapping.ok) throw new Error("no mapping");
+		const result = normalize(closing, mapping.value, { eventId: closing.id });
+		if (!result.ok) throw new Error(JSON.stringify(result.error));
+		const fact = result.value as BillingDispute;
+		expect([fact.openedAt, fact.withdrawnAt, fact.reversedAt, fact.at]).toEqual(
+			[1793880425000, 1793880426000, 1793880441000, 1793880442000],
+		);
+	});
+
+	test("an opening a second before midnight whose withdrawal is a second after: both months reconcile clean", () => {
+		// School time is America/Denver (UTC-7): 2026-02-01T06:59:59Z is January 31, 23:59:59, and 07:00:00Z is February 1
+		const created = Date.parse("2026-02-01T06:59:59Z");
+		const withdrawnAt = Date.parse("2026-02-01T07:00:00Z");
+		const h = started();
+		h.deliver(
+			opened({ at: withdrawnAt, openedAt: created, withdrawnAt }),
+			withdrawnAt,
+		);
+		const [dispute] = ofType(h.outbox(), "payment.disputed");
+		expect(dispute?.event_time).toBe("2026-02-01T07:00:00Z");
+		const stripe = stripeFor(created, "needs_response", [
+			{ at: withdrawnAt, amount: -DISPUTED, fee: DISPUTE_FEE },
+		]);
+		for (const month of ["2026-01", "2026-02"])
+			expect([
+				month,
+				reconcile({ events: h.outbox(), stripe, period: { month } })
+					.differences,
+			]).toEqual([month, []]);
+	});
+
+	test("a won dispute closed a second after the reversal, across midnight: both months reconcile clean", () => {
+		const reversedAt = Date.parse("2026-02-01T06:59:59Z");
+		const at = Date.parse("2026-02-01T07:00:00Z");
+		const h = started();
+		h.deliver(opened(), OPENED);
+		h.deliver(closed("won", { at, reversedAt }), at);
+		const [closing] = ofType(h.outbox(), "dispute.closed");
+		expect(closing?.event_time).toBe("2026-02-01T06:59:59Z");
+		const stripe = stripeFor(OPENED, "won", [
+			{ at: OPENED, amount: -DISPUTED, fee: DISPUTE_FEE },
+			{ at: reversedAt, amount: DISPUTED, fee: 0 },
+		]);
+		for (const month of ["2026-01", "2026-02"])
+			expect([
+				month,
+				reconcile({ events: h.outbox(), stripe, period: { month } })
+					.differences,
+			]).toEqual([month, []]);
+	});
+});
+
+describe("closings and disputes that move nothing", () => {
+	test("a closing with a status other than won or lost books neither line, whatever its balance transactions say", () => {
+		for (const status of ["warning_closed", "prevented", "charge_refunded"]) {
+			const h = started();
+			const event = closed("lost", { eventId: `evt_${status}` });
+			event.data.object.status = status;
+			expect([status, h.deliver(event, CLOSED).body.outcome]).toEqual([
+				status,
+				"applied",
+			]);
+			expect([
+				status,
+				h
+					.outbox()
+					.map((e) => e.event_type)
+					.filter((type) => type.includes("dispute")),
+			]).toEqual([status, []]);
+		}
+	});
+
+	test("a dispute on an invoice whose payment the books do not hold books nothing", () => {
+		const h = harness({ in_free: 0 });
+		// handled and linked, but it paid nothing: no payment.succeeded, so nothing of it is the school's money to lose
+		const free = invoicePaid({
+			eventId: "evt_in_free",
+			invoiceId: "in_free",
+			at: T0,
+			subscriptionId: "sub_1",
+			reason: "subscription_create",
+			periodStart: T0,
+			periodEnd: T1,
+			amountPaid: 0,
+			lines: [{ lookupKey: tierKey(), amount: GROSS, interval: "month" }],
+			metadata: { b4u_school: SCHOOL, family_id: FAMILY },
+		});
+		expect(h.deliver(free).body.outcome).toBe("applied");
+		expect(h.deliver(linked("in_free"), T0 + 1000).body.outcome).toBe(
+			"applied",
+		);
+		expect(ofType(h.outbox(), "payment.succeeded")).toEqual([]);
+		const event = opened({ invoiceId: "in_free", disputeId: "du_free" });
+		expect(h.deliver(event, OPENED).body.outcome).toBe("applied");
+		expect(ofType(h.outbox(), "payment.disputed")).toEqual([]);
 	});
 });

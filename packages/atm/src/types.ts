@@ -682,6 +682,14 @@ export type BillingDispute = {
 	 */
 	withdrawn?: number;
 	fee?: number;
+	/**
+	 * When that withdrawal was made (its balance transaction's `created`), in ms. It can be a second after the dispute's own
+	 * `created` and, for an inquiry that became a chargeback, weeks after: it is the instant Stripe's balance fell, so the
+	 * opening line is dated by it and `reconcile`'s balance-transaction check puts it in the same month.
+	 */
+	withdrawnAt?: number;
+	/** A `charge.dispute.closed` only: the `created` of the second balance transaction, the reversal of a won dispute, in ms. */
+	reversedAt?: number;
 };
 
 /**

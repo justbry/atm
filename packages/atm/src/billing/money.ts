@@ -187,7 +187,7 @@ export const payoutEvents = ({
  * A dispute that moved money: `payment.disputed` for what Stripe withdrew when it opened (the disputed amount, and the
  * dispute fee it took with it: both are in the dispute's own `balance_transactions`, so nothing is asked of the caller), and
  * for a `charge.dispute.closed` also `dispute.closed`. A closed event carries the same withdrawal, so it makes the opening
- * line too, with the same idem and the same instant (the dispute's `created`) as the created event's: whichever Stripe
+ * line too, with the same idem and the same instant (the withdrawal's own `created`, which `reconcile` scopes Stripe's cash by) as the created event's: whichever Stripe
  * delivers first books it and the outbox drops the other, which also covers a dispute whose created event never came.
  * Won, the amount comes back and the fee does not: the recorded won dispute reverses `amount` with a fee of 0 and no
  * transaction gives the dispute fee back. Lost, `dispute.closed` has no postings.
@@ -223,7 +223,7 @@ export const disputeEvents = ({
 		type: "payment.disputed",
 		school: booker.school,
 		tz: booker.tz,
-		eventTime: dispute.openedAt ?? dispute.at,
+		eventTime: dispute.withdrawnAt ?? dispute.openedAt ?? dispute.at,
 		key: holder.customerId,
 		idem: `stripe:${dispute.id}`,
 		cause: booker.cause,
@@ -251,7 +251,11 @@ export const disputeEvents = ({
 			type: "dispute.closed",
 			school: booker.school,
 			tz: booker.tz,
-			eventTime: dispute.at,
+			// Won: the instant the reversal reached the balance, which can be a second before the event's `created`
+			eventTime:
+				dispute.status === "won"
+					? (dispute.reversedAt ?? dispute.at)
+					: dispute.at,
 			key: holder.customerId,
 			idem: `stripe:${dispute.id}:closed`,
 			cause: booker.cause,
