@@ -31,6 +31,42 @@
 		"at": {
 			"path": "$.created",
 			"type": "seconds"
+		},
+		"amount": {
+			"path": "$.data.object.amount",
+			"type": "int",
+			"optional": true
+		},
+		"currency": {
+			"path": "$.data.object.currency",
+			"type": "string",
+			"optional": true
+		},
+		"openedAt": {
+			"path": "$.data.object.created",
+			"type": "seconds",
+			"optional": true
+		},
+		"withdrawn": {
+			"path": "$.data.object.balance_transactions[0].amount",
+			"type": "int",
+			"optional": true
+		},
+		"withdrawnAt": {
+			"path": "$.data.object.balance_transactions[0].created",
+			"type": "seconds",
+			"optional": true
+		},
+		"reversedAt": {
+			"path": "$.data.object.balance_transactions[1].created",
+			"type": "seconds",
+			"optional": true
+		},
+		"fee": {
+			"path": "$.data.object.balance_transactions[0].fee",
+			"type": "int",
+			"min": 0,
+			"optional": true
 		}
 	},
 	"personal": ["$.data.object.evidence", "$.data.object.payment_method_details"]

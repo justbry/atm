@@ -1,6 +1,6 @@
 {
 	"name": "atm",
-	"version": "0.6.0",
+	"version": "0.8.0",
 	"private": true,
 	"type": "module",
 	"description": "Autumn's balance engine as a local CLI and a TypeScript library: run engine commands against a subject; next, build, check and replay a school's ledger.",

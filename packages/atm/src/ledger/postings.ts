@@ -210,13 +210,25 @@ export const moneyPostings = (i: AtmLedgerEventInput): AtmPosting[] => {
 				usd("assets:stripe", -positive()),
 				usd("income:billing:refunds", amount),
 			];
-		case "payment.disputed":
-			return [
-				usd("assets:stripe", -positive()),
-				usd("expenses:billing:disputes", amount),
+		case "payment.disputed": {
+			// Stripe withdraws the disputed amount and its dispute fee together, when the dispute opens: the cash falls by
+			// both, the amount is the disputes expense and the fee is its own line.
+			const disputed = positive();
+			const fee = i.fee ?? 0;
+			if (!Number.isInteger(fee) || fee < 0)
+				throw new Error(
+					"payment.disputed needs a whole, non-negative fee in cents",
+				);
+			const lines = [
+				usd("assets:stripe", -(disputed + fee)),
+				usd("expenses:billing:disputes", disputed),
 			];
+			if (fee !== 0) lines.push(usd("expenses:billing:dispute-fees", fee));
+			return lines;
+		}
 		case "dispute.closed":
-			// Won: the money comes back. Lost: the dispute's own debit already stands.
+			// Won: the amount comes back, the fee does not (nothing here books the fee back). Lost: the dispute's own debit
+			// already stands.
 			return i.won
 				? [
 						usd("assets:stripe", positive()),
@@ -516,6 +528,31 @@ const availableAround = (
 	return { before: total, after: total + delta };
 };
 
+/**
+ * Units a release kept off its lock (`payload.withheld`, written by the booking commands, so a replay reads it back): the
+ * lock it finalizes holds only the units that come back, and these left `credits:held` too. `expired` lapsed while held
+ * (their row lapsed, or reset with no rollover room for them); `refunded` belong to an invoice refunded or lost in a
+ * dispute while they were held. Each is booked as released and then expired or adjusted (with `reason`). None: zeros.
+ */
+const withheldOf = (
+	payload: Record<string, unknown> | undefined,
+): { expired: number; refunded: number; reason?: string } => {
+	const withheld = payload?.withheld as
+		| { expired?: unknown; refunded?: unknown; reason?: unknown }
+		| undefined;
+	const units = (value: unknown) =>
+		typeof value === "number" && Number.isSafeInteger(value) && value > 0
+			? value
+			: 0;
+	return {
+		expired: units(withheld?.expired),
+		refunded: units(withheld?.refunded),
+		...(typeof withheld?.reason === "string"
+			? { reason: withheld.reason }
+			: {}),
+	};
+};
+
 const bookingOf = (m: SubjectStateMutation): string | undefined => {
 	const lockInsert = m.changes.find(
 		(c) => c.table === "locks" && c.op === "insert",
@@ -651,13 +688,33 @@ export const mutationToEvents = ({
 				throw new Error(
 					"a finalize above its lock deducts more; not mapped to an event",
 				);
-			const released = lockUnits - finalValue;
+			const withheld = withheldOf(context.payload);
+			const released =
+				lockUnits - finalValue + withheld.expired + withheld.refunded;
 			if (released > 0)
 				emit(
 					"credit.released",
 					"released",
 					released,
 					`released ${what(released)} for ${booking}`,
+				);
+			if (withheld.expired > 0)
+				emit(
+					"credit.expired",
+					"expired",
+					withheld.expired,
+					`expired ${what(withheld.expired)} held for ${booking}: they lapsed while held`,
+				);
+			if (withheld.refunded > 0)
+				emit(
+					"credit.adjusted",
+					"adjusted",
+					withheld.refunded,
+					`adjusted -${withheld.refunded} ${feature}`,
+					{
+						signed: -withheld.refunded,
+						payload: { reason: need(withheld.reason, "withheld.reason") },
+					},
 				);
 			if (finalValue > 0) {
 				if (context.settleAs === "forfeited")

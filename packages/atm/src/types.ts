@@ -224,7 +224,7 @@ export type AtmLedgerEventInput = {
 	labels?: Record<string, string>;
 	/** Integer cents for USD events; whole units for credit events. */
 	amount?: number;
-	/** Stripe fee in cents, on `payment.succeeded`. */
+	/** Stripe fee in cents, on `payment.succeeded`; on `payment.disputed`, Stripe's dispute fee (`expenses:billing:dispute-fees`). */
 	fee?: number;
 	/** Income account tail on `payment.succeeded`: `membership:sparkle-2` -> `income:billing:membership:sparkle-2`. */
 	incomeKind?: string;
@@ -717,6 +717,27 @@ export type BillingDispute = {
 	chargeId: string;
 	status: "open" | "won" | "lost";
 	at: number;
+	/** The dispute's amount in minor units (`data.object.amount`). Absent when the event has none. */
+	amount?: number;
+	/** The dispute's currency, as Stripe sends it (lowercase). */
+	currency?: string;
+	/** When the dispute was opened (`data.object.created`), in ms: the instant its money lines are dated. */
+	openedAt?: number;
+	/**
+	 * What Stripe withdrew for the dispute, from the first of the dispute's own `balance_transactions`: its `amount`
+	 * (negative) and its `fee` (the dispute fee, 1500 cents in the recorded events). Both absent when the list is empty,
+	 * as for an inquiry (`warning_*`), which moves no money.
+	 */
+	withdrawn?: number;
+	fee?: number;
+	/**
+	 * When that withdrawal was made (its balance transaction's `created`), in ms. It can be a second after the dispute's own
+	 * `created` and, for an inquiry that became a chargeback, weeks after: it is the instant Stripe's balance fell, so the
+	 * opening line is dated by it and `reconcile`'s balance-transaction check puts it in the same month.
+	 */
+	withdrawnAt?: number;
+	/** A `charge.dispute.closed` only: the `created` of the second balance transaction, the reversal of a won dispute, in ms. */
+	reversedAt?: number;
 };
 
 /**
@@ -918,6 +939,13 @@ export type InvoiceRecord = {
 	 * it to take back from.
 	 */
 	paid?: number;
+	/**
+	 * Units of this invoice that an open booking held when a refund or a lost dispute removed it, by credit row id: they were
+	 * not in the balance, so the removal could not take them back. The release that frees them takes them back instead (a
+	 * `credit.adjusted`); a confirm spends them (they were used) and clears them. Absent when nothing was held, so a state that
+	 * never booked is written as before.
+	 */
+	owed?: Record<string, number>;
 };
 
 /** Everything the rules need to remember between facts. Plain JSON: store it as is. */
@@ -1242,6 +1270,7 @@ export type BookingCost =
  * - `already_settled`: the booking was already spent, released or paid and this call would undo that.
  * - `hold_expired`: the hold's expiry has passed and this call would do the opposite of its expiry action (a release or a free cancel of a `confirm` hold, a spend of a `release` hold): use `settleExpiredHold`. A call that does what the expiry action does still works.
  * - `not_credits`: the call is for credits and the booking's cost is free or a price.
+ * - `session_started`: a cancel at or after the session's `startsAt`: the session is not cancelled once it has started; settle it with `noShowBooking` (or `confirmBooking`).
  */
 export type BookingRefusalReason =
 	| "invalid_billing"
@@ -1256,7 +1285,8 @@ export type BookingRefusalReason =
 	| "no_hold"
 	| "already_settled"
 	| "hold_expired"
-	| "not_credits";
+	| "not_credits"
+	| "session_started";
 
 export type BookingRefusal = {
 	ok: false;
@@ -1315,6 +1345,12 @@ export type BookingRecord = {
 	expiryAction?: "confirm" | "release";
 	/** The open lock row while `state` is `held`; dropped when settled. */
 	lock?: HoldLock;
+	/**
+	 * When each refilling credit row the hold drew from (a tier or recurring add-on row) was due to reset when the hold was
+	 * made, by row id; dropped when settled. A release after that reset ran does not give last cycle's credits to the new
+	 * cycle: they go back as the row's rollover would have carried them, or lapse. Absent when the hold drew from no such row.
+	 */
+	resetsAt?: Record<string, number>;
 	/** When the hold was made, and when it was settled (ms). */
 	heldAt?: number;
 	settledAt?: number;
@@ -1532,6 +1568,7 @@ export type GiftCodeRefusalReason =
 	| "already_redeemed"
 	| "wrong_school"
 	| "below_minimum"
+	| "above_maximum"
 	| "nothing_to_sell";
 
 export type GiftCodeRefusal = {
@@ -1808,7 +1845,8 @@ export type StripeEventResult = {
 	/**
 	 * The decision events, each with `cause` = the event id and the menu, policy and mapping labels: `credit.*` and
 	 * `plan.changed`, and the money lines of a payment (`payment.succeeded`), a refund (`payment.refunded`) and a payout
-	 * (`payout.paid`). A dispute books no money line yet.
+	 * (`payout.paid`), and of a dispute that moved money: `payment.disputed` when it opens (the withdrawal and Stripe's
+	 * dispute fee) and `dispute.closed` when it closes.
 	 */
 	events: AtmEvent[];
 	/**
