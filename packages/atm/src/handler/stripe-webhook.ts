@@ -392,7 +392,7 @@ const locateSubject = (
 	if (!first)
 		return {
 			kind: "unmatched_payment",
-			message: `${event.id}: no handled invoice is linked to ${refs.join(", ") || "any payment"}; retry once its invoice and its invoice_payment.paid are handled (an invoice.paid answered 422 stays unhandled until its cause is fixed in Stripe and the event is re-sent)`,
+			message: `${event.id}: no handled invoice is linked to ${refs.join(", ") || "any payment"}; retry once its invoice and its invoice_payment.paid are handled (an invoice.paid answered 422 stays unhandled until its cause is gone; an add-on-only subscription's invoice never is)`,
 		};
 	const subjects = new Set(hits.map((hit) => hit.subject_key));
 	if (subjects.size > 1)
@@ -761,7 +761,7 @@ const settlePayment = (
 	if (recorded.kind === "unmatched_invoice")
 		return reply(409, "unmatched_invoice", {
 			stripeEventId: event.id,
-			message: `${event.id}: invoice ${recorded.invoiceId} is not indexed; retry once its invoice.paid is handled (one answered 422 stays unhandled until its cause is fixed in Stripe and the event is re-sent)`,
+			message: `${event.id}: invoice ${recorded.invoiceId} is not indexed; retry once its invoice.paid is handled (one answered 422 stays unhandled until its cause is gone)`,
 		});
 	if (recorded.kind === "school_mismatch")
 		return schoolMismatch(deps, event.id, recorded.school);

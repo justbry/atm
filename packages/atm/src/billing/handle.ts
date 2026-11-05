@@ -188,10 +188,10 @@ const bookerOf = (input: StripeEventInput, holder: { orgId: string }) => ({
 /** Names the invoice, the subscription and the add-on(s), says why atm grants none, and what to change in Stripe. */
 const addonOnlyMessage = (
 	invoice: BillingInvoice,
-	{ lines, why }: ReturnType<typeof ungrantedRecurringAddons>,
+	{ lines, why, fix }: ReturnType<typeof ungrantedRecurringAddons>,
 ): string => {
 	const addons = [...new Set(lines.map((l) => l.addonId))].join(", ");
-	return `invoice ${invoice.id} (subscription ${invoice.subscriptionId ?? "none"}) charges for the recurring add-on ${addons}, which atm grants only on the member's tier subscription, and ${why}: nothing was granted or recorded. Put the add-on on the member's tier subscription in Stripe (and cancel this one), then re-send the event`;
+	return `invoice ${invoice.id} (subscription ${invoice.subscriptionId ?? "none"}) charges for the recurring add-on ${addons}, which atm grants only on the member's tier subscription, and ${why}: nothing was granted or recorded. ${fix}`;
 };
 
 const decide = (
