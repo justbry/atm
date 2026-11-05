@@ -770,8 +770,8 @@ export type LineItem = (
 ) & {
 	/** The price's lookup key, which a Stripe invoice line (API 2025-10-29.clover) does not carry. */
 	lookupKey?: string;
-	/** The price's interval (null: one-time), likewise not on the line. */
-	interval?: Interval | null;
+	/** The price's interval (null: one-time), likewise not on the line. Required: "not given" must not read as one-time. */
+	interval: Interval | null;
 };
 
 // ---- Storage rows ----
