@@ -16,6 +16,7 @@ import type {
 } from "../types.js";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const ID_PATTERN = /^[0-9A-Za-z_-]+$/;
 const KEY_HASH_LENGTH = 16;
 
 const COMBINED_DAY_NAME = "day.jsonl";
@@ -23,14 +24,37 @@ const COMBINED_DAY_NAME = "day.jsonl";
 const byId = (a: OutboxRow, b: OutboxRow) =>
 	a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 
+/** Throws unless the body is a JSON object that carries the row's own `id`, `idem` and `date`. */
+const assertBodyMatchesRow = (row: OutboxRow): void => {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(row.body);
+	} catch {
+		throw new Error(`outbox row ${row.id} has a body that is not JSON`);
+	}
+	if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
+		throw new Error(
+			`outbox row ${row.id} has a body that is not a JSON object`,
+		);
+	const fields = parsed as Record<string, unknown>;
+	for (const field of ["id", "idem", "date"] as const)
+		if (fields[field] !== row[field])
+			throw new Error(
+				`outbox row ${row.id} has ${field} ${JSON.stringify(row[field])} but its body says ${JSON.stringify(fields[field])}`,
+			);
+};
+
 /**
  * Plan: the unshipped rows of one school as batches, one per event date, each a pure function of its rows. The lines
  * are the stored bodies as they are (never re-serialized), in id order. The key carries the first id (so a day's
  * batches sort by where they start) and the first 16 hex digits of the sha256 of the text, so the same rows give the
  * same key and bytes on every try and on every shipper, and different rows give a different key (two honest shippers
  * never conflict). `batch-` cannot meet `day.jsonl` or `late-*`, which belong to the combine step. Throws on a date
- * that is not `YYYY-MM-DD` or a body that is empty or holds a newline: either would put a row where the reader does
- * not look, or split one event into two lines.
+ * that is not `YYYY-MM-DD`, an id that is not plain characters (a `/` would nest the batch's name into a folder the
+ * reader does not list), or a body that is empty, holds a newline, is not a JSON object, or disagrees with its row on
+ * `id`, `idem` or `date`: each would put a row where the reader does not look, split one event into two lines, make
+ * the reader throw for the whole school, or collapse events that share no real `idem`. The log is create-only, so a
+ * bad row is refused here, before any put, for the whole school (all or nothing), never shipped.
  */
 export const planOutbox = ({
 	school,
@@ -45,10 +69,13 @@ export const planOutbox = ({
 			throw new Error(
 				`outbox row ${row.id} has date ${row.date}, not YYYY-MM-DD`,
 			);
+		if (!ID_PATTERN.test(row.id))
+			throw new Error(`outbox row id ${row.id} is not letters, digits, _ or -`);
 		if (row.body.length === 0 || row.body.includes("\n"))
 			throw new Error(
 				`outbox row ${row.id} has an empty body or one with a newline`,
 			);
+		assertBodyMatchesRow(row);
 		const day = rowsByDate.get(row.date) ?? [];
 		day.push(row);
 		rowsByDate.set(row.date, day);

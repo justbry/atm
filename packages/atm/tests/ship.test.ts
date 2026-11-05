@@ -63,19 +63,29 @@ const newDatabase = () => {
 const outboxOf = (db: SqlDatabase) =>
 	db.all<OutboxRecord>(`SELECT * FROM ledger_outbox ORDER BY id`);
 
+/** The body of a row the handler could have inserted, for tests that need no valid event: it names its own id, idem and date. */
+const bodyOf = (id: string, date: string, extra = "") =>
+	`{"id":"${id}","idem":"idem-${id}","date":"${date}"${extra}}`;
+
 /** A row the handler could have inserted, for tests that need no valid event. */
 const insertRow = (
 	db: SqlDatabase,
-	row: { id: string; date: string; body?: string; school?: string },
+	row: {
+		id: string;
+		date: string;
+		body?: string;
+		idem?: string;
+		school?: string;
+	},
 ) =>
 	db.run(
 		`INSERT INTO ledger_outbox (school_id, id, idem, date, body, batch_key, shipped_at) VALUES (?, ?, ?, ?, ?, NULL, NULL)`,
 		[
 			row.school ?? SCHOOL,
 			row.id,
-			`idem-${row.id}`,
+			row.idem ?? `idem-${row.id}`,
 			row.date,
-			row.body ?? `{"id":"${row.id}"}`,
+			row.body ?? bodyOf(row.id, row.date),
 		],
 	);
 
@@ -181,7 +191,7 @@ const ship = (db: SqlDatabase, store: FolderStore, school = SCHOOL) =>
 	shipOutbox({ db, store, school, nowMs: () => SHIPPED_AT });
 
 const rowsOf = (...rows: OutboxRow[]) => rows;
-const row = (id: string, date: string, body = `{"id":"${id}"}`): OutboxRow => ({
+const row = (id: string, date: string, body = bodyOf(id, date)): OutboxRow => ({
 	id,
 	idem: `idem-${id}`,
 	date,
@@ -193,10 +203,10 @@ describe("planOutbox", () => {
 		const batches = planOutbox({
 			school: SCHOOL,
 			rows: rowsOf(
-				row("03", "2026-02-02", '{"id":"03","note":"b"}'),
-				row("02", "2026-01-01", '{"id":"02"}'),
-				row("04", "2026-02-02", '{"id":"04"}'),
-				row("01", "2026-01-01", '{"id":"01"}'),
+				row("03", "2026-02-02", bodyOf("03", "2026-02-02", ',"note":"b"')),
+				row("02", "2026-01-01"),
+				row("04", "2026-02-02"),
+				row("01", "2026-01-01"),
 			),
 		});
 		expect(batches.map((batch) => batch.date)).toEqual([
@@ -207,8 +217,12 @@ describe("planOutbox", () => {
 			["01", "02"],
 			["03", "04"],
 		]);
-		expect(batches[0]?.text).toBe('{"id":"01"}\n{"id":"02"}\n');
-		expect(batches[1]?.text).toBe('{"id":"03","note":"b"}\n{"id":"04"}\n');
+		expect(batches[0]?.text).toBe(
+			`${bodyOf("01", "2026-01-01")}\n${bodyOf("02", "2026-01-01")}\n`,
+		);
+		expect(batches[1]?.text).toBe(
+			`${bodyOf("03", "2026-02-02", ',"note":"b"')}\n${bodyOf("04", "2026-02-02")}\n`,
+		);
 		expect(batches[0]?.sha256).toBe(sha256Hex(utf8(batches[0]?.text ?? "")));
 	});
 
@@ -225,7 +239,10 @@ describe("planOutbox", () => {
 		expect(alone?.key).not.toBe(forward?.key);
 		const [changed] = planOutbox({
 			school: SCHOOL,
-			rows: [first, row("02", "2026-01-01", '{"id":"02","x":1}')],
+			rows: [
+				first,
+				row("02", "2026-01-01", bodyOf("02", "2026-01-01", ',"x":1')),
+			],
 		});
 		expect(changed?.key).not.toBe(forward?.key);
 	});
@@ -243,6 +260,28 @@ describe("planOutbox", () => {
 
 	test("no rows is no batches", () => {
 		expect(planOutbox({ school: SCHOOL, rows: [] })).toEqual([]);
+	});
+
+	test("refuses a row the reader would not read or would collapse: a bad id, a body that is not JSON, or one that disagrees with its row", () => {
+		const plan = (rowToPlan: OutboxRow) =>
+			planOutbox({
+				school: SCHOOL,
+				rows: [row("00", "2026-01-01"), rowToPlan],
+			});
+		expect(() => plan(row("a/b", "2026-01-01"))).toThrow("is not letters");
+		expect(() => plan(row("01", "2026-01-01", "not json"))).toThrow("not JSON");
+		expect(() => plan(row("01", "2026-01-01", "[1]"))).toThrow(
+			"not a JSON object",
+		);
+		expect(() =>
+			plan(row("01", "2026-01-01", '{"id":"01","date":"2026-01-01"}')),
+		).toThrow("idem");
+		expect(() =>
+			plan(row("01", "2026-01-01", bodyOf("01", "2026-01-02"))),
+		).toThrow("date");
+		expect(() =>
+			plan(row("01", "2026-01-01", bodyOf("02", "2026-01-01"))),
+		).toThrow("id");
 	});
 
 	test("refuses a date that is not a day and a body that is not one line", () => {
@@ -299,8 +338,8 @@ describe("shipOutbox", () => {
 		for (const batch of result.batches)
 			expect(await readFile(join(root, batch.key), "utf8")).toBe(
 				batch.date === "2026-01-01"
-					? '{"id":"01"}\n{"id":"02"}\n'
-					: '{"id":"03"}\n',
+					? `${bodyOf("01", "2026-01-01")}\n${bodyOf("02", "2026-01-01")}\n`
+					: `${bodyOf("03", "2026-01-02")}\n`,
 			);
 		await cleanup();
 	});
@@ -511,7 +550,7 @@ describe("shipOutbox", () => {
 	test("a crash between the put and the mark, then a new row for that day: the rerun writes a second batch and the reader still has each event once", async () => {
 		const { db } = newDatabase();
 		const { root, store, cleanup } = await setup();
-		const body = (id: string) => `{"id":"${id}","idem":"idem-${id}"}`;
+		const body = (id: string) => bodyOf(id, "2026-01-01");
 		insertRow(db, { id: "01", date: "2026-01-01", body: body("01") });
 		insertRow(db, { id: "02", date: "2026-01-01", body: body("02") });
 		const crashing: SqlDatabase = {
@@ -532,6 +571,19 @@ describe("shipOutbox", () => {
 		expect(files).toHaveLength(2);
 		const { events } = await readEvents(root, SCHOOL);
 		expect(events.map((event) => event.id)).toEqual(["01", "02", "03"]);
+		await cleanup();
+	});
+
+	test("a row that would be shipped unread refuses the whole shipment before any put and leaves every row unshipped", async () => {
+		const { db } = newDatabase();
+		const { root, store, cleanup } = await setup();
+		insertRow(db, { id: "01", date: "2026-01-01" });
+		insertRow(db, { id: "a/b", date: "2026-01-02" });
+		await expect(ship(db, store)).rejects.toThrow("is not letters");
+		expect(outboxOf(db).every((record) => record.shipped_at === null)).toBe(
+			true,
+		);
+		expect(await readdir(root)).toEqual([]);
 		await cleanup();
 	});
 
@@ -593,7 +645,12 @@ describe("the handler's outbox, shipped, read and journaled", () => {
 		const held = outbox.at(-1) as OutboxRecord;
 		db.run(`DELETE FROM ledger_outbox WHERE id = ?`, [held.id]);
 		await ship(db, store);
-		insertRow(db, { id: held.id, date: held.date, body: held.body });
+		insertRow(db, {
+			id: held.id,
+			date: held.date,
+			idem: held.idem,
+			body: held.body,
+		});
 		await ship(db, store);
 		const { events } = await readEvents(root, SCHOOL);
 		expect(events.map((event) => event.id)).toEqual(

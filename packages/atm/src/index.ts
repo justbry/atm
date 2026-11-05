@@ -650,7 +650,7 @@ export const handleStripeWebhook = (
 /**
  * The plan of a shipment: the unshipped rows of one school as one batch per event date, each object's key and bytes a
  * pure function of its rows (the bodies as they are, in id order; the key holds the first id and a prefix of the text's
- * sha256), so a retry or a second shipper plans the same object. Throws on a bad date or a body with a newline.
+ * sha256), so a retry or a second shipper plans the same object. Throws on a bad date, an id with a `/`, or a body that is not one line of JSON with the row's own `id`, `idem` and `date`.
  */
 export const planOutbox = (input: {
 	school: string;
