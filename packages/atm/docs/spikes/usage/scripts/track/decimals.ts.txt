@@ -1,0 +1,59 @@
+import * as h from "/Users/jmac/repos/atm/.claude/worktrees/agent-a679a6723a047cebe/packages/atm/tests/spikes/usage-track-harness.ts";
+
+const run = (label: string, balance: number, values: number[], behavior: h.OverageBehavior = "reject") => {
+	const { db } = h.openDatabase(":memory:");
+	h.seedHolders(db, 1, { balance });
+	let last: any;
+	let err = "";
+	try {
+		for (const v of values) {
+			last = h.spend({ db, command: h.trackCommand({ holder: "u0", value: v, overageBehavior: behavior }) });
+		}
+	} catch (e: any) {
+		err = ` THROWS ${e.message}`;
+	}
+	const b = h.balancesOf(db, 0);
+	const raw = (db.all("SELECT data FROM atm_rows WHERE table_name='customerEntitlements'") as any[])[0].data;
+	console.log(`${label.padEnd(44)} start=${balance} n=${values.length} -> balance=${b.rows.ce_credit} (stored json ${JSON.parse(raw).balance}) status=${last?.mutation?.result?.status}${err}`);
+	return b.rows.ce_credit;
+};
+
+run("0.5 once", 10, [0.5]);
+run("0.1 x10 from 1", 1, Array(10).fill(0.1));
+run("0.1 x3 from 1 (float: 0.30000000000000004)", 1, Array(3).fill(0.1));
+run("0.1+0.2 as two tracks from 0.3", 0.3, [0.1, 0.2]);
+run("1e-6 once from 1", 1, [1e-6]);
+run("1e-6 x1000 from 1", 1, Array(1000).fill(1e-6));
+run("1e-6 x1e6 -> 1 (skipped: slow)", 1, Array(2000).fill(1e-6));
+run("1e-6 once from 1e9", 1e9, [1e-6]);
+run("1e-6 once from 1e12", 1e12, [1e-6]);
+run("1e-9 once from 1e6", 1e6, [1e-9]);
+run("1e-9 once from 1", 1, [1e-9]);
+run("1e-21 once from 1", 1, [1e-21]);
+run("1e12 once from 1e12 (exact)", 1e12, [1e12]);
+run("1e12 once from 1e13", 1e13, [1e12]);
+run("1 from 2^53", 2 ** 53, [1]);
+run("1 from 2^53+? (9007199254740993 not exact)", 9007199254740992, [3]);
+run("1e15+1 then 1", 1e15, [1, 1, 1]);
+run("123456789.123456789 once from 1e9", 1e9, [123456789.123456789]);
+run("1/3 once from 1", 1, [1 / 3]);
+run("1/3 x3 from 1", 1, [1 / 3, 1 / 3, 1 / 3]);
+run("NaN", 10, [Number.NaN]);
+run("Infinity", 10, [Number.POSITIVE_INFINITY]);
+run("negative (refund) -5 from 10", 10, [-5]);
+run("zero", 10, [0]);
+run("1e300 overflow", 10, [1e300], "overflow");
+run("overflow 1e12 from 1e12-5", 1e12 - 5, [1e12], "overflow");
+
+// the sum of many small tracks vs one batch, at a realistic token price: 1 credit = 1000 tokens, calls of 137 tokens
+{
+	const { db } = h.openDatabase(":memory:");
+	h.seedHolders(db, 1, { balance: 1000 });
+	const per = 137 / 1000;
+	let local = 0;
+	for (let i = 0; i < 1000; i++) {
+		h.spend({ db, command: h.trackCommand({ holder: "u0", value: per }) });
+		local += per;
+	}
+	console.log(`1000 x 0.137 credits: stored balance ${h.balancesOf(db, 0).rows.ce_credit} (decimal exact: ${1000 - 137}); naive float sum of calls ${local}`);
+}

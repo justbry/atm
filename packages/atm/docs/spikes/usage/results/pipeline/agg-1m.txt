@@ -1,0 +1,31 @@
+1m | threads=default | jsonl_explicit | q1_holder_month_model | cold=0.225s | warm=0.066s | rss=368MB | 
+1m | threads=default | jsonl_explicit | q1d_same_with_dedupe | cold=0.153s | warm=0.184s | rss=619MB | 
+1m | threads=default | jsonl_explicit | q2_one_heavy_holder_month | cold=0.071s | warm=0.050s | rss=304MB | 
+1m | threads=default | jsonl_explicit | q2b_one_median_holder_month | cold=0.056s | warm=0.054s | rss=289MB | 
+1m | threads=default | jsonl_explicit | q3_school_month_rollup | cold=0.060s | warm=0.056s | rss=303MB | 
+1m | threads=default | jsonl_auto | q1_holder_month_model | cold=0.072s | warm=0.068s | rss=476MB | 
+1m | threads=default | jsonl_auto | q2_one_heavy_holder_month | cold=0.058s | warm=0.055s | rss=383MB | 
+1m | threads=default | jsonl_auto | q2b_one_median_holder_month | cold=0.055s | warm=0.052s | rss=407MB | 
+1m | threads=default | jsonl_auto | q3_school_month_rollup | cold=0.060s | warm=0.062s | rss=403MB | 
+1m | threads=default | jsonl_explicit_shipperlayout | q1_holder_month_model | cold=0.305s | warm=0.206s | rss=174MB | 
+1m | threads=default | jsonl_explicit_shipperlayout | q1d_same_with_dedupe | cold=0.258s | warm=0.247s | rss=436MB | 
+1m | threads=default | jsonl_explicit_shipperlayout | q2_one_heavy_holder_month | cold=0.151s | warm=0.142s | rss=121MB | 
+1m | threads=default | jsonl_explicit_shipperlayout | q2b_one_median_holder_month | cold=0.148s | warm=0.142s | rss=116MB | 
+1m | threads=default | jsonl_explicit_shipperlayout | q3_school_month_rollup | cold=0.150s | warm=0.138s | rss=121MB | 
+1m | threads=default | parquet_env_byday | q1_holder_month_model | cold=0.054s | warm=0.046s | rss=226MB | 
+1m | threads=default | parquet_env_byday | q1d_same_with_dedupe | cold=0.102s | warm=0.096s | rss=466MB | 
+1m | threads=default | parquet_env_byday | q2_one_heavy_holder_month | cold=0.020s | warm=0.016s | rss=123MB | 
+1m | threads=default | parquet_env_byday | q2b_one_median_holder_month | cold=0.010s | warm=0.009s | rss=116MB | 
+1m | threads=default | parquet_env_byday | q3_school_month_rollup | cold=0.051s | warm=0.050s | rss=158MB | 
+1m | threads=default | parquet_env_single | q1_holder_month_model | cold=0.067s | warm=0.068s | rss=201MB | 
+1m | threads=default | parquet_env_single | q1d_same_with_dedupe | cold=0.127s | warm=0.115s | rss=517MB | 
+1m | threads=default | parquet_env_single | q2_one_heavy_holder_month | cold=0.024s | warm=0.020s | rss=124MB | 
+1m | threads=default | parquet_env_single | q2b_one_median_holder_month | cold=0.012s | warm=0.012s | rss=121MB | 
+1m | threads=default | parquet_env_single | q3_school_month_rollup | cold=0.064s | warm=0.064s | rss=153MB | 
+1m | threads=default | parquet_flat | q1_holder_month_model | cold=0.013s | warm=0.010s | rss=93MB | 
+1m | threads=default | parquet_flat | q1d_same_with_dedupe | cold=0.005s | warm=0.000s | rss=19MB | Run Time (s): real 0.005 user 0.000448 sys 0.000817
+Run Time (s): real 0.000 user 0.000334 sys 0.000049
+
+1m | threads=default | parquet_flat | q2_one_heavy_holder_month | cold=0.007s | warm=0.005s | rss=49MB | 
+1m | threads=default | parquet_flat | q2b_one_median_holder_month | cold=0.004s | warm=0.004s | rss=49MB | 
+1m | threads=default | parquet_flat | q3_school_month_rollup | cold=0.007s | warm=0.005s | rss=48MB | 

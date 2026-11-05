@@ -1,0 +1,93 @@
+10m threads=default A1 rollup from raw JSONL (dedupe+group) 2.037s rss=3157MB 
+10m threads=default A2 rollup from Parquet envelope (json payload) 1.395s rss=2806MB 
+--- rollup rows + parity of the two
+┌─────────────┬────────────────┬───────────┬─────────────────────┐
+│ rollup_rows │ rollup_pq_rows │ diff_rows │ events_after_dedupe │
+├─────────────┼────────────────┼───────────┼─────────────────────┤
+│ 1214127     │ 1214127        │ 0         │ 10000000            │
+└─────────────┴────────────────┴───────────┴─────────────────────┘
+--- check vs generator ground truth (expected.csv): mismatching cells
+┌────────────────┬───────────┬────────────┐
+│ expected_cells │ got_cells │ mismatches │
+├────────────────┼───────────┼────────────┤
+│ 112690         │ 112690    │ 0          │
+└────────────────┴───────────┴────────────┘
+10m threads=default B1 price v1 + invoice lines Oct from rollup 0.000s 0.001s 0.649s 0.009s rss=663MB 
+--- school totals v1
+┌─────────┬──────────┬─────────────┬───────────────────┐
+│ holders │   usd    │ biggest_usd │ median_holder_usd │
+├─────────┼──────────┼─────────────┼───────────────────┤
+│ 20000   │ 53688.15 │ 7859.31     │ 0.32              │
+└─────────┴──────────┴─────────────┴───────────────────┘
+--- top-3 holders invoice lines (v1)
+┌────────────┬─────────┬───────────┬───────────┬───────────────────────┬────────┐
+│   holder   │  model  │ direction │  tokens   │ micro_usd_per_million │ cents  │
+├────────────┼─────────┼───────────┼───────────┼───────────────────────┼────────┤
+│ cus_000000 │ embed-2 │ input     │ 59566715  │ 100000                │ 596    │
+│ cus_000000 │ embed-2 │ output    │ 0         │ 0                     │ 0      │
+│ cus_000000 │ lg-2    │ input     │ 263561294 │ 3000000               │ 79068  │
+│ cus_000000 │ lg-2    │ output    │ 95220735  │ 15000000              │ 142831 │
+│ cus_000000 │ md-2    │ input     │ 481639482 │ 1000000               │ 48164  │
+│ cus_000000 │ md-2    │ output    │ 173222477 │ 5000000               │ 86611  │
+│ cus_000000 │ sm-2    │ input     │ 298943292 │ 250000                │ 7474   │
+│ cus_000000 │ sm-2    │ output    │ 108488232 │ 1250000               │ 13561  │
+│ cus_000000 │ xl-2    │ input     │ 97216308  │ 15000000              │ 145824 │
+│ cus_000000 │ xl-2    │ output    │ 34906900  │ 75000000              │ 261802 │
+└────────────┴─────────┴───────────┴───────────┴───────────────────────┴────────┘
+--- holder share of tokens/revenue
+┌───────────┬────────────┬───────────────┐
+│ top10_pct │ top200_pct │ bottom10k_pct │
+├───────────┼────────────┼───────────────┤
+│ 39.1      │ 68.5       │ 3.5           │
+└───────────┴────────────┴───────────────┘
+10m threads=default B2 re-rate v1 again from rollup 0.634s rss=660MB 
+--- re-rate twice: identical?
+┌────────────────────┬─────────────────────┬─────────────┬──────────────┐
+│ rows_only_in_first │ rows_only_in_second │ cents_first │ cents_second │
+├────────────────────┼─────────────────────┼─────────────┼──────────────┤
+│ 0                  │ 0                   │ 5368815     │ 5368815      │
+└────────────────────┴─────────────────────┴─────────────┴──────────────┘
+10m threads=default B3 price v2 + re-rate Oct from rollup 0.000s 0.001s 0.677s rss=674MB 
+10m threads=default B4 full re-rate from RAW JSONL (dedupe+rollup+rate, price v2) 2.251s rss=3175MB 
+10m threads=default B5 full re-rate from RAW Parquet (dedupe+rollup+rate, price v2) 1.748s rss=2806MB 
+--- v2 parity: rollup vs raw vs parquet re-rate
+┌──────────┬─────────┬──────────┐
+│ diff_raw │ diff_pq │ cents_v2 │
+├──────────┼─────────┼──────────┤
+│ 0        │ 0       │ 5369710  │
+└──────────┴─────────┴──────────┘
+--- diff of totals v1 -> v2 by model
+┌───────┬───────────┬─────────┬─────────┬───────────┐
+│ model │ direction │ v1_usd  │ v2_usd  │ delta_usd │
+├───────┼───────────┼─────────┼─────────┼───────────┤
+│ md-2  │ input     │ 3299.04 │ 3118.46 │ -180.58   │
+│ sm-2  │ output    │ 914.84  │ 1104.37 │ 189.53    │
+└───────┴───────────┴─────────┴─────────┴───────────┘
+--- diff of totals v1 -> v2 overall
+┌──────────┬─────────┬─────────────────┬──────────┬──────────┐
+│  v1_usd  │ v2_usd  │ holders_changed │ lines_v1 │ lines_v2 │
+├──────────┼─────────┼─────────────────┼──────────┼──────────┤
+│ 53688.15 │ 53697.1 │ 8034            │ 195494   │ 215469   │
+└──────────┴─────────┴─────────────────┴──────────┴──────────┘
+10m threads=default C1 per-event rating (ASOF join 10M deduped events), rounded per event 7.641s rss=4636MB 
+--- rounding once per line vs per event vs exact (v2 prices)
+┌─────────────────┬────────────────┬───────────────────┬───────────────────┐
+│ per_event_cents │ per_line_cents │ exact_floor_cents │ per_invoice_cents │
+├─────────────────┼────────────────┼───────────────────┼───────────────────┤
+│ 4057877         │ 5369710        │ 5374405           │ 5374437           │
+└─────────────────┴────────────────┴───────────────────┴───────────────────┘
+10m threads=default D1 Sep: as-issued lines (ingest_time < invoice time), from raw 2.579s rss=2701MB 
+10m threads=default D2 Sep: current lines (all events), from raw 2.466s rss=3168MB 
+--- Sep adjustment (now - issued), rounded lines
+┌────────────┬──────────┬────────────────┬────────────────┬──────────────────┬────────────────┐
+│ issued_usd │ now_usd  │ adjustment_usd │ lines_adjusted │ holders_adjusted │ holders_issued │
+├────────────┼──────────┼────────────────┼────────────────┼──────────────────┼────────────────┤
+│ 53876.59   │ 54182.06 │ 305.47         │ 7038           │ 3529             │ 20000          │
+└────────────┴──────────┴────────────────┴────────────────┴──────────────────┴────────────────┘
+10m threads=default D3 Sep delta from late-* files only (anti-join vs the dates' day.jsonl idems) 0.441s rss=1492MB 
+--- late delta events (Sep, ingested after the invoice) and parity with now-issued
+┌─────────────┬─────────┬─────────────────┬────────────────────────────┐
+│ late_events │ holders │ delta_in_tokens │ now_minus_issued_in_tokens │
+├─────────────┼─────────┼─────────────────┼────────────────────────────┤
+│ 55938       │ 7662    │ 46497047        │ 46497047                   │
+└─────────────┴─────────┴─────────────────┴────────────────────────────┘

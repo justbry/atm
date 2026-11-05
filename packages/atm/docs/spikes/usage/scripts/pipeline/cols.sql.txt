@@ -1,0 +1,2 @@
+.mode duckbox
+SELECT path_in_schema AS col, sum(total_compressed_size) AS bytes, round(sum(total_compressed_size)/ (SELECT count(*) FROM 'data/p1m_env_unsorted.parquet'),2) AS bytes_per_event, any_value(compression) c, any_value(encodings) e FROM parquet_metadata('data/p1m_env_unsorted.parquet') GROUP BY 1 ORDER BY 2 DESC;

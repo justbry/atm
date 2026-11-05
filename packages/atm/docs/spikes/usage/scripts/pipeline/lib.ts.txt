@@ -1,0 +1,47 @@
+import { writeFileSync } from "node:fs";
+
+export const DIR = "/tmp/atm-usage-pipeline";
+let counter = 0;
+
+export type RunResult = {
+	wall: number;
+	rssMb: number;
+	timers: number[];
+	stdout: string;
+	stderr: string;
+};
+
+/** Runs a SQL script in a fresh duckdb process under /usr/bin/time -l; returns each `.timer` line (real seconds) in order. */
+export const runSql = (
+	sql: string,
+	options: { threads?: number; memoryLimit?: string } = {},
+): RunResult => {
+	const path = `${DIR}/run-${process.pid}-${counter++}.sql`;
+	const settings = [
+		"SET TimeZone='UTC';",
+		options.threads ? `SET threads=${options.threads};` : "",
+		options.memoryLimit ? `SET memory_limit='${options.memoryLimit}';` : "",
+	].join("\n");
+	writeFileSync(path, `${settings}\n${sql}\n`);
+	const start = performance.now();
+	const result = Bun.spawnSync(
+		["/usr/bin/time", "-l", "/opt/homebrew/bin/duckdb", "-init", "/dev/null"],
+		{ stdin: Bun.file(path), cwd: DIR, stdout: "pipe", stderr: "pipe" },
+	);
+	const wall = (performance.now() - start) / 1000;
+	const stdout = result.stdout.toString();
+	const stderr = result.stderr.toString();
+	const rss = /(\d+)\s+maximum resident set size/.exec(stderr);
+	const timers = [...stdout.matchAll(/Run Time \(s\): real ([\d.]+)/g)].map(
+		(m) => Number(m[1]),
+	);
+	return {
+		wall,
+		rssMb: rss ? Number(rss[1]) / 1024 / 1024 : Number.NaN,
+		timers,
+		stdout,
+		stderr,
+	};
+};
+
+export const fmt = (n: number, digits = 2) => n.toFixed(digits);

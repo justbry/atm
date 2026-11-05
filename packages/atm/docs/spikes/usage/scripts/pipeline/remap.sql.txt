@@ -1,0 +1,3 @@
+.timer on
+.mode trash
+COPY (SELECT key, date, idem, model, (raw_usage::JSON->'usage'->>'input_tokens')::BIGINT AS input_tokens, (raw_usage::JSON->'usage'->>'output_tokens')::BIGINT AS output_tokens, (raw_usage::JSON->'usage'->>'cache_read_input_tokens')::BIGINT AS cached_input_tokens FROM read_parquet('data/rawcol_1m.parquet')) TO 'data/remap_1m.parquet' (FORMAT parquet, COMPRESSION zstd);

@@ -1,0 +1,113 @@
+// usage: bun gen.ts <events> <outDir> <layout: combined|shipper> [holders=20000]
+import { createHash } from "node:crypto";
+import { mkdirSync } from "node:fs";
+import {
+	type GeneratedUsage,
+	generateUsage,
+} from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/tests/spikes/usage-events.ts";
+
+const [eventsArg, outDir, layout, holdersArg] = process.argv.slice(2);
+const events = Number(eventsArg);
+const holders = Number(holdersArg ?? 20000);
+const month = process.env.MONTH ?? "2026-10";
+const seed = Number(process.env.SEED ?? 1);
+const school = "sch_acme";
+const base = `${outDir}/schools/${school}/events`;
+const HOUR_MS = 3_600_000;
+
+type Sink = { write(text: string): number; end(): unknown };
+const sinks = new Map<string, Sink>();
+const sinkFor = (dir: string, file: string): Sink => {
+	const path = `${dir}/${file}`;
+	let sink = sinks.get(path);
+	if (!sink) {
+		mkdirSync(dir, { recursive: true });
+		sink = Bun.file(path).writer({ highWaterMark: 1 << 20 });
+		sinks.set(path, sink);
+	}
+	return sink;
+};
+const closeWhere = (keep: (path: string) => boolean) => {
+	for (const [path, sink] of sinks)
+		if (!keep(path)) {
+			sink.end();
+			sinks.delete(path);
+		}
+};
+
+const expected = new Map<string, [number, number]>();
+let distinct = 0;
+let duplicates = 0;
+let late = 0;
+let files = 0;
+const start = performance.now();
+
+// shipper layout: one batch file per (event date, ingest hour), named like planOutbox does
+let hourKey = -1;
+let hourRows = new Map<string, GeneratedUsage[]>();
+const flushHour = () => {
+	for (const [date, rows] of hourRows) {
+		rows.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+		const text = `${rows.map((r) => r.line).join("\n")}\n`;
+		const sha = createHash("sha256").update(text).digest("hex").slice(0, 16);
+		const dir = `${base}/date=${date}`;
+		mkdirSync(dir, { recursive: true });
+		Bun.write(`${dir}/batch-${rows[0]?.id}-${sha}.jsonl`, text);
+		files++;
+	}
+	hourRows = new Map();
+};
+
+let ingestDay = "";
+for (const e of generateUsage({ events, holders, month, seed, schemaVersion: process.env.SCHEMA_VERSION ? (Number(process.env.SCHEMA_VERSION) as 1 | 2) : undefined })) {
+	if (!e.duplicate) {
+		distinct++;
+		const key = `${e.holder}|${new Date(e.eventMs).toISOString().slice(0, 7)}|${e.model}`;
+		const cell = expected.get(key) ?? [0, 0];
+		cell[0] += e.inputTokens;
+		cell[1] += e.outputTokens;
+		expected.set(key, cell);
+		if (e.late) late++;
+	} else duplicates++;
+	if (layout === "shipper") {
+		const hour = Math.floor(e.ingestMs / HOUR_MS);
+		if (hour !== hourKey) {
+			if (hourKey >= 0) flushHour();
+			hourKey = hour;
+		}
+		const rows = hourRows.get(e.eventDate) ?? [];
+		rows.push(e);
+		hourRows.set(e.eventDate, rows);
+	} else {
+		const dir = `${base}/date=${e.eventDate}`;
+		const dayEnd = Date.parse(`${e.eventDate}T00:00:00Z`) + 24 * HOUR_MS;
+		const onTime = e.ingestMs < dayEnd + HOUR_MS;
+		if (e.ingestDate !== ingestDay) {
+			ingestDay = e.ingestDate;
+			const yesterday = new Date(e.ingestMs - 24 * HOUR_MS).toISOString().slice(0, 10);
+			closeWhere((p) =>
+				p.endsWith("day.jsonl")
+					? (p.split("date=")[1] ?? "").slice(0, 10) >= yesterday
+					: p.includes(`late-${e.ingestDate}`),
+			);
+		}
+		sinkFor(dir, onTime ? "day.jsonl" : `late-${e.ingestDate}.jsonl`).write(
+			`${e.line}\n`,
+		);
+	}
+}
+if (layout === "shipper") flushHour();
+closeWhere(() => false);
+const rows = [...expected].map(([k, [i, o]]) => `${k.split("|").join(",")},${i},${o}`);
+await Bun.write(`${outDir}/expected.csv`, `holder,month,model,input,output\n${rows.join("\n")}\n`);
+console.log(
+	JSON.stringify({
+		events,
+		distinct,
+		duplicates,
+		late,
+		layout,
+		seconds: (performance.now() - start) / 1000,
+		shipperFiles: files,
+	}),
+);
