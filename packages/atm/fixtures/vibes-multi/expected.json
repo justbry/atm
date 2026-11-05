@@ -2,9 +2,9 @@
   "seed": 1,
   "school": "sch_multi",
   "tz": "America/Denver",
-  "asOf": "2027-03-01T07:00:29Z",
-  "lastEventId": "01MFZY7ZP80000HST05897QQZB",
-  "eventCount": 230,
+  "asOf": "2027-03-01T07:30:00Z",
+  "lastEventId": "01MFZZY1600000M7ZY8VG1WK5M",
+  "eventCount": 232,
   "holders": [
     {
       "holder": "family:fam_6e5k",
@@ -107,7 +107,7 @@
     {
       "holder": "family:fam_jz3t",
       "feature": "visit",
-      "avail": 2,
+      "avail": 1,
       "held": 0
     },
     {
@@ -148,17 +148,17 @@
     "assets:stripe USD": "378.09",
     "credits:avail:family:fam_0s9q:visit VISIT": "2",
     "credits:avail:family:fam_6e5k:visit VISIT": "4",
-    "credits:avail:family:fam_7hdl:visit VISIT": "3",
+    "credits:avail:family:fam_7hdl:visit VISIT": "2",
     "credits:avail:family:fam_95d7:visit VISIT": "0",
     "credits:avail:family:fam_ak4o:visit VISIT": "2",
     "credits:avail:family:fam_ipqj:visit VISIT": "1",
-    "credits:avail:family:fam_jz3t:visit VISIT": "2",
+    "credits:avail:family:fam_jz3t:visit VISIT": "1",
     "credits:avail:family:fam_kr4i:visit VISIT": "3",
     "credits:avail:family:fam_n5en:visit VISIT": "1",
     "credits:avail:family:fam_uh3b:visit VISIT": "4",
     "credits:avail:family:fam_v4ao:visit VISIT": "1",
     "credits:avail:family:fam_vlfa:visit VISIT": "4",
-    "credits:expired VISIT": "4",
+    "credits:expired VISIT": "6",
     "credits:forfeited VISIT": "1",
     "credits:held:family:fam_0s9q:visit VISIT": "0",
     "credits:held:family:fam_6e5k:visit VISIT": "0",
@@ -327,6 +327,9 @@
     },
     "2027-03": {
       "credits:avail:family:fam_0s9q:visit VISIT": "1",
+      "credits:avail:family:fam_7hdl:visit VISIT": "-1",
+      "credits:avail:family:fam_jz3t:visit VISIT": "-1",
+      "credits:expired VISIT": "2",
       "credits:issued:sparkle-1@v1 VISIT": "-1"
     }
   },
@@ -335,12 +338,12 @@
     "2026-12": 52,
     "2027-01": 52,
     "2027-02": 35,
-    "2027-03": 1
+    "2027-03": 3
   },
   "eventCountsByType": {
     "credit.depleted": 12,
     "credit.expiration_changed": 1,
-    "credit.expired": 3,
+    "credit.expired": 5,
     "credit.forfeited": 1,
     "credit.granted": 46,
     "credit.held": 39,

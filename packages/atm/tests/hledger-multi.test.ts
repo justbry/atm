@@ -373,17 +373,25 @@ const withEvent = (
 
 describe("the multi fixture's files", () => {
 	let built: Awaited<ReturnType<typeof build>>;
+	/** Directories a test makes for itself, removed with the built copy. */
+	const scratch: string[] = [];
+	const scratchDir = async (name: string): Promise<string> => {
+		const dir = await tmp(name);
+		scratch.push(dir);
+		return dir;
+	};
 	beforeAll(async () => {
 		built = await build();
 	});
 	afterAll(async () => {
 		await rm(built.root, { recursive: true, force: true });
+		for (const dir of scratch) await rm(dir, { recursive: true, force: true });
 	});
 
 	test("it is what the generator writes: same seed, same bytes, in this process and in another time zone; the committed files are seed 1", async () => {
-		const here = await tmp("multi-here");
-		const there = await tmp("multi-there");
-		const golden1 = await tmp("multi-golden");
+		const here = await scratchDir("multi-here");
+		const there = await scratchDir("multi-there");
+		const golden1 = await scratchDir("multi-golden");
 		await writeMultiFixture({ seed: 3, outDir: here });
 		const run = Bun.spawnSync(
 			[
@@ -402,7 +410,7 @@ describe("the multi fixture's files", () => {
 		expect(await readTree(there)).toEqual(await readTree(here));
 		await writeMultiFixture({ seed: 1, outDir: golden1 });
 		expect(await readTree(golden1)).toEqual(await readTree(FIXTURE));
-		const other = await tmp("multi-other");
+		const other = await scratchDir("multi-other");
 		await writeMultiFixture({ seed: 2, outDir: other });
 		expect(await readTree(other)).not.toEqual(await readTree(here));
 	}, 60_000);
@@ -502,6 +510,31 @@ describe("the multi fixture's files", () => {
 			]),
 		);
 		expect(transactions).toEqual(expected.transactionsByMonth);
+	});
+
+	test("each family's credit balance in the events is the engine's balance at the end, which the generator never reads from the events", () => {
+		// `expected.balances` is the engine's state; `postingTotals` is summed from the events' postings: a credit posting
+		// that is wrong in the events is wrong in both totals and in the books, and only this comparison can see it
+		expect(expected.balances).toHaveLength(12);
+		const sums = new Map<string, bigint>();
+		for (const event of built.events)
+			for (const posting of event.postings)
+				if (posting.commodity === "VISIT")
+					sums.set(
+						posting.account,
+						(sums.get(posting.account) ?? 0n) + BigInt(posting.amount),
+					);
+		for (const balance of expected.balances) {
+			const { holder, feature } = balance;
+			expect(
+				sums.get(`credits:avail:${holder}:${feature}`) ?? 0n,
+				`${holder} avail`,
+			).toBe(BigInt(balance.avail));
+			expect(
+				sums.get(`credits:held:${holder}:${feature}`) ?? 0n,
+				`${holder} held`,
+			).toBe(BigInt(balance.held));
+		}
 	});
 
 	test("every payment at the school's midnight is on its local day and in its local month, which is not always the UTC one", async () => {
@@ -883,6 +916,36 @@ describe.skipIf(!hasHledger)("hledger on the multi fixture", () => {
 			).toContain("has no postings but is a transaction");
 		} finally {
 			await writeFile(file, original);
+		}
+	});
+
+	test("hledger's credit balance of each family is the engine's balance at the end", () => {
+		const shown = new Map(
+			rowsOf(
+				hledger(built.books, [
+					"bal",
+					"credits:avail:",
+					"credits:held:",
+					"--flat",
+					"--no-total",
+					"-O",
+					"csv",
+				]),
+			)
+				.slice(1)
+				.map((row) => [row[0] as string, row[1] as string]),
+		);
+		for (const { holder, feature, avail, held } of expected.balances) {
+			for (const [kind, units] of [
+				["avail", avail],
+				["held", held],
+			] as const) {
+				const cell = shown.get(`credits:${kind}:${holder}:${feature}`);
+				expect(
+					cell === undefined ? 0n : unitsFromCell(cell, "VISIT"),
+					`${holder} ${kind}`,
+				).toBe(BigInt(units));
+			}
 		}
 	});
 

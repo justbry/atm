@@ -70,7 +70,8 @@ const localMonthOf = (instant: number): string =>
 const utcDayOf = (instant: number): string =>
 	new Date(instant).toISOString().slice(0, 10);
 
-export const LAST_DAY = local(2027, 2, 28, 23, 59, 0);
+/** The cron's last look at what has lapsed: after the school's midnight, when the last rollovers expire and the resets of the 23:59:59 payments have run. */
+export const LAST_LOOK = local(2027, 3, 1, 1, 0, 0);
 
 type Outcome = "attend" | "cancel" | "noshow";
 type Tier = "sparkle-2" | "sparkle-1";
@@ -1224,8 +1225,8 @@ export const generateMulti = ({ seed }: { seed: number }): MultiFixture => {
 	});
 
 	// ---- the last look at what has lapsed -----------------------------------------------------------------------------------------------------
-	at(LAST_DAY, () => {
-		for (const f of families) lapse(f, LAST_DAY);
+	at(LAST_LOOK, () => {
+		for (const f of families) lapse(f, LAST_LOOK);
 	});
 
 	actions.sort((a, b) => a.t - b.t || a.order - b.order);
