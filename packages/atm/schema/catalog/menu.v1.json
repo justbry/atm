@@ -34,7 +34,10 @@
 			"additionalProperties": false,
 			"required": ["id", "name", "unit"],
 			"properties": {
-				"id": { "$ref": "#/$defs/id" },
+				"id": {
+					"$ref": "#/$defs/id",
+					"description": "A feature id needs a letter, and its letters (in capitals, digits and punctuation dropped) must differ from every other feature's: they are its credit commodity in the books. validateMenu checks it; a schema cannot."
+				},
 				"name": { "type": "string", "minLength": 1, "maxLength": 60 },
 				"unit": {
 					"type": "object",

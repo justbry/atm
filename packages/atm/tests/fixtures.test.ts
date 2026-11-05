@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { generateYear } from "../fixtures/vibes.js";
 import { writeFixture } from "../fixtures/write.js";
@@ -37,6 +38,41 @@ describe("fixture generator", () => {
 		);
 		expect(run.exitCode).toBe(0);
 		expect(await readTree(there)).toEqual(await readTree(here));
+	});
+
+	test("--out alone writes the year fixture only; the second fixture is written by default, by --multi-out, or by --only", async () => {
+		const generate = async (args: string[]): Promise<string[]> => {
+			const run = Bun.spawnSync(
+				["bun", join(import.meta.dir, "../fixtures/generate.ts"), ...args],
+				{ stdout: "pipe", stderr: "pipe" },
+			);
+			expect(run.stderr.toString()).toBe("");
+			expect(run.exitCode).toBe(0);
+			return run.stdout.toString().trim().split("\n");
+		};
+		// seed 1, as committed: were `--out` to write the second fixture beside the repo's, it would write the committed bytes
+		const year = await tmp("fx-out-year");
+		const multi = await tmp("fx-out-multi");
+		try {
+			const alone = await generate(["--seed", "1", "--out", year]);
+			expect(alone).toHaveLength(1);
+			expect(alone[0]).toEndWith(`files under ${year}`);
+			const only = await generate([
+				"--seed",
+				"1",
+				"--only",
+				"multi",
+				"--multi-out",
+				multi,
+			]);
+			expect(only).toHaveLength(1);
+			expect(only[0]).toEndWith(`files under ${multi}`);
+			expect(Object.keys(await readTree(year)).join()).toContain("sch_vol");
+			expect(Object.keys(await readTree(multi)).join()).toContain("sch_multi");
+		} finally {
+			await rm(year, { recursive: true, force: true });
+			await rm(multi, { recursive: true, force: true });
+		}
 	});
 
 	test("a different seed gives a different year", () => {

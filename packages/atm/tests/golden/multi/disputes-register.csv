@@ -1,0 +1,4 @@
+"txnidx","date","code","description","account","amount","total"
+"86","2026-12-17","01MA3XA6S000001AAEZV66HMW8","payment.disputed | dispute opened on a 260 USD payment","expenses:billing:disputes","260.00 USD","260.00 USD"
+"128","2027-01-13","01MC8SG8M000001NMXBSZJ462G","payment.disputed | dispute opened on a 260 USD payment","expenses:billing:disputes","260.00 USD","520.00 USD"
+"147","2027-01-28","01MDFMARW0000012SC6X25ZX29","dispute.closed | dispute won","expenses:billing:disputes","-260.00 USD","260.00 USD"

@@ -19,6 +19,7 @@
 
 import type { AtmEnv } from "../types.js";
 import { resolveEnv } from "./env.js";
+import { commodityProblems } from "./menu.js";
 import {
 	prorationPairUnchecked,
 	raiseLine,
@@ -238,6 +239,9 @@ export const menuCatalogRows = ({
 	env?: AtmEnv;
 }): CatalogRowOut[] => {
 	const rowEnv = resolveEnv(env);
+	// A menu that `validateMenu` refuses for its commodities must not reach the books: the credits of two features would merge.
+	const [commodityProblem] = commodityProblems(menu.features);
+	if (commodityProblem) throw new Error(commodityProblem.message);
 	const rows: CatalogRowOut[] = [];
 	const ent = (
 		id: string,

@@ -9,6 +9,7 @@ import {
 	type ValidateFunction,
 } from "ajv/dist/2020.js";
 import menuSchema from "../../schema/catalog/menu.v1.json";
+import { commodityOf } from "../ledger/postings.js";
 import type { Menu, MenuTier, MenuValidation } from "./types.js";
 
 export const MAX_TIERS = 4;
@@ -93,11 +94,57 @@ export function validTimeZone(tz: string): boolean {
 
 const dup = (xs: string[]) => new Set(xs).size !== xs.length;
 
-/** The rules a schema cannot say, on a menu that passed the schema. Dotted paths of what fails. */
-function crossProblems(m: Menu): string[] {
+/** A feature id that cannot be a ledger commodity, or two that would share one. `path` is the dotted path of the feature at fault. */
+export type CommodityProblem = { path: string; message: string };
+
+/**
+ * A credit's hledger commodity is its feature id in capitals with every non-letter dropped (`commodityOf`), so `light-60` and
+ * `light-90` are both `LIGHT`, and an id with no letter has no commodity at all. Two features on one commodity would add up
+ * into one balance in the books, and an id with none throws when the first credit is journaled. The menu is where it is refused.
+ * `commodityOf` is not changed: renaming a commodity would rewrite the journals already built.
+ */
+export const commodityProblems = (
+	features: readonly { id: string }[],
+): CommodityProblem[] => {
+	const problems: CommodityProblem[] = [];
+	const owner = new Map<string, string>();
+	features.forEach((feature, index) => {
+		const path = `features.${index}.id`;
+		let commodity: string;
+		try {
+			commodity = commodityOf(feature.id);
+		} catch {
+			problems.push({
+				path,
+				message: `feature id ${JSON.stringify(feature.id)} has no letter: a credit commodity is the feature id in capitals with letters only, so it has none`,
+			});
+			return;
+		}
+		const first = owner.get(commodity);
+		if (first === undefined) {
+			owner.set(commodity, feature.id);
+			return;
+		}
+		// An id repeated exactly is the duplicate-id rule's, not a collision of two features.
+		if (first === feature.id) return;
+		problems.push({
+			path,
+			message: `feature ids ${JSON.stringify(first)} and ${JSON.stringify(feature.id)} both become the credit commodity ${commodity} (letters only, in capitals): give them ids whose letters differ`,
+		});
+	});
+	return problems;
+};
+
+/** The rules a schema cannot say, on a menu that passed the schema. Dotted paths of what fails, and a sentence for those a path does not explain. */
+function crossProblems(m: Menu): { bad: string[]; messages: string[] } {
 	const bad: string[] = [];
+	const messages: string[] = [];
 	if (!validTimeZone(m.timeZone)) bad.push("timeZone");
 	if (dup(m.features.map((f) => f.id))) bad.push("features");
+	for (const problem of commodityProblems(m.features)) {
+		bad.push(problem.path);
+		messages.push(problem.message);
+	}
 	m.features.forEach((f, i) => {
 		if (
 			m.features.findIndex(
@@ -142,7 +189,7 @@ function crossProblems(m: Menu): string[] {
 		if ((a.gift === "sessions") === (a.grants.length === 0))
 			bad.push(`addons.${i}.grants`);
 	});
-	return bad;
+	return { bad, messages };
 }
 
 /** Checks an unknown value against the menu schema and the cross-field rules. On success the menu has trimmed text. */
@@ -155,8 +202,11 @@ export function validateMenu(input: unknown): MenuValidation {
 			problems: [...new Set((validate.errors ?? []).map(pathOf))],
 		};
 	const menu = value as Menu;
-	const bad = [...new Set(crossProblems(menu))];
-	return bad.length ? { ok: false, problems: bad } : { ok: true, menu };
+	const { bad, messages } = crossProblems(menu);
+	const problems = [...new Set(bad)];
+	return problems.length
+		? { ok: false, problems, ...(messages.length ? { messages } : {}) }
+		: { ok: true, menu };
 }
 
 /** What stops a valid menu from being published: nothing to sell, or no public tier. Dotted paths. */

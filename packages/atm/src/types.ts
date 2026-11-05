@@ -690,7 +690,11 @@ export type StripeOp =
 
 export type MenuValidation =
 	| { ok: true; menu: Menu }
-	| { ok: false; problems: string[] };
+	/**
+	 * `problems` are dotted paths. `messages`, when present, say in a sentence what a path alone does not: today a feature id
+	 * with no letter, or two feature ids that become one credit commodity (`features.<n>.id`, naming both ids).
+	 */
+	| { ok: false; problems: string[]; messages?: string[] };
 
 // ---- Grants ----
 

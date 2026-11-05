@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import vibes from "../fixtures/billing/menu/vibes-menu.json";
+import { menuCatalogRows } from "../src/billing/grants.js";
 import {
 	publicMenu,
 	publishProblems,
@@ -95,7 +96,8 @@ describe("validateMenu", () => {
 		expect(problems(m)).toEqual(["addons"]);
 		m = menu();
 		m.features = Array.from({ length: 13 }, (_, i) => ({
-			id: `f${i}`,
+			// letters differ (feature-a ... feature-m): ids that differ only by digits would share a commodity
+			id: `feature-${"abcdefghijklm"[i]}`,
 			name: `F${i}`,
 			unit: { one: "a", other: "b" },
 		}));
@@ -290,7 +292,7 @@ describe("validateMenu", () => {
 
 	test("cross-field: duplicate ids", () => {
 		let m = menu();
-		m.features.push(clone(m.features[0]));
+		m.features.push({ ...clone(m.features[0]), name: "Another name" });
 		expect(problems(m)).toContain("features");
 		m = menu();
 		m.tiers[1].id = m.tiers[0].id;
@@ -361,6 +363,100 @@ describe("validateMenu", () => {
 		const before = clone(m);
 		validateMenu(m);
 		expect(m).toEqual(before);
+	});
+});
+
+/** The messages of a refused menu whose features are `ids`. */
+const refusedFeatures = (ids: string[]) => {
+	const m = menu();
+	m.features = ids.map((id) => ({
+		id,
+		name: `Feature ${id}`,
+		unit: { one: "a", other: "b" },
+	}));
+	// the grants name features by id: the tiers keep none, so only the features are under test
+	for (const t of m.tiers) t.grants = [];
+	m.addons = [];
+	return { menu: m, result: validateMenu(m) };
+};
+
+describe("validateMenu: credit commodities", () => {
+	test("features that differ only by digits or punctuation share a commodity and are refused, naming both ids", () => {
+		for (const [first, second, commodity] of [
+			["light-60", "light-90", "LIGHT"],
+			["visit", "visit-2", "VISIT"],
+			["a-b", "ab", "AB"],
+			["k9", "k", "K"],
+		] as const) {
+			const { result } = refusedFeatures([first, second]);
+			expect(result.ok).toBe(false);
+			if (result.ok) continue;
+			expect(result.problems).toEqual(["features.1.id"]);
+			expect(result.messages).toHaveLength(1);
+			const [message] = result.messages as string[];
+			expect(message).toContain(JSON.stringify(first));
+			expect(message).toContain(JSON.stringify(second));
+			expect(message).toContain(commodity);
+		}
+	});
+
+	test("every later feature on a taken commodity is named against the first owner", () => {
+		const { result } = refusedFeatures([
+			"light",
+			"light-60",
+			"energy",
+			"light-90",
+		]);
+		if (result.ok) throw new Error("expected problems");
+		expect(result.problems).toEqual(["features.1.id", "features.3.id"]);
+		expect(result.messages?.[1]).toContain('"light" and "light-90"');
+	});
+
+	test("an id with no letter has no commodity and is refused", () => {
+		for (const id of ["2026", "1", "0-0", "9_9"]) {
+			const { result } = refusedFeatures([id]);
+			expect(result.ok).toBe(false);
+			if (result.ok) continue;
+			expect(result.problems).toEqual(["features.0.id"]);
+			expect(result.messages?.[0]).toContain(JSON.stringify(id));
+			expect(result.messages?.[0]).toContain("no letter");
+		}
+	});
+
+	test("ids whose letters differ are accepted, even with digits and punctuation in them", () => {
+		// LIGHT, MASSAGE, KDOGS and K
+		const { result } = refusedFeatures([
+			"light-60",
+			"massage-90",
+			"k9-dogs",
+			"k9",
+		]);
+		expect(result.ok).toBe(true);
+	});
+
+	test("a refused menu from other rules carries no commodity message", () => {
+		const m = menu();
+		m.tiers = [];
+		m.addons = [];
+		m.features.push({ ...clone(m.features[0]), name: "Another name" });
+		const result = validateMenu(m);
+		if (result.ok) throw new Error("expected problems");
+		expect(result.problems).toEqual(["features"]);
+		expect(result.messages).toBeUndefined();
+	});
+
+	test("menuCatalogRows refuses the same menus, so a stored menu cannot reach the books", () => {
+		const { menu: colliding } = refusedFeatures(["light-60", "light-90"]);
+		expect(() => menuCatalogRows({ menu: colliding, school: "sch_x" })).toThrow(
+			/"light-60" and "light-90" both become the credit commodity LIGHT/,
+		);
+		const { menu: letterless } = refusedFeatures(["2026"]);
+		expect(() =>
+			menuCatalogRows({ menu: letterless, school: "sch_x" }),
+		).toThrow(/no letter/);
+		expect(
+			menuCatalogRows({ menu: vibes as Menu, school: "sch_x" }).length,
+		).toBeGreaterThan(0);
 	});
 });
 
