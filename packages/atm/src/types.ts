@@ -835,8 +835,9 @@ export type InvoiceRecord = {
 	removed: boolean;
 	/**
 	 * The cents the books took for this invoice (its `payment.succeeded`). Absent when none was booked: an invoice handled
-	 * before payments were booked, one that paid nothing or paid in another currency, or one a caller adopted. A refund of
-	 * such an invoice makes no `payment.refunded`: there is no payment for it to take back from.
+	 * before payments were booked, one that paid nothing or paid in another currency (its `money.skipped` marker is not a
+	 * payment), or one a caller adopted. A refund of such an invoice makes no `payment.refunded`: there is no payment for
+	 * it to take back from.
 	 */
 	paid?: number;
 };
@@ -1641,8 +1642,8 @@ export type WebhookDeps = {
 	/**
 	 * Optional: where the handler says that it applied a delivery but did not book a money line (a non-USD invoice, refund
 	 * or payout: outcome `non_usd`). Called once per such delivery, after the transaction committed, with one line of text.
-	 * Default: the line goes to stderr. A throw here is the caller's, and propagates like any error after commit (the claim
-	 * is already done, so Stripe's retry is answered `duplicate`).
+	 * Default: the line goes to stderr. A throw here is caught (the delivery is committed, so it is still answered 200
+	 * `non_usd`): the line goes to stderr instead, with the error's message.
 	 */
 	warn?: (line: string) => void;
 };

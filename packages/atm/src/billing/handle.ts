@@ -255,7 +255,9 @@ const decide = (
 			// Remember that the books hold this payment: a refund takes back only a payment that was booked. `result.state` is
 			// this decision's own copy.
 			const record = result.state.invoices[resolved.invoice.id];
-			if (record && money.length > 0) record.paid = resolved.invoice.amountPaid;
+			// Only a payment line is a payment the books took: the `money.skipped` marker of a non-USD invoice is not one.
+			if (record && money.some((e) => e.event_type === "payment.succeeded"))
+				record.paid = resolved.invoice.amountPaid;
 			return { ok: true, result, reason: "invoice", money };
 		}
 		case "BillingRefund": {

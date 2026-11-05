@@ -6,7 +6,7 @@ Not additive for a caller that tests the outcome. What a caller sees:
 
 - **A new outcome, `non_usd`, with status 200.** An `invoice.paid`, `charge.refunded` or `payout.paid` in a currency other than USD used to be answered 200 `applied` with no money line. It is now answered 200 `non_usd`, with `body.skipped` (one `<kind> <Stripe id> <amount> <currency>` per line left out). The rows and credits are written exactly as before and the claim is done (its `outcome` column says `non_usd`), so Stripe does not retry. A caller that treated `applied` as the only success must accept `non_usd` as well, and should alert on it.
 - **A new event type, `money.skipped`**, one per line left out, in the outbox beside the credit events (no postings; idem `stripe:<id>:non_usd`). `atm journal` ignores it (no postings). A reader built before it rejects a log that holds one (its `event_type` enum is closed).
-- **A new optional dependency, `warn(line)`,** called once per such delivery after the commit; default is a line on stderr.
+- **A new optional dependency, `warn(line)`,** called once per such delivery after the commit; default is a line on stderr (a throw from it is caught and the line goes to stderr, so the answer is still 200).
 - **`reconcile` has `result.skipped`** (`{ non_usd: n }`, the markers dated in the period; `{}` when none) and prints a "skipped in the log" line; `atm report` prints the count on stderr and `reportMonth` returns `skippedNonUsd` (`{ inMonth, total }`). Detail and the reasoning: `docs/financial-reports.md`, "Non-USD".
 
 ## Moving to 0.6.0 from 0.5.0

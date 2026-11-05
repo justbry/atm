@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS atm_rows (
 ) WITHOUT ROWID;
 
 -- One row per Stripe event id (evt_...): who is handling it, or that it is handled.
--- claimed: a worker took it at claimed_at; done: its effects are committed (outcome: 'applied' or 'ignored').
+-- claimed: a worker took it at claimed_at; done: its effects are committed (outcome: 'applied', 'non_usd' or 'ignored'; no CHECK on the column).
 CREATE TABLE IF NOT EXISTS atm_event_claims (
   event_id TEXT PRIMARY KEY,
   state TEXT NOT NULL CHECK (state IN ('claimed', 'done')),

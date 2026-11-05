@@ -188,6 +188,22 @@ describe("a paid invoice", () => {
 		expect(result.refused).toBeUndefined();
 		expect(money(result.events, "payment.succeeded")).toEqual([]);
 	});
+
+	test("an invoice in another currency is not recorded as a payment the books took: its grants record has no `paid`", () => {
+		const euros = paid("in_eur");
+		euros.data.object.currency = "eur";
+		const store = newStore();
+		const result = store.handle(euros, T0);
+		expect(money(result.events, "money.skipped")).toHaveLength(1);
+		const records = store.rows.flatMap((row) =>
+			Object.values(
+				(row.data as { invoices?: Record<string, { paid?: number }> })
+					.invoices ?? {},
+			),
+		);
+		expect(records).toHaveLength(1);
+		expect(records[0]?.paid).toBeUndefined();
+	});
 });
 
 describe("the income of an invoice", () => {

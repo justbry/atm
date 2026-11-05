@@ -679,7 +679,7 @@ const nonUsd = (
 	applied: Extract<Applied, { kind: "applied" }>,
 ): WebhookResponse => {
 	const message = `${event.id} (${event.type}) was applied, but ${applied.skipped.length} money line(s) were not booked because they are not in USD: ${applied.skipped.join("; ")}. Credits were granted as usual; the log holds a money.skipped event for each.`;
-	(deps.warn ?? writeStderr)(`atm: non_usd: ${message}`);
+	sayAloud(deps, `atm: non_usd: ${message}`);
 	return reply(200, "non_usd", {
 		stripeEventId: event.id,
 		events: applied.events,
@@ -691,6 +691,24 @@ const nonUsd = (
 
 const writeStderr = (line: string): void => {
 	process.stderr.write(`${line}\n`);
+};
+
+/**
+ * The line goes to `deps.warn`. The delivery is committed by now, so a `warn` that throws must not turn the 200 into a
+ * failure (Stripe would retry a delivery that is done): the line goes to stderr instead, with why the caller's did not.
+ */
+const sayAloud = (deps: WebhookDeps, line: string): void => {
+	if (!deps.warn) {
+		writeStderr(line);
+		return;
+	}
+	try {
+		deps.warn(line);
+	} catch (error) {
+		writeStderr(
+			`atm: deps.warn threw (${error instanceof Error ? error.message : String(error)}); the line was: ${line}`,
+		);
+	}
 };
 
 const settle = (

@@ -105,6 +105,19 @@ describe("a non-USD invoice", () => {
 		expect(eur.warned[0]).toContain("not in USD");
 	});
 
+	test("a warn that throws does not turn the committed delivery into a failure: still 200 non_usd, and a retry is a duplicate", () => {
+		const h = quiet();
+		h.deps.warn = () => {
+			throw new Error("the log sink is down");
+		};
+		const response = h.deliver(inEuros(paid()));
+		expect(response.status).toBe(200);
+		expect(response.body.outcome).toBe("non_usd");
+		expect(ofType(h.outbox(), "money.skipped")).toHaveLength(1);
+		expect(h.claim("evt_in_1")?.state).toBe("done");
+		expect(h.deliver(inEuros(paid())).body.outcome).toBe("duplicate");
+	});
+
 	test("a USD invoice is still applied, with no marker and nothing said", () => {
 		const h = quiet({ in_1: FEE });
 		expect(h.deliver(paid()).body.outcome).toBe("applied");
