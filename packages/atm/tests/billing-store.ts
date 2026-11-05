@@ -12,7 +12,11 @@ import {
 	stateFromRows,
 } from "../src/billing/rows.js";
 import { menuLineItems } from "../src/billing/stripe-menu.js";
-import type { Menu, StripeEventResult } from "../src/billing/types.js";
+import type {
+	Menu,
+	StripeEventInput,
+	StripeEventResult,
+} from "../src/billing/types.js";
 import { deterministicUlid } from "../src/ledger/ids.js";
 import { mutationToEvents } from "../src/ledger/postings.js";
 import { balancesOf } from "../src/ledger/replay.js";
@@ -46,6 +50,7 @@ export const createStore = ({
 	menuVersion = 1,
 	policyVersion = 1,
 	start,
+	onHandled,
 }: {
 	menu: Menu;
 	school: string;
@@ -54,6 +59,8 @@ export const createStore = ({
 	policyVersion?: number;
 	/** The stored rows and revision to carry on from (a subject written earlier). */
 	start?: { rows: BillingRow[]; revision: number };
+	/** Called with each input and its result, before the rows move on: a test checks another path against `handleStripeEvent`. */
+	onHandled?: (input: StripeEventInput, result: StripeEventResult) => void;
 }) => {
 	const holder = `family:${family}`;
 	const identity = {
@@ -100,7 +107,7 @@ export const createStore = ({
 			};
 			if (raw.type === "invoice.paid")
 				invoiceIds[paymentIntentOf(raw.data.object.id)] = raw.data.object.id;
-			const result = handleStripeEvent({
+			const input: StripeEventInput = {
 				event,
 				eventId: deterministicUlid({
 					timeMs: at,
@@ -118,7 +125,9 @@ export const createStore = ({
 				priceIds,
 				invoiceIds,
 				...extra,
-			});
+			};
+			const result = handleStripeEvent(input);
+			onHandled?.(input, result);
 			results.push(result);
 			if (result.rowChanges)
 				({ rows, revision } = applyRowChanges({
