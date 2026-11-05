@@ -7,6 +7,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import {
+	addUtcMonths,
 	EMPTY_GRANTS_STATE,
 	invoiceToCommands,
 	subscriptionToCommands,
@@ -49,12 +50,20 @@ const baseMenu = JSON.parse(
 		"utf8",
 	),
 ) as Menu;
-// sparkle-2 is sold in 1, 2 or 4 units; each unit grants 2 visits a month, rolling over up to 2.
+// sparkle-2 is sold in 1, 2 or 4 units; each unit grants 2 visits a month, rolling over up to 2. sparkle-4 (4 visits a
+// month and a yearly retreat a unit) is also sold yearly here, for the raises on a yearly plan.
 const menu: Menu = {
 	...baseMenu,
-	tiers: baseMenu.tiers.map((t) =>
-		t.id === "sparkle-2" ? { ...t, quantities: [1, 2, 4] } : t,
-	),
+	tiers: baseMenu.tiers.map((t) => {
+		if (t.id === "sparkle-2") return { ...t, quantities: [1, 2, 4] };
+		if (t.id === "sparkle-4")
+			return {
+				...t,
+				quantities: [1, 2, 4],
+				prices: [...t.prices, { interval: "year" as const, amount: 520000 }],
+			};
+		return t;
+	}),
 };
 const metadata = { b4u_school: SCHOOL, family_id: FAMILY };
 
@@ -539,6 +548,508 @@ describe("a raise under another upgrade policy", () => {
 		expect(added(r)).toEqual([]);
 		expect(r.state.invoices.in_raise?.granted).toEqual([]);
 		expect(r.state.quantity).toBe(4);
+	});
+});
+
+describe("a raise on a yearly plan (2 -> 4, always_invoice)", () => {
+	const YEAR_END = CREATED + 365 * DAY;
+	// A yearly payment carries 12 months of the grant: 2 visits x 12 x 2 more units = 48, and 355 of the 365 days are
+	// left (the change is 10 days in): 48 x 355/365 = 46.68, rounded up. The share is of the year, as on a monthly plan it
+	// is of the month; a yearly raise is not granted nothing and not granted the whole year.
+	const YEAR_RAISE_UNITS = 47;
+	const yearlyRaise = (at = RAISED) =>
+		raiseEvent(
+			raiseLines({ interval: "year", end: YEAR_END, at }),
+			"raise",
+			at,
+		);
+
+	test("grants the year's extra units prorated by the days of the year left, and the credits now reflect 4", () => {
+		const s = newStore();
+		create(s, { quantity: 2, interval: "year", end: YEAR_END });
+		expect(s.avail(CREATED + SECOND)).toBe(48);
+		const r = s.handle(yearlyRaise(), RAISED);
+		expect(r.refused).toBeUndefined();
+		expect(grantedUnits(s, "in_raise")).toEqual([YEAR_RAISE_UNITS]);
+		expect(s.avail(RAISED + SECOND)).toBe(48 + YEAR_RAISE_UNITS);
+		const state = grantsOf(s);
+		expect(state.quantity).toBe(4);
+		expect(state.interval).toBe("year");
+		expect(state.cycleStart).toBe(CREATED);
+		expect(state.cycleEnd).toBe(YEAR_END);
+		expect(tierProduct(s)?.quantity).toBe(4);
+	});
+
+	test("the share left is of the year: the day of the purchase grants all 48, the last day grants 1", () => {
+		const first = newStore();
+		create(first, { quantity: 2, interval: "year", end: YEAR_END });
+		first.handle(yearlyRaise(CREATED), CREATED);
+		expect(grantedUnits(first, "in_raise")).toEqual([48]);
+
+		const last = newStore();
+		create(last, { quantity: 2, interval: "year", end: YEAR_END });
+		last.handle(yearlyRaise(YEAR_END - DAY), YEAR_END - DAY);
+		// 48 x 1/365 = 0.13, rounded up
+		expect(grantedUnits(last, "in_raise")).toEqual([1]);
+	});
+
+	test("a replayed yearly raise invoice grants nothing twice", () => {
+		const s = newStore();
+		create(s, { quantity: 2, interval: "year", end: YEAR_END });
+		s.handle(yearlyRaise(), RAISED);
+		expect(s.handle(yearlyRaise(), RAISED + HOUR)).toEqual({
+			rowChanges: null,
+			events: [],
+		});
+		expect(s.avail(RAISED + HOUR)).toBe(48 + YEAR_RAISE_UNITS);
+	});
+
+	test("a full refund of the yearly raise invoice takes back only the raise", () => {
+		const s = newStore();
+		create(s, { quantity: 2, interval: "year", end: YEAR_END });
+		s.handle(yearlyRaise(), RAISED);
+		expect(refund(s, "in_raise", 2000, RAISED + HOUR).refused).toBeUndefined();
+		expect(s.avail(RAISED + HOUR + SECOND)).toBe(48);
+		expect(grantsOf(s).invoices.in_create?.removed).toBe(false);
+	});
+
+	test("the yearly renewal after the raise refills at 4 units: 2 visits x 12 x 4", () => {
+		const s = newStore();
+		create(s, { quantity: 2, interval: "year", end: YEAR_END });
+		s.handle(yearlyRaise(), RAISED);
+		const next = YEAR_END + 365 * DAY;
+		const r = s.handle(
+			invoicePaid({
+				eventId: "evt_year_2",
+				invoiceId: "in_year_2",
+				at: YEAR_END + DAY,
+				subscriptionId: "sub_q",
+				reason: "subscription_cycle",
+				periodStart: CREATED,
+				periodEnd: YEAR_END,
+				lines: [
+					{
+						lookupKey: tierKey("sparkle-2", "year"),
+						amount: 1500 * 4,
+						interval: "year",
+						quantity: 4,
+						periodStart: YEAR_END,
+						periodEnd: next,
+					},
+				],
+				metadata,
+			}),
+			YEAR_END + DAY,
+		);
+		expect(r.refused).toBeUndefined();
+		expect(grantedUnits(s, "in_year_2")).toEqual([96]);
+	});
+
+	test("the subscription event first or last, the credits end the same: 48 + 47 at 4 units", () => {
+		const yearlyUpdated = subscriptionEvent({
+			type: "customer.subscription.updated",
+			eventId: "evt_sub_year_4",
+			subscriptionId: "sub_q",
+			status: "active",
+			items: [
+				{
+					lookupKey: tierKey("sparkle-2", "year"),
+					interval: "year",
+					quantity: 4,
+				},
+			],
+			periodStart: CREATED,
+			periodEnd: YEAR_END,
+			at: RAISED,
+			metadata,
+		});
+		const eventFirst = newStore();
+		create(eventFirst, { quantity: 2, interval: "year", end: YEAR_END });
+		eventFirst.handle(yearlyUpdated, RAISED);
+		expect(eventFirst.avail(RAISED + SECOND)).toBe(48);
+		eventFirst.handle(yearlyRaise(), RAISED);
+
+		const invoiceFirst = newStore();
+		create(invoiceFirst, { quantity: 2, interval: "year", end: YEAR_END });
+		invoiceFirst.handle(yearlyRaise(), RAISED);
+		invoiceFirst.handle(yearlyUpdated, RAISED);
+
+		for (const s of [eventFirst, invoiceFirst]) {
+			expect(s.avail(RAISED + SECOND)).toBe(48 + YEAR_RAISE_UNITS);
+			expect(grantsOf(s).quantity).toBe(4);
+			expect(grantsOf(s).membership?.quantity).toBe(4);
+		}
+		expect(grantsOf(eventFirst)).toEqual(grantsOf(invoiceFirst));
+	});
+
+	test("a raise and an add-on bought in one update both grant", () => {
+		const s = newStore();
+		create(s, { quantity: 2, interval: "year", end: YEAR_END });
+		const glowLine: EventLine = {
+			lookupKey: lookupKeyOf(
+				SCHOOL,
+				addonPriceKey("glow", "month"),
+				5000,
+				menu.currency,
+			),
+			amount: 5000,
+			interval: "month",
+			quantity: 1,
+			proration: true,
+			periodStart: RAISED,
+			periodEnd: CYCLE_END,
+		};
+		s.handle(
+			raiseEvent([
+				...raiseLines({ interval: "year", end: YEAR_END }),
+				glowLine,
+			]),
+			RAISED,
+		);
+		expect(grantedUnits(s, "in_raise")?.[0]).toBe(YEAR_RAISE_UNITS);
+		expect(grantsOf(s).quantity).toBe(4);
+		expect(grantsOf(s).addonIds).toContain("glow");
+	});
+
+	describe("under another upgrade policy, or without a cycle to prorate over", () => {
+		const raise: BillingInvoice = {
+			source: {
+				eventId: "evt_raise",
+				mapping: "stripe.invoice.paid.v1",
+				stripeApiVersion: "2025-10-29.clover",
+			},
+			id: "in_raise",
+			customerId: "cus_q",
+			subscriptionId: "sub_q",
+			reason: "subscription_update",
+			currency: "usd",
+			amountPaid: 2000,
+			paidAt: RAISED,
+			periodStart: CREATED,
+			periodEnd: RAISED,
+			lines: [2, 4].map(
+				(quantity): InvoiceLine => ({
+					kind: "tier",
+					tierId: "sparkle-2",
+					interval: "year",
+					quantity,
+					proration: true,
+					amount: quantity === 2 ? -2000 : 4000,
+					periodStart: RAISED,
+					periodEnd: YEAR_END,
+				}),
+			),
+			metadata,
+		};
+		const after = (
+			policy: BillingPolicy,
+			change: (state: GrantsState) => GrantsState = (state) => state,
+		) => {
+			const s = newStore();
+			create(s, { quantity: 2, interval: "year", end: YEAR_END });
+			return invoiceToCommands({
+				invoice: raise,
+				menu,
+				policy,
+				state: change(grantsOf(s)),
+				now: RAISED,
+				menuVersion: 1,
+				policyVersion: 1,
+			});
+		};
+		const grantedBy = (r: ReturnType<typeof invoiceToCommands>) =>
+			r.state.invoices.in_raise?.granted.map((g) => g.units);
+
+		test("'prorated' (the default) grants 47", () => {
+			const r = after({ ...DEFAULT_POLICY, upgradeGrant: "prorated" });
+			expect(grantedBy(r)).toEqual([YEAR_RAISE_UNITS]);
+			expect(r.state.quantity).toBe(4);
+		});
+
+		test("'full' grants the whole year's difference: 48", () => {
+			const r = after({ ...DEFAULT_POLICY, upgradeGrant: "full" });
+			expect(grantedBy(r)).toEqual([48]);
+			expect(r.state.quantity).toBe(4);
+		});
+
+		test("'none' grants nothing, and the credits still reflect 4 for the renewal", () => {
+			const r = after({ ...DEFAULT_POLICY, upgradeGrant: "none" });
+			expect(grantedBy(r)).toEqual([]);
+			expect(r.state.quantity).toBe(4);
+			expect(JSON.stringify(r.commands)).toMatch(
+				/"table":"customerProducts"[^}]*"quantity":4|"quantity":4[^}]*"table":"customerProducts"/,
+			);
+		});
+
+		test("a stored state without its cycle grants the whole difference, as 'full' does", () => {
+			const r = after(
+				{ ...DEFAULT_POLICY, upgradeGrant: "prorated" },
+				(state) => ({ ...state, cycleStart: null, cycleEnd: null }),
+			);
+			expect(grantedBy(r)).toEqual([48]);
+		});
+	});
+
+	describe("a yearly sparkle-4: 4 visits a month (x 12 on a yearly plan) and a yearly retreat a unit", () => {
+		test("a raise 1 -> 2 grants both the visits and the retreat, each prorated by the days of the year left", () => {
+			const s = newStore();
+			create(s, {
+				quantity: 1,
+				tierId: "sparkle-4",
+				interval: "year",
+				end: YEAR_END,
+			});
+			expect(s.avail(CREATED + SECOND)).toBe(48);
+			expect(s.avail(CREATED + SECOND, "retreat")).toBe(1);
+			s.handle(
+				raiseEvent(
+					raiseLines({
+						from: 1,
+						to: 2,
+						fromTier: "sparkle-4",
+						toTier: "sparkle-4",
+						interval: "year",
+						end: YEAR_END,
+					}),
+				),
+				RAISED,
+			);
+			// visits: 4 x 12 x 1 more unit = 48 x 355/365 = 46.68 -> 47; retreat: 1 x 355/365 = 0.97 -> 1
+			expect(grantedUnits(s, "in_raise")).toEqual([47, 1]);
+			expect(s.avail(RAISED + SECOND)).toBe(48 + 47);
+			expect(s.avail(RAISED + SECOND, "retreat")).toBe(2);
+			expect(grantsOf(s).quantity).toBe(2);
+		});
+
+		test("a tier change and a quantity change in one update: sparkle-2 x 1 -> sparkle-4 x 2, prorated over the year", () => {
+			const s = newStore();
+			create(s, { quantity: 1, interval: "year", end: YEAR_END });
+			expect(s.avail(CREATED + SECOND)).toBe(24);
+			s.handle(
+				raiseEvent(
+					raiseLines({
+						from: 1,
+						to: 2,
+						fromTier: "sparkle-2",
+						toTier: "sparkle-4",
+						interval: "year",
+						end: YEAR_END,
+					}),
+				),
+				RAISED,
+			);
+			// visits: 4 x 12 x 2 - 2 x 12 x 1 = 72 x 355/365 = 70.03 -> 71; the retreat is a new row of 1 x 2
+			expect(s.avail(RAISED + SECOND)).toBe(24 + 71);
+			expect(s.avail(RAISED + SECOND, "retreat")).toBe(2);
+			expect(grantsOf(s).tierId).toBe("sparkle-4");
+			expect(grantsOf(s).quantity).toBe(2);
+		});
+	});
+});
+
+describe("a raise on a monthly plan whose tier has a yearly grant (sparkle-4: a retreat a year a unit)", () => {
+	// Twenty of the cycle's thirty days are left: visits (4 x 4 - 4 x 2) = 8 x 20/30 = 5.33, rounded up.
+	const VISIT_RAISE_UNITS = 6;
+	const raiseInvoice = (): BillingInvoice => ({
+		source: {
+			eventId: "evt_raise",
+			mapping: "stripe.invoice.paid.v1",
+			stripeApiVersion: "2025-10-29.clover",
+		},
+		id: "in_raise",
+		customerId: "cus_q",
+		subscriptionId: "sub_q",
+		reason: "subscription_update",
+		currency: "usd",
+		amountPaid: 2000,
+		paidAt: RAISED,
+		periodStart: CREATED,
+		periodEnd: RAISED,
+		lines: [2, 4].map(
+			(quantity): InvoiceLine => ({
+				kind: "tier",
+				tierId: "sparkle-4",
+				interval: "month",
+				quantity,
+				proration: true,
+				amount: quantity === 2 ? -2000 : 4000,
+				periodStart: RAISED,
+				periodEnd: CYCLE_END,
+			}),
+		),
+		metadata,
+	});
+	const createdFour = () => {
+		const s = newStore();
+		create(s, { quantity: 2, tierId: "sparkle-4" });
+		return s;
+	};
+	const grantedUnder = (upgradeGrant: BillingPolicy["upgradeGrant"]) =>
+		invoiceToCommands({
+			invoice: raiseInvoice(),
+			menu,
+			policy: { ...DEFAULT_POLICY, upgradeGrant },
+			state: grantsOf(createdFour()),
+			now: RAISED,
+			menuVersion: 1,
+			policyVersion: 1,
+		}).state.invoices.in_raise?.granted.map((g) => g.units);
+
+	test("grants only the monthly visits; the yearly retreat grants nothing at the raise", () => {
+		const s = createdFour();
+		expect(s.avail(CREATED + SECOND)).toBe(8);
+		expect(s.avail(CREATED + SECOND, "retreat")).toBe(2);
+		s.handle(
+			raiseEvent(
+				raiseLines({
+					from: 2,
+					to: 4,
+					fromTier: "sparkle-4",
+					toTier: "sparkle-4",
+				}),
+			),
+			RAISED,
+		);
+		expect(grantedUnits(s, "in_raise")).toEqual([VISIT_RAISE_UNITS]);
+		expect(s.avail(RAISED + SECOND)).toBe(8 + VISIT_RAISE_UNITS);
+		// The retreat stays at the 2 of the first purchase: nothing is added for the units gained mid-cycle.
+		expect(s.avail(RAISED + SECOND, "retreat")).toBe(2);
+		expect(grantsOf(s).quantity).toBe(4);
+		expect(tierProduct(s)?.quantity).toBe(4);
+	});
+
+	test("its next refill, a year after the purchase, is already at the new count: 4 units", () => {
+		const s = createdFour();
+		s.handle(
+			raiseEvent(
+				raiseLines({
+					from: 2,
+					to: 4,
+					fromTier: "sparkle-4",
+					toTier: "sparkle-4",
+				}),
+			),
+			RAISED,
+		);
+		// The row is refilled by its own reset, a year after the purchase; the engine refills a row at its per-unit
+		// allowance x the customer product's quantity, which the raise has set to 4.
+		const retreatRow = s.rows.find(
+			(r) =>
+				r.table === "customerEntitlements" && r.id === "ce_tier_retreat_year",
+		)?.data as { next_reset_at: number } | undefined;
+		expect(retreatRow?.next_reset_at).toBe(addUtcMonths(CREATED, 12));
+		expect(tierProduct(s)?.quantity).toBe(4);
+	});
+
+	test("under 'full' the retreat still grants nothing: only the visits' difference of 8", () => {
+		expect(grantedUnder("full")).toEqual([8]);
+	});
+
+	test("under 'none' nothing is granted at all", () => {
+		expect(grantedUnder("none")).toEqual([]);
+	});
+});
+
+describe("a raise after the plan moved between month and year", () => {
+	const YEAR_END = CREATED + 365 * DAY;
+	/** The switch invoice: the credit of the old plan's unused time and the charge of the new plan, from `at`. */
+	const switchLines = ({
+		from,
+		to,
+		end,
+		oldEnd,
+	}: {
+		from: "month" | "year";
+		to: "month" | "year";
+		end: number;
+		oldEnd: number;
+	}): EventLine[] => [
+		{
+			lookupKey: tierKey("sparkle-2", from),
+			amount: -1500,
+			interval: from,
+			quantity: 1,
+			proration: true,
+			periodStart: RAISED,
+			periodEnd: oldEnd,
+		},
+		{
+			lookupKey: tierKey("sparkle-2", to),
+			amount: 3000,
+			interval: to,
+			quantity: 1,
+			proration: true,
+			periodStart: RAISED,
+			periodEnd: end,
+		},
+	];
+
+	test("monthly to yearly: the cycle is the new year, so a yearly raise grants its share of the year, not 0", () => {
+		const s = newStore();
+		create(s, { quantity: 1 });
+		const newEnd = RAISED + 365 * DAY;
+		s.handle(
+			raiseEvent(
+				switchLines({
+					from: "month",
+					to: "year",
+					end: newEnd,
+					oldEnd: CYCLE_END,
+				}),
+				"switch",
+			),
+			RAISED,
+		);
+		expect(grantsOf(s).interval).toBe("year");
+		expect(grantsOf(s).cycleStart).toBe(RAISED);
+		expect(grantsOf(s).cycleEnd).toBe(newEnd);
+
+		// 40 days after the switch, past the old month's end: 2 visits x 12 x 1 more unit = 24, and 325 of 365 days are left
+		// (24 x 325/365 = 21.37, rounded up).
+		const at = RAISED + 40 * DAY;
+		s.handle(
+			raiseEvent(
+				raiseLines({ from: 1, to: 2, interval: "year", end: newEnd, at }),
+				"raise",
+				at,
+			),
+			at,
+		);
+		expect(grantedUnits(s, "in_raise")).toEqual([22]);
+	});
+
+	test("yearly to monthly: the cycle is the new month, so a monthly raise prorates over the month, not the old year", () => {
+		const s = newStore();
+		create(s, { quantity: 1, interval: "year", end: YEAR_END });
+		const newEnd = RAISED + 30 * DAY;
+		s.handle(
+			raiseEvent(
+				switchLines({
+					from: "year",
+					to: "month",
+					end: newEnd,
+					oldEnd: YEAR_END,
+				}),
+				"switch",
+			),
+			RAISED,
+		);
+		expect(grantsOf(s).interval).toBe("month");
+		expect(grantsOf(s).cycleStart).toBe(RAISED);
+		expect(grantsOf(s).cycleEnd).toBe(newEnd);
+
+		// 1 -> 4 units, 28 days into the new month: 2 visits x 3 more units = 6, and 2 of 30 days are left
+		// (6 x 2/30 = 0.4, rounded up).
+		const at = RAISED + 28 * DAY;
+		s.handle(
+			raiseEvent(
+				raiseLines({ from: 1, to: 4, interval: "month", end: newEnd, at }),
+				"raise",
+				at,
+			),
+			at,
+		);
+		expect(grantedUnits(s, "in_raise")).toEqual([1]);
 	});
 });
 

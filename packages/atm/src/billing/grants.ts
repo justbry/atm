@@ -961,7 +961,9 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 	) {
 		const tierId = upLine.tierId as string;
 		const interval = upLine.interval as Interval;
-		const sameTier = tierId === state.tierId && interval === state.interval;
+		// Read before `moveTier`, which sets `state.interval` to the new one.
+		const intervalChanged = interval !== state.interval;
+		const sameTier = tierId === state.tierId && !intervalChanged;
 		// Stripe's raise (API 2025-10-29.clover, recorded): the charge line carries the NEW total (not the difference), read by
 		// `prorationPair`. The baseline here is not Stripe's credit line: it is what the credits reflect (`state.quantity`).
 		// Stripe's count runs ahead of it after a decrease that takes effect at the renewal (a pending one grants nothing, so
@@ -1069,7 +1071,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 				b.add(now, s.feature, s.rowId, units);
 				grantRow(s, units, newEnd);
 			}
-			if (interval !== state.interval) {
+			if (intervalChanged) {
 				state.cycleStart = periodStart;
 				state.cycleEnd = periodEnd;
 			}
