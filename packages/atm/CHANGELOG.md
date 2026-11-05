@@ -16,6 +16,7 @@ On `dev` after `atm-v0.8.0`, not released.
 
 | PR | Merge commit | What |
 |---|---|---|
+| (this PR) | | scenario fixtures and KPI parity: the demo school Before University, eight seeded presets and ad-hoc scenarios (`atm simulate --profile`, `atm scenarios list\|describe\|schema\|kpis`), a fixture hash, a KPI spec (`kpis/school.v1.json`, `schema/kpis.v1.json`) computed by the atm fold, hledger and DuckDB with equal hashes, goldens in `tests/golden/scenarios/`, a `kpis.json` and `kpis.parquet` export. Details and what was dropped: `docs/scenarios.md`. The Stripe event builders and the in-memory store moved from `tests/` to `src/scenario/` (tests re-export them) |
 | #77 | `534a55f52` | a non-USD dispute that moved money is answered 200 `non_usd` and leaves a `money.skipped` marker (`kind: "dispute"`) |
 | #72 | `d186b73fc` | an end-to-end reconciliation matrix (tests and `docs/e2e-reconciliation.md` only, no source change): each case runs the handler, journal and `atm reconcile` against hand-computed numbers, and records six open discrepancies, D1 to D6 |
 

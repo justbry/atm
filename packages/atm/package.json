@@ -26,7 +26,8 @@
 		"ts": "tsc --noEmit",
 		"fixtures": "bun ./fixtures/generate.ts",
 		"schema": "bun ./schema/build.ts",
-		"stripe-spec": "bun ./schema/stripe/build.ts"
+		"stripe-spec": "bun ./schema/stripe/build.ts",
+		"scenarios": "bun ./src/bin.ts scenarios"
 	},
 	"dependencies": {
 		"@autumn/balance-engine": "workspace:*",

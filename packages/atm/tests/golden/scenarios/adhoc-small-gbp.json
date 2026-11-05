@@ -1,0 +1,47 @@
+{
+  "profile": "adhoc-small-gbp",
+  "seed": 1,
+  "params": {
+    "months": 3,
+    "start": "2026-01",
+    "members": 5,
+    "newMembersPerMonth": 0,
+    "tierMix": {
+      "scholar": 1
+    },
+    "yearlyShare": 0,
+    "addonRate": 0.25,
+    "freeShare": 0,
+    "churnRate": 0.03,
+    "refundRate": 0.02,
+    "partialRefundShare": 0.5,
+    "disputeRate": 0.005,
+    "disputeLostShare": 0.6,
+    "usageRate": 0.6,
+    "currency": "gbp",
+    "feePercent": 2.9,
+    "feeFixedCents": 30
+  },
+  "fixtureHash": "c311e3cb665feadaaa7f3a4eec8dc4dcf2f78682ee9d5b572567f156aefd8a2f",
+  "kpisHash": "162082cf49925ffb6a105f7bb5c1df857ddb48bd38b6df8e6b6df68738ceb62c",
+  "events": 64,
+  "periods": 3,
+  "summary": {
+    "gross_collected": 0,
+    "refunds": 0,
+    "disputes_lost": 0,
+    "dispute_fees": 0,
+    "stripe_fees": 0,
+    "net_income": 0,
+    "payouts": 0,
+    "payments_count": 0,
+    "refunds_count": 0,
+    "disputes_opened": 0,
+    "new_members": 5,
+    "credits_granted": 21,
+    "credits_consumed": 9,
+    "credits_expired": 0,
+    "billed_members_last_period": 0
+  },
+  "skippedNonUsd": 15
+}

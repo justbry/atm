@@ -1,0 +1,402 @@
+{
+	"$schema": "../schema/kpis.v1.json",
+	"version": 1,
+	"grain": "month",
+	"kpis": [
+		{
+			"id": "gross_collected",
+			"title": "Gross collected",
+			"unit": "cents",
+			"precision": 0,
+			"definition": "Income credited by paid invoices and bookings in the month, before refunds, disputes and fees (cash basis: booked when the payment is).",
+			"compute": {
+				"op": "sum",
+				"commodity": "usd",
+				"sign": -1,
+				"where": {
+					"eventType": ["payment.succeeded"],
+					"account": "^income:billing:"
+				}
+			}
+		},
+		{
+			"id": "revenue_by_kind",
+			"title": "Gross collected by kind",
+			"unit": "cents",
+			"precision": 0,
+			"definition": "Gross collected, split by the income account's kind: membership, add-on or booking.",
+			"compute": {
+				"op": "sum",
+				"commodity": "usd",
+				"sign": -1,
+				"where": {
+					"eventType": ["payment.succeeded"],
+					"account": "^income:billing:(membership|addon|booking)"
+				},
+				"by": {
+					"from": "account",
+					"pattern": "^income:billing:(membership|addon|booking)"
+				}
+			}
+		},
+		{
+			"id": "revenue_by_tier",
+			"title": "Membership revenue by tier",
+			"unit": "cents",
+			"precision": 0,
+			"definition": "Gross collected on membership tiers, split by tier id. A yearly payment lands whole in the month it is paid.",
+			"compute": {
+				"op": "sum",
+				"commodity": "usd",
+				"sign": -1,
+				"where": {
+					"eventType": ["payment.succeeded"],
+					"account": "^income:billing:membership:"
+				},
+				"by": {
+					"from": "account",
+					"pattern": "^income:billing:membership:([^:]+)$"
+				}
+			}
+		},
+		{
+			"id": "refunds",
+			"title": "Refunds",
+			"unit": "cents",
+			"precision": 0,
+			"definition": "Money handed back by refunds booked in the month.",
+			"compute": {
+				"op": "sum",
+				"commodity": "usd",
+				"sign": 1,
+				"where": {
+					"eventType": ["payment.refunded"],
+					"account": "^income:billing:refunds$"
+				}
+			}
+		},
+		{
+			"id": "disputes_lost",
+			"title": "Disputes lost",
+			"unit": "cents",
+			"precision": 0,
+			"definition": "The disputes expense booked in the month: the amount a dispute withdrew, less what a won dispute gave back.",
+			"compute": {
+				"op": "sum",
+				"commodity": "usd",
+				"sign": 1,
+				"where": {
+					"eventType": ["payment.disputed", "dispute.closed"],
+					"account": "^expenses:billing:disputes$"
+				}
+			}
+		},
+		{
+			"id": "dispute_fees",
+			"title": "Dispute fees",
+			"unit": "cents",
+			"precision": 0,
+			"definition": "Stripe's dispute fees booked in the month.",
+			"compute": {
+				"op": "sum",
+				"commodity": "usd",
+				"sign": 1,
+				"where": {
+					"eventType": ["payment.disputed"],
+					"account": "^expenses:billing:dispute-fees$"
+				}
+			}
+		},
+		{
+			"id": "stripe_fees",
+			"title": "Stripe fees",
+			"unit": "cents",
+			"precision": 0,
+			"definition": "Stripe's fees on payments the caller passed a fee for.",
+			"compute": {
+				"op": "sum",
+				"commodity": "usd",
+				"sign": 1,
+				"where": {
+					"eventType": ["payment.succeeded"],
+					"account": "^expenses:billing:stripe-fees$"
+				}
+			}
+		},
+		{
+			"id": "net_income",
+			"title": "Net income",
+			"unit": "cents",
+			"precision": 0,
+			"definition": "Gross collected less refunds, disputes lost, dispute fees and Stripe fees (the books are cash basis, so this is also the net cash of the month).",
+			"compute": {
+				"op": "combine",
+				"terms": [
+					{
+						"kpi": "gross_collected",
+						"sign": 1
+					},
+					{
+						"kpi": "refunds",
+						"sign": -1
+					},
+					{
+						"kpi": "disputes_lost",
+						"sign": -1
+					},
+					{
+						"kpi": "dispute_fees",
+						"sign": -1
+					},
+					{
+						"kpi": "stripe_fees",
+						"sign": -1
+					}
+				]
+			}
+		},
+		{
+			"id": "payouts",
+			"title": "Payouts",
+			"unit": "cents",
+			"precision": 0,
+			"definition": "Money moved to the payout clearing account in the month.",
+			"compute": {
+				"op": "sum",
+				"commodity": "usd",
+				"sign": 1,
+				"where": {
+					"eventType": ["payout.paid"],
+					"account": "^assets:clearing:stripe-payouts$"
+				}
+			}
+		},
+		{
+			"id": "payments_count",
+			"title": "Payments",
+			"unit": "count",
+			"precision": 0,
+			"definition": "Paid invoices and bookings booked in the month.",
+			"compute": {
+				"op": "count",
+				"where": {
+					"eventType": ["payment.succeeded"]
+				}
+			}
+		},
+		{
+			"id": "refunds_count",
+			"title": "Refunds issued",
+			"unit": "count",
+			"precision": 0,
+			"definition": "Refund lines booked in the month.",
+			"compute": {
+				"op": "count",
+				"where": {
+					"eventType": ["payment.refunded"]
+				}
+			}
+		},
+		{
+			"id": "disputes_opened",
+			"title": "Disputes opened",
+			"unit": "count",
+			"precision": 0,
+			"definition": "Disputes that withdrew money in the month.",
+			"compute": {
+				"op": "count",
+				"where": {
+					"eventType": ["payment.disputed"]
+				}
+			}
+		},
+		{
+			"id": "refund_rate",
+			"title": "Refund rate",
+			"unit": "ratio",
+			"precision": 4,
+			"definition": "Refunds / gross collected, in the month; 0 when nothing was collected.",
+			"compute": {
+				"op": "ratio",
+				"num": "refunds",
+				"den": "gross_collected"
+			}
+		},
+		{
+			"id": "dispute_rate",
+			"title": "Dispute rate",
+			"unit": "ratio",
+			"precision": 4,
+			"definition": "Disputes opened / payments, in the month; 0 when there were no payments.",
+			"compute": {
+				"op": "ratio",
+				"num": "disputes_opened",
+				"den": "payments_count"
+			}
+		},
+		{
+			"id": "active_members",
+			"title": "Billed members",
+			"unit": "count",
+			"precision": 0,
+			"definition": "Distinct holders granted credits by a plan in the month (a paying member or one on a zero invoice). A yearly member counts in the month it is billed only: the books hold no coverage period.",
+			"compute": {
+				"op": "distinct",
+				"where": {
+					"eventType": ["credit.granted"],
+					"label": {
+						"name": "plan",
+						"pattern": "."
+					}
+				}
+			}
+		},
+		{
+			"id": "active_members_by_tier",
+			"title": "Billed members by tier",
+			"unit": "count",
+			"precision": 0,
+			"definition": "Billed members, split by the tier of the plan that granted the credits. A member who changes tier in a month counts in each.",
+			"compute": {
+				"op": "distinct",
+				"where": {
+					"eventType": ["credit.granted"],
+					"label": {
+						"name": "plan",
+						"pattern": "."
+					}
+				},
+				"by": {
+					"from": "label:plan",
+					"pattern": "^([^@]+)@"
+				}
+			}
+		},
+		{
+			"id": "new_members",
+			"title": "New members",
+			"unit": "count",
+			"precision": 0,
+			"definition": "Holders whose first plan grant is in this month.",
+			"compute": {
+				"op": "distinct",
+				"where": {
+					"eventType": ["credit.granted"],
+					"label": {
+						"name": "plan",
+						"pattern": "."
+					}
+				},
+				"first": true
+			}
+		},
+		{
+			"id": "arpa",
+			"title": "Gross collected per billed member",
+			"unit": "cents",
+			"precision": 2,
+			"definition": "Gross collected / billed members, in the month (cents, two decimals); 0 when there were no billed members.",
+			"compute": {
+				"op": "ratio",
+				"num": "gross_collected",
+				"den": "active_members"
+			}
+		},
+		{
+			"id": "credits_granted",
+			"title": "Credits granted",
+			"unit": "count",
+			"precision": 0,
+			"definition": "Credit units issued by plans and gifts in the month.",
+			"compute": {
+				"op": "sum",
+				"commodity": "credits",
+				"sign": -1,
+				"where": {
+					"eventType": ["credit.granted"],
+					"account": "^credits:issued:"
+				}
+			}
+		},
+		{
+			"id": "credits_consumed",
+			"title": "Credits consumed",
+			"unit": "count",
+			"precision": 0,
+			"definition": "Credit units spent (finalized bookings) in the month, net of credits given back.",
+			"compute": {
+				"op": "sum",
+				"commodity": "credits",
+				"sign": 1,
+				"where": {
+					"eventType": ["credit.spent", "credit.refunded"],
+					"account": "^credits:spent:"
+				}
+			}
+		},
+		{
+			"id": "credits_expired",
+			"title": "Credits expired",
+			"unit": "count",
+			"precision": 0,
+			"definition": "Credit units that lapsed unused in the month (breakage).",
+			"compute": {
+				"op": "sum",
+				"commodity": "credits",
+				"sign": 1,
+				"where": {
+					"eventType": ["credit.expired"],
+					"account": "^credits:expired$"
+				}
+			}
+		},
+		{
+			"id": "breakage_rate",
+			"title": "Breakage rate",
+			"unit": "ratio",
+			"precision": 4,
+			"definition": "Credits expired / credits granted, in the month; 0 when none were granted.",
+			"compute": {
+				"op": "ratio",
+				"num": "credits_expired",
+				"den": "credits_granted"
+			}
+		},
+		{
+			"id": "closing_balance_usd",
+			"title": "Closing balance, USD accounts",
+			"unit": "cents",
+			"precision": 0,
+			"definition": "Each USD account's balance at the end of the month (every posting to date). Debits are positive, so income is negative.",
+			"compute": {
+				"op": "sum",
+				"commodity": "usd",
+				"sign": 1,
+				"where": {},
+				"cumulative": true,
+				"by": {
+					"from": "account",
+					"pattern": "^(.+)$"
+				}
+			}
+		},
+		{
+			"id": "closing_balance_credits",
+			"title": "Closing balance, credit accounts",
+			"unit": "count",
+			"precision": 0,
+			"definition": "Each credit account's balance at the end of the month (every posting to date), in credit units.",
+			"compute": {
+				"op": "sum",
+				"commodity": "credits",
+				"sign": 1,
+				"where": {},
+				"cumulative": true,
+				"by": {
+					"from": "account",
+					"pattern": "^(.+)$"
+				}
+			}
+		}
+	]
+}

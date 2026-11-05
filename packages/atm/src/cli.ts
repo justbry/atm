@@ -27,6 +27,7 @@ import {
 import { shipOutbox } from "./ledger/ship.js";
 import { simulate } from "./ledger/simulate.js";
 import { outboxStatus } from "./ledger/status.js";
+import { addScenarioCommands, runScenarioSimulate } from "./scenario/cli.js";
 import { FolderStore } from "./store/folder-store.js";
 import type { AtmCatalogRow } from "./types.js";
 
@@ -115,6 +116,8 @@ const exitTwoOnUsageError = (command: Command): Command =>
 const writeJson = (value: unknown): void => {
 	process.stdout.write(`${JSON.stringify(value)}\n`);
 };
+
+const scenarioKit = { unattended, exitTwoOnUsageError, writeJson, InputError };
 
 const journalCommand = program
 	.command("journal")
@@ -387,8 +390,13 @@ program
 	);
 
 type SimulateOptions = {
-	root: string;
-	school: string;
+	root?: string;
+	school?: string;
+	profile?: string;
+	scenario?: string;
+	set?: string[];
+	seed?: string;
+	channels?: string;
 	month?: string;
 	menu?: string;
 	catalog?: string;
@@ -447,6 +455,17 @@ const policyFrom = async (path: string): Promise<BillingPolicy> => {
 const SIMULATE_MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 const runSimulate = async (opts: SimulateOptions): Promise<void> => {
+	if (opts.profile || opts.scenario) {
+		if (opts.root || opts.school)
+			throw new InputError(
+				"--profile and --scenario generate a scenario; --root and --school replay a log. Give one or the other",
+			);
+		return runScenarioSimulate(opts, scenarioKit);
+	}
+	if (!(opts.root && opts.school))
+		throw new InputError(
+			"give --root and --school to replay a log, or --profile <name> (atm scenarios list) to simulate a scenario",
+		);
 	// `--school ..` or `a/../b` would read some other folder's events as the school's (as `atm reconcile` refuses).
 	if (
 		opts.school === "" ||
@@ -507,8 +526,26 @@ const simulateCommand = program
 	.description(
 		"a what-if: replay a school's event log against a candidate menu or policy and diff balances, posting totals (by month and account) and the commands' decisions against the log; writes nothing. It re-decides credits only: it cannot change what Stripe charged, and the grant rules (upgrade grants, amounts from invoices) are not in the log's commands. Needs the menu or catalog rows the log was written under. Exits 0 with no differences, 1 with differences, 2 for input it cannot use (one line on stderr)",
 	)
-	.requiredOption("--root <folder>", "the folder that holds schools/<id>/")
-	.requiredOption("--school <id>", "school id, as in schools/<id>/")
+	.option("--root <folder>", "the folder that holds schools/<id>/")
+	.option("--school <id>", "school id, as in schools/<id>/")
+	.option(
+		"--profile <name>",
+		"instead of a log: simulate a seeded scenario of the demo school Before University (presets: atm scenarios list), replay it through the atm, hledger and DuckDB KPI channels and compare their hashes",
+	)
+	.option(
+		"--scenario <file>",
+		'with --profile mode: an ad-hoc scenario JSON, like {"profile":"heavy-refunds","params":{"refundRate":0.2}}; "-" reads stdin',
+	)
+	.option(
+		"--set <key=value>",
+		"with --profile or --scenario: override a knob, repeatable (--set refundRate=0.2)",
+		(value: string, previous: string[] = []) => [...previous, value],
+	)
+	.option("--seed <n>", "with --profile or --scenario: the seed")
+	.option(
+		"--channels <list>",
+		"with --profile or --scenario: comma list of atm, hledger, duckdb (default all that run)",
+	)
 	.option("--menu <file>", "the candidate menu (menu.v1 JSON)")
 	.option(
 		"--catalog <file>",
@@ -535,3 +572,4 @@ const simulateCommand = program
 		unattended("simulate", opts.json === true, () => runSimulate(opts)),
 	);
 exitTwoOnUsageError(simulateCommand);
+addScenarioCommands(program, scenarioKit);
