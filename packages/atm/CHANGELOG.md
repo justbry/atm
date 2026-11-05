@@ -16,7 +16,7 @@ On `dev` after `atm-v0.8.0`, not released.
 
 | PR | Merge commit | What |
 |---|---|---|
-| #77 | `pending` | a non-USD dispute that moved money is answered 200 `non_usd` and leaves a `money.skipped` marker (`kind: "dispute"`) |
+| #77 | `534a55f52` | a non-USD dispute that moved money is answered 200 `non_usd` and leaves a `money.skipped` marker (`kind: "dispute"`) |
 
 ## 0.8.0
 
