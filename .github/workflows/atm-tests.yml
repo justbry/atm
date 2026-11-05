@@ -1,0 +1,79 @@
+name: atm tests
+
+# Tests, typecheck, lint and build of packages/atm on a pull request. Nothing else in this repository runs atm's tests:
+# knip.yml and the inherited Autumn workflows do not, and release-atm.yml only builds a tag.
+#
+# Where it runs follows B4 Uni's CI (buzz-school docs/ci-and-deploy.md): the repository variable CI_RUNNER, a JSON
+# runner label list, sends the job to a self-hosted Sprite box (for example '["self-hosted","b4u-sprite"]'); unset, it
+# runs on a GitHub-hosted runner. A box has to be registered to THIS repository first (runners are not shared across
+# repositories under a user account). `gh variable delete CI_RUNNER` puts CI back on hosted runners at once.
+#
+# A draft pull request runs nothing until it is marked ready (the same rule as B4 Uni's CI: a push cancels the branch's
+# older run, so a draft that is pushed to often would only burn minutes).
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main, staging, dev]
+    paths:
+      - "packages/atm/**"
+      - "packages/balance-engine/**"
+      - "shared/**"
+      - "package.json"
+      - "bun.lock"
+      - ".bun-version"
+      - ".github/workflows/atm-tests.yml"
+  push:
+    branches: [dev]
+    paths:
+      - "packages/atm/**"
+      - "packages/balance-engine/**"
+      - "shared/**"
+      - "package.json"
+      - "bun.lock"
+      - ".bun-version"
+      - ".github/workflows/atm-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: atm-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  atm:
+    name: atm (tests, tsc, lint, build)
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-latest"') }}
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # The journal tests that call hledger skip themselves when it is not installed; the ones that spawn atm's CLI take
+      # about 0.6 s per spawn, so the default 5 s test timeout is too short on a slow box.
+      - name: Test
+        working-directory: packages/atm
+        run: bun test --timeout 60000 tests
+
+      - name: Typecheck
+        working-directory: packages/atm
+        run: bunx tsc --noEmit
+
+      - name: Lint
+        working-directory: packages/atm
+        run: ../../node_modules/.bin/biome check --no-errors-on-unmatched .
+
+      - name: Build
+        working-directory: packages/atm
+        run: bun ./build.ts
