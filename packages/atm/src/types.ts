@@ -430,6 +430,49 @@ export type InvoiceLine = {
 	periodEnd?: number;
 };
 
+/**
+ * What `prorationPair` reads of an invoice line: `InvoiceLine` fits it, and so does a line a caller built from the raw
+ * Stripe invoice (`proration` from the line's parent, `amount` in minor units, `quantity` as Stripe has it, the period
+ * in milliseconds, the unit of the `at` given to `raiseUnits`).
+ */
+export type ProrationLine = {
+	/** Stripe marks the lines of a mid-cycle change (a proration). */
+	proration: boolean;
+	/** Minor units: negative for the credit of what was left, positive for the charge. */
+	amount: number;
+	quantity: number;
+	/** The line's own period (ms), when Stripe gives one. */
+	periodStart?: number;
+	periodEnd?: number;
+};
+
+/** Stripe's proration pair for a raise of the quantity, as `prorationPair` reads it. */
+export type ProrationPair = {
+	/** The credit line's quantity: what Stripe had before. null when the invoice has no credit line. */
+	oldQuantity: number | null;
+	/** The charge line's quantity: the new total, not the difference. */
+	newQuantity: number;
+	/** The charge line's period start (ms): when the raise took effect. null when the line has none. */
+	start: number | null;
+	/** The charge line's period end (ms): the end of the cycle. null when the line has none. */
+	end: number | null;
+};
+
+/** What `raiseUnits` needs: the units one unit of the quantity grants, the two counts, the time and the cycle. */
+export type RaiseUnitsInput = {
+	/** The units one unit of the quantity grants for the cycle (a yearly payment on a monthly grant: twelve times it). */
+	perUnit: number;
+	/** The quantity the credits reflect now; a raise counts from it, not from Stripe's credit line (see `prorationPair`). */
+	oldQuantity: number;
+	newQuantity: number;
+	/** When the raise took effect (ms): the pair's `start`. */
+	at: number;
+	/** The cycle the raise falls in (ms). Either null grants the whole difference. */
+	cycleStart: number | null;
+	cycleEnd: number | null;
+	policy: Pick<BillingPolicy, "upgradeGrant">;
+};
+
 /** A paid Stripe invoice, normalized. */
 export type BillingInvoice = {
 	source: FactSource;
