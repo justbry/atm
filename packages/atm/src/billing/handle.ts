@@ -15,7 +15,7 @@ import type {
 	SubjectStateMutation,
 } from "@autumn/balance-engine";
 import { ULID_PATTERN } from "../ledger/ids.js";
-import { ledgerEvent, mutationToEvents } from "../ledger/postings.js";
+import { mutationToEvents, planChangedEvent } from "../ledger/postings.js";
 import { runOnState, toCatalog } from "../ledger/run.js";
 import type {
 	AtmEnv,
@@ -30,6 +30,7 @@ import type {
 	StripeEventInput,
 	StripeEventRefusal,
 	StripeEventResult,
+	StripePayout,
 	SubscriptionFact,
 } from "../types.js";
 import { resolveEnv } from "./env.js";
@@ -41,6 +42,12 @@ import {
 	subscriptionHolder,
 	subscriptionToCommands,
 } from "./grants.js";
+import {
+	feeProblem,
+	paymentEvents,
+	payoutEvents,
+	refundEvents,
+} from "./money.js";
 import {
 	describeNormalizeError,
 	mappingFor,
@@ -83,7 +90,13 @@ const ULID = new RegExp(ULID_PATTERN);
 
 /** What the grant rules decide for a normalized fact, or why not. */
 type Decision =
-	| { ok: true; result: GrantResult; reason: string }
+	| {
+			ok: true;
+			result: GrantResult;
+			reason: string;
+			/** The money lines of the event (`payment.succeeded`, `payment.refunded`), made with the decision. */
+			money: AtmEvent[];
+	  }
 	| { ok: false; refusal: StripeEventResult };
 
 const BILLING_LINE_PREFIX = "b4u_";
@@ -164,6 +177,13 @@ const unlinkedInvoice = (
 	);
 };
 
+/** Who books the money lines: the holder's school, in the menu's time zone, caused by the stored input event. */
+const bookerOf = (input: StripeEventInput, holder: { orgId: string }) => ({
+	school: holder.orgId,
+	tz: input.menu.timeZone,
+	cause: input.eventId,
+});
+
 const decide = (
 	target: string,
 	fact: unknown,
@@ -194,11 +214,24 @@ const decide = (
 						resolved.message,
 					),
 				};
-			return {
-				ok: true,
-				result: invoiceToCommands({ ...common, invoice: resolved.invoice }),
-				reason: "invoice",
-			};
+			const problem = feeProblem(input.fee, resolved.invoice.amountPaid);
+			if (problem) return { ok: false, refusal: refuse("bad_event", problem) };
+			const result = invoiceToCommands({
+				...common,
+				invoice: resolved.invoice,
+			});
+			const money = paymentEvents({
+				invoice: resolved.invoice,
+				fee: input.fee,
+				labels: result.labels,
+				booker: bookerOf(input, holder),
+				holder,
+			});
+			// Remember that the books hold this payment: a refund takes back only a payment that was booked. `result.state` is
+			// this decision's own copy.
+			const record = result.state.invoices[resolved.invoice.id];
+			if (record && money.length > 0) record.paid = resolved.invoice.amountPaid;
+			return { ok: true, result, reason: "invoice", money };
 		}
 		case "BillingRefund": {
 			const refund = withInvoiceId(fact as BillingRefund, input);
@@ -208,10 +241,25 @@ const decide = (
 				grants,
 			);
 			if (unlinked) return { ok: false, refusal: unlinked };
+			const result = refundToCommands({ ...common, refund });
+			// Only a refund of a payment the books hold is the school's money: a charge that names no handled invoice may be
+			// another product's on the same Stripe account, and an invoice whose payment was never booked (handled before
+			// payments were, or paid nothing) has none to take back from.
+			const ours =
+				refund.invoiceId != null &&
+				grants.invoices[refund.invoiceId]?.paid !== undefined;
 			return {
 				ok: true,
-				result: refundToCommands({ ...common, refund }),
+				result,
 				reason: "refund",
+				money: ours
+					? refundEvents({
+							refund,
+							labels: result.labels,
+							booker: bookerOf(input, holder),
+							holder,
+						})
+					: [],
 			};
 		}
 		case "BillingDispute": {
@@ -226,6 +274,7 @@ const decide = (
 				ok: true,
 				result: disputeToCommands({ ...common, dispute }),
 				reason: "dispute lost",
+				money: [],
 			};
 		}
 		case "SubscriptionFact": {
@@ -276,6 +325,7 @@ const decide = (
 					subscription.status === "canceled"
 						? "subscription ended"
 						: "subscription",
+				money: [],
 			};
 		}
 		default:
@@ -446,11 +496,7 @@ const eventsOf = ({
 	return events;
 };
 
-/**
- * The record of a command that moved no credits (the cycle-end update after a renewal, a plan change that keeps the
- * sessions): a `plan.changed` with the command and its whole mutation and no postings. Every command the rules ran is
- * in the log once, so a replay can run the whole chain and its revisions follow on.
- */
+/** The record of a command that moved no credits; the handler logs every command it runs, so it says `complete`. */
 const planChangedOf = ({
 	mutation,
 	input,
@@ -459,25 +505,14 @@ const planChangedOf = ({
 	mutation: SubjectStateMutation;
 	input: StripeEventInput;
 	labels: Record<string, string>;
-}): AtmEvent => {
-	const { command, ...decided } = mutation as unknown as Record<
-		string,
-		unknown
-	> & { command: { type: string; occurredAt: number } };
-	return ledgerEvent({
-		type: "plan.changed",
-		school: mutation.identity.orgId,
+}): AtmEvent =>
+	planChangedEvent({
+		mutation,
 		tz: input.menu.timeZone,
-		eventTime: command.occurredAt,
-		key: mutation.identity.customerId,
-		idem: `plan:${mutation.id}`,
 		cause: input.eventId,
 		labels,
-		text: `${command.type} moved no credits`,
-		payload: { command, mutation: decided, complete: true },
-		revision: mutation.revision.after,
+		complete: true,
 	});
-};
 
 // ---- The entry point ----
 
@@ -524,12 +559,37 @@ export const handleStripeEvent = (
 	}
 };
 
+/** A payout belongs to no family: it is booked for the school the caller names, and writes no rows. */
+const decidePayout = (
+	input: StripeEventInput,
+	payout: StripePayout,
+): StripeEventResult => {
+	if (!input.school)
+		return refuse(
+			"bad_event",
+			`${payout.id} names no family: pass the school it is for as input.school`,
+		);
+	return {
+		rowChanges: null,
+		events: payoutEvents({
+			payout,
+			booker: {
+				school: input.school,
+				tz: input.menu.timeZone,
+				cause: input.eventId,
+			},
+		}),
+	};
+};
+
 const decideAndRun = (
 	input: StripeEventInput,
 	env: AtmEnv,
 	target: string,
 	fact: unknown,
 ): StripeEventResult => {
+	if (target === "StripePayout")
+		return decidePayout(input, fact as StripePayout);
 	const grants = grantsFromRows(input.rows);
 	let holder = grants.identity ?? grants.holder;
 	if (!holder && target === "BillingInvoice") {
@@ -610,7 +670,10 @@ const decideAndRun = (
 		current = applyRowChanges({ ...current, changes });
 	}
 	const grantsChanged = !sameJson(grants, result.state);
-	if (mutations.length === 0 && !grantsChanged) return nothing();
+	if (mutations.length === 0 && !grantsChanged)
+		return decision.money.length > 0
+			? { rowChanges: null, events: decision.money }
+			: nothing();
 
 	const engine = diffRows(initial, current.rows);
 	const nextRevision =
@@ -642,5 +705,5 @@ const decideAndRun = (
 			? credits
 			: [planChangedOf({ mutation, input, labels: result.labels })];
 	});
-	return { rowChanges, events };
+	return { rowChanges, events: [...events, ...decision.money] };
 };

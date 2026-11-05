@@ -77,6 +77,8 @@ describe("recorded Stripe payloads (2025-10-29.clover)", () => {
 			chargeId: event.data.object.id,
 			paymentIntentId: event.data.object.payment_intent,
 			amount: 100,
+			previousAmount: 0,
+			currency: "usd",
 			full: true,
 			at: event.created * 1000,
 		});

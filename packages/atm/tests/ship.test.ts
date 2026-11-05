@@ -734,7 +734,7 @@ describe("atm ship", () => {
 		await rm(folder, { recursive: true, force: true });
 	});
 
-	test("a --root that is not an existing folder exits 1, creates nothing and leaves every row unshipped", async () => {
+	test("a --root that is not an existing folder exits 2, creates nothing and leaves every row unshipped", async () => {
 		const { raw } = filledByHandler();
 		const folder = await tmp("ship-cli-typo-root");
 		const databaseFile = join(folder, "handler.sqlite");
@@ -748,7 +748,7 @@ describe("atm ship", () => {
 			"--school",
 			SCHOOL,
 		]);
-		expect(result.exitCode).toBe(1);
+		expect(result.exitCode).toBe(2);
 		expect(result.stderr.toString()).toContain(
 			`--root ${typo} is not an existing folder`,
 		);
@@ -775,12 +775,12 @@ describe("atm ship", () => {
 			"--school",
 			SCHOOL,
 		]);
-		expect(result.exitCode).toBe(1);
+		expect(result.exitCode).toBe(2);
 		expect(result.stderr.toString()).toContain("is not an existing folder");
 		await rm(folder, { recursive: true, force: true });
 	});
 
-	test("a --school with no rows in the outbox exits 1, names the schools that have some and ships nothing", async () => {
+	test("a --school with no rows in the outbox exits 2, names the schools that have some and ships nothing", async () => {
 		const { raw } = filledByHandler();
 		const folder = await tmp("ship-cli-typo-school");
 		const databaseFile = join(folder, "handler.sqlite");
@@ -795,7 +795,7 @@ describe("atm ship", () => {
 			"--school",
 			`${SCHOOL}x`,
 		]);
-		expect(result.exitCode).toBe(1);
+		expect(result.exitCode).toBe(2);
 		const message = result.stderr.toString();
 		expect(message).toContain(
 			`--school ${SCHOOL}x has no rows in ledger_outbox`,

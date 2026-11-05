@@ -651,7 +651,15 @@ describe("what the rows determine, and what moving does not make the same", () =
 			membership: nativeRecord,
 			...nativeRest
 		} = native.grants;
-		expect(importedRest).toEqual(nativeRest);
+		// ...and in `paid`: atm's own invoice remembers that the books took its payment, an adopted one is the caller's to book.
+		const unbooked = Object.fromEntries(
+			Object.entries(nativeRest.invoices).map(([id, record]) => {
+				const { paid, ...rest } = record;
+				expect(paid).toBe(26_000);
+				return [id, rest];
+			}),
+		);
+		expect(importedRest).toEqual({ ...nativeRest, invoices: unbooked });
 		expect(anchor).toBeNull();
 		expect(nativeAnchor).toBe(JAN);
 		expect(nativeRecord).toBeNull();

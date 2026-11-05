@@ -232,6 +232,10 @@ const sumsToZero = (e: AtmEvent) => {
 	return [...by.values()].every((v) => Math.abs(v) < 1e-9);
 };
 
+/** The events that move credits: the money lines of a payment or a refund (`payment.*`) are tested apart, in tests/billing-money.test.ts. */
+const creditEvents = (events: readonly AtmEvent[]) =>
+	events.filter((e) => !e.event_type.startsWith("payment."));
+
 describe("handleStripeEvent", () => {
 	test("a first payment: rows for the engine and the grants under one revision, and a labelled credit.granted", () => {
 		const s = store();
@@ -249,7 +253,9 @@ describe("handleStripeEvent", () => {
 		expect(grantsFromRows(s.rows).invoices.in_1?.granted).toHaveLength(1);
 		expect(s.avail(T0)).toBe(2);
 
-		expect(r.events.map((e) => e.event_type)).toEqual(["credit.granted"]);
+		expect(creditEvents(r.events).map((e) => e.event_type)).toEqual([
+			"credit.granted",
+		]);
 		const event = r.events[0] as AtmEvent;
 		expect(event.cause).toBe(inputEventId("evt_create", T0 + 10_000));
 		expect(event.labels).toMatchObject({
@@ -291,7 +297,11 @@ describe("handleStripeEvent", () => {
 		const s = store();
 		const r = create(s, "sparkle-4");
 		expect(
-			r.events.map((e) => [e.event_type, e.labels.feature, e.text]),
+			creditEvents(r.events).map((e) => [
+				e.event_type,
+				e.labels.feature,
+				e.text,
+			]),
 		).toEqual([
 			["credit.granted", "visit", "granted 4 visit on sparkle-4@v3"],
 			["credit.granted", "retreat", "granted 1 retreat on sparkle-4@v3"],
@@ -312,12 +322,13 @@ describe("handleStripeEvent", () => {
 		];
 		const s = store(both);
 		const r = create(s, "sparkle-4");
-		expect(r.events.map((e) => [e.labels.feature, e.text])).toEqual([
+		const credits = creditEvents(r.events);
+		expect(credits.map((e) => [e.labels.feature, e.text])).toEqual([
 			["retreat", "granted 1 retreat on sparkle-4@v3"],
 			["visit", "granted 4 visit on sparkle-4@v3"],
 		]);
-		expect(new Set(r.events.map((e) => e.idem)).size).toBe(2);
-		expect(r.events.map((e) => e.idem)).toEqual([
+		expect(new Set(credits.map((e) => e.idem)).size).toBe(2);
+		expect(credits.map((e) => e.idem)).toEqual([
 			expect.stringMatching(/^engine\.retreat:/),
 			expect.stringMatching(/^engine\.visit:/),
 		]);
@@ -331,13 +342,17 @@ describe("handleStripeEvent", () => {
 		create(s);
 		const r = s.handle(refundOf("in_1"), T1);
 		// The clawback takes the family's last visits, but it is the rules' own take-back, not a draw: no credit.depleted.
-		expect(r.events.map((e) => e.event_type)).toEqual(["credit.adjusted"]);
+		expect(r.events.map((e) => e.event_type)).toEqual([
+			"credit.adjusted",
+			"payment.refunded",
+		]);
 		expect(r.events[0]?.cause).toBe(inputEventId("evt_re_1", T1));
 		expect(r.events[0]?.labels.mapping).toBe("stripe/charge.refunded@v1");
 		expect(s.avail(T0 + 1)).toBe(0);
+		// handled again: no rows, no credits, and the refund's own money line again, which the outbox's idem drops
 		expect(s.handle(refundOf("in_1"), T1)).toEqual({
 			rowChanges: null,
-			events: [],
+			events: [r.events[1]],
 		});
 	});
 
@@ -484,15 +499,15 @@ describe("handleStripeEvent", () => {
 				metadata,
 			});
 		const r = s.handle(gift(addonKey("gift-visit"), 13000), T0);
-		expect(r.events.map((e) => [e.event_type, e.labels.plan])).toEqual([
-			["credit.granted", "gift"],
-		]);
+		expect(
+			creditEvents(r.events).map((e) => [e.event_type, e.labels.plan]),
+		).toEqual([["credit.granted", "gift"]]);
 		expect(s.avail(D("2026-07-14T00:00:00Z"))).toBe(1);
 		expect(s.avail(D("2026-07-16T00:00:00Z"))).toBe(0);
 
 		const dollars = store();
 		const d = dollars.handle(gift(addonKey("gift-dollars"), 5000), T0);
-		expect(d.events).toEqual([]);
+		expect(creditEvents(d.events)).toEqual([]);
 		expect(d.rowChanges?.upserts.map((u) => u.table)).toEqual([GRANTS_TABLE]);
 		expect(d.rowChanges?.nextRevision).toBe(1);
 		expect(
@@ -581,10 +596,9 @@ describe("what the random histories found", () => {
 		});
 		expect(s.handle(refund, T0 - 3_600_000).rowChanges).not.toBeNull();
 		create(s);
-		expect(s.handle(refund, T0 - 3_600_000)).toEqual({
-			rowChanges: null,
-			events: [],
-		});
+		const again = s.handle(refund, T0 - 3_600_000);
+		expect(again.rowChanges).toBeNull();
+		expect(creditEvents(again.events)).toEqual([]);
 	});
 
 	test("a downgrade that drops a feature and an upgrade that brings it back revive the row instead of inserting it twice", () => {
@@ -998,14 +1012,14 @@ describe("what the reviews found", () => {
 			T0,
 		);
 		expect(r.refused).toBeUndefined();
-		expect(r.events.map((e) => e.text)).toEqual([
+		expect(creditEvents(r.events).map((e) => e.text)).toEqual([
 			"granted 1 visit on glow@v3",
 			"granted 1 visit on pack@v3",
 			"granted 2 visit on sparkle-2@v3",
 		]);
-		expect(new Set(r.events.map((e) => e.idem)).size).toBe(3);
+		expect(new Set(creditEvents(r.events).map((e) => e.idem)).size).toBe(3);
 		expect(
-			r.events.map(
+			creditEvents(r.events).map(
 				(e) =>
 					e.postings.find((p) => p.account.startsWith("credits:issued:"))
 						?.account,
@@ -1019,9 +1033,9 @@ describe("what the reviews found", () => {
 		// A full refund takes all four back over the three plans: the rules' take-back, not a draw, so no alert.
 		const refund = s.handle(refundOf("in_multi"), T1);
 		expect(refund.refused).toBeUndefined();
-		expect(new Set(refund.events.map((e) => e.event_type))).toEqual(
-			new Set(["credit.adjusted"]),
-		);
+		expect(
+			new Set(creditEvents(refund.events).map((e) => e.event_type)),
+		).toEqual(new Set(["credit.adjusted"]));
 		expect(s.avail(T1 + 3_700_000)).toBe(0);
 	});
 
@@ -1145,7 +1159,7 @@ describe("refusals", () => {
 		}
 		const r = handleStripeEvent(input(event));
 		expect(r.refused).toBeUndefined();
-		expect(r.events).toHaveLength(1);
+		expect(creditEvents(r.events)).toHaveLength(1);
 	});
 
 	test("a refund or dispute for a family with no rows is nothing, not an error", () => {

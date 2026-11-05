@@ -16,12 +16,17 @@ import * as webhook from "./handler/stripe-webhook.js";
 import { deterministicUlid as deterministicUlidImpl } from "./ledger/ids.js";
 import { buildJournal as buildJournalImpl } from "./ledger/journal.js";
 import {
+	recordEngineCommand as recordEngineCommandImpl,
+	recordLapse as recordLapseImpl,
+} from "./ledger/outbox.js";
+import {
 	lapseAlertEvents as lapseAlertEventsImpl,
 	lapsedRows as lapsedRowsImpl,
 	lapseEvent as lapseEventImpl,
 	ledgerEvent as ledgerEventImpl,
 	mutationToEvents as mutationToEventsImpl,
 } from "./ledger/postings.js";
+import { reconcile as reconcileImpl } from "./ledger/reconcile.js";
 import {
 	ReplayError as ReplayErrorImpl,
 	ReplayGapError as ReplayGapErrorImpl,
@@ -33,6 +38,7 @@ import {
 	planOutbox as planOutboxImpl,
 	shipOutbox as shipOutboxImpl,
 } from "./ledger/ship.js";
+import { outboxStatus as outboxStatusImpl } from "./ledger/status.js";
 import { validateEvent as validateEventImpl } from "./ledger/validate.js";
 import * as folderStore from "./store/folder-store.js";
 import * as r2Store from "./store/r2-store.js";
@@ -90,11 +96,18 @@ import type {
 	OneTimeCheckoutResult,
 	OutboxBatch,
 	OutboxRow,
+	OutboxStatus,
+	OutboxStatusInput,
 	PortalConfigIds,
 	ProrationLine,
 	ProrationPair,
 	R2StoreOptions,
 	RaiseUnitsInput,
+	ReconcileInput,
+	ReconcileResult,
+	RecordEngineCommandInput,
+	RecordedEvents,
+	RecordLapseInput,
 	ReplayErrorConstructor,
 	ReplayGapErrorConstructor,
 	RowChanges,
@@ -256,6 +269,15 @@ export const buildJournal = (input: {
 	events: readonly AtmEvent[];
 	month: string;
 }): AtmJournalBuild => buildJournalImpl(input);
+
+/**
+ * A school's events against Stripe's records for one period (a month or a range of days, in the school's zone): paid
+ * invoices, refunds, disputes, payouts, fees and the net of the money postings. Returns every difference (`missing_in_log`,
+ * `missing_in_stripe`, `amount_differs`, `duplicate_in_log`, ...); a nightly job alerts on a non-empty `differences`.
+ * Pure: it makes no Stripe call. Throws on a bad period or time zone. See the README ("Reconciling with Stripe").
+ */
+export const reconcile = (input: ReconcileInput): ReconcileResult =>
+	reconcileImpl(input);
 
 // ---- Billing: pure rules for the school's menu, Stripe facts, credit grants and storage rows ----
 
@@ -675,3 +697,31 @@ export const planOutbox = (input: {
  */
 export const shipOutbox = (input: ShipOutboxInput): Promise<ShipOutboxResult> =>
 	shipOutboxImpl(input);
+
+/**
+ * What a health check reads about a school's outbox: the counts, the newest shipment, and the oldest unshipped row's
+ * date and age. Alert when `unshipped` is above 0 and `oldestUnshippedAgeMs` is past a few shipping intervals (or when
+ * `shipOutbox` reports a conflict: those rows never move on their own). Reads only; see the README, "Running it".
+ */
+export const outboxStatus = (input: OutboxStatusInput): OutboxStatus =>
+	outboxStatusImpl(input);
+
+// ---- The family service's own commands: into the same outbox ----
+
+/**
+ * Appends the events of one engine command the family service ran (a hold, a finalize, a spend, a refund) to
+ * `ledger_outbox`, as the handler books its own: the whole mutation on every event, a `plan.changed` when it moves no
+ * credits, `idem` by command id (the same mutation recorded again inserts nothing; a command id already used by another command throws). Call it inside the transaction that writes the subject's rows,
+ * after the revision check: it opens none. Nothing is written for a null or rejected result. `logsEveryCommand` writes
+ * `payload.complete`; leave it off unless the caller records every command (see the README).
+ */
+export const recordEngineCommand = (
+	input: RecordEngineCommandInput,
+): RecordedEvents => recordEngineCommandImpl(input);
+
+/**
+ * Appends the `credit.expired` events of the rows that lapsed by `atMs` (and, with `drawnAfter`, the `credit.depleted`
+ * ones) to `ledger_outbox`. Idempotent by holder, row and expiry. Same transaction rule as `recordEngineCommand`.
+ */
+export const recordLapse = (input: RecordLapseInput): RecordedEvents =>
+	recordLapseImpl(input);
