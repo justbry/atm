@@ -1,6 +1,6 @@
 # Usage metering spikes (2026-11-05)
 
-Three feasibility spikes on holding AI token usage and other usage events in R2 beside atm's credit ledger. `ROADMAP.md` ("Usage events as a ledger source") has the summary and the decisions; these files have the full reports.
+Three feasibility spikes on holding AI token usage and other usage events in R2 beside atm's credit ledger. `docs/usage-metering.md` ("Usage events as a ledger source") has the summary and the decisions, and `ROADMAP.md` ("Possible directions") the verdicts; these files have the full reports.
 
 | Report | Branch (pushed, not merged) | Verdict |
 |---|---|---|

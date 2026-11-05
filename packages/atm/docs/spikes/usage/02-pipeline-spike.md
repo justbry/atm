@@ -1,6 +1,6 @@
 # R2 usage pipeline spike: report
 
-Date: 2026-11-05. Written by a sub-agent, saved here in full. The roadmap (`ROADMAP.md`, "Usage events as a ledger source") holds the summary. Raw benchmark outputs are in `results/pipeline/`, the scripts in `scripts/pipeline/` (as `.txt` so lint and type checks skip them).
+Date: 2026-11-05. Written by a sub-agent, saved here in full. The summary is in `docs/usage-metering.md` ("Usage events as a ledger source"); `ROADMAP.md` keeps the verdicts. Raw benchmark outputs are in `results/pipeline/`, the scripts in `scripts/pipeline/` (as `.txt` so lint and type checks skip them).
 
 Branch `claude/atm-usage-pipeline-spike`, head `e292cbe2be9246318c9bf936f0cd2eb4ef4f52b3`, pushed, no PR. Files, all under `packages/atm/tests/spikes/`: `usage-events.ts` (generator), `usage-sql.ts`, `usage-manifest.ts`, `usage-pipeline.test.ts`.
 

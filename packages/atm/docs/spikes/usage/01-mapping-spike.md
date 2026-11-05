@@ -1,6 +1,6 @@
 # Usage mapping spike: report
 
-Date: 2026-11-05. Written by a sub-agent, saved here verbatim in substance. The roadmap (`ROADMAP.md`, "Usage events as a ledger source") holds the summary.
+Date: 2026-11-05. Written by a sub-agent, saved here verbatim in substance. The summary is in `docs/usage-metering.md` ("Usage events as a ledger source"); `ROADMAP.md` keeps the verdicts.
 
 Branch `claude/atm-usage-mapping-spike`, head `f985c316a1f849988ee2e3f9bd70f8de8e70fa60`, pushed, no PR. The branch adds files only. `src/`, existing schemas, `bun.lock`, ROADMAP, README and UPGRADING are untouched.
 
@@ -125,7 +125,7 @@ The label is named `usage_feature`, not `feature`. Credit events already use `la
 4. **Size and PII.**
    - The ledger payload is built from the mapping's declared fields only. That is an allowlist, not a copy of the raw event.
    - In the test, a raw event over 20 KB became a ledger event under 1.5 KB.
-   - The raw event is not stored in the ledger. A redacted copy (personal paths removed) goes in an input store, keyed by `sha256`, as agentlake does for blobs. (The input store and PII stripping are punted, see the roadmap.)
+   - The raw event is not stored in the ledger. A redacted copy (personal paths removed) goes in an input store, keyed by `sha256`, as agentlake does for blobs. (The input store and PII stripping are punted, see `docs/usage-metering.md`.)
    - Agentlake's 3.2 GB of logs becoming a 3.0 GB database comes from storing `payload.raw` as JSON text. A usage ledger should not repeat that.
    - `personal` is a denylist. The drift check below is the backstop for a new PII key.
 5. **Format contract (tested).**
