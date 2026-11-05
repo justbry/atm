@@ -188,6 +188,22 @@ describe("a paid invoice", () => {
 		expect(result.refused).toBeUndefined();
 		expect(money(result.events, "payment.succeeded")).toEqual([]);
 	});
+
+	test("an invoice in another currency is not recorded as a payment the books took: its grants record has no `paid`", () => {
+		const euros = paid("in_eur");
+		euros.data.object.currency = "eur";
+		const store = newStore();
+		const result = store.handle(euros, T0);
+		expect(money(result.events, "money.skipped")).toHaveLength(1);
+		const records = store.rows.flatMap((row) =>
+			Object.values(
+				(row.data as { invoices?: Record<string, { paid?: number }> })
+					.invoices ?? {},
+			),
+		);
+		expect(records).toHaveLength(1);
+		expect(records[0]?.paid).toBeUndefined();
+	});
 });
 
 describe("the income of an invoice", () => {
@@ -395,14 +411,15 @@ describe("a payout", () => {
 		expect(redelivered.events[0]?.id).toBe(first.events[0]?.id);
 	});
 
-	test("names no family, so it needs the school, and a payout in another currency makes no line", () => {
+	test("names no family, so it needs the school, and a payout in another currency makes no line, only a marker", () => {
 		const result = handleStripeEvent(input(payout(), null));
 		expect(result.refused?.reason).toBe("bad_event");
 		expect(result.events).toEqual([]);
-		expect(handleStripeEvent(input(payout({ currency: "eur" })))).toEqual({
-			rowChanges: null,
-			events: [],
-		});
+		const euros = handleStripeEvent(input(payout({ currency: "eur" })));
+		expect(euros.rowChanges).toBeNull();
+		expect(euros.events.map((e) => [e.event_type, e.postings])).toEqual([
+			["money.skipped", []],
+		]);
 	});
 
 	test("a payout of nothing is not an event atm reads", () => {

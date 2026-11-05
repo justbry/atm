@@ -1,0 +1,221 @@
+{
+	"api_version": "2025-10-29.clover",
+	"created": 1793909921,
+	"data": {
+		"object": {
+			"account_country": "US",
+			"account_name": "Example Account",
+			"account_tax_ids": null,
+			"amount_due": 2550,
+			"amount_overpaid": 0,
+			"amount_paid": 2550,
+			"amount_remaining": 0,
+			"amount_shipping": 0,
+			"application": null,
+			"attempt_count": 1,
+			"attempted": true,
+			"auto_advance": false,
+			"automatic_tax": {
+				"disabled_reason": null,
+				"enabled": false,
+				"liability": null,
+				"provider": null,
+				"status": null
+			},
+			"automatically_finalizes_at": null,
+			"billing_reason": "subscription_create",
+			"collection_method": "charge_automatically",
+			"created": 1793909921,
+			"currency": "usd",
+			"custom_fields": null,
+			"customer": "cus_VZgUyOglzZhUuP",
+			"customer_account": null,
+			"customer_address": null,
+			"customer_email": null,
+			"customer_name": "Example Customer",
+			"customer_phone": null,
+			"customer_shipping": null,
+			"customer_tax_exempt": "none",
+			"customer_tax_ids": [],
+			"default_payment_method": null,
+			"default_source": null,
+			"default_tax_rates": [],
+			"description": null,
+			"discounts": ["di_1UYX7TScrubTest0Z3YyQvxf"],
+			"due_date": null,
+			"effective_at": 1793909921,
+			"ending_balance": 0,
+			"footer": null,
+			"from_invoice": null,
+			"hosted_invoice_url": "https://invoice.example.test/i/scrubbed",
+			"id": "in_1UYX7TScrubTest0RyNoBWNV",
+			"invoice_pdf": "https://pay.example.test/invoice/scrubbed.pdf",
+			"issuer": {
+				"type": "self"
+			},
+			"last_finalization_error": null,
+			"latest_revision": null,
+			"lines": {
+				"data": [
+					{
+						"amount": 3000,
+						"currency": "usd",
+						"description": "2 × Discount probe tier (at $15.00 / month)",
+						"discount_amounts": [
+							{
+								"amount": 450,
+								"discount": "di_1UYX7TScrubTest0Z3YyQvxf"
+							}
+						],
+						"discountable": true,
+						"discounts": [],
+						"id": "il_1UYX7NScrubTest0mIeMq7P4",
+						"invoice": "in_1UYX7TScrubTest0RyNoBWNV",
+						"livemode": false,
+						"metadata": {
+							"b4u_school": "sch_probe",
+							"family_id": "fam_pct15"
+						},
+						"object": "line_item",
+						"parent": {
+							"invoice_item_details": null,
+							"license_fee_subscription_details": null,
+							"subscription_item_details": {
+								"invoice_item": null,
+								"proration": false,
+								"proration_details": {
+									"credited_items": null
+								},
+								"subscription": "sub_1UYX7TScrubTest0OkyRRCFb",
+								"subscription_item": "si_VZgUAdUlkez0fH"
+							},
+							"type": "subscription_item_details"
+						},
+						"period": {
+							"end": 1796501921,
+							"start": 1793909921
+						},
+						"pretax_credit_amounts": [
+							{
+								"amount": 450,
+								"discount": "di_1UYX7TScrubTest0Z3YyQvxf",
+								"type": "discount"
+							}
+						],
+						"pricing": {
+							"price_details": {
+								"price": "price_1UYX7PScrubTest0hDfRw5Sj",
+								"product": "prod_VZgUDCXT40ew9R"
+							},
+							"type": "price_details",
+							"unit_amount_decimal": "1500"
+						},
+						"quantity": 2,
+						"quantity_decimal": "2",
+						"subtotal": 3000,
+						"taxes": []
+					}
+				],
+				"has_more": false,
+				"object": "list",
+				"total_count": 1,
+				"url": "/v1/invoices/in_1UYX7TScrubTest0RyNoBWNV/lines"
+			},
+			"livemode": false,
+			"metadata": {},
+			"next_payment_attempt": null,
+			"number": "LBR0OMWK-0001",
+			"object": "invoice",
+			"on_behalf_of": null,
+			"parent": {
+				"quote_details": null,
+				"subscription_details": {
+					"metadata": {
+						"b4u_school": "sch_probe",
+						"family_id": "fam_pct15"
+					},
+					"subscription": "sub_1UYX7TScrubTest0OkyRRCFb"
+				},
+				"type": "subscription_details"
+			},
+			"payment_settings": {
+				"default_mandate": null,
+				"payment_method_options": null,
+				"payment_method_types": null
+			},
+			"payments": {
+				"data": [
+					{
+						"amount_paid": 2550,
+						"amount_requested": 2550,
+						"created": 1793909921,
+						"currency": "usd",
+						"id": "inpay_1UYX7VScrubTest0c5oKh4AO",
+						"invoice": "in_1UYX7TScrubTest0RyNoBWNV",
+						"is_default": true,
+						"livemode": false,
+						"object": "invoice_payment",
+						"payment": {
+							"payment_intent": "pi_3UYX7TScrubTest023ASdpzr",
+							"type": "payment_intent"
+						},
+						"status": "paid",
+						"status_transitions": {
+							"canceled_at": null,
+							"paid_at": 1793909921
+						}
+					}
+				],
+				"has_more": false,
+				"object": "list",
+				"url": "/v1/invoices/payments"
+			},
+			"period_end": 1793909921,
+			"period_start": 1793909921,
+			"post_payment_credit_notes_amount": 0,
+			"pre_payment_credit_notes_amount": 0,
+			"receipt_number": null,
+			"rendering": null,
+			"shipping_cost": null,
+			"shipping_details": null,
+			"starting_balance": 0,
+			"statement_descriptor": null,
+			"status": "paid",
+			"status_transitions": {
+				"finalized_at": 1793909921,
+				"marked_uncollectible_at": null,
+				"paid_at": 1793909921,
+				"voided_at": null
+			},
+			"subtotal": 3000,
+			"subtotal_excluding_tax": 3000,
+			"test_clock": "clock_1UYX7NScrubTest0Ep4052Aa",
+			"total": 2550,
+			"total_discount_amounts": [
+				{
+					"amount": 450,
+					"discount": "di_1UYX7TScrubTest0Z3YyQvxf"
+				}
+			],
+			"total_excluding_tax": 2550,
+			"total_pretax_credit_amounts": [
+				{
+					"amount": 450,
+					"discount": "di_1UYX7TScrubTest0Z3YyQvxf",
+					"type": "discount"
+				}
+			],
+			"total_taxes": [],
+			"webhooks_delivered_at": 1793909921
+		}
+	},
+	"id": "evt_1ScrubDiscountPct15CreateTest0",
+	"livemode": false,
+	"object": "event",
+	"pending_webhooks": 0,
+	"request": {
+		"id": null,
+		"idempotency_key": null
+	},
+	"type": "invoice.paid"
+}

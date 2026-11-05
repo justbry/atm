@@ -8,7 +8,8 @@
 		"dispute": "dispute",
 		"subscription": "subscription",
 		"invoice_payment": "invoice_payment",
-		"payout": "payout"
+		"payout": "payout",
+		"checkout_session": "checkout.session"
 	},
 	"$defs": {
 		"address": {
@@ -692,6 +693,1057 @@
 				}
 			},
 			"required": ["destination"],
+			"type": "object"
+		},
+		"checkout.session": {
+			"properties": {
+				"adaptive_pricing": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{
+									"$ref": "#/$defs/payment_pages_checkout_session_adaptive_pricing"
+								}
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"after_expiration": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{
+									"$ref": "#/$defs/payment_pages_checkout_session_after_expiration"
+								}
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"allow_promotion_codes": {
+					"anyOf": [{ "type": "boolean" }, { "type": "null" }]
+				},
+				"amount_subtotal": {
+					"anyOf": [{ "type": "integer" }, { "type": "null" }]
+				},
+				"amount_total": {
+					"anyOf": [{ "type": "integer" }, { "type": "null" }]
+				},
+				"automatic_tax": {
+					"$ref": "#/$defs/payment_pages_checkout_session_automatic_tax"
+				},
+				"billing_address_collection": {
+					"anyOf": [
+						{ "enum": ["auto", "required"], "type": "string" },
+						{ "type": "null" }
+					]
+				},
+				"branding_settings": {
+					"$ref": "#/$defs/payment_pages_checkout_session_branding_settings"
+				},
+				"cancel_url": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"client_reference_id": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"client_secret": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"collected_information": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{
+									"$ref": "#/$defs/payment_pages_checkout_session_collected_information"
+								}
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"consent": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{ "$ref": "#/$defs/payment_pages_checkout_session_consent" }
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"consent_collection": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{
+									"$ref": "#/$defs/payment_pages_checkout_session_consent_collection"
+								}
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"created": { "format": "unix-time", "type": "integer" },
+				"currency": {
+					"anyOf": [
+						{ "format": "currency", "type": "string" },
+						{ "type": "null" }
+					]
+				},
+				"currency_conversion": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{
+									"$ref": "#/$defs/payment_pages_checkout_session_currency_conversion"
+								}
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"custom_fields": {
+					"items": {
+						"$ref": "#/$defs/payment_pages_checkout_session_custom_fields"
+					},
+					"type": "array"
+				},
+				"custom_text": {
+					"$ref": "#/$defs/payment_pages_checkout_session_custom_text"
+				},
+				"customer": {
+					"anyOf": [
+						{ "anyOf": [{ "maxLength": 5000, "type": "string" }, {}, {}] },
+						{ "type": "null" }
+					]
+				},
+				"customer_creation": {
+					"anyOf": [
+						{ "enum": ["always", "if_required"], "type": "string" },
+						{ "type": "null" }
+					]
+				},
+				"customer_details": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{
+									"$ref": "#/$defs/payment_pages_checkout_session_customer_details"
+								}
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"customer_email": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"discounts": {
+					"anyOf": [
+						{
+							"items": {
+								"$ref": "#/$defs/payment_pages_checkout_session_discount"
+							},
+							"type": "array"
+						},
+						{ "type": "null" }
+					]
+				},
+				"excluded_payment_method_types": {
+					"items": { "maxLength": 5000, "type": "string" },
+					"type": "array"
+				},
+				"expires_at": { "format": "unix-time", "type": "integer" },
+				"id": { "maxLength": 5000, "type": "string" },
+				"invoice": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{ "maxLength": 5000, "type": "string" },
+								{ "$ref": "#/$defs/invoice" }
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"invoice_creation": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{
+									"$ref": "#/$defs/payment_pages_checkout_session_invoice_creation"
+								}
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"line_items": {
+					"properties": {
+						"data": { "items": {}, "type": "array" },
+						"has_more": { "type": "boolean" },
+						"object": { "enum": ["list"], "type": "string" },
+						"url": { "maxLength": 5000, "type": "string" }
+					},
+					"required": ["data", "has_more", "object", "url"],
+					"type": "object"
+				},
+				"livemode": { "type": "boolean" },
+				"locale": {
+					"anyOf": [
+						{
+							"enum": [
+								"auto",
+								"bg",
+								"cs",
+								"da",
+								"de",
+								"el",
+								"en",
+								"en-GB",
+								"es",
+								"es-419",
+								"et",
+								"fi",
+								"fil",
+								"fr",
+								"fr-CA",
+								"hr",
+								"hu",
+								"id",
+								"it",
+								"ja",
+								"ko",
+								"lt",
+								"lv",
+								"ms",
+								"mt",
+								"nb",
+								"nl",
+								"pl",
+								"pt",
+								"pt-BR",
+								"ro",
+								"ru",
+								"sk",
+								"sl",
+								"sv",
+								"th",
+								"tr",
+								"vi",
+								"zh",
+								"zh-HK",
+								"zh-TW"
+							],
+							"type": "string"
+						},
+						{ "type": "null" }
+					]
+				},
+				"metadata": {
+					"anyOf": [
+						{
+							"additionalProperties": { "maxLength": 500, "type": "string" },
+							"type": "object"
+						},
+						{ "type": "null" }
+					]
+				},
+				"mode": {
+					"enum": ["payment", "setup", "subscription"],
+					"type": "string"
+				},
+				"name_collection": {
+					"$ref": "#/$defs/payment_pages_checkout_session_name_collection"
+				},
+				"object": { "enum": ["checkout.session"], "type": "string" },
+				"optional_items": {
+					"anyOf": [
+						{
+							"items": {
+								"$ref": "#/$defs/payment_pages_checkout_session_optional_item"
+							},
+							"type": "array"
+						},
+						{ "type": "null" }
+					]
+				},
+				"origin_context": {
+					"anyOf": [
+						{ "enum": ["mobile_app", "web"], "type": "string" },
+						{ "type": "null" }
+					]
+				},
+				"payment_intent": {
+					"anyOf": [
+						{ "anyOf": [{ "maxLength": 5000, "type": "string" }, {}] },
+						{ "type": "null" }
+					]
+				},
+				"payment_link": {
+					"anyOf": [
+						{ "anyOf": [{ "maxLength": 5000, "type": "string" }, {}] },
+						{ "type": "null" }
+					]
+				},
+				"payment_method_collection": {
+					"anyOf": [
+						{ "enum": ["always", "if_required"], "type": "string" },
+						{ "type": "null" }
+					]
+				},
+				"payment_method_configuration_details": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{
+									"$ref": "#/$defs/payment_method_config_biz_payment_method_configuration_details"
+								}
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"payment_method_options": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{ "$ref": "#/$defs/checkout_session_payment_method_options" }
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"payment_method_types": {
+					"items": { "maxLength": 5000, "type": "string" },
+					"type": "array"
+				},
+				"payment_status": {
+					"enum": ["no_payment_required", "paid", "unpaid"],
+					"type": "string"
+				},
+				"permissions": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{ "$ref": "#/$defs/payment_pages_checkout_session_permissions" }
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"phone_number_collection": {
+					"$ref": "#/$defs/payment_pages_checkout_session_phone_number_collection"
+				},
+				"presentment_details": {
+					"$ref": "#/$defs/payment_flows_payment_intent_presentment_details"
+				},
+				"recovered_from": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"redirect_on_completion": {
+					"enum": ["always", "if_required", "never"],
+					"type": "string"
+				},
+				"return_url": { "maxLength": 5000, "type": "string" },
+				"saved_payment_method_options": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{
+									"$ref": "#/$defs/payment_pages_checkout_session_saved_payment_method_options"
+								}
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"setup_intent": {
+					"anyOf": [
+						{ "anyOf": [{ "maxLength": 5000, "type": "string" }, {}] },
+						{ "type": "null" }
+					]
+				},
+				"shipping_address_collection": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{
+									"$ref": "#/$defs/payment_pages_checkout_session_shipping_address_collection"
+								}
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"shipping_cost": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{
+									"$ref": "#/$defs/payment_pages_checkout_session_shipping_cost"
+								}
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"shipping_options": {
+					"items": {
+						"$ref": "#/$defs/payment_pages_checkout_session_shipping_option"
+					},
+					"type": "array"
+				},
+				"status": {
+					"anyOf": [
+						{ "enum": ["complete", "expired", "open"], "type": "string" },
+						{ "type": "null" }
+					]
+				},
+				"submit_type": {
+					"anyOf": [
+						{
+							"enum": ["auto", "book", "donate", "pay", "subscribe"],
+							"type": "string"
+						},
+						{ "type": "null" }
+					]
+				},
+				"subscription": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{ "maxLength": 5000, "type": "string" },
+								{ "$ref": "#/$defs/subscription" }
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"success_url": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"tax_id_collection": {
+					"$ref": "#/$defs/payment_pages_checkout_session_tax_id_collection"
+				},
+				"total_details": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{
+									"$ref": "#/$defs/payment_pages_checkout_session_total_details"
+								}
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"ui_mode": {
+					"anyOf": [
+						{ "enum": ["custom", "embedded", "hosted"], "type": "string" },
+						{ "type": "null" }
+					]
+				},
+				"url": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"wallet_options": {
+					"anyOf": [
+						{
+							"anyOf": [{ "$ref": "#/$defs/checkout_session_wallet_options" }]
+						},
+						{ "type": "null" }
+					]
+				}
+			},
+			"required": [
+				"automatic_tax",
+				"created",
+				"custom_fields",
+				"custom_text",
+				"expires_at",
+				"id",
+				"livemode",
+				"mode",
+				"object",
+				"payment_method_types",
+				"payment_status",
+				"shipping_options"
+			],
+			"type": "object"
+		},
+		"checkout_acss_debit_mandate_options": {
+			"properties": {
+				"custom_mandate_url": { "maxLength": 5000, "type": "string" },
+				"default_for": {
+					"items": { "enum": ["invoice", "subscription"], "type": "string" },
+					"type": "array"
+				},
+				"interval_description": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"payment_schedule": {
+					"anyOf": [
+						{ "enum": ["combined", "interval", "sporadic"], "type": "string" },
+						{ "type": "null" }
+					]
+				},
+				"transaction_type": {
+					"anyOf": [
+						{ "enum": ["business", "personal"], "type": "string" },
+						{ "type": "null" }
+					]
+				}
+			},
+			"type": "object"
+		},
+		"checkout_acss_debit_payment_method_options": {
+			"properties": {
+				"currency": { "enum": ["cad", "usd"], "type": "string" },
+				"mandate_options": {
+					"$ref": "#/$defs/checkout_acss_debit_mandate_options"
+				},
+				"setup_future_usage": {
+					"enum": ["none", "off_session", "on_session"],
+					"type": "string"
+				},
+				"target_date": { "maxLength": 5000, "type": "string" },
+				"verification_method": {
+					"enum": ["automatic", "instant", "microdeposits"],
+					"type": "string"
+				}
+			},
+			"type": "object"
+		},
+		"checkout_affirm_payment_method_options": {
+			"properties": {
+				"capture_method": { "enum": ["manual"], "type": "string" },
+				"setup_future_usage": { "enum": ["none"], "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_afterpay_clearpay_payment_method_options": {
+			"properties": {
+				"capture_method": { "enum": ["manual"], "type": "string" },
+				"setup_future_usage": { "enum": ["none"], "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_alipay_payment_method_options": {
+			"properties": {
+				"setup_future_usage": { "enum": ["none"], "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_alma_payment_method_options": {
+			"properties": {
+				"capture_method": { "enum": ["manual"], "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_amazon_pay_payment_method_options": {
+			"properties": {
+				"capture_method": { "enum": ["manual"], "type": "string" },
+				"setup_future_usage": {
+					"enum": ["none", "off_session"],
+					"type": "string"
+				}
+			},
+			"type": "object"
+		},
+		"checkout_au_becs_debit_payment_method_options": {
+			"properties": {
+				"setup_future_usage": { "enum": ["none"], "type": "string" },
+				"target_date": { "maxLength": 5000, "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_bacs_debit_payment_method_options": {
+			"properties": {
+				"mandate_options": {
+					"$ref": "#/$defs/checkout_payment_method_options_mandate_options_bacs_debit"
+				},
+				"setup_future_usage": {
+					"enum": ["none", "off_session", "on_session"],
+					"type": "string"
+				},
+				"target_date": { "maxLength": 5000, "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_bancontact_payment_method_options": {
+			"properties": {
+				"setup_future_usage": { "enum": ["none"], "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_billie_payment_method_options": {
+			"properties": {
+				"capture_method": { "enum": ["manual"], "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_boleto_payment_method_options": {
+			"properties": {
+				"expires_after_days": { "type": "integer" },
+				"setup_future_usage": {
+					"enum": ["none", "off_session", "on_session"],
+					"type": "string"
+				}
+			},
+			"required": ["expires_after_days"],
+			"type": "object"
+		},
+		"checkout_card_installments_options": {
+			"properties": { "enabled": { "type": "boolean" } },
+			"type": "object"
+		},
+		"checkout_card_payment_method_options": {
+			"properties": {
+				"capture_method": { "enum": ["manual"], "type": "string" },
+				"installments": {
+					"$ref": "#/$defs/checkout_card_installments_options"
+				},
+				"request_extended_authorization": {
+					"enum": ["if_available", "never"],
+					"type": "string"
+				},
+				"request_incremental_authorization": {
+					"enum": ["if_available", "never"],
+					"type": "string"
+				},
+				"request_multicapture": {
+					"enum": ["if_available", "never"],
+					"type": "string"
+				},
+				"request_overcapture": {
+					"enum": ["if_available", "never"],
+					"type": "string"
+				},
+				"request_three_d_secure": {
+					"enum": ["any", "automatic", "challenge"],
+					"type": "string"
+				},
+				"restrictions": {
+					"$ref": "#/$defs/payment_pages_private_card_payment_method_options_resource_restrictions"
+				},
+				"setup_future_usage": {
+					"enum": ["none", "off_session", "on_session"],
+					"type": "string"
+				},
+				"statement_descriptor_suffix_kana": {
+					"maxLength": 5000,
+					"type": "string"
+				},
+				"statement_descriptor_suffix_kanji": {
+					"maxLength": 5000,
+					"type": "string"
+				}
+			},
+			"required": ["request_three_d_secure"],
+			"type": "object"
+		},
+		"checkout_cashapp_payment_method_options": {
+			"properties": {
+				"capture_method": { "enum": ["manual"], "type": "string" },
+				"setup_future_usage": { "enum": ["none"], "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_customer_balance_bank_transfer_payment_method_options": {
+			"properties": {
+				"eu_bank_transfer": {
+					"$ref": "#/$defs/payment_method_options_customer_balance_eu_bank_account"
+				},
+				"requested_address_types": {
+					"items": {
+						"enum": [
+							"aba",
+							"iban",
+							"sepa",
+							"sort_code",
+							"spei",
+							"swift",
+							"zengin"
+						],
+						"type": "string"
+					},
+					"type": "array"
+				},
+				"type": {
+					"anyOf": [
+						{
+							"enum": [
+								"eu_bank_transfer",
+								"gb_bank_transfer",
+								"jp_bank_transfer",
+								"mx_bank_transfer",
+								"us_bank_transfer"
+							],
+							"type": "string"
+						},
+						{ "type": "null" }
+					]
+				}
+			},
+			"type": "object"
+		},
+		"checkout_customer_balance_payment_method_options": {
+			"properties": {
+				"bank_transfer": {
+					"$ref": "#/$defs/checkout_customer_balance_bank_transfer_payment_method_options"
+				},
+				"funding_type": {
+					"anyOf": [
+						{ "enum": ["bank_transfer"], "type": "string" },
+						{ "type": "null" }
+					]
+				},
+				"setup_future_usage": { "enum": ["none"], "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_eps_payment_method_options": {
+			"properties": {
+				"setup_future_usage": { "enum": ["none"], "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_fpx_payment_method_options": {
+			"properties": {
+				"setup_future_usage": { "enum": ["none"], "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_giropay_payment_method_options": {
+			"properties": {
+				"setup_future_usage": { "enum": ["none"], "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_grab_pay_payment_method_options": {
+			"properties": {
+				"setup_future_usage": { "enum": ["none"], "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_ideal_payment_method_options": {
+			"properties": {
+				"setup_future_usage": { "enum": ["none"], "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_kakao_pay_payment_method_options": {
+			"properties": {
+				"capture_method": { "enum": ["manual"], "type": "string" },
+				"setup_future_usage": {
+					"enum": ["none", "off_session"],
+					"type": "string"
+				}
+			},
+			"type": "object"
+		},
+		"checkout_klarna_payment_method_options": {
+			"properties": {
+				"capture_method": { "enum": ["manual"], "type": "string" },
+				"setup_future_usage": {
+					"enum": ["none", "off_session", "on_session"],
+					"type": "string"
+				}
+			},
+			"type": "object"
+		},
+		"checkout_konbini_payment_method_options": {
+			"properties": {
+				"expires_after_days": {
+					"anyOf": [{ "type": "integer" }, { "type": "null" }]
+				},
+				"setup_future_usage": { "enum": ["none"], "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_kr_card_payment_method_options": {
+			"properties": {
+				"capture_method": { "enum": ["manual"], "type": "string" },
+				"setup_future_usage": {
+					"enum": ["none", "off_session"],
+					"type": "string"
+				}
+			},
+			"type": "object"
+		},
+		"checkout_link_payment_method_options": {
+			"properties": {
+				"capture_method": { "enum": ["manual"], "type": "string" },
+				"setup_future_usage": {
+					"enum": ["none", "off_session"],
+					"type": "string"
+				}
+			},
+			"type": "object"
+		},
+		"checkout_link_wallet_options": {
+			"properties": {
+				"display": { "enum": ["auto", "never"], "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_mobilepay_payment_method_options": {
+			"properties": {
+				"capture_method": { "enum": ["manual"], "type": "string" },
+				"setup_future_usage": { "enum": ["none"], "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_multibanco_payment_method_options": {
+			"properties": {
+				"setup_future_usage": { "enum": ["none"], "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_naver_pay_payment_method_options": {
+			"properties": {
+				"capture_method": { "enum": ["manual"], "type": "string" },
+				"setup_future_usage": {
+					"enum": ["none", "off_session"],
+					"type": "string"
+				}
+			},
+			"type": "object"
+		},
+		"checkout_oxxo_payment_method_options": {
+			"properties": {
+				"expires_after_days": { "type": "integer" },
+				"setup_future_usage": { "enum": ["none"], "type": "string" }
+			},
+			"required": ["expires_after_days"],
+			"type": "object"
+		},
+		"checkout_p24_payment_method_options": {
+			"properties": {
+				"setup_future_usage": { "enum": ["none"], "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_payco_payment_method_options": {
+			"properties": {
+				"capture_method": { "enum": ["manual"], "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_payment_method_options_mandate_options_bacs_debit": {
+			"properties": {
+				"reference_prefix": { "maxLength": 5000, "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_payment_method_options_mandate_options_sepa_debit": {
+			"properties": {
+				"reference_prefix": { "maxLength": 5000, "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_paynow_payment_method_options": {
+			"properties": {
+				"setup_future_usage": { "enum": ["none"], "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_paypal_payment_method_options": {
+			"properties": {
+				"capture_method": { "enum": ["manual"], "type": "string" },
+				"preferred_locale": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"reference": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"setup_future_usage": {
+					"enum": ["none", "off_session"],
+					"type": "string"
+				}
+			},
+			"type": "object"
+		},
+		"checkout_pix_payment_method_options": {
+			"properties": {
+				"amount_includes_iof": {
+					"enum": ["always", "never"],
+					"type": "string"
+				},
+				"expires_after_seconds": {
+					"anyOf": [{ "type": "integer" }, { "type": "null" }]
+				},
+				"setup_future_usage": { "enum": ["none"], "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_revolut_pay_payment_method_options": {
+			"properties": {
+				"capture_method": { "enum": ["manual"], "type": "string" },
+				"setup_future_usage": {
+					"enum": ["none", "off_session"],
+					"type": "string"
+				}
+			},
+			"type": "object"
+		},
+		"checkout_samsung_pay_payment_method_options": {
+			"properties": {
+				"capture_method": { "enum": ["manual"], "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_satispay_payment_method_options": {
+			"properties": {
+				"capture_method": { "enum": ["manual"], "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_sepa_debit_payment_method_options": {
+			"properties": {
+				"mandate_options": {
+					"$ref": "#/$defs/checkout_payment_method_options_mandate_options_sepa_debit"
+				},
+				"setup_future_usage": {
+					"enum": ["none", "off_session", "on_session"],
+					"type": "string"
+				},
+				"target_date": { "maxLength": 5000, "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_session_payment_method_options": {
+			"properties": {
+				"acss_debit": {
+					"$ref": "#/$defs/checkout_acss_debit_payment_method_options"
+				},
+				"affirm": { "$ref": "#/$defs/checkout_affirm_payment_method_options" },
+				"afterpay_clearpay": {
+					"$ref": "#/$defs/checkout_afterpay_clearpay_payment_method_options"
+				},
+				"alipay": { "$ref": "#/$defs/checkout_alipay_payment_method_options" },
+				"alma": { "$ref": "#/$defs/checkout_alma_payment_method_options" },
+				"amazon_pay": {
+					"$ref": "#/$defs/checkout_amazon_pay_payment_method_options"
+				},
+				"au_becs_debit": {
+					"$ref": "#/$defs/checkout_au_becs_debit_payment_method_options"
+				},
+				"bacs_debit": {
+					"$ref": "#/$defs/checkout_bacs_debit_payment_method_options"
+				},
+				"bancontact": {
+					"$ref": "#/$defs/checkout_bancontact_payment_method_options"
+				},
+				"billie": { "$ref": "#/$defs/checkout_billie_payment_method_options" },
+				"boleto": { "$ref": "#/$defs/checkout_boleto_payment_method_options" },
+				"card": { "$ref": "#/$defs/checkout_card_payment_method_options" },
+				"cashapp": {
+					"$ref": "#/$defs/checkout_cashapp_payment_method_options"
+				},
+				"customer_balance": {
+					"$ref": "#/$defs/checkout_customer_balance_payment_method_options"
+				},
+				"eps": { "$ref": "#/$defs/checkout_eps_payment_method_options" },
+				"fpx": { "$ref": "#/$defs/checkout_fpx_payment_method_options" },
+				"giropay": {
+					"$ref": "#/$defs/checkout_giropay_payment_method_options"
+				},
+				"grabpay": {
+					"$ref": "#/$defs/checkout_grab_pay_payment_method_options"
+				},
+				"ideal": { "$ref": "#/$defs/checkout_ideal_payment_method_options" },
+				"kakao_pay": {
+					"$ref": "#/$defs/checkout_kakao_pay_payment_method_options"
+				},
+				"klarna": { "$ref": "#/$defs/checkout_klarna_payment_method_options" },
+				"konbini": {
+					"$ref": "#/$defs/checkout_konbini_payment_method_options"
+				},
+				"kr_card": {
+					"$ref": "#/$defs/checkout_kr_card_payment_method_options"
+				},
+				"link": { "$ref": "#/$defs/checkout_link_payment_method_options" },
+				"mobilepay": {
+					"$ref": "#/$defs/checkout_mobilepay_payment_method_options"
+				},
+				"multibanco": {
+					"$ref": "#/$defs/checkout_multibanco_payment_method_options"
+				},
+				"naver_pay": {
+					"$ref": "#/$defs/checkout_naver_pay_payment_method_options"
+				},
+				"oxxo": { "$ref": "#/$defs/checkout_oxxo_payment_method_options" },
+				"p24": { "$ref": "#/$defs/checkout_p24_payment_method_options" },
+				"payco": { "$ref": "#/$defs/checkout_payco_payment_method_options" },
+				"paynow": { "$ref": "#/$defs/checkout_paynow_payment_method_options" },
+				"paypal": { "$ref": "#/$defs/checkout_paypal_payment_method_options" },
+				"pix": { "$ref": "#/$defs/checkout_pix_payment_method_options" },
+				"revolut_pay": {
+					"$ref": "#/$defs/checkout_revolut_pay_payment_method_options"
+				},
+				"samsung_pay": {
+					"$ref": "#/$defs/checkout_samsung_pay_payment_method_options"
+				},
+				"satispay": {
+					"$ref": "#/$defs/checkout_satispay_payment_method_options"
+				},
+				"sepa_debit": {
+					"$ref": "#/$defs/checkout_sepa_debit_payment_method_options"
+				},
+				"sofort": { "$ref": "#/$defs/checkout_sofort_payment_method_options" },
+				"swish": { "$ref": "#/$defs/checkout_swish_payment_method_options" },
+				"twint": { "$ref": "#/$defs/checkout_twint_payment_method_options" },
+				"us_bank_account": {
+					"$ref": "#/$defs/checkout_us_bank_account_payment_method_options"
+				}
+			},
+			"type": "object"
+		},
+		"checkout_session_wallet_options": {
+			"properties": {
+				"link": { "$ref": "#/$defs/checkout_link_wallet_options" }
+			},
+			"type": "object"
+		},
+		"checkout_sofort_payment_method_options": {
+			"properties": {
+				"setup_future_usage": { "enum": ["none"], "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_swish_payment_method_options": {
+			"properties": {
+				"reference": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				}
+			},
+			"type": "object"
+		},
+		"checkout_twint_payment_method_options": {
+			"properties": {
+				"setup_future_usage": { "enum": ["none"], "type": "string" }
+			},
+			"type": "object"
+		},
+		"checkout_us_bank_account_payment_method_options": {
+			"properties": {
+				"financial_connections": {
+					"$ref": "#/$defs/linked_account_options_common"
+				},
+				"setup_future_usage": {
+					"enum": ["none", "off_session", "on_session"],
+					"type": "string"
+				},
+				"target_date": { "maxLength": 5000, "type": "string" },
+				"verification_method": {
+					"enum": ["automatic", "instant"],
+					"type": "string"
+				}
+			},
 			"type": "object"
 		},
 		"connect_account_reference": {
@@ -1920,6 +2972,17 @@
 			},
 			"type": "object"
 		},
+		"invoice_setting_checkout_rendering_options": {
+			"properties": {
+				"amount_tax_display": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"template": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				}
+			},
+			"type": "object"
+		},
 		"invoice_setting_custom_field": {
 			"properties": {
 				"name": { "maxLength": 5000, "type": "string" },
@@ -2480,6 +3543,11 @@
 			],
 			"type": "object"
 		},
+		"line_items_discount_amount": {
+			"properties": { "amount": { "type": "integer" }, "discount": {} },
+			"required": ["amount", "discount"],
+			"type": "object"
+		},
 		"line_items_tax_amount": {
 			"properties": {
 				"amount": { "type": "integer" },
@@ -2514,6 +3582,34 @@
 				}
 			},
 			"required": ["amount", "rate"],
+			"type": "object"
+		},
+		"linked_account_options_common": {
+			"properties": {
+				"filters": {
+					"$ref": "#/$defs/payment_flows_private_payment_methods_financial_connections_common_linked_account_options_filters"
+				},
+				"permissions": {
+					"items": {
+						"enum": ["balances", "ownership", "payment_method", "transactions"],
+						"type": "string"
+					},
+					"type": "array"
+				},
+				"prefetch": {
+					"anyOf": [
+						{
+							"items": {
+								"enum": ["balances", "ownership", "transactions"],
+								"type": "string"
+							},
+							"type": "array"
+						},
+						{ "type": "null" }
+					]
+				},
+				"return_url": { "maxLength": 5000, "type": "string" }
+			},
 			"type": "object"
 		},
 		"payment_flows_payment_intent_presentment_details": {
@@ -2573,6 +3669,25 @@
 				}
 			},
 			"required": ["type"],
+			"type": "object"
+		},
+		"payment_flows_private_payment_methods_financial_connections_common_linked_account_options_filters": {
+			"properties": {
+				"account_subcategories": {
+					"items": { "enum": ["checking", "savings"], "type": "string" },
+					"type": "array"
+				}
+			},
+			"type": "object"
+		},
+		"payment_method_config_biz_payment_method_configuration_details": {
+			"properties": {
+				"id": { "maxLength": 5000, "type": "string" },
+				"parent": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				}
+			},
+			"required": ["id"],
 			"type": "object"
 		},
 		"payment_method_details": {
@@ -4068,6 +5183,1076 @@
 			"type": "object"
 		},
 		"payment_method_details_zip": { "properties": {}, "type": "object" },
+		"payment_method_options_customer_balance_eu_bank_account": {
+			"properties": {
+				"country": {
+					"enum": ["BE", "DE", "ES", "FR", "IE", "NL"],
+					"type": "string"
+				}
+			},
+			"required": ["country"],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_adaptive_pricing": {
+			"properties": { "enabled": { "type": "boolean" } },
+			"required": ["enabled"],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_after_expiration": {
+			"properties": {
+				"recovery": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{
+									"$ref": "#/$defs/payment_pages_checkout_session_after_expiration_recovery"
+								}
+							]
+						},
+						{ "type": "null" }
+					]
+				}
+			},
+			"type": "object"
+		},
+		"payment_pages_checkout_session_after_expiration_recovery": {
+			"properties": {
+				"allow_promotion_codes": { "type": "boolean" },
+				"enabled": { "type": "boolean" },
+				"expires_at": {
+					"anyOf": [
+						{ "format": "unix-time", "type": "integer" },
+						{ "type": "null" }
+					]
+				},
+				"url": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				}
+			},
+			"required": ["allow_promotion_codes", "enabled"],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_automatic_tax": {
+			"properties": {
+				"enabled": { "type": "boolean" },
+				"liability": {
+					"anyOf": [
+						{ "anyOf": [{ "$ref": "#/$defs/connect_account_reference" }] },
+						{ "type": "null" }
+					]
+				},
+				"provider": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"status": {
+					"anyOf": [
+						{
+							"enum": ["complete", "failed", "requires_location_inputs"],
+							"type": "string"
+						},
+						{ "type": "null" }
+					]
+				}
+			},
+			"required": ["enabled"],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_branding_settings": {
+			"properties": {
+				"background_color": { "maxLength": 5000, "type": "string" },
+				"border_style": {
+					"enum": ["pill", "rectangular", "rounded"],
+					"type": "string"
+				},
+				"button_color": { "maxLength": 5000, "type": "string" },
+				"display_name": { "maxLength": 5000, "type": "string" },
+				"font_family": { "maxLength": 5000, "type": "string" },
+				"icon": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{
+									"$ref": "#/$defs/payment_pages_checkout_session_branding_settings_icon"
+								}
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"logo": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{
+									"$ref": "#/$defs/payment_pages_checkout_session_branding_settings_logo"
+								}
+							]
+						},
+						{ "type": "null" }
+					]
+				}
+			},
+			"required": [
+				"background_color",
+				"border_style",
+				"button_color",
+				"display_name",
+				"font_family"
+			],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_branding_settings_icon": {
+			"properties": {
+				"file": { "maxLength": 5000, "type": "string" },
+				"type": { "enum": ["file", "url"], "type": "string" },
+				"url": { "maxLength": 5000, "type": "string" }
+			},
+			"required": ["type"],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_branding_settings_logo": {
+			"properties": {
+				"file": { "maxLength": 5000, "type": "string" },
+				"type": { "enum": ["file", "url"], "type": "string" },
+				"url": { "maxLength": 5000, "type": "string" }
+			},
+			"required": ["type"],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_business_name": {
+			"properties": {
+				"enabled": { "type": "boolean" },
+				"optional": { "type": "boolean" }
+			},
+			"required": ["enabled", "optional"],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_checkout_address_details": {
+			"properties": {
+				"address": { "$ref": "#/$defs/address" },
+				"name": { "maxLength": 5000, "type": "string" }
+			},
+			"required": ["address", "name"],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_collected_information": {
+			"properties": {
+				"business_name": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"individual_name": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"shipping_details": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{
+									"$ref": "#/$defs/payment_pages_checkout_session_checkout_address_details"
+								}
+							]
+						},
+						{ "type": "null" }
+					]
+				}
+			},
+			"type": "object"
+		},
+		"payment_pages_checkout_session_consent": {
+			"properties": {
+				"promotions": {
+					"anyOf": [
+						{ "enum": ["opt_in", "opt_out"], "type": "string" },
+						{ "type": "null" }
+					]
+				},
+				"terms_of_service": {
+					"anyOf": [
+						{ "enum": ["accepted"], "type": "string" },
+						{ "type": "null" }
+					]
+				}
+			},
+			"type": "object"
+		},
+		"payment_pages_checkout_session_consent_collection": {
+			"properties": {
+				"payment_method_reuse_agreement": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{
+									"$ref": "#/$defs/payment_pages_checkout_session_payment_method_reuse_agreement"
+								}
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"promotions": {
+					"anyOf": [
+						{ "enum": ["auto", "none"], "type": "string" },
+						{ "type": "null" }
+					]
+				},
+				"terms_of_service": {
+					"anyOf": [
+						{ "enum": ["none", "required"], "type": "string" },
+						{ "type": "null" }
+					]
+				}
+			},
+			"type": "object"
+		},
+		"payment_pages_checkout_session_currency_conversion": {
+			"properties": {
+				"amount_subtotal": { "type": "integer" },
+				"amount_total": { "type": "integer" },
+				"fx_rate": { "format": "decimal", "type": "string" },
+				"source_currency": { "maxLength": 5000, "type": "string" }
+			},
+			"required": [
+				"amount_subtotal",
+				"amount_total",
+				"fx_rate",
+				"source_currency"
+			],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_custom_fields": {
+			"properties": {
+				"dropdown": {
+					"$ref": "#/$defs/payment_pages_checkout_session_custom_fields_dropdown"
+				},
+				"key": { "maxLength": 5000, "type": "string" },
+				"label": {
+					"$ref": "#/$defs/payment_pages_checkout_session_custom_fields_label"
+				},
+				"numeric": {
+					"$ref": "#/$defs/payment_pages_checkout_session_custom_fields_numeric"
+				},
+				"optional": { "type": "boolean" },
+				"text": {
+					"$ref": "#/$defs/payment_pages_checkout_session_custom_fields_text"
+				},
+				"type": { "enum": ["dropdown", "numeric", "text"], "type": "string" }
+			},
+			"required": ["key", "label", "optional", "type"],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_custom_fields_dropdown": {
+			"properties": {
+				"default_value": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"options": {
+					"items": {
+						"$ref": "#/$defs/payment_pages_checkout_session_custom_fields_option"
+					},
+					"type": "array"
+				},
+				"value": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				}
+			},
+			"required": ["options"],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_custom_fields_label": {
+			"properties": {
+				"custom": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"type": { "enum": ["custom"], "type": "string" }
+			},
+			"required": ["type"],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_custom_fields_numeric": {
+			"properties": {
+				"default_value": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"maximum_length": {
+					"anyOf": [{ "type": "integer" }, { "type": "null" }]
+				},
+				"minimum_length": {
+					"anyOf": [{ "type": "integer" }, { "type": "null" }]
+				},
+				"value": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				}
+			},
+			"type": "object"
+		},
+		"payment_pages_checkout_session_custom_fields_option": {
+			"properties": {
+				"label": { "maxLength": 5000, "type": "string" },
+				"value": { "maxLength": 5000, "type": "string" }
+			},
+			"required": ["label", "value"],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_custom_fields_text": {
+			"properties": {
+				"default_value": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"maximum_length": {
+					"anyOf": [{ "type": "integer" }, { "type": "null" }]
+				},
+				"minimum_length": {
+					"anyOf": [{ "type": "integer" }, { "type": "null" }]
+				},
+				"value": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				}
+			},
+			"type": "object"
+		},
+		"payment_pages_checkout_session_custom_text": {
+			"properties": {
+				"after_submit": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{
+									"$ref": "#/$defs/payment_pages_checkout_session_custom_text_position"
+								}
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"shipping_address": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{
+									"$ref": "#/$defs/payment_pages_checkout_session_custom_text_position"
+								}
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"submit": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{
+									"$ref": "#/$defs/payment_pages_checkout_session_custom_text_position"
+								}
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"terms_of_service_acceptance": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{
+									"$ref": "#/$defs/payment_pages_checkout_session_custom_text_position"
+								}
+							]
+						},
+						{ "type": "null" }
+					]
+				}
+			},
+			"type": "object"
+		},
+		"payment_pages_checkout_session_custom_text_position": {
+			"properties": { "message": { "maxLength": 500, "type": "string" } },
+			"required": ["message"],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_customer_details": {
+			"properties": {
+				"address": {
+					"anyOf": [
+						{ "anyOf": [{ "$ref": "#/$defs/address" }] },
+						{ "type": "null" }
+					]
+				},
+				"business_name": {
+					"anyOf": [{ "maxLength": 150, "type": "string" }, { "type": "null" }]
+				},
+				"email": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"individual_name": {
+					"anyOf": [{ "maxLength": 150, "type": "string" }, { "type": "null" }]
+				},
+				"name": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"phone": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"tax_exempt": {
+					"anyOf": [
+						{ "enum": ["exempt", "none", "reverse"], "type": "string" },
+						{ "type": "null" }
+					]
+				},
+				"tax_ids": {
+					"anyOf": [
+						{
+							"items": {
+								"$ref": "#/$defs/payment_pages_checkout_session_tax_id"
+							},
+							"type": "array"
+						},
+						{ "type": "null" }
+					]
+				}
+			},
+			"type": "object"
+		},
+		"payment_pages_checkout_session_discount": {
+			"properties": {
+				"coupon": {
+					"anyOf": [
+						{ "anyOf": [{ "maxLength": 5000, "type": "string" }, {}] },
+						{ "type": "null" }
+					]
+				},
+				"promotion_code": {
+					"anyOf": [
+						{ "anyOf": [{ "maxLength": 5000, "type": "string" }, {}] },
+						{ "type": "null" }
+					]
+				}
+			},
+			"type": "object"
+		},
+		"payment_pages_checkout_session_individual_name": {
+			"properties": {
+				"enabled": { "type": "boolean" },
+				"optional": { "type": "boolean" }
+			},
+			"required": ["enabled", "optional"],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_invoice_creation": {
+			"properties": {
+				"enabled": { "type": "boolean" },
+				"invoice_data": {
+					"$ref": "#/$defs/payment_pages_checkout_session_invoice_settings"
+				}
+			},
+			"required": ["enabled", "invoice_data"],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_invoice_settings": {
+			"properties": {
+				"account_tax_ids": {
+					"anyOf": [
+						{
+							"items": {
+								"anyOf": [{ "maxLength": 5000, "type": "string" }, {}, {}]
+							},
+							"type": "array"
+						},
+						{ "type": "null" }
+					]
+				},
+				"custom_fields": {
+					"anyOf": [
+						{
+							"items": { "$ref": "#/$defs/invoice_setting_custom_field" },
+							"type": "array"
+						},
+						{ "type": "null" }
+					]
+				},
+				"description": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"footer": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"issuer": {
+					"anyOf": [
+						{ "anyOf": [{ "$ref": "#/$defs/connect_account_reference" }] },
+						{ "type": "null" }
+					]
+				},
+				"metadata": {
+					"anyOf": [
+						{
+							"additionalProperties": { "maxLength": 500, "type": "string" },
+							"type": "object"
+						},
+						{ "type": "null" }
+					]
+				},
+				"rendering_options": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{ "$ref": "#/$defs/invoice_setting_checkout_rendering_options" }
+							]
+						},
+						{ "type": "null" }
+					]
+				}
+			},
+			"type": "object"
+		},
+		"payment_pages_checkout_session_name_collection": {
+			"properties": {
+				"business": {
+					"$ref": "#/$defs/payment_pages_checkout_session_business_name"
+				},
+				"individual": {
+					"$ref": "#/$defs/payment_pages_checkout_session_individual_name"
+				}
+			},
+			"type": "object"
+		},
+		"payment_pages_checkout_session_optional_item": {
+			"properties": {
+				"adjustable_quantity": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{
+									"$ref": "#/$defs/payment_pages_checkout_session_optional_item_adjustable_quantity"
+								}
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"price": { "maxLength": 5000, "type": "string" },
+				"quantity": { "type": "integer" }
+			},
+			"required": ["price", "quantity"],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_optional_item_adjustable_quantity": {
+			"properties": {
+				"enabled": { "type": "boolean" },
+				"maximum": { "anyOf": [{ "type": "integer" }, { "type": "null" }] },
+				"minimum": { "anyOf": [{ "type": "integer" }, { "type": "null" }] }
+			},
+			"required": ["enabled"],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_payment_method_reuse_agreement": {
+			"properties": {
+				"position": { "enum": ["auto", "hidden"], "type": "string" }
+			},
+			"required": ["position"],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_permissions": {
+			"properties": {
+				"update_shipping_details": {
+					"anyOf": [
+						{ "enum": ["client_only", "server_only"], "type": "string" },
+						{ "type": "null" }
+					]
+				}
+			},
+			"type": "object"
+		},
+		"payment_pages_checkout_session_phone_number_collection": {
+			"properties": { "enabled": { "type": "boolean" } },
+			"required": ["enabled"],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_saved_payment_method_options": {
+			"properties": {
+				"allow_redisplay_filters": {
+					"anyOf": [
+						{
+							"items": {
+								"enum": ["always", "limited", "unspecified"],
+								"type": "string"
+							},
+							"type": "array"
+						},
+						{ "type": "null" }
+					]
+				},
+				"payment_method_remove": {
+					"anyOf": [
+						{ "enum": ["disabled", "enabled"], "type": "string" },
+						{ "type": "null" }
+					]
+				},
+				"payment_method_save": {
+					"anyOf": [
+						{ "enum": ["disabled", "enabled"], "type": "string" },
+						{ "type": "null" }
+					]
+				}
+			},
+			"type": "object"
+		},
+		"payment_pages_checkout_session_shipping_address_collection": {
+			"properties": {
+				"allowed_countries": {
+					"items": {
+						"enum": [
+							"AC",
+							"AD",
+							"AE",
+							"AF",
+							"AG",
+							"AI",
+							"AL",
+							"AM",
+							"AO",
+							"AQ",
+							"AR",
+							"AT",
+							"AU",
+							"AW",
+							"AX",
+							"AZ",
+							"BA",
+							"BB",
+							"BD",
+							"BE",
+							"BF",
+							"BG",
+							"BH",
+							"BI",
+							"BJ",
+							"BL",
+							"BM",
+							"BN",
+							"BO",
+							"BQ",
+							"BR",
+							"BS",
+							"BT",
+							"BV",
+							"BW",
+							"BY",
+							"BZ",
+							"CA",
+							"CD",
+							"CF",
+							"CG",
+							"CH",
+							"CI",
+							"CK",
+							"CL",
+							"CM",
+							"CN",
+							"CO",
+							"CR",
+							"CV",
+							"CW",
+							"CY",
+							"CZ",
+							"DE",
+							"DJ",
+							"DK",
+							"DM",
+							"DO",
+							"DZ",
+							"EC",
+							"EE",
+							"EG",
+							"EH",
+							"ER",
+							"ES",
+							"ET",
+							"FI",
+							"FJ",
+							"FK",
+							"FO",
+							"FR",
+							"GA",
+							"GB",
+							"GD",
+							"GE",
+							"GF",
+							"GG",
+							"GH",
+							"GI",
+							"GL",
+							"GM",
+							"GN",
+							"GP",
+							"GQ",
+							"GR",
+							"GS",
+							"GT",
+							"GU",
+							"GW",
+							"GY",
+							"HK",
+							"HN",
+							"HR",
+							"HT",
+							"HU",
+							"ID",
+							"IE",
+							"IL",
+							"IM",
+							"IN",
+							"IO",
+							"IQ",
+							"IS",
+							"IT",
+							"JE",
+							"JM",
+							"JO",
+							"JP",
+							"KE",
+							"KG",
+							"KH",
+							"KI",
+							"KM",
+							"KN",
+							"KR",
+							"KW",
+							"KY",
+							"KZ",
+							"LA",
+							"LB",
+							"LC",
+							"LI",
+							"LK",
+							"LR",
+							"LS",
+							"LT",
+							"LU",
+							"LV",
+							"LY",
+							"MA",
+							"MC",
+							"MD",
+							"ME",
+							"MF",
+							"MG",
+							"MK",
+							"ML",
+							"MM",
+							"MN",
+							"MO",
+							"MQ",
+							"MR",
+							"MS",
+							"MT",
+							"MU",
+							"MV",
+							"MW",
+							"MX",
+							"MY",
+							"MZ",
+							"NA",
+							"NC",
+							"NE",
+							"NG",
+							"NI",
+							"NL",
+							"NO",
+							"NP",
+							"NR",
+							"NU",
+							"NZ",
+							"OM",
+							"PA",
+							"PE",
+							"PF",
+							"PG",
+							"PH",
+							"PK",
+							"PL",
+							"PM",
+							"PN",
+							"PR",
+							"PS",
+							"PT",
+							"PY",
+							"QA",
+							"RE",
+							"RO",
+							"RS",
+							"RU",
+							"RW",
+							"SA",
+							"SB",
+							"SC",
+							"SD",
+							"SE",
+							"SG",
+							"SH",
+							"SI",
+							"SJ",
+							"SK",
+							"SL",
+							"SM",
+							"SN",
+							"SO",
+							"SR",
+							"SS",
+							"ST",
+							"SV",
+							"SX",
+							"SZ",
+							"TA",
+							"TC",
+							"TD",
+							"TF",
+							"TG",
+							"TH",
+							"TJ",
+							"TK",
+							"TL",
+							"TM",
+							"TN",
+							"TO",
+							"TR",
+							"TT",
+							"TV",
+							"TW",
+							"TZ",
+							"UA",
+							"UG",
+							"US",
+							"UY",
+							"UZ",
+							"VA",
+							"VC",
+							"VE",
+							"VG",
+							"VN",
+							"VU",
+							"WF",
+							"WS",
+							"XK",
+							"YE",
+							"YT",
+							"ZA",
+							"ZM",
+							"ZW",
+							"ZZ"
+						],
+						"type": "string"
+					},
+					"type": "array"
+				}
+			},
+			"required": ["allowed_countries"],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_shipping_cost": {
+			"properties": {
+				"amount_subtotal": { "type": "integer" },
+				"amount_tax": { "type": "integer" },
+				"amount_total": { "type": "integer" },
+				"shipping_rate": {
+					"anyOf": [
+						{ "anyOf": [{ "maxLength": 5000, "type": "string" }, {}] },
+						{ "type": "null" }
+					]
+				},
+				"taxes": {
+					"items": { "$ref": "#/$defs/line_items_tax_amount" },
+					"type": "array"
+				}
+			},
+			"required": ["amount_subtotal", "amount_tax", "amount_total"],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_shipping_option": {
+			"properties": {
+				"shipping_amount": { "type": "integer" },
+				"shipping_rate": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, {}]
+				}
+			},
+			"required": ["shipping_amount", "shipping_rate"],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_tax_id": {
+			"properties": {
+				"type": {
+					"enum": [
+						"ad_nrt",
+						"ae_trn",
+						"al_tin",
+						"am_tin",
+						"ao_tin",
+						"ar_cuit",
+						"au_abn",
+						"au_arn",
+						"aw_tin",
+						"az_tin",
+						"ba_tin",
+						"bb_tin",
+						"bd_bin",
+						"bf_ifu",
+						"bg_uic",
+						"bh_vat",
+						"bj_ifu",
+						"bo_tin",
+						"br_cnpj",
+						"br_cpf",
+						"bs_tin",
+						"by_tin",
+						"ca_bn",
+						"ca_gst_hst",
+						"ca_pst_bc",
+						"ca_pst_mb",
+						"ca_pst_sk",
+						"ca_qst",
+						"cd_nif",
+						"ch_uid",
+						"ch_vat",
+						"cl_tin",
+						"cm_niu",
+						"cn_tin",
+						"co_nit",
+						"cr_tin",
+						"cv_nif",
+						"de_stn",
+						"do_rcn",
+						"ec_ruc",
+						"eg_tin",
+						"es_cif",
+						"et_tin",
+						"eu_oss_vat",
+						"eu_vat",
+						"gb_vat",
+						"ge_vat",
+						"gn_nif",
+						"hk_br",
+						"hr_oib",
+						"hu_tin",
+						"id_npwp",
+						"il_vat",
+						"in_gst",
+						"is_vat",
+						"jp_cn",
+						"jp_rn",
+						"jp_trn",
+						"ke_pin",
+						"kg_tin",
+						"kh_tin",
+						"kr_brn",
+						"kz_bin",
+						"la_tin",
+						"li_uid",
+						"li_vat",
+						"ma_vat",
+						"md_vat",
+						"me_pib",
+						"mk_vat",
+						"mr_nif",
+						"mx_rfc",
+						"my_frp",
+						"my_itn",
+						"my_sst",
+						"ng_tin",
+						"no_vat",
+						"no_voec",
+						"np_pan",
+						"nz_gst",
+						"om_vat",
+						"pe_ruc",
+						"ph_tin",
+						"ro_tin",
+						"rs_pib",
+						"ru_inn",
+						"ru_kpp",
+						"sa_vat",
+						"sg_gst",
+						"sg_uen",
+						"si_tin",
+						"sn_ninea",
+						"sr_fin",
+						"sv_nit",
+						"th_vat",
+						"tj_tin",
+						"tr_tin",
+						"tw_vat",
+						"tz_vat",
+						"ua_vat",
+						"ug_tin",
+						"unknown",
+						"us_ein",
+						"uy_ruc",
+						"uz_tin",
+						"uz_vat",
+						"ve_rif",
+						"vn_tin",
+						"za_vat",
+						"zm_tin",
+						"zw_tin"
+					],
+					"type": "string"
+				},
+				"value": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				}
+			},
+			"required": ["type"],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_tax_id_collection": {
+			"properties": {
+				"enabled": { "type": "boolean" },
+				"required": { "enum": ["if_supported", "never"], "type": "string" }
+			},
+			"required": ["enabled", "required"],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_total_details": {
+			"properties": {
+				"amount_discount": { "type": "integer" },
+				"amount_shipping": {
+					"anyOf": [{ "type": "integer" }, { "type": "null" }]
+				},
+				"amount_tax": { "type": "integer" },
+				"breakdown": {
+					"$ref": "#/$defs/payment_pages_checkout_session_total_details_resource_breakdown"
+				}
+			},
+			"required": ["amount_discount", "amount_tax"],
+			"type": "object"
+		},
+		"payment_pages_checkout_session_total_details_resource_breakdown": {
+			"properties": {
+				"discounts": {
+					"items": { "$ref": "#/$defs/line_items_discount_amount" },
+					"type": "array"
+				},
+				"taxes": {
+					"items": { "$ref": "#/$defs/line_items_tax_amount" },
+					"type": "array"
+				}
+			},
+			"required": ["discounts", "taxes"],
+			"type": "object"
+		},
+		"payment_pages_private_card_payment_method_options_resource_restrictions": {
+			"properties": {
+				"brands_blocked": {
+					"items": {
+						"enum": [
+							"american_express",
+							"discover_global_network",
+							"mastercard",
+							"visa"
+						],
+						"type": "string"
+					},
+					"type": "array"
+				}
+			},
+			"type": "object"
+		},
 		"payout": {
 			"properties": {
 				"amount": { "type": "integer" },

@@ -2,12 +2,15 @@
 import m0 from "./stripe.charge.dispute.closed.v1.json";
 import m1 from "./stripe.charge.dispute.created.v1.json";
 import m2 from "./stripe.charge.refunded.v1.json";
-import m3 from "./stripe.customer.subscription.created.v1.json";
-import m4 from "./stripe.customer.subscription.deleted.v1.json";
-import m5 from "./stripe.customer.subscription.updated.v1.json";
-import m6 from "./stripe.invoice.paid.v1.json";
-import m7 from "./stripe.invoice_payment.paid.v1.json";
-import m8 from "./stripe.payout.paid.v1.json";
+import m3 from "./stripe.checkout.session.async_payment_succeeded.v1.json";
+import m4 from "./stripe.checkout.session.completed.v1.json";
+import m5 from "./stripe.checkout.session.expired.v1.json";
+import m6 from "./stripe.customer.subscription.created.v1.json";
+import m7 from "./stripe.customer.subscription.deleted.v1.json";
+import m8 from "./stripe.customer.subscription.updated.v1.json";
+import m9 from "./stripe.invoice.paid.v1.json";
+import m10 from "./stripe.invoice_payment.paid.v1.json";
+import m11 from "./stripe.payout.paid.v1.json";
 
 /** Every mapping file, in filename order. */
 export const MAPPING_FILES: readonly unknown[] = [
@@ -20,4 +23,7 @@ export const MAPPING_FILES: readonly unknown[] = [
 	m6,
 	m7,
 	m8,
+	m9,
+	m10,
+	m11,
 ];

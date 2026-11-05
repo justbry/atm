@@ -24,8 +24,10 @@ import type {
 	BillingDispute,
 	BillingInvoice,
 	BillingRefund,
+	CheckoutSessionFact,
 	GrantResult,
 	GrantsState,
+	InvoiceLine,
 	Menu,
 	StripeEventInput,
 	StripeEventRefusal,
@@ -33,6 +35,10 @@ import type {
 	StripePayout,
 	SubscriptionFact,
 } from "../types.js";
+import {
+	decideBookingRefund,
+	decideCheckoutSession,
+} from "./booking-events.js";
 import { resolveEnv } from "./env.js";
 import {
 	disputeToCommands,
@@ -41,6 +47,7 @@ import {
 	refundToCommands,
 	subscriptionHolder,
 	subscriptionToCommands,
+	tierLinesOfOtherSubscription,
 	ungrantedRecurringAddons,
 } from "./grants.js";
 import {
@@ -48,6 +55,7 @@ import {
 	paymentEvents,
 	payoutEvents,
 	refundEvents,
+	skippedRefundEvents,
 } from "./money.js";
 import {
 	describeNormalizeError,
@@ -194,6 +202,16 @@ const addonOnlyMessage = (
 	return `invoice ${invoice.id} (subscription ${invoice.subscriptionId ?? "none"}) charges for the recurring add-on ${addons}, which atm grants only on the member's tier subscription, and ${why}: nothing was granted or recorded. ${fix}`;
 };
 
+/** Names the invoice, the subscription it is on and the holder's own, and what to change in Stripe. */
+const otherTierMessage = (
+	invoice: BillingInvoice,
+	lines: InvoiceLine[],
+	holderSubscriptionId: string | null,
+): string => {
+	const tiers = [...new Set(lines.map((l) => l.tierId))].join(", ");
+	return `invoice ${invoice.id} (${invoice.reason}) is for subscription ${invoice.subscriptionId ?? "none"} and has a tier line (${tiers}), but this member's tier subscription is ${holderSubscriptionId ?? "none"}: the membership follows one subscription, so nothing was granted or recorded. Cancel the other subscription in Stripe (and refund this invoice if the member should not keep it), or change the member's own subscription instead; re-sending this event gives the same refusal`;
+};
+
 const decide = (
 	target: string,
 	fact: unknown,
@@ -226,6 +244,23 @@ const decide = (
 				};
 			const problem = feeProblem(input.fee, resolved.invoice.amountPaid);
 			if (problem) return { ok: false, refusal: refuse("bad_event", problem) };
+			// A tier line of a subscription that is not the holder's own would refill or move the holder's credits.
+			const otherTier = tierLinesOfOtherSubscription({
+				invoice: resolved.invoice,
+				state: grants,
+			});
+			if (otherTier.length > 0)
+				return {
+					ok: false,
+					refusal: refuse(
+						"tier_on_other_subscription",
+						otherTierMessage(
+							resolved.invoice,
+							otherTier,
+							grants.subscriptionId,
+						),
+					),
+				};
 			// Paid for a recurring add-on that no rule would grant: recording it as decided would charge the member and give
 			// nothing, with no error anywhere.
 			const stranded = ungrantedRecurringAddons({
@@ -254,7 +289,9 @@ const decide = (
 			// Remember that the books hold this payment: a refund takes back only a payment that was booked. `result.state` is
 			// this decision's own copy.
 			const record = result.state.invoices[resolved.invoice.id];
-			if (record && money.length > 0) record.paid = resolved.invoice.amountPaid;
+			// Only a payment line is a payment the books took: the `money.skipped` marker of a non-USD invoice is not one.
+			if (record && money.some((e) => e.event_type === "payment.succeeded"))
+				record.paid = resolved.invoice.amountPaid;
 			return { ok: true, result, reason: "invoice", money };
 		}
 		case "BillingRefund": {
@@ -276,14 +313,13 @@ const decide = (
 				ok: true,
 				result,
 				reason: "refund",
-				money: ours
-					? refundEvents({
-							refund,
-							labels: result.labels,
-							booker: bookerOf(input, holder),
-							holder,
-						})
-					: [],
+				// A refund in another currency is no line either way; a marker says so (it is of a payment the books never held)
+				money: (ours ? refundEvents : skippedRefundEvents)({
+					refund,
+					labels: result.labels,
+					booker: bookerOf(input, holder),
+					holder,
+				}),
 			};
 		}
 		case "BillingDispute": {
@@ -615,6 +651,23 @@ const decideAndRun = (
 	if (target === "StripePayout")
 		return decidePayout(input, fact as StripePayout);
 	const grants = grantsFromRows(input.rows);
+	// A one-time booking payment (its Checkout Session, and the refund of its charge) is decided apart from the invoice rules.
+	if (target === "CheckoutSessionFact")
+		return decideCheckoutSession({
+			input,
+			env,
+			grants,
+			fact: fact as CheckoutSessionFact,
+		});
+	if (target === "BillingRefund") {
+		const booking = decideBookingRefund({
+			input,
+			env,
+			grants,
+			fact: fact as BillingRefund,
+		});
+		if (booking) return booking;
+	}
 	let holder = grants.identity ?? grants.holder;
 	if (!holder && target === "BillingInvoice") {
 		const invoice = fact as BillingInvoice;

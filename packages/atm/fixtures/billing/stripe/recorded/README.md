@@ -96,3 +96,66 @@ Same rules as above, applied by a script: the account-specific tail of every id 
 - In the refund and dispute run, the first delivery of `invoice_payment.paid` answered 409 `unmatched_invoice` for all four families (it beat its `invoice.paid`), and then each refund or dispute answered 409 `unmatched_payment` because the link was not in yet. The same happened to the raise's `invoice_payment.paid` in the gift scenario. Stripe's sandbox retry of a 409 had not fired two minutes later; the events were resent by hand, in order, and then applied. A live-mode retry backs off over up to three days, so how soon a refund lands depends on it.
 - A portal configuration's `products` (and `adjustable_quantity`) is accepted and validated by Stripe but never returned on a read; the hosted portal still enforced 1 to 4.
 - A gift line in a subscription Checkout comes on the first invoice as `quantity 1`, `proration: false`, with a period equal to the first cycle's.
+
+## Discounted invoices (recorded 2026-11-05)
+
+`discount/` holds six real discounted invoices. They settle what the earlier synthetic files (`../synthetic/invoice.paid.discount_15pct.json`, `../synthetic/invoice.paid.discount_100pct.json`) only assumed: **an invoice line's `amount` is GROSS** (price x quantity, before any discount). What a coupon took off is in the line's `discount_amounts`; the invoice's `subtotal` is the sum of its lines' `amount`, `total` is `subtotal` less the discount, and `amount_due` and `amount_paid` follow `total`. atm's reading (`InvoiceLine.discount` and `BillingInvoice.discount` are the sums of `discount_amounts` and `total_discount_amounts`; the grant rules never read them) matches Stripe, so no code changed. `tests/stripe-recorded-discount.test.ts` checks it on these files.
+
+### Provenance
+
+- Same Stripe sandbox (test mode, `livemode: false`; the CLI said `sandbox` and every object had `livemode: false` before anything was created), the Stripe CLI at API `2025-10-29.clover` (`--stripe-version`), 2026-11-05. A script made a product with a monthly 1500 USD price, three coupons (`percent_off` 15, `amount_off` 500 cents, `percent_off` 100, each `duration: forever`), and a test clock per group of customers (a clock holds at most three). Each customer had `pm_card_visa` as its default payment method, so the first invoice paid at once. Four subscriptions of **2** units each were created with `discounts[0][coupon]`: 15%, 500 off, 100%, and a second 15% one for the raise. On the second clock the 15% subscription was raised 2 to 4 ten days into the cycle (`proration_behavior: always_invoice`), then the clock was advanced past the renewal.
+- Every invoice was re-read from the API (`stripe get /v1/invoices/<id>` with `expand[]=payments`) at the pinned version. All the test objects were deleted afterwards (clocks with their customers and subscriptions, the coupons) or archived (the price and the product, which Stripe cannot delete).
+- **Real:** every `data.object`: ids (after scrubbing), amounts, quantities, periods, `discount_amounts`, `total_discount_amounts`, `discountable`, the `payments` list.
+- **Reconstructed:** the event envelope. These are API objects, not webhook deliveries: `id` is invented (`evt_1ScrubDiscount...`), `created` is the invoice's own `created`, `api_version` is the pinned one, `livemode` is `false`, `pending_webhooks` is `0`, `request` is `{id: null, idempotency_key: null}`.
+- **Scrubbed** as above: the account-specific tail of every id became `ScrubTest0`, hosted invoice and PDF links became `example.test` links, `account_name` became `Example Account`, `customer_name` (a probe name) became `Example Customer`. Coupon ids appear nowhere in an invoice (only the discount's `di_...` id does). The probe subscriptions carry `b4u_school: sch_probe` and `family_id: fam_pct15`, `fam_amt500`, `fam_pct100`, `fam_raise`.
+
+### What the real shape is (cents)
+
+| Case | Line `amount` | Line `discount_amounts` | `subtotal` | `total` = `amount_due` = `amount_paid` |
+|---|---|---|---|---|
+| 2 x 1500, 15% off | 3000 | 450 | 3000 | 2550 |
+| 2 x 1500, 500 off | 3000 | 500 | 3000 | 2500 |
+| 2 x 1500, 100% off | 3000 | 3000 | 3000 | 0 (and the invoice has no `payments`) |
+| Raise 2 to 4, 15% coupon | -1700 and 3400 | 0 and 0 | 1700 | 1700 |
+| Renewal at 4 x 1500, 15% coupon | 6000 | 900 | 6000 | 5100 |
+
+Other things the files show:
+
+- A line's own `discounts` list is **empty**; the discount's id is on the invoice's `discounts` (a list of ids) and in each `discount_amounts[].discount`. The line also has `pretax_credit_amounts` (type `discount`) and the invoice `total_pretax_credit_amounts`.
+- A **proration line is not discountable** (`discountable: false`): on the raise invoice the coupon is listed with `amount: 0` on both proration lines and on the invoice, so the proration pair and the amount paid are the same as at full price. The `sum` field type leaves a total of 0 out, so those lines and that invoice carry no `discount` key in the normalized fact. The renewal's tier line is discounted again (900 of 6000).
+- With a 100% coupon the invoice is `paid` with `amount_paid: 0`, and `payments.data` is empty: there was no payment to link. (Nothing in atm needs one: the handler grants from the invoice.)
+- Credits do not depend on the discount: with each discount stripped from a copy (lists emptied, `total` and `amount_paid` at the subtotal), the handler stores the same engine rows and balance for the create (15%, 500 off, 100%), and for the create, raise and renewal chain.
+
+| File | Shows |
+|---|---|
+| `discount/invoice.paid.discount_pct15_create.json` | `subscription_create`, 2 units, 15% coupon |
+| `discount/invoice.paid.discount_amt500_create.json` | the same with a 500-cent `amount_off` coupon |
+| `discount/invoice.paid.discount_pct100_create.json` | the same with a 100% coupon: paid 0 |
+| `discount/invoice.paid.discount_pct15_raise_create.json` | the create of the subscription the raise and the renewal belong to (15%) |
+| `discount/invoice.paid.discount_pct15_raise.json` | the raise 2 to 4 under that coupon: two proration lines, not discounted |
+| `discount/invoice.paid.discount_pct15_cycle.json` | the renewal of that subscription at 4 units: 6000 gross, 900 off |
+
+### The synthetic files
+
+`../synthetic/invoice.paid.discount_15pct.json` and `../synthetic/invoice.paid.discount_100pct.json` are still hand-made (a real invoice with discount fields added). They were right in what they assumed about the amounts; they **differ** from Stripe in giving a line a non-empty `discounts` list, and `tests/billing-codes-discount.test.ts` still uses them for the edge cases the recordings cannot make (several discounts on one line, a coupon on a proration line). The recorded files above are the evidence; do not cite the synthetic ones as Stripe output.
+
+## Booking payments: Checkout Session and refund (added 2026-11-05)
+
+`booking/` holds the events of a one-time payment for a booking (`checkout.session.completed` and `.expired` in payment mode, and the `charge.refunded` of the charge, full and partial), plus one `checkout.session.completed` in subscription mode. `tests/booking-pay-events.test.ts` runs each through `handleStripeEvent`.
+
+### Provenance
+
+- Same Stripe sandbox (test mode, `livemode: false`), 2026-11-05, with the Stripe CLI: `stripe trigger checkout.session.completed` and `checkout.session.expired` (the CLI's own fixtures create a product, a price and a payment-mode session, and confirm it server-side with a test card), with `--add checkout_session:metadata[...]` for `booking_id`, `b4u_school`, `family_id`, `b4u_kind` and `--add checkout_session:payment_intent_data[metadata][booking_id]`; then `stripe refunds create --payment-intent <pi>` (full: 3000) and with `--amount 1000` (partial). The subscription-mode session is the real one the gift scenario above made (a hosted Checkout in a browser).
+- **What is real:** every `data.object` (re-read with `Stripe-Version: 2025-10-29.clover`), with its ids, amounts, `payment_status`, `status`, `mode` and metadata. **Finding:** a payment intent's metadata is copied to its charge, so the `charge.refunded` object carries `metadata.booking_id`; the session's own metadata is not copied to the charge.
+- **What is reconstructed:** the envelope, as in the files above. Stripe stored the events at the account's default API version (`2022-11-15`), so `api_version` is set to `2025-10-29.clover` and the object is the re-read one; `id`, `created`, `type` and `livemode` are the stored event's. `charge.refunded` keeps the stored event's `data.previous_attributes` (its `receipt_url` scrubbed).
+- **What is NOT the real flow:** these sessions were made by the CLI's fixtures, not by `bookingCheckoutParams`. They have the fixture's own price line (3000 USD, not an inline `price_data`), no `client_reference_id`, and the charge carries `booking_id` only (the fixtures put no other key on the payment intent). A session made by `bookingCheckoutParams` gives its payment intent the same metadata as the session, so its charge should carry all of it, but that was not recorded. The sandbox delivered no `checkout.session.async_payment_succeeded`: it is not recorded, and the test that uses one builds it from a recorded `completed` event and is named `unverified fixture`.
+- **Scrubbing:** as above (`ScrubTest0`, `acct_Scrubbed`, links to `https://example.test/<host>`, fixed words for fingerprint, authorization code, network transaction id, idempotency key, emails and names), plus the session ids (`cs_test_ScrubSession<n>`, in order of first appearance), the account's display name, its statement descriptor, and the CLI fixture's sample customer address.
+
+| File | Shows |
+|---|---|
+| `booking/checkout.session.completed.json` | A paid payment-mode session: `mode: payment`, `status: complete`, `payment_status: paid`, `payment_intent`, `amount_total`, `currency`, our metadata (booking `bk_trig1`). |
+| `booking/checkout.session.completed.second.json` | Another one (booking `bk_trig2`), the partly refunded one. |
+| `booking/checkout.session.expired.json` | The session expired unpaid: `status: expired`, `payment_status: unpaid`, `payment_intent: null`. |
+| `booking/checkout.session.completed.subscription.json` | A subscription-mode session, which atm must not decide on (the invoice does). |
+| `booking/charge.refunded.full.json` | The full refund of `bk_trig1`'s charge: `refunded: true`, `amount_refunded` 3000, `metadata.booking_id`. |
+| `booking/charge.refunded.partial.json` | A partial refund (1000 of 3000) of `bk_trig2`'s charge: `refunded: false`. |

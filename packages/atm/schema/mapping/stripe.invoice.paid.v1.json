@@ -38,6 +38,12 @@
 			"path": "$.data.object.amount_paid",
 			"type": "int"
 		},
+		"discount": {
+			"path": "$.data.object.total_discount_amounts",
+			"type": "sum",
+			"each": "$.amount",
+			"optional": true
+		},
 		"paidAt": {
 			"path": "$.data.object.status_transitions.paid_at",
 			"type": "seconds"
@@ -105,6 +111,12 @@
 			"amount": {
 				"path": "$.amount",
 				"type": "int"
+			},
+			"discount": {
+				"path": "$.discount_amounts",
+				"type": "sum",
+				"each": "$.amount",
+				"optional": true
 			},
 			"periodStart": {
 				"path": "$.period.start",
