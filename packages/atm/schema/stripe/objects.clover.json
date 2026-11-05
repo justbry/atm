@@ -127,6 +127,51 @@
 			"required": ["enabled"],
 			"type": "object"
 		},
+		"balance_transaction": {
+			"properties": {
+				"amount": { "type": "integer" },
+				"available_on": { "format": "unix-time", "type": "integer" },
+				"balance_type": { "maxLength": 5000, "type": "string" },
+				"created": { "format": "unix-time", "type": "integer" },
+				"currency": { "format": "currency", "type": "string" },
+				"description": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"exchange_rate": {
+					"anyOf": [{ "type": "number" }, { "type": "null" }]
+				},
+				"fee": { "type": "integer" },
+				"fee_details": { "items": {}, "type": "array" },
+				"id": { "maxLength": 5000, "type": "string" },
+				"net": { "type": "integer" },
+				"object": { "enum": ["balance_transaction"], "type": "string" },
+				"reporting_category": { "maxLength": 5000, "type": "string" },
+				"source": {
+					"anyOf": [
+						{ "maxLength": 5000, "type": "string" },
+						{},
+						{ "type": "null" }
+					]
+				},
+				"status": { "maxLength": 5000, "type": "string" },
+				"type": { "maxLength": 5000, "type": "string" }
+			},
+			"required": [
+				"amount",
+				"available_on",
+				"created",
+				"currency",
+				"fee",
+				"fee_details",
+				"id",
+				"net",
+				"object",
+				"reporting_category",
+				"status",
+				"type"
+			],
+			"type": "object"
+		},
 		"billing_bill_resource_invoicing_lines_common_credited_items": {
 			"properties": {
 				"invoice": { "maxLength": 5000, "type": "string" },
@@ -1840,7 +1885,10 @@
 		"dispute": {
 			"properties": {
 				"amount": { "type": "integer" },
-				"balance_transactions": { "items": {}, "type": "array" },
+				"balance_transactions": {
+					"items": { "$ref": "#/$defs/balance_transaction" },
+					"type": "array"
+				},
 				"charge": {
 					"anyOf": [
 						{ "maxLength": 5000, "type": "string" },

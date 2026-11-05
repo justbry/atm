@@ -143,6 +143,21 @@ export const disputeEvent = (e: {
 	invoiceId: string | null;
 	status: "needs_response" | "won" | "lost";
 	at: number;
+	/** When the dispute was opened (ms), its own `created`; the event's time when absent. A closing event comes later. */
+	openedAt?: number;
+	/** The disputed amount (the template's 26000 when absent). */
+	amount?: number;
+	/**
+	 * What Stripe took from the balance when the dispute opened, as the recorded events carry it in the dispute's own
+	 * `balance_transactions`: the amount withdrawn (negative) and the dispute fee in `fee`. Absent: an inquiry, an empty list.
+	 */
+	withdrawal?: { fee: number };
+	/** A won dispute: Stripe adds the reversal of the amount, with a fee of 0 (the recorded `dispute-won` events). */
+	reversed?: boolean;
+	/** When the withdrawal was made (ms), its `created`; the dispute's `created` when absent (recorded: the same second or one later). */
+	withdrawnAt?: number;
+	/** When the reversal was made (ms); the event's time when absent (recorded: the second before the event). */
+	reversedAt?: number;
 }): RawEvent => {
 	const event = template(
 		e.type === "charge.dispute.closed"
@@ -157,6 +172,63 @@ export const disputeEvent = (e: {
 	dispute.charge = e.chargeId;
 	dispute.payment_intent = e.invoiceId ? paymentIntentOf(e.invoiceId) : null;
 	dispute.status = e.status;
+	dispute.created = seconds(e.openedAt ?? e.at);
+	if (e.amount !== undefined) dispute.amount = e.amount;
+	const transaction = (
+		id: string,
+		amount: number,
+		fee: number,
+		at: number,
+	) => ({
+		id,
+		object: "balance_transaction",
+		amount,
+		available_on: seconds(e.at) + 345_600,
+		balance_type: "payments",
+		created: at,
+		currency: "usd",
+		description: `Chargeback ${amount < 0 ? "withdrawal" : "reversal"} for ${e.chargeId}`,
+		exchange_rate: null,
+		fee,
+		fee_details:
+			fee === 0
+				? []
+				: [
+						{
+							amount: fee,
+							application: null,
+							currency: "usd",
+							description: "Dispute fee",
+							type: "stripe_fee",
+						},
+					],
+		net: amount - fee,
+		reporting_category: amount < 0 ? "dispute" : "dispute_reversal",
+		source: e.disputeId,
+		status: "pending",
+		type: "adjustment",
+	});
+	if (e.withdrawal) {
+		const transactions = [
+			transaction(
+				`txn_${e.disputeId}`,
+				-dispute.amount,
+				e.withdrawal.fee,
+				seconds(e.withdrawnAt ?? e.openedAt ?? e.at),
+			),
+		];
+		if (e.reversed)
+			transactions.push(
+				transaction(
+					`txn_${e.disputeId}_won`,
+					dispute.amount,
+					0,
+					seconds(e.reversedAt ?? e.at),
+				),
+			);
+		dispute.balance_transaction = transactions[0]?.id;
+		dispute.balance_transactions = transactions;
+	}
 	return event;
 };
 

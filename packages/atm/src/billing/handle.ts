@@ -51,6 +51,7 @@ import {
 	ungrantedRecurringAddons,
 } from "./grants.js";
 import {
+	disputeEvents,
 	feeProblem,
 	paymentEvents,
 	payoutEvents,
@@ -330,11 +331,26 @@ const decide = (
 				grants,
 			);
 			if (unlinked) return { ok: false, refusal: unlinked };
+			// As for a refund, only a payment the books hold is the school's money.
+			const ours =
+				dispute.invoiceId != null &&
+				grants.invoices[dispute.invoiceId]?.paid !== undefined;
+			const result = disputeToCommands({ ...common, dispute });
 			return {
 				ok: true,
-				result: disputeToCommands({ ...common, dispute }),
+				result,
 				reason: "dispute lost",
-				money: [],
+				money: ours
+					? disputeEvents({
+							dispute,
+							closing:
+								(input.event as { type?: unknown }).type ===
+								"charge.dispute.closed",
+							labels: result.labels,
+							booker: bookerOf(input, holder),
+							holder,
+						})
+					: [],
 			};
 		}
 		case "SubscriptionFact": {

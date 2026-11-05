@@ -353,6 +353,9 @@ describe("fixtures normalize to their facts", () => {
 			chargeId: "ch_SYNTH_0002",
 			status: "open",
 			at: 1793600000000,
+			amount: 26000,
+			currency: "usd",
+			openedAt: 1793600000000,
 		});
 	});
 

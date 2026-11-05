@@ -247,6 +247,10 @@ describe("recorded Stripe payloads (2025-10-29.clover)", () => {
 			paymentIntentId: event.data.object.payment_intent,
 			status: "open",
 			at: event.created * 1000,
+			// an inquiry: the dispute's balance_transactions is empty, so nothing was withdrawn and there is no fee
+			amount: 100,
+			currency: "usd",
+			openedAt: event.data.object.created * 1000,
 		});
 		expect(event.data.object.status).toBe("warning_needs_response");
 	});
