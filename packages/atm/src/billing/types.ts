@@ -27,6 +27,7 @@ export type {
 	Interval,
 	InvoiceGrantInput,
 	InvoiceLine,
+	InvoicePaymentFact,
 	InvoiceRecord,
 	LineItem,
 	Mapping,

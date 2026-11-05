@@ -6,7 +6,8 @@
 		"invoice": "invoice",
 		"charge": "charge",
 		"dispute": "dispute",
-		"subscription": "subscription"
+		"subscription": "subscription",
+		"invoice_payment": "invoice_payment"
 	},
 	"$defs": {
 		"address": {
@@ -1525,7 +1526,10 @@
 				"payment_settings": { "$ref": "#/$defs/invoices_payment_settings" },
 				"payments": {
 					"properties": {
-						"data": { "items": {}, "type": "array" },
+						"data": {
+							"items": { "$ref": "#/$defs/invoice_payment" },
+							"type": "array"
+						},
 						"has_more": { "type": "boolean" },
 						"object": { "enum": ["list"], "type": "string" },
 						"url": { "maxLength": 5000, "type": "string" }
@@ -1704,6 +1708,46 @@
 					"anyOf": [{ "maxLength": 200, "type": "string" }, { "type": "null" }]
 				}
 			},
+			"type": "object"
+		},
+		"invoice_payment": {
+			"properties": {
+				"amount_paid": { "anyOf": [{ "type": "integer" }, { "type": "null" }] },
+				"amount_requested": { "type": "integer" },
+				"created": { "format": "unix-time", "type": "integer" },
+				"currency": { "maxLength": 5000, "type": "string" },
+				"id": { "maxLength": 5000, "type": "string" },
+				"invoice": {
+					"anyOf": [
+						{ "maxLength": 5000, "type": "string" },
+						{ "$ref": "#/$defs/invoice" },
+						{}
+					]
+				},
+				"is_default": { "type": "boolean" },
+				"livemode": { "type": "boolean" },
+				"object": { "enum": ["invoice_payment"], "type": "string" },
+				"payment": {
+					"$ref": "#/$defs/invoices_payments_invoice_payment_associated_payment"
+				},
+				"status": { "maxLength": 5000, "type": "string" },
+				"status_transitions": {
+					"$ref": "#/$defs/invoices_payments_invoice_payment_status_transitions"
+				}
+			},
+			"required": [
+				"amount_requested",
+				"created",
+				"currency",
+				"id",
+				"invoice",
+				"is_default",
+				"livemode",
+				"object",
+				"payment",
+				"status",
+				"status_transitions"
+			],
 			"type": "object"
 		},
 		"invoice_payment_method_options_acss_debit": {
@@ -2012,6 +2056,42 @@
 							},
 							"type": "array"
 						},
+						{ "type": "null" }
+					]
+				}
+			},
+			"type": "object"
+		},
+		"invoices_payments_invoice_payment_associated_payment": {
+			"properties": {
+				"charge": {
+					"anyOf": [
+						{ "maxLength": 5000, "type": "string" },
+						{ "$ref": "#/$defs/charge" }
+					]
+				},
+				"payment_intent": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, {}]
+				},
+				"payment_record": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, {}]
+				},
+				"type": { "enum": ["charge", "payment_intent"], "type": "string" }
+			},
+			"required": ["type"],
+			"type": "object"
+		},
+		"invoices_payments_invoice_payment_status_transitions": {
+			"properties": {
+				"canceled_at": {
+					"anyOf": [
+						{ "format": "unix-time", "type": "integer" },
+						{ "type": "null" }
+					]
+				},
+				"paid_at": {
+					"anyOf": [
+						{ "format": "unix-time", "type": "integer" },
 						{ "type": "null" }
 					]
 				}

@@ -463,6 +463,24 @@ export type BillingDispute = {
 };
 
 /**
+ * What an `invoice_payment.paid` event says: this invoice was paid by this payment intent (or, for a payment that has
+ * no intent, this charge). It is the only place API 2025-10-29.clover links a payment to its invoice, since neither the
+ * charge nor the webhook's invoice names the other. Not a billing rule's input: the webhook handler records the link
+ * so a later refund or dispute finds its invoice.
+ */
+export type InvoicePaymentFact = {
+	source: FactSource;
+	/** Identifies the EVENT (`evt_…`), as on `BillingRefund`; the invoice payment's own id (`inpay_…`) is not kept. */
+	id: string;
+	invoiceId: string;
+	/** Set when the payment's `type` is `payment_intent`. */
+	paymentIntentId: string | null;
+	/** Set when the payment's `type` is `charge` (a charge that has no payment intent); else null. */
+	chargeId: string | null;
+	at: number;
+};
+
+/**
  * One item of a subscription: the tier's price or a recurring add-on's. The menu names what it is, by the price's
  * lookup key, else by its id (`resolveSubscriptionPlan`): the subscription's metadata is written once at checkout and
  * goes stale when the plan changes in the billing portal.
@@ -782,7 +800,8 @@ export type MappingTarget =
 	| "BillingInvoice"
 	| "BillingRefund"
 	| "BillingDispute"
-	| "SubscriptionFact";
+	| "SubscriptionFact"
+	| "InvoicePaymentFact";
 
 /** A declarative mapping: one Stripe event type at one API version, and where each fact field sits in the raw JSON. */
 export type Mapping = {
@@ -803,7 +822,8 @@ export type BillingFact =
 	| BillingInvoice
 	| BillingRefund
 	| BillingDispute
-	| SubscriptionFact;
+	| SubscriptionFact
+	| InvoicePaymentFact;
 
 export type NormalizeError =
 	| { kind: "missing_path"; field: string; path: string }
@@ -1061,4 +1081,117 @@ export type R2StoreOptions = {
 	maxTries?: number;
 	/** Per request, default 30_000. */
 	timeoutMs?: number;
+};
+
+/** A value SQLite binds. */
+export type SqlValue = string | number | null;
+
+/**
+ * The smallest synchronous SQL surface the handler needs. bun:sqlite, node:sqlite and better-sqlite3 each satisfy it
+ * with a few lines (see `bun-sqlite.ts`). Parameters are positional (`?`).
+ */
+export interface SqlDatabase {
+	/** Runs one or more statements without parameters (the DDL). */
+	exec(sql: string): void;
+	all<T = Record<string, unknown>>(
+		sql: string,
+		params?: readonly SqlValue[],
+	): T[];
+	run(sql: string, params?: readonly SqlValue[]): { changes: number };
+	/**
+	 * Runs `fn` in one transaction: commit when it returns, roll back and rethrow when it throws. Should take the
+	 * write lock up front (`BEGIN IMMEDIATE`) so that a read in `fn` cannot be overtaken by another writer.
+	 */
+	transaction<T>(fn: () => T): T;
+}
+
+export type SignatureFailure = "malformed" | "stale_timestamp" | "no_match";
+
+export type SignatureVerdict =
+	| { ok: true }
+	| { ok: false; reason: SignatureFailure };
+
+export type VerifySignatureInput = {
+	/** The raw request body, byte for byte as Stripe sent it. */
+	payload: string;
+	/** The `Stripe-Signature` header: `t=<unix seconds>,v1=<hex>[,v1=<hex>...]`. */
+	header: string;
+	/** The endpoint's signing secret (`whsec_...`). */
+	secret: string;
+	nowMs: number;
+	/** How far the signed timestamp may be from `nowMs`, either way. Default 300. */
+	toleranceSeconds?: number;
+};
+
+/** What the handler needs to know about a school to decide its events. */
+export type WebhookContext = {
+	menu: Menu;
+	menuVersion: number | string;
+	policy: BillingPolicy;
+	policyVersion: number | string;
+	/** The engine catalog rows from `menuCatalogRows` for this menu. */
+	catalog: readonly AtmCatalogRow[];
+	/** Stripe price ids by lookup key, from publishing the menu. */
+	priceIds?: Readonly<Record<string, string>>;
+};
+
+export type WebhookDeps = {
+	db: SqlDatabase;
+	/** The endpoint's signing secret. */
+	secret: string;
+	nowMs: () => number;
+	/** Names this worker in `atm_event_claims.claimed_by`. */
+	workerId: string;
+	/** A claim older than this is taken over. Default 300_000. */
+	claimStaleAfterMs?: number;
+	/**
+	 * The school's menu, policy and catalog; null when this service does not serve the school. Called once per attempt,
+	 * inside the transaction, so a throw here leaves nothing written.
+	 */
+	context: (schoolId: string) => WebhookContext | null;
+	/**
+	 * Optional, and not needed: the handler learns which payment paid which invoice from the `invoice_payment.paid`
+	 * event (subscribe the endpoint to it), and a refund or dispute finds its invoice through that link.
+	 *
+	 * An extra source for the same link: the payment intent and charge ids an `invoice.paid` event paid with, recorded
+	 * when the invoice is applied (use it when the caller can read them elsewhere, say from the expanded invoice or its
+	 * own records). Without `invoice_payment.paid` and without this, a refund or dispute answers 409
+	 * `unmatched_payment` until Stripe gives up.
+	 */
+	paymentRefs?: (event: unknown) => readonly string[];
+};
+
+export type WebhookRequest = {
+	/** The raw body, as received. Do not parse and re-serialize it before this. */
+	payload: string;
+	/** The `Stripe-Signature` header. */
+	signatureHeader: string;
+};
+
+export type WebhookOutcome =
+	| "applied"
+	| "duplicate"
+	| "ignored"
+	| "busy"
+	| "bad_signature"
+	| "bad_request"
+	| "unmatched_payment"
+	| "unmatched_invoice"
+	| "unknown_school"
+	| "stale_revision"
+	| "refused";
+
+export type WebhookResponse = {
+	status: number;
+	body: {
+		outcome: WebhookOutcome;
+		/** The Stripe event id, when the body parsed as an event. */
+		stripeEventId?: string;
+		/** `refused`: the reason from `handleStripeEvent`; `bad_signature`: why it failed. */
+		reason?: string;
+		message?: string;
+		/** `applied`: how many events went to the outbox and whether rows changed. */
+		events?: number;
+		wroteRows?: boolean;
+	};
 };
