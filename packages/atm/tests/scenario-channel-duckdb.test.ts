@@ -76,9 +76,9 @@ describe.skipIf(!hasDuckdb)("the DuckDB channel", () => {
 				expect(
 					duck.some((r) => r.kpiId === "gross_collected" && r.value > 0),
 				).toBe(true);
-				expect(duck.some((r) => r.kpiId === "new_members" && r.value > 0)).toBe(
-					true,
-				);
+				expect(
+					duck.some((r) => r.kpiId === "new_paying_members" && r.value > 0),
+				).toBe(true);
 				expect(baseIds.size).toBeGreaterThan(10);
 			});
 		});
@@ -150,7 +150,7 @@ describe.skipIf(!hasDuckdb)("the KPI Parquet file", () => {
 		{ kpiId: "gross_collected", period: "2026-02", value: 4200, unit: "cents" },
 		{ kpiId: "gross_collected", period: "2026-01", value: 1999, unit: "cents" },
 		{
-			kpiId: "active_members_by_tier:sparkle-2",
+			kpiId: "revenue_by_tier:sparkle-2",
 			period: "2026-01",
 			value: 3,
 			unit: "count",
