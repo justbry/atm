@@ -10,6 +10,15 @@ Newest first. The version history before 0.3.0 and what a caller has to change f
 
   **How each was checked:** every PR above was merged on local gates (tests with `--timeout 60000`, `tsc`, Biome, the build, `knip`), run on the head and again on the tree with `dev` merged in; the inherited Autumn workflows never ran. The atm workflow ran on #43's head (`ea198874c`, run 42067266463, ubuntu-latest): hledger 1.52.1 installed with a matching sha256, 1061 pass, 51 skip, 0 fail, and the three `hledger agrees` tests passed (none skipped). Locally, on the merged tree of each: #41 1090 pass, #42 1094, #49 1124, #46 1138, #47 1166, #48 1223 (50 skipped, 0 failed in each). #41 to #49 had not run in CI when merged; `dev`'s own runs are the first. The skips are the staging R2 and SeaweedFS contract suites and the DuckDB DDL test (no credentials, no `weed`, no `duckdb`). Four of them (#46 to #49) were each reviewed with a high-effort pass that found and fixed real bugs before the merge.
 
+## Unreleased
+
+On `dev` after `atm-v0.9.0`, not released. (#87 first landed in this file inside the 0.9.0 table, because its branch was merged after the 0.9.0 notes were rewritten; the tag `atm-v0.9.0` (`85c995cb2`) is from before #87, so its row is here.)
+
+| PR | Merge commit | What |
+|---|---|---|
+| #87 | `790201659` | a paid invoice refused after the claim (`unmatched_line`, `tier_on_other_subscription`, `addon_only_subscription`, `rejected`) is still answered 422, and now books its `payment.succeeded` as the claim is released (once: the retry that applies makes the same idem); `StripeEventRefusal` gains `payment` |
+| #88 | `41f75b355` | docs only: an addendum to the stored-inputs design: booking events are stored too (`docs/simulate-from-inputs.md`) |
+
 ## 0.9.0
 
 **Release 0.9.0**: B4 Uni's revenue share in the ledger, and money lines for a paid booking. Tag `atm-v0.9.0` at `85c995cb2` (2026-11-05; the merge of #91 on `dev`). Tarball `https://github.com/justbry/atm/releases/download/atm-v0.9.0/atm-0.9.0.tgz`, sha256 `7d6a1e2be85d6ae8dbb1f311de39fdd86e8cd90c2988dc0f21bd9f39b1403335`, sha512 `sha512-9dZZxb8oFxjMivJjIZYeyqxQn0gMsQ6VEZhrD/ClPvX9S3fBl2ees5iBD0bNj2dIGTgeIsujcr+7CKBouSBlfA==` (checked by downloading the published asset; built with bun 1.4.4; a second pack of the same commit gave the same bytes). #91 is the release PR (version bump and notes). What a caller has to change: `UPGRADING.md`, "Moving to 0.9.0 from 0.8.0". Stripe Connect fees (taking the share out of the transaction) are a later item in `ROADMAP.md`.
@@ -21,7 +30,6 @@ Everything on `dev` after the `atm-v0.8.0` tag (`6e0dbaf75`):
 | PR | Merge commit | What |
 |---|---|---|
 | #77 | `534a55f52` | a non-USD dispute that moved money is answered 200 `non_usd` and leaves a `money.skipped` marker (`kind: "dispute"`) |
-| #87 | `pending` | a paid invoice refused after the claim (`unmatched_line`, `tier_on_other_subscription`, `addon_only_subscription`, `rejected`) is still answered 422, and now books its `payment.succeeded` as the claim is released (once: the retry that applies makes the same idem); `StripeEventRefusal` gains `payment` |
 | #72 | `d186b73fc` | an end-to-end reconciliation matrix (tests and `docs/e2e-reconciliation.md` only, no source change): each case runs the handler, journal and `atm reconcile` against hand-computed numbers, and records six open discrepancies, D1 to D6 |
 | #82 | `02ee67891` | docs: the revenue-share design (a per-school percentage of what is collected, ledger first, invoiced after) and Stripe Connect fees as a later item |
 | #65 | `21641e901` | docs: the design for simulating the grant rules from stored Stripe inputs (no code) |
