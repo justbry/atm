@@ -70,6 +70,7 @@ A studio sells one tier at several counts (Vibes of Light: Shine at 1, 2 or 4 se
 - **Credits.** Create and renewal grant the per-unit allowance times the tier line's quantity (a yearly payment on a monthly grant: times 12). A raise on the same tier grants the extra units, prorated per `policy.upgradeGrant`; a decrease grants nothing and takes effect at the renewal. Rollover `max` scales with the quantity, and the engine has one cap per row, so after a decrease the carry-over cap follows the lower count.
 - **The family service must:** make a raise with `proration_behavior: "always_invoice"` (otherwise Stripe bills it at the renewal and nothing is granted until then); schedule a decrease for the renewal; and read `quantity` from the subscription item, not from metadata.
 - A tier change and a quantity change in one update grant `newAmount x newQuantity - oldAmount x oldQuantity`, not below 0. This case is not checked against real payloads.
+- **A raise on a yearly plan grants too** (it does not grant 0). A monthly grant on a yearly plan counts 12 per unit, so the extra units carry a year of it, prorated per `policy.upgradeGrant` by the share of the year left (2 -> 4 of a 2-a-month tier, ten days in: 2 x 12 x 2 = 48, x 355/365, rounded up: 47; `full` 48; `none` 0). A yearly grant on a monthly plan (a retreat a year) grants nothing at a raise: its next refill is already at the new count. Only synthetic fixtures pin this; no real yearly raise payload has been recorded.
 
 ### Storage
 
