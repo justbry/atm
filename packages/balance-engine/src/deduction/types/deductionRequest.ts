@@ -1,3 +1,4 @@
+// Modified by justbry/atm: opt-in expiry-first draw order (org.config.deduction_order).
 import type {
 	CusProductStatus,
 	CustomerEntitlementFilters,
@@ -25,6 +26,8 @@ export type DeductionSelection = {
 	inStatuses: CusProductStatus[];
 	/** The org's `reverse_deduction_order`. */
 	reverseOrder: boolean;
+	/** The org's `deduction_order: "expiry"`: among peer `included` rows, soonest-lapsing first, then oldest grant. Absent and "engine" keep the engine's order. */
+	expiryFirst?: boolean;
 	/** Past-due products stop funding: the org blocks overdue usage and this request honours it (a check does, a track does not). */
 	blocksOverdue: boolean;
 };

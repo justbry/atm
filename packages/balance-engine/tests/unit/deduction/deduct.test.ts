@@ -1,8 +1,11 @@
+// Modified by justbry/atm: tests for the opt-in expiry-first draw order (org.config.deduction_order).
 import { describe, expect, test } from "bun:test";
 import {
+	AllowanceType,
 	BillingInterval,
 	BillWhen,
 	CusProductStatus,
+	FeatureType,
 	PriceType,
 } from "@autumn/shared";
 import type {
@@ -11,6 +14,7 @@ import type {
 } from "../../../src/balanceEngine.js";
 import {
 	createSubjectState,
+	parseTrackCommand,
 	subjectStateToFullSubject,
 } from "../../../src/balanceEngine.js";
 import { deduct } from "../../../src/deduction/deduct.js";
@@ -19,6 +23,8 @@ import {
 	createCustomerEntitlement,
 	createCustomerProduct,
 	createSubjectFor,
+	createTrackCommand,
+	entity,
 	identity,
 	occurredAt,
 	org,
@@ -224,6 +230,442 @@ describe("deduct", () => {
 			expect(drainedFirst({ reverse: true })).toEqual(["lifetime"]);
 		},
 	);
+
+	describe("deduction_order", () => {
+		const drainedFirstUnder = ({
+			deductionOrder,
+			customerEntitlements,
+			rollovers,
+		}: {
+			deductionOrder?: "expiry" | "engine";
+			customerEntitlements: ReturnType<typeof createCustomerEntitlement>[];
+			rollovers?: NonNullable<Parameters<typeof deductFrom>[0]["rollovers"]>;
+		}) =>
+			deductFrom({
+				customerEntitlements,
+				rollovers,
+				value: 5,
+				orgConfig: { ...org.config, deduction_order: deductionOrder },
+			}).deltas.map((delta) => delta.id);
+
+		const resettingRow = ({
+			resetsAt,
+			createdAt = occurredAt,
+		}: {
+			resetsAt: number;
+			createdAt?: number;
+		}) => ({
+			...createCustomerEntitlement({ id: "resetting", balance: 10 }),
+			next_reset_at: resetsAt,
+			created_at: createdAt,
+		});
+		const oneOffRow = ({
+			expiresAt,
+			createdAt = occurredAt,
+		}: {
+			expiresAt: number | null;
+			createdAt?: number;
+		}) => ({
+			...createCustomerEntitlement({ id: "one_off", balance: 10 }),
+			expires_at: expiresAt,
+			created_at: createdAt,
+		});
+
+		test.concurrent(
+			"absent and engine keep the engine's order: the resetting row drains first",
+			() => {
+				const customerEntitlements = [
+					oneOffRow({ expiresAt: occurredAt + 500 }),
+					resettingRow({ resetsAt: occurredAt + 1000 }),
+				];
+
+				for (const deductionOrder of [undefined, "engine" as const]) {
+					expect(
+						drainedFirstUnder({ deductionOrder, customerEntitlements }),
+					).toEqual(["resetting"]);
+				}
+			},
+		);
+
+		test.concurrent(
+			"expiry: a one-off row expiring before the resetting row's reset drains first",
+			() => {
+				expect(
+					drainedFirstUnder({
+						deductionOrder: "expiry",
+						customerEntitlements: [
+							resettingRow({ resetsAt: occurredAt + 1000 }),
+							oneOffRow({ expiresAt: occurredAt + 500 }),
+						],
+					}),
+				).toEqual(["one_off"]);
+			},
+		);
+
+		test.concurrent(
+			"expiry: of two resetting rows, the sooner reset drains first even though the engine ranks the older grant first",
+			() => {
+				const resetting = ({
+					id,
+					resetsAt,
+					createdAt,
+				}: {
+					id: string;
+					resetsAt: number;
+					createdAt: number;
+				}) => ({
+					...createCustomerEntitlement({ id, balance: 10 }),
+					next_reset_at: resetsAt,
+					created_at: createdAt,
+				});
+				const customerEntitlements = [
+					resetting({
+						id: "older_later_reset",
+						resetsAt: occurredAt + 1000,
+						createdAt: occurredAt,
+					}),
+					resetting({
+						id: "newer_sooner_reset",
+						resetsAt: occurredAt + 500,
+						createdAt: occurredAt + 1,
+					}),
+				];
+
+				expect(
+					drainedFirstUnder({
+						deductionOrder: "engine",
+						customerEntitlements,
+					}),
+				).toEqual(["older_later_reset"]);
+				expect(
+					drainedFirstUnder({
+						deductionOrder: "expiry",
+						customerEntitlements,
+					}),
+				).toEqual(["newer_sooner_reset"]);
+			},
+		);
+
+		test.concurrent(
+			"expiry: equal lapse times drain the oldest grant first",
+			() => {
+				expect(
+					drainedFirstUnder({
+						deductionOrder: "expiry",
+						customerEntitlements: [
+							resettingRow({
+								resetsAt: occurredAt + 500,
+								createdAt: occurredAt + 2,
+							}),
+							oneOffRow({
+								expiresAt: occurredAt + 500,
+								createdAt: occurredAt + 1,
+							}),
+						],
+					}),
+				).toEqual(["one_off"]);
+			},
+		);
+
+		test.concurrent("expiry: a row that never lapses drains last", () => {
+			expect(
+				drainedFirstUnder({
+					deductionOrder: "expiry",
+					customerEntitlements: [
+						oneOffRow({ expiresAt: null, createdAt: occurredAt }),
+						resettingRow({
+							resetsAt: occurredAt + 5000,
+							createdAt: occurredAt + 1,
+						}),
+					],
+				}),
+			).toEqual(["resetting"]);
+		});
+
+		test.concurrent("expiry: an unlimited row still comes first", () => {
+			expect(
+				drainedFirstUnder({
+					deductionOrder: "expiry",
+					customerEntitlements: [
+						oneOffRow({ expiresAt: occurredAt + 500 }),
+						{
+							...createCustomerEntitlement({ id: "infinite", balance: 0 }),
+							unlimited: true,
+							created_at: occurredAt + 9,
+						},
+					],
+				}),
+			).toEqual(["infinite"]);
+		});
+
+		test.concurrent(
+			"expiry: rollovers still drain before included rows",
+			() => {
+				const drained = drainedFirstUnder({
+					deductionOrder: "expiry",
+					customerEntitlements: [
+						oneOffRow({ expiresAt: occurredAt + 500 }),
+						resettingRow({ resetsAt: occurredAt + 1000 }),
+					],
+					rollovers: [
+						{
+							id: "rollover_1",
+							cus_ent_id: "resetting",
+							balance: 10,
+							usage: 0,
+							expires_at: occurredAt + 9000,
+						},
+					],
+				});
+
+				expect(drained).toEqual(["rollover_1"]);
+			},
+		);
+
+		/** The same drain as `drainedFirstUnder`, over a catalog the test shapes and an optional entity in play. */
+		const drainedFirstOverCatalog = ({
+			customerEntitlements,
+			shapeCatalog,
+			underEntity = false,
+		}: {
+			customerEntitlements: ReturnType<typeof createCustomerEntitlement>[];
+			shapeCatalog: (catalog: ReturnType<typeof createCatalogFor>) => void;
+			underEntity?: boolean;
+		}) => {
+			const state = createSubjectState({
+				identity: underEntity ? { ...identity, entityId: entity.id } : identity,
+				customerProducts: [createCustomerProduct()],
+				customerEntitlements,
+				entity: underEntity ? entity : null,
+			});
+			const catalog = createCatalogFor({ state });
+			shapeCatalog(catalog);
+			return deduct({
+				fullSubject: subjectStateToFullSubject({
+					state,
+					catalog,
+					entityId: underEntity ? entity.id : null,
+				}),
+				request: createDeductionRequest({
+					org: { config: { ...org.config, deduction_order: "expiry" } },
+					value: 5,
+				}),
+			}).deltas.map((delta) => delta.id);
+		};
+		const doNotShapeCatalog = () => {};
+
+		test.concurrent(
+			"expiry: never moves an entity-level row past a customer-level one",
+			() => {
+				// Tracking under an entity, the engine draws entity-level rows first; the customer-level row lapses sooner.
+				expect(
+					drainedFirstOverCatalog({
+						underEntity: true,
+						shapeCatalog: doNotShapeCatalog,
+						customerEntitlements: [
+							{
+								...resettingRow({ resetsAt: occurredAt + 500 }),
+								id: "customer_level",
+							},
+							{
+								...resettingRow({ resetsAt: occurredAt + 1000 }),
+								id: "entity_level",
+								internal_entity_id: entity.internal_id,
+							},
+						],
+					}),
+				).toEqual(["entity_level"]);
+			},
+		);
+
+		test.concurrent(
+			"expiry: never moves a credit-system row past a direct feature row",
+			() => {
+				// The engine draws the feature's own rows before the credit system's; the credit row lapses sooner.
+				expect(
+					drainedFirstOverCatalog({
+						shapeCatalog: (catalog) => {
+							const credits = catalog.features.feat_credits;
+							if (!credits) throw new Error("credits feature row missing");
+							credits.type = FeatureType.CreditSystem;
+							credits.config = {
+								schema: [
+									{
+										metered_feature_id: "messages",
+										feature_amount: 1,
+										credit_amount: 1,
+									},
+								],
+							};
+						},
+						customerEntitlements: [
+							{
+								...createCustomerEntitlement({
+									id: "credit_row",
+									featureId: "credits",
+									balance: 10,
+								}),
+								next_reset_at: occurredAt + 500,
+							},
+							{
+								...createCustomerEntitlement({ id: "direct_row", balance: 10 }),
+								next_reset_at: occurredAt + 1000,
+							},
+						],
+					}),
+				).toEqual(["direct_row"]);
+			},
+		);
+
+		test.concurrent(
+			"expiry: never moves a row flagged unlimited past a limited one",
+			() => {
+				expect(
+					drainedFirstOverCatalog({
+						shapeCatalog: doNotShapeCatalog,
+						customerEntitlements: [
+							oneOffRow({ expiresAt: occurredAt + 500 }),
+							{
+								...createCustomerEntitlement({ id: "flagged", balance: 0 }),
+								unlimited: true,
+								expires_at: occurredAt + 9000,
+							},
+						],
+					}),
+				).toEqual(["flagged"]);
+			},
+		);
+
+		test.concurrent(
+			"expiry: never moves a row with an unlimited allowance past a limited one",
+			() => {
+				expect(
+					drainedFirstOverCatalog({
+						shapeCatalog: (catalog) => {
+							const entitlement = catalog.entitlements.ent_allowance_unlimited;
+							if (!entitlement) throw new Error("entitlement row missing");
+							entitlement.allowance_type = AllowanceType.Unlimited;
+						},
+						customerEntitlements: [
+							oneOffRow({ expiresAt: occurredAt + 500 }),
+							{
+								...createCustomerEntitlement({
+									id: "allowance_unlimited",
+									balance: 0,
+								}),
+								expires_at: occurredAt + 9000,
+							},
+						],
+					}),
+				).toEqual(["allowance_unlimited"]);
+			},
+		);
+
+		test.concurrent(
+			"expiry: a customerEntitlementFilters.cusEntIds filter leaves only the named rows, ranked by expiry among themselves",
+			() => {
+				const drained = deductFrom({
+					customerEntitlements: [
+						{ ...resettingRow({ resetsAt: occurredAt + 100 }), id: "unnamed" },
+						{
+							...resettingRow({ resetsAt: occurredAt + 1000 }),
+							id: "named_late",
+						},
+						{
+							...resettingRow({ resetsAt: occurredAt + 500 }),
+							id: "named_soon",
+						},
+					],
+					customerEntitlementFilters: {
+						cusEntIds: ["named_late", "named_soon"],
+					},
+					value: 5,
+					orgConfig: { ...org.config, deduction_order: "expiry" },
+				}).deltas.map((delta) => delta.id);
+
+				expect(drained).toEqual(["named_soon"]);
+			},
+		);
+
+		test.concurrent(
+			"expiry: a null deduction_order parses and keeps the engine's order",
+			() => {
+				const command = JSON.parse(JSON.stringify(createTrackCommand()));
+				command.org.config.deduction_order = null;
+				const parsed = parseTrackCommand({ input: command });
+
+				expect(
+					deductFrom({
+						customerEntitlements: [
+							oneOffRow({ expiresAt: occurredAt + 500 }),
+							resettingRow({ resetsAt: occurredAt + 1000 }),
+						],
+						value: 5,
+						orgConfig: parsed.org.config,
+					}).deltas.map((delta) => delta.id),
+				).toEqual(["resetting"]);
+			},
+		);
+
+		describe("rollover order", () => {
+			const rolloverDrainedFirst = ({
+				deductionOrder,
+				expiresAt,
+			}: {
+				deductionOrder: "expiry" | "engine";
+				expiresAt: number | null;
+			}) =>
+				drainedFirstUnder({
+					deductionOrder,
+					customerEntitlements: [
+						oneOffRow({ expiresAt: occurredAt + 500 }),
+						resettingRow({ resetsAt: occurredAt + 1000 }),
+					],
+					// The id order is the reverse of the order the expiry re-rank gives the parents.
+					rollovers: [
+						{
+							id: "rollover_b",
+							cus_ent_id: "one_off",
+							balance: 10,
+							usage: 0,
+							expires_at: expiresAt,
+						},
+						{
+							id: "rollover_a",
+							cus_ent_id: "resetting",
+							balance: 10,
+							usage: 0,
+							expires_at: expiresAt,
+						},
+					],
+				});
+
+			test.concurrent(
+				"rollovers with equal expiry drain by id, whatever order their parent rows take",
+				() => {
+					for (const deductionOrder of ["engine", "expiry"] as const) {
+						expect(
+							rolloverDrainedFirst({
+								deductionOrder,
+								expiresAt: occurredAt + 9000,
+							}),
+						).toEqual(["rollover_a"]);
+					}
+				},
+			);
+
+			test.concurrent(
+				"rollovers that never expire drain by id, whatever order their parent rows take",
+				() => {
+					for (const deductionOrder of ["engine", "expiry"] as const) {
+						expect(
+							rolloverDrainedFirst({ deductionOrder, expiresAt: null }),
+						).toEqual(["rollover_a"]);
+					}
+				},
+			);
+		});
+	});
 
 	test.concurrent(
 		"past-due products fund a track only when the org says so",

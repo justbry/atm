@@ -1,3 +1,4 @@
+// Modified by justbry/atm: opt-in expiry-first draw order (org.config.deduction_order).
 import {
 	type CustomerEntitlementFilters,
 	orgToInStatuses,
@@ -41,6 +42,7 @@ export const toDeductionSelection = ({
 	customerEntitlementFilters,
 	inStatuses: orgToInStatuses({ org }),
 	reverseOrder: Boolean(org.config.reverse_deduction_order),
+	expiryFirst: org.config.deduction_order === "expiry",
 	blocksOverdue:
 		enforceOverdueBlock && Boolean(org.config.block_overdue_entitlements),
 });

@@ -1,3 +1,4 @@
+// Modified by justbry/atm: opt-in expiry-first draw order (org.config.deduction_order).
 import { OrgConfigSchema } from "@autumn/shared";
 import { z } from "zod/v4";
 import { openSchema } from "../common/openSchema.js";
@@ -25,6 +26,13 @@ export const commandOrgSchema = openSchema({
 				usage_alerts: true,
 				sandbox_usage_alerts: true,
 				persist_free_overage: true,
+			})
+			.extend({
+				/**
+				 * "expiry": among peer included rows, soonest-lapsing first. Absent, null and "engine" keep the engine's order.
+				 * Expiry wins over `reverse_deduction_order`: set together, the reversed tiers inside each run are lost (atm always sends reverse false).
+				 */
+				deduction_order: z.enum(["expiry", "engine"]).nullish(),
 			})
 			.loose(),
 		/** The Svix apps the org's webhooks deliver through, one per env; absent where none is set up. */
