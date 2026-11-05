@@ -18,8 +18,9 @@ import {
 	tierPriceKey,
 } from "../src/billing/stripe-menu.js";
 import type { Menu, StripeEventResult } from "../src/billing/types.js";
-import { balancesOf } from "../src/ledger/replay.js";
+import { balancesOf, replayEvents } from "../src/ledger/replay.js";
 import { toCatalog } from "../src/ledger/run.js";
+import { validateEvent } from "../src/ledger/validate.js";
 import type { AtmEvent } from "../src/types.js";
 import {
 	chargeRefunded,
@@ -354,7 +355,8 @@ describe("handleStripeEvent", () => {
 		expect(s.avail(T0 + 1)).toBe(0);
 	});
 
-	test("a canceled subscription is a row write with no credit event; the visits then lapse on their own", () => {
+	test("a canceled subscription moves each row's expiry and books it as credit.expiration_changed, with no postings; the visits then lapse on their own", () => {
+		// BY DESIGN: this used to be "a row write with no credit event" (events toEqual([])).
 		const s = store();
 		create(s);
 		const r = s.handle(
@@ -369,10 +371,87 @@ describe("handleStripeEvent", () => {
 			}),
 			T0 + 86_400_000,
 		);
-		expect(r.events).toEqual([]);
+		expect(
+			r.events.map((e) => [e.event_type, e.postings, e.payload]),
+		).toMatchObject([
+			[
+				"credit.expiration_changed",
+				[],
+				{
+					row_id: "ce_tier_visit_month",
+					previous_expires_at: null,
+					expires_at: T2,
+					refills_ended: true,
+				},
+			],
+		]);
+		expect(r.events[0]?.idem).toBe(`expiry:ce_tier_visit_month:${T2}`);
+		expect(r.events[0]?.labels.expires_at).toBe("2026-03-15T18:00:00Z");
+		expect(r.events[0]?.cause).toBe("evt_sub_del");
+		// `cause` carries the Stripe event id, which the envelope's ULID pattern for `cause` does not take
+		const { cause: _cause, ...envelope } = r.events[0] as AtmEvent;
+		expect(validateEvent(envelope as AtmEvent).errors).toEqual([]);
 		expect(r.rowChanges?.nextRevision).toBe(2);
 		expect(s.avail(T0 + 2 * 86_400_000)).toBe(2);
 		expect(s.avail(D("2026-03-15T18:00:01Z"))).toBe(0);
+	});
+
+	test("replaying the log reproduces the engine's balances before and after the new expiry date", () => {
+		const s = store();
+		create(s);
+		s.handle(
+			subscriptionDeleted({
+				eventId: "evt_sub_del",
+				subscriptionId: "sub_1",
+				tierId: "sparkle-2",
+				interval: "month",
+				periodStart: T0,
+				periodEnd: T1,
+				at: T0 + 86_400_000,
+			}),
+			T0 + 86_400_000,
+		);
+		for (const asOf of [
+			T0 + 2 * 86_400_000,
+			T2 - 1,
+			D("2026-03-15T18:00:01Z"),
+		]) {
+			const replayed = replayEvents({
+				events: s.events,
+				catalog: catalogRows,
+				asOf: new Date(asOf).toISOString(),
+			});
+			expect(
+				replayed.balances.find((b) => b.feature === "visit")?.avail ?? 0,
+			).toBe(s.avail(asOf));
+		}
+	});
+
+	test("a second delivery of the end, or the same event again, books no second expiration event", () => {
+		const s = store();
+		create(s);
+		const ended = (eventId: string) =>
+			subscriptionDeleted({
+				eventId,
+				subscriptionId: "sub_1",
+				tierId: "sparkle-2",
+				interval: "month",
+				periodStart: T0,
+				periodEnd: T1,
+				at: T0 + 86_400_000,
+			});
+		const first = s.handle(ended("evt_sub_del"), T0 + 86_400_000);
+		expect(first.events).toHaveLength(1);
+		expect(s.handle(ended("evt_sub_del"), T0 + 86_400_000)).toEqual({
+			rowChanges: null,
+			events: [],
+		});
+		expect(
+			s.handle(ended("evt_sub_del_again"), T0 + 86_400_000).events,
+		).toEqual([]);
+		expect(
+			s.events.filter((e) => e.event_type === "credit.expiration_changed"),
+		).toHaveLength(1);
 	});
 
 	test("a gift add-on is credited for the policy's months; a dollar gift is a grants-only write", () => {
@@ -635,6 +714,76 @@ describe("what the random histories found", () => {
 		);
 		expect(s.avail(T2 - 1, "retreat")).toBe(1);
 		expect(s.avail(T2 + 1, "retreat")).toBe(0);
+	});
+
+	test("ending a subscription books one expiration event per row it moves, the retired row without ending any refill", () => {
+		const s = store();
+		create(s, "sparkle-4");
+		s.handle(
+			invoicePaid({
+				eventId: "evt_c2",
+				invoiceId: "in_c2",
+				at: T1,
+				subscriptionId: "sub_1",
+				reason: "subscription_cycle",
+				periodStart: T1,
+				periodEnd: T2,
+				lines: [
+					{
+						lookupKey: tierKey("sparkle-2", "month"),
+						amount: 26000,
+						interval: "month",
+					},
+				],
+				metadata,
+			}),
+			T1,
+		);
+		const ended = s.handle(
+			subscriptionDeleted({
+				eventId: "evt_sd",
+				subscriptionId: "sub_1",
+				tierId: "sparkle-2",
+				interval: "month",
+				periodStart: T1,
+				periodEnd: T2,
+				at: T1 + 86_400_000,
+			}),
+			T1 + 86_400_000,
+		);
+		const moved = ended.events.filter(
+			(e) => e.event_type === "credit.expiration_changed",
+		);
+		expect(moved).toHaveLength(ended.events.length);
+		const byRow = Object.fromEntries(
+			moved.map((e) => [
+				(e.payload as { row_id: string }).row_id,
+				{
+					feature: e.labels.feature,
+					previous: (e.payload as { previous_expires_at: number | null })
+						.previous_expires_at,
+					next: (e.payload as { expires_at: number }).expires_at,
+					refillsEnded: (e.payload as { refills_ended: boolean }).refills_ended,
+				},
+			]),
+		);
+		expect(byRow.ce_tier_retreat_year).toEqual({
+			feature: "retreat",
+			previous: null,
+			next: T2,
+			refillsEnded: false,
+		});
+		expect(byRow.ce_tier_visit_month).toMatchObject({
+			feature: "visit",
+			previous: null,
+			next: D("2026-04-15T18:00:00Z"),
+			refillsEnded: true,
+		});
+		expect(new Set(moved.map((e) => e.idem)).size).toBe(moved.length);
+		// the lapse dates the engine now holds
+		for (const asOf of [T2 - 1, T2 + 1, D("2026-04-15T18:00:01Z")]) {
+			expect(s.avail(asOf, "retreat")).toBe(asOf < T2 ? 1 : 0);
+		}
 	});
 
 	test("a second subscription for a family whose first ended is refused, nothing written", () => {

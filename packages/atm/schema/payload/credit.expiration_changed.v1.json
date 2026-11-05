@@ -1,0 +1,71 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://b4uni.com/_schema/payload/credit.expiration_changed.v1.json",
+	"title": "credit.expiration_changed payload v1",
+	"description": "A balance row's expiry moved without its balance changing: the credits stay, their end date moves (a canceled subscription stops refilling and lets the last cycle's credits run out on their own clock). No postings.",
+	"type": "object",
+	"required": [
+		"command",
+		"mutation",
+		"row_id",
+		"previous_expires_at",
+		"expires_at",
+		"refills_ended"
+	],
+	"properties": {
+		"command": {
+			"type": "object",
+			"required": ["type", "commandId", "occurredAt"],
+			"properties": {
+				"type": {
+					"type": "string",
+					"minLength": 1
+				},
+				"commandId": {
+					"type": "string",
+					"minLength": 1
+				},
+				"occurredAt": {
+					"type": "integer"
+				}
+			}
+		},
+		"mutation": {
+			"type": "object",
+			"required": ["id", "revision", "changes", "result"],
+			"properties": {
+				"id": {
+					"type": "string",
+					"minLength": 1
+				},
+				"revision": {
+					"type": "object",
+					"required": ["before", "after"]
+				},
+				"changes": {
+					"type": "array"
+				},
+				"result": {
+					"type": "object"
+				}
+			}
+		},
+		"row_id": {
+			"type": "string",
+			"minLength": 1,
+			"description": "The balance row (customerEntitlements) whose expiry moved."
+		},
+		"previous_expires_at": {
+			"type": ["integer", "null"],
+			"description": "Epoch ms the row expired at before; null when it had no expiry."
+		},
+		"expires_at": {
+			"type": "integer",
+			"description": "Epoch ms the row expires at now."
+		},
+		"refills_ended": {
+			"type": "boolean",
+			"description": "The same write cleared the row's next reset: it no longer refills."
+		}
+	}
+}

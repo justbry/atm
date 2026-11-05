@@ -100,6 +100,10 @@ const DERIVED_PAYLOAD = new Set([
 	"held",
 	"reason",
 	"lapsed",
+	"row_id",
+	"previous_expires_at",
+	"expires_at",
+	"refills_ended",
 ]);
 
 /** Everything the postings need that is not in the mutation was written into the event; read it back. */

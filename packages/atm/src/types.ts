@@ -103,6 +103,7 @@ export type AtmEventType =
 	| "credit.forfeited"
 	| "credit.expired"
 	| "credit.adjusted"
+	| "credit.expiration_changed"
 	| "fundraise.received"
 	| "fundraise.paid_out"
 	| "subject.erased"
