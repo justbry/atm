@@ -9,5 +9,6 @@ Reference material, findings and detail that used to sit in `ROADMAP.md`. The ro
 - `log-and-r2.md`: the outbox, the folder shipper, shipping to R2, the combine, the manifest, replay, the Worker handler, the Parquet export.
 - `usage-metering.md`: usage invoicing and usage events as a ledger source (summary and decisions of the three spikes).
 - `spikes/usage/`: the full reports, raw results and scripts of the three usage spikes (`README.md` there).
+- `pricing-and-positioning.md`: how atm could be priced and positioned next to open and proprietary competitors, a worked example, and the decision to wait on usage events.
 - `comparisons.md`: credit ledger depth and the comparison with open-source billing systems.
 - `releasing.md`: how a release is made and checked.
