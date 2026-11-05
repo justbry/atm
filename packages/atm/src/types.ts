@@ -1737,3 +1737,142 @@ export interface ReplayGapErrorConstructor {
 	): ReplayGapErrorType;
 	readonly prototype: ReplayGapErrorType;
 }
+
+// ---- Reconciling a school's log against Stripe's records ----
+
+/** The fields `reconcile` reads of a Stripe invoice. Any other field is ignored, so a whole Stripe object is accepted. */
+export type StripeInvoiceRecord = {
+	id: string;
+	/** Only `paid` invoices are compared. */
+	status?: string | null;
+	amount_paid: number;
+	currency: string;
+	created: number;
+	livemode?: boolean;
+	status_transitions?: { paid_at?: number | null } | null;
+};
+
+export type StripeRefundRecord = {
+	id: string;
+	amount: number;
+	currency: string;
+	created: number;
+	/** `failed`, `canceled` and `requires_action` refunds moved no money and are ignored. */
+	status?: string | null;
+};
+
+export type StripeDisputeRecord = {
+	id: string;
+	amount: number;
+	currency: string;
+	created: number;
+	/** `won` and `lost` are outcomes; the `warning_*` statuses and `prevented` moved no money and are ignored. */
+	status: string;
+	livemode?: boolean;
+};
+
+export type StripePayoutRecord = {
+	id: string;
+	amount: number;
+	currency: string;
+	created: number;
+	/** Only `paid` payouts are compared. */
+	status?: string | null;
+	livemode?: boolean;
+};
+
+export type StripeBalanceTransactionRecord = {
+	id: string;
+	amount: number;
+	fee: number;
+	net: number;
+	currency: string;
+	created: number;
+	type: string;
+};
+
+/** Stripe's side, as `stripe <resource> list` prints the `data` of each list. A list left out is "not supplied" and its checks are not run. */
+export type ReconcileStripe = {
+	invoices?: readonly StripeInvoiceRecord[];
+	refunds?: readonly StripeRefundRecord[];
+	disputes?: readonly StripeDisputeRecord[];
+	payouts?: readonly StripePayoutRecord[];
+	balanceTransactions?: readonly StripeBalanceTransactionRecord[];
+};
+
+export type ReconcileStripeList = keyof ReconcileStripe;
+
+/** A calendar month (`YYYY-MM`) or an inclusive range of days (`YYYY-MM-DD`), in the school's time zone. */
+export type ReconcilePeriod = { month: string } | { from: string; to: string };
+
+export type ReconcileInput = {
+	/** The school's events, of any date: an event outside the period is still matched by id, so a payment the log dated a day off is `period_differs`, not two missing records. */
+	events: readonly AtmEvent[];
+	stripe: ReconcileStripe;
+	period: ReconcilePeriod;
+	/** The school's IANA zone, for dating Stripe's objects. Defaults to the zone of the latest event; required when there are none. */
+	timeZone?: string;
+	/** Stripe objects whose `livemode` disagrees are ignored. Default `live`. */
+	mode?: "live" | "test";
+};
+
+export type ReconcileObject =
+	| "invoice"
+	| "refund"
+	| "dispute"
+	| "payout"
+	| "fees"
+	| "net";
+
+export type ReconcileKind =
+	| "missing_in_log"
+	| "missing_in_stripe"
+	| "amount_differs"
+	| "duplicate_in_log"
+	/** A dispute's outcome in the log (`dispute.closed`) is not Stripe's status. */
+	| "outcome_differs"
+	/** Both sides have it, but one is dated inside the period and the other outside. */
+	| "period_differs"
+	/** A whole class of Stripe records has nothing in the log (fees with no fee postings): one record, not one per payment. */
+	| "not_in_log";
+
+export type ReconcileSide = {
+	/** Cents; null when the log event has no whole-number amount. */
+	amount: number | null;
+	currency: string | null;
+	/** The school-local day (`YYYY-MM-DD`); null for the totals. */
+	date: string | null;
+	/** Stripe's `status` (a dispute's); the log's `payload.status` (a `dispute.closed`). */
+	status: string | null;
+};
+
+export type ReconcileDifference = {
+	kind: ReconcileKind;
+	object: ReconcileObject;
+	/** Stripe's id (`in_`, `re_`, `dp_`, `po_`); null for the totals. */
+	id: string | null;
+	/** The log event type compared against, null for the totals. */
+	eventType: AtmEventType | null;
+	/** The log events involved (more than one for `duplicate_in_log`). */
+	eventIds: string[];
+	stripe: ReconcileSide | null;
+	log: ReconcileSide | null;
+	/** The period's label: `2026-03`, or `2026-03-01..2026-03-31`. */
+	period: string;
+	message: string;
+	/** For `net`: Stripe's net by balance transaction type, to show where a gap comes from. */
+	stripeNetByType?: Record<string, number>;
+};
+
+export type ReconcileResult = {
+	period: { from: string; to: string; label: string; timeZone: string };
+	mode: "live" | "test";
+	/** Sorted by object, id, kind. Empty means the books agree with Stripe. */
+	differences: ReconcileDifference[];
+	/** Lists of `stripe` that were undefined: their checks did not run. */
+	notSupplied: ReconcileStripeList[];
+	/** Records each side has in the period, after ignoring. Stripe's count is null for a list not supplied. */
+	counts: Record<ReconcileObject, { stripe: number | null; log: number }>;
+	/** Stripe records skipped, by reason (only reasons that applied). */
+	ignored: Record<string, number>;
+};

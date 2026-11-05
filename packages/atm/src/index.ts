@@ -26,6 +26,7 @@ import {
 	ledgerEvent as ledgerEventImpl,
 	mutationToEvents as mutationToEventsImpl,
 } from "./ledger/postings.js";
+import { reconcile as reconcileImpl } from "./ledger/reconcile.js";
 import {
 	ReplayError as ReplayErrorImpl,
 	ReplayGapError as ReplayGapErrorImpl,
@@ -102,6 +103,8 @@ import type {
 	ProrationPair,
 	R2StoreOptions,
 	RaiseUnitsInput,
+	ReconcileInput,
+	ReconcileResult,
 	RecordEngineCommandInput,
 	RecordedEvents,
 	RecordLapseInput,
@@ -266,6 +269,15 @@ export const buildJournal = (input: {
 	events: readonly AtmEvent[];
 	month: string;
 }): AtmJournalBuild => buildJournalImpl(input);
+
+/**
+ * A school's events against Stripe's records for one period (a month or a range of days, in the school's zone): paid
+ * invoices, refunds, disputes, payouts, fees and the net of the money postings. Returns every difference (`missing_in_log`,
+ * `missing_in_stripe`, `amount_differs`, `duplicate_in_log`, ...); a nightly job alerts on a non-empty `differences`.
+ * Pure: it makes no Stripe call. Throws on a bad period or time zone. See the README ("Reconciling with Stripe").
+ */
+export const reconcile = (input: ReconcileInput): ReconcileResult =>
+	reconcileImpl(input);
 
 // ---- Billing: pure rules for the school's menu, Stripe facts, credit grants and storage rows ----
 
