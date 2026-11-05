@@ -4,12 +4,18 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { SubjectState } from "@autumn/balance-engine";
 import { generateYear } from "../fixtures/vibes.js";
+import { EMPTY_GRANTS_STATE } from "../src/billing/grants.js";
 import {
 	applyRowChanges,
 	type BillingRow,
+	GRANTS_ROW_ID,
+	GRANTS_TABLE,
+	grantsFromRows,
+	grantsRow,
 	rowChangesFromMutation,
 	rowsFromState,
 	StaleRevision,
+	sortRows,
 	stateFromRows,
 	subjectFromRows,
 	subjectKey,
@@ -268,5 +274,105 @@ describe("billing rows", () => {
 			[y.revision + 1, key, y.revision - 1],
 		);
 		expect(guarded.changes).toBe(0);
+	});
+});
+
+describe("the grants row", () => {
+	const grants = {
+		...EMPTY_GRANTS_STATE,
+		identity: { orgId: "sch_vol", customerId: "family:fam_x" },
+		tierId: "sparkle-2",
+		invoices: { in_1: { paidAt: 1, granted: [], removed: false } },
+	};
+
+	test("is a JSON row of the subject: one table, one id, and the state back as it was", () => {
+		const row = grantsRow(grants);
+		expect([row.table, row.id]).toEqual([GRANTS_TABLE, GRANTS_ROW_ID]);
+		expect(grantsFromRows([row])).toEqual(grants);
+		expect(JSON.parse(JSON.stringify(row))).toEqual(row);
+		expect(row.data).not.toBe(grants);
+	});
+
+	test("no grants row is the empty state; a stored state missing a newer key takes its default", () => {
+		expect(grantsFromRows([])).toEqual(EMPTY_GRANTS_STATE);
+		const { endedAt: _gone, ...old } = grants;
+		expect(
+			grantsFromRows([{ table: GRANTS_TABLE, id: GRANTS_ROW_ID, data: old }])
+				.endedAt,
+		).toBeNull();
+		expect(() =>
+			grantsFromRows([
+				{ table: GRANTS_TABLE, id: GRANTS_ROW_ID, data: { v: 2 } },
+			]),
+		).toThrow(/version/);
+	});
+
+	test("is not engine state: left out of the state, and rows holding only it are no subject", () => {
+		const y = runYear();
+		const withGrants = [...y.rows, grantsRow(grants)];
+		expect(
+			stateFromRows({
+				identity: y.identity,
+				revision: y.revision,
+				rows: withGrants,
+			}),
+		).toEqual(
+			stateFromRows({
+				identity: y.identity,
+				revision: y.revision,
+				rows: y.rows,
+			}),
+		);
+		expect(
+			stateFromRows({
+				identity: y.identity,
+				revision: 0,
+				rows: [grantsRow(grants)],
+			}),
+		).toBeNull();
+	});
+
+	test("rows list the grants row last, after every engine table", () => {
+		const y = runYear();
+		const sorted = sortRows([grantsRow(grants), ...y.rows]);
+		expect(sorted[sorted.length - 1]?.table).toBe(GRANTS_TABLE);
+	});
+
+	test("an engine mutation neither deletes it nor changes it, and the one revision check guards both", () => {
+		const y = runYear();
+		const rows = [...y.rows, grantsRow(grants)];
+		const state = stateFromRows({
+			identity: y.identity,
+			revision: y.revision,
+			rows,
+		});
+		const run = runOnState({
+			state,
+			catalog: toCatalog(fixture.catalog),
+			command: {
+				schemaVersion: 1,
+				type: "reset",
+				org: { config: {} },
+				commandId: "cmd_after_year",
+				requestId: "cmd_after_year",
+				identity: y.identity,
+				occurredAt: Date.parse("2027-02-01T00:00:00Z"),
+			},
+		});
+		expect(run.mutation).not.toBeNull();
+		const changes = rowChangesFromMutation({
+			mutation: run.mutation as never,
+			rows,
+			revision: y.revision,
+		});
+		expect(changes.deletes.some((d) => d.table === GRANTS_TABLE)).toBe(false);
+		expect(changes.upserts.some((u) => u.table === GRANTS_TABLE)).toBe(false);
+		const applied = applyRowChanges({ rows, revision: y.revision, changes });
+		expect(applied.rows.find((r) => r.table === GRANTS_TABLE)).toEqual(
+			grantsRow(grants),
+		);
+		expect(() =>
+			applyRowChanges({ rows, revision: y.revision + 1, changes }),
+		).toThrow(StaleRevision);
 	});
 });

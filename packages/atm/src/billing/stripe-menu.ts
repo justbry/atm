@@ -23,6 +23,7 @@ import type {
 	CheckoutResult,
 	GiftKind,
 	Interval,
+	LineItem,
 	Menu,
 	MenuToStripeInput,
 	StripeOp,
@@ -123,6 +124,53 @@ function wantedOf(schoolId: string, menu: Menu): Wanted[] {
 			],
 		});
 	}
+	return out;
+}
+
+/**
+ * The menu's items by Stripe lookup key (and by price id for each key in `priceIds`), for `resolveInvoice`. Every tier
+ * with a usable price is here, public or not: a tier dropped from sale still renews for the families that hold it.
+ */
+export function menuLineItems(
+	schoolId: string,
+	menu: Menu,
+	priceIds: Readonly<Record<string, string>> = {},
+): Map<string, LineItem> {
+	const out = new Map<string, LineItem>();
+	const add = (lookupKey: string, item: LineItem) => {
+		const known = { ...item, lookupKey };
+		out.set(lookupKey, known);
+		const priceId = priceIds[lookupKey];
+		if (priceId) out.set(priceId, known);
+	};
+	for (const t of menu.tiers)
+		for (const p of t.prices)
+			if (usable(p.amount))
+				add(
+					lookupKeyOf(
+						schoolId,
+						tierPriceKey(t.id, p.interval),
+						p.amount,
+						menu.currency,
+					),
+					{ kind: "tier", tierId: t.id, interval: p.interval },
+				);
+	for (const a of menu.addons)
+		if (usable(a.price.amount))
+			add(
+				lookupKeyOf(
+					schoolId,
+					addonPriceKey(a.id, a.price.every, a.gift),
+					a.price.amount,
+					menu.currency,
+				),
+				{
+					kind: "addon",
+					addonId: a.id,
+					interval: a.price.every === "once" ? null : a.price.every,
+					...(a.gift ? { gift: a.gift } : {}),
+				},
+			);
 	return out;
 }
 

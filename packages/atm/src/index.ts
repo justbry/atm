@@ -1,5 +1,6 @@
 import type { WorkerFullSubject } from "@autumn/balance-engine";
 import * as grants from "./billing/grants.js";
+import * as handle from "./billing/handle.js";
 import * as menu from "./billing/menu.js";
 import * as normalizer from "./billing/normalize.js";
 import * as policy from "./billing/policy.js";
@@ -60,6 +61,8 @@ import type {
 	RowChanges,
 	RowTable,
 	StaleRevisionConstructor,
+	StripeEventInput,
+	StripeEventResult,
 	StripeOp,
 	SubjectRows,
 	SubscriptionEndInput,
@@ -209,6 +212,16 @@ export const disputeToCommands = (
 ): GrantResult => grants.disputeToCommands(input);
 
 /**
+ * One entry point for a raw Stripe event: normalize, apply the grant rules, run the engine, and return the single
+ * write for the subject's rows (engine rows and the grants row, one revision) and the decision events (`cause` = the
+ * event id; labelled with the menu, policy and mapping versions). The caller verifies and dedupes the event, passes the
+ * subject's stored rows and revision, and writes the result in one transaction. A replayed event gives no changes; an
+ * event atm cannot decide comes back `refused` with nothing to write.
+ */
+export const handleStripeEvent = (input: StripeEventInput): StripeEventResult =>
+	handle.handleStripeEvent(input);
+
+/**
  * A canceled subscription: the tier and add-on rows stop refilling and the last cycle's unused credits lapse at their
  * own expiry (cycle end plus rollover months), not at once. Any other fact, or a second end, gives none.
  */
@@ -303,8 +316,20 @@ export const redactPersonal = (payload: unknown, mapping: Mapping): unknown =>
 /** Every mapping file this package ships. */
 export const MAPPINGS: readonly Mapping[] = normalizer.MAPPINGS;
 
-/** The state tables, in the order rows are listed. */
+/** The engine's state tables, in the order rows are listed. The grants row (`atm_grants`) follows them. */
 export const ROW_TABLES: readonly RowTable[] = rows.ROW_TABLES;
+
+/** The table (`atm_grants`) and row id of the one row that holds a subject's billing-rules state. */
+export const GRANTS_TABLE: "atm_grants" = rows.GRANTS_TABLE;
+export const GRANTS_ROW_ID: string = rows.GRANTS_ROW_ID;
+
+/** The `GrantsState` stored with a subject's rows; no grants row is `EMPTY_GRANTS_STATE`. */
+export const grantsFromRows = (rows_: readonly BillingRow[]): GrantsState =>
+	rows.grantsFromRows(rows_);
+
+/** The grants row for a `GrantsState`: write it with the engine rows, under the same revision. */
+export const grantsRow = (state: GrantsState): BillingRow =>
+	rows.grantsRow(state);
 
 /** Thrown when the stored revision is not the one a mutation was computed against: re-read, recompute, retry. */
 export const StaleRevision: StaleRevisionConstructor = rows.StaleRevision;
