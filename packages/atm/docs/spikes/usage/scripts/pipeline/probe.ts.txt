@@ -1,0 +1,20 @@
+import { buildJournal } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/src/ledger/journal.ts";
+import { validateEvent } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/src/ledger/validate.ts";
+import { replayEvents } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/src/ledger/replay.ts";
+import { generateUsage } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/tests/spikes/usage-events.ts";
+import type { AtmEvent } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/src/types.ts";
+
+const g = [...generateUsage({ events: 3, holders: 3, duplicateRate: 0, lateRate: 0 })];
+const events = g.map((e) => JSON.parse(e.line) as AtmEvent);
+console.log(JSON.stringify(validateEvent(events[0])));
+try {
+	const j = buildJournal({ events, month: "2026-10" });
+	console.log("journal ok", j.transactions, Object.keys(j.files));
+} catch (e) {
+	console.log("journal throws", (e as Error).message);
+}
+try {
+	console.log("replay", JSON.stringify(replayEvents({ events } as never)).slice(0, 200));
+} catch (e) {
+	console.log("replay throws", (e as Error).message.slice(0, 200));
+}

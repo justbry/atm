@@ -1,0 +1,93 @@
+// usage: bun bench-rate.ts <tag> [threads]
+import { rmSync } from "node:fs";
+import {
+	createPricesSql,
+	dailyRollupSql,
+	dedupeSql,
+	invoiceLinesSql,
+	rawEventsSql,
+} from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/tests/spikes/usage-sql.ts";
+import { fmt, runSql } from "./lib.ts";
+
+const tag = process.argv[2] ?? "1m";
+const threads = process.argv[3] ? Number(process.argv[3]) : undefined;
+const db = `data/work_${tag}.db`;
+rmSync(db, { force: true });
+rmSync(`${db}.wal`, { force: true });
+const pre = `ATTACH '${db}' AS w; USE w;\n`;
+const raw = rawEventsSql({ glob: `data/c${tag}/schools/sch_acme/events/*/*.jsonl`, schema: "explicit" });
+const rawSep = rawEventsSql({ glob: [`data/c${tag}_sep/schools/sch_acme/events/date=2026-09-*/*.jsonl`, `data/c${tag}/schools/sch_acme/events/date=2026-09-*/*.jsonl`], schema: "explicit" });
+const parquet = `(SELECT key, date, id, idem, ingest_time, event_time, struct_pack(feature := labels['feature'], model := labels['model'], region := labels['region']) AS labels, struct_pack(input_tokens := (payload->>'input_tokens')::BIGINT, output_tokens := (payload->>'output_tokens')::BIGINT, cached_input_tokens := (payload->>'cached_input_tokens')::BIGINT) AS payload FROM read_parquet('data/pe_${tag}_single.parquet'))`;
+
+const V1 = [
+	["xl-2", 15_000_000, 75_000_000],
+	["lg-2", 3_000_000, 15_000_000],
+	["md-2", 1_000_000, 5_000_000],
+	["sm-2", 250_000, 1_250_000],
+	["embed-2", 100_000, 0],
+] as const;
+const pricesV1 = createPricesSql(
+	V1.flatMap(([model, i, o]) => [
+		{ model, direction: "input" as const, microUsdPerMillion: i, validFrom: "2026-01-01" },
+		{ model, direction: "output" as const, microUsdPerMillion: o, validFrom: "2026-01-01" },
+	]),
+);
+// V2: sm-2 output corrected retroactively (same valid_from); md-2 input cut from 2026-10-16 (splits October lines in two).
+const pricesV2 = createPricesSql([
+	...V1.flatMap(([model, i, o]) => [
+		{ model, direction: "input" as const, microUsdPerMillion: i, validFrom: "2026-01-01" },
+		{ model, direction: "output" as const, microUsdPerMillion: model === "sm-2" ? 1_500_000 : o, validFrom: "2026-01-01" },
+	]),
+	{ model: "md-2", direction: "input" as const, microUsdPerMillion: 900_000, validFrom: "2026-10-16" },
+]);
+
+const out: Record<string, string> = {};
+const step = (name: string, sql: string) => {
+	const r = runSql(`${pre}.timer on\n.mode trash\n${sql}`, { threads });
+	const err = /Error/.test(r.stdout + r.stderr) ? (r.stdout + r.stderr).split("\n").filter((l) => /Error|LINE/.test(l)).join(" ").slice(0, 300) : "";
+	console.log(tag, `threads=${threads ?? "default"}`, name, r.timers.map((t) => `${fmt(t, 3)}s`).join(" "), `rss=${fmt(r.rssMb, 0)}MB`, err);
+	return r;
+};
+const show = (name: string, sql: string) => {
+	const r = runSql(`${pre}.mode box\n${sql}`, { threads });
+	console.log(`--- ${name}\n${r.stdout.trim()}${/Error/.test(r.stderr + r.stdout) ? r.stderr.slice(0, 300) : ""}`);
+	out[name] = r.stdout;
+};
+
+// A. raw JSONL -> dedupe -> daily rollup
+step("A1 rollup from raw JSONL (dedupe+group)", `CREATE OR REPLACE TABLE rollup AS ${dailyRollupSql(`(${dedupeSql(raw)})`)};`);
+step("A2 rollup from Parquet envelope (json payload)", `CREATE OR REPLACE TABLE rollup_pq AS ${dailyRollupSql(`(${dedupeSql(parquet)})`)};`);
+show("rollup rows + parity of the two", `SELECT (SELECT count(*) FROM rollup) rollup_rows, (SELECT count(*) FROM rollup_pq) rollup_pq_rows, (SELECT count(*) FROM (SELECT * FROM rollup EXCEPT SELECT * FROM rollup_pq)) diff_rows, (SELECT sum(requests) FROM rollup) events_after_dedupe;`);
+
+// B. ground truth check against the generator's own totals
+show("check vs generator ground truth (expected.csv): mismatching cells", `WITH got AS (SELECT holder, strftime(day, '%Y-%m') AS ym, model, sum(input_tokens) i, sum(output_tokens) o FROM rollup GROUP BY ALL), exp AS (SELECT holder, month AS ym, model, input i, output o FROM read_csv('data/c${tag}/expected.csv')) SELECT (SELECT count(*) FROM exp) expected_cells, (SELECT count(*) FROM got) got_cells, (SELECT count(*) FROM got FULL JOIN exp USING (holder, ym, model) WHERE got.i IS DISTINCT FROM exp.i OR got.o IS DISTINCT FROM exp.o) mismatches;`);
+
+// C. rating
+step("B1 price v1 + invoice lines Oct from rollup", `${pricesV1}\nCREATE OR REPLACE TABLE lines_v1 AS ${invoiceLinesSql({ rollup: "rollup", from: "2026-10-01", to: "2026-11-01" })};\nCREATE OR REPLACE TABLE totals_v1 AS SELECT holder, sum(cents)::BIGINT cents FROM lines_v1 GROUP BY holder;`);
+show("school totals v1", `SELECT count(*) holders, sum(cents)/100.0 AS usd, max(cents)/100.0 AS biggest_usd, quantile_cont(cents, 0.5)/100.0 median_holder_usd FROM totals_v1;`);
+show("top-3 holders invoice lines (v1)", `SELECT holder, model, direction, tokens, micro_usd_per_million, cents FROM lines_v1 WHERE holder IN (SELECT holder FROM totals_v1 ORDER BY cents DESC LIMIT 1) ORDER BY model, direction;`);
+show("holder share of tokens/revenue", `WITH t AS (SELECT cents, row_number() OVER (ORDER BY cents DESC) r FROM totals_v1) SELECT round(100*sum(cents) FILTER (WHERE r<=10)/sum(cents),1) top10_pct, round(100*sum(cents) FILTER (WHERE r<=200)/sum(cents),1) top200_pct, round(100*sum(cents) FILTER (WHERE r>10000)/sum(cents),1) bottom10k_pct FROM t;`);
+
+// D. re-rate twice (identical) then change prices
+step("B2 re-rate v1 again from rollup", `CREATE OR REPLACE TABLE lines_v1b AS ${invoiceLinesSql({ rollup: "rollup", from: "2026-10-01", to: "2026-11-01" })};`);
+show("re-rate twice: identical?", `SELECT (SELECT count(*) FROM (SELECT * FROM lines_v1 EXCEPT SELECT * FROM lines_v1b)) rows_only_in_first, (SELECT count(*) FROM (SELECT * FROM lines_v1b EXCEPT SELECT * FROM lines_v1)) rows_only_in_second, (SELECT sum(cents) FROM lines_v1) cents_first, (SELECT sum(cents) FROM lines_v1b) cents_second;`);
+step("B3 price v2 + re-rate Oct from rollup", `${pricesV2}\nCREATE OR REPLACE TABLE lines_v2 AS ${invoiceLinesSql({ rollup: "rollup", from: "2026-10-01", to: "2026-11-01" })};`);
+step("B4 full re-rate from RAW JSONL (dedupe+rollup+rate, price v2)", `CREATE OR REPLACE TABLE lines_v2_raw AS ${invoiceLinesSql({ rollup: `(${dailyRollupSql(`(${dedupeSql(raw)})`)})`, from: "2026-10-01", to: "2026-11-01" })};`);
+step("B5 full re-rate from RAW Parquet (dedupe+rollup+rate, price v2)", `CREATE OR REPLACE TABLE lines_v2_pq AS ${invoiceLinesSql({ rollup: `(${dailyRollupSql(`(${dedupeSql(parquet)})`)})`, from: "2026-10-01", to: "2026-11-01" })};`);
+show("v2 parity: rollup vs raw vs parquet re-rate", `SELECT (SELECT count(*) FROM (SELECT * FROM lines_v2 EXCEPT SELECT * FROM lines_v2_raw)) diff_raw, (SELECT count(*) FROM (SELECT * FROM lines_v2 EXCEPT SELECT * FROM lines_v2_pq)) diff_pq, (SELECT sum(cents) FROM lines_v2_raw) cents_v2;`);
+show("diff of totals v1 -> v2 by model", `WITH a AS (SELECT model, direction, sum(cents) c FROM lines_v1 GROUP BY ALL), b AS (SELECT model, direction, sum(cents) c FROM lines_v2 GROUP BY ALL) SELECT model, direction, a.c/100.0 v1_usd, b.c/100.0 v2_usd, (b.c-a.c)/100.0 delta_usd FROM a JOIN b USING (model, direction) WHERE a.c <> b.c;`);
+show("diff of totals v1 -> v2 overall", `SELECT (SELECT sum(cents) FROM lines_v1)/100.0 v1_usd, (SELECT sum(cents) FROM lines_v2)/100.0 v2_usd, (SELECT count(*) FROM (SELECT holder FROM lines_v1 GROUP BY holder) a JOIN (SELECT holder, sum(cents) c FROM lines_v2 GROUP BY holder) b USING (holder) JOIN totals_v1 t USING (holder) WHERE b.c <> t.cents) holders_changed, (SELECT count(*) FROM lines_v1) lines_v1, (SELECT count(*) FROM lines_v2) lines_v2;`);
+
+// E. rounding: once per line versus per event
+step("C1 per-event rating (ASOF join 10M deduped events), rounded per event", `CREATE OR REPLACE TABLE per_event AS WITH e AS (${dedupeSql(raw)}) SELECT sum(sign(pico)::HUGEINT * ((abs(pico) + 5000000000) // 10000000000)) AS cents_rounded_per_event, sum(pico) AS pico_exact FROM (SELECT (u.tokens::HUGEINT * p.micro_usd_per_million) pico FROM (SELECT date, labels.model model, t.direction, t.tokens FROM e, UNNEST([{direction:'input', tokens: payload.input_tokens}, {direction:'output', tokens: payload.output_tokens}]) AS x(t) WHERE date >= DATE '2026-10-01' AND date < DATE '2026-11-01') u(date, model, direction, tokens) ASOF JOIN price p ON u.model = p.model AND u.direction = p.direction AND u.date >= p.valid_from);`);
+show("rounding once per line vs per event vs exact (v2 prices)", `SELECT (SELECT cents_rounded_per_event FROM per_event) per_event_cents, (SELECT sum(cents) FROM lines_v2) per_line_cents, (SELECT pico_exact // 10000000000 FROM per_event) exact_floor_cents, (SELECT sum(sign(p)::HUGEINT * ((abs(p) + 5000000000) // 10000000000)) FROM (SELECT holder, sum(pico) p FROM lines_v2 GROUP BY holder)) per_invoice_cents;`);
+
+// F. late events and a closed period (September invoiced 2026-10-02T00:00Z)
+const T = "2026-10-02 00:00:00+00";
+step("D1 Sep: as-issued lines (ingest_time < invoice time), from raw", `CREATE OR REPLACE TABLE sep_issued AS ${invoiceLinesSql({ rollup: `(${dailyRollupSql(`(${dedupeSql(`(SELECT * FROM ${rawSep} WHERE ingest_time < TIMESTAMPTZ '${T}')`)})`)})`, from: "2026-09-01", to: "2026-10-01" })};`);
+step("D2 Sep: current lines (all events), from raw", `CREATE OR REPLACE TABLE sep_now AS ${invoiceLinesSql({ rollup: `(${dailyRollupSql(`(${dedupeSql(rawSep)})`)})`, from: "2026-09-01", to: "2026-10-01" })};`);
+show("Sep adjustment (now - issued), rounded lines", `WITH d AS (SELECT coalesce(n.holder, i.holder) holder, coalesce(n.model, i.model) model, coalesce(n.direction, i.direction) direction, coalesce(n.price_from, i.price_from) price_from, coalesce(n.cents,0) - coalesce(i.cents,0) delta FROM sep_now n FULL JOIN sep_issued i USING (holder, model, direction, price_from)) SELECT (SELECT sum(cents)/100.0 FROM sep_issued) issued_usd, (SELECT sum(cents)/100.0 FROM sep_now) now_usd, sum(delta)/100.0 adjustment_usd, count(*) FILTER (WHERE delta <> 0) lines_adjusted, count(DISTINCT holder) FILTER (WHERE delta <> 0) holders_adjusted, (SELECT count(DISTINCT holder) FROM sep_issued) holders_issued FROM d;`);
+// late-only delta: read only late-* files of September dates, drop idems already in the day files
+step("D3 Sep delta from late-* files only (anti-join vs the dates' day.jsonl idems)", `CREATE OR REPLACE TABLE sep_delta AS WITH late AS (${dedupeSql(rawEventsSql({ glob: `data/c${tag}/schools/sch_acme/events/date=2026-09-*/late-*.jsonl`, schema: "explicit" }))}), known AS (SELECT idem FROM ${rawEventsSql({ glob: `data/c${tag}_sep/schools/sch_acme/events/date=2026-09-*/*.jsonl`, schema: "explicit" })}) SELECT l.* FROM late l ANTI JOIN known k USING (idem) WHERE l.ingest_time >= TIMESTAMPTZ '${T}';`);
+show("late delta events (Sep, ingested after the invoice) and parity with now-issued", `SELECT count(*) late_events, count(DISTINCT key) holders, sum(payload.input_tokens) delta_in_tokens, (SELECT sum(tokens) FILTER (WHERE direction='input') FROM sep_now) - (SELECT sum(tokens) FILTER (WHERE direction='input') FROM sep_issued) AS now_minus_issued_in_tokens FROM sep_delta;`);
+void out;

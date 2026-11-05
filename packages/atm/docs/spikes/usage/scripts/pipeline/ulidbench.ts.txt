@@ -1,0 +1,11 @@
+import { deterministicUlid } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/src/ledger/ids.ts";
+import { canonicalize } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/src/ledger/util.ts";
+
+const start = performance.now();
+for (let i = 0; i < 200000; i++)
+	deterministicUlid({
+		timeMs: 1.7e12 + i,
+		revision: 0,
+		seed: canonicalize(["sch_acme", `req_${i}`]),
+	});
+console.log(((performance.now() - start) / 200000) * 1000, "us/event");

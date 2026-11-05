@@ -1,0 +1,44 @@
+// usage: bun conv-typed.ts <tag> : typed-column Parquet variants + timing of q1 on each
+import { statSync } from "node:fs";
+import { fmt, runSql } from "./lib.ts";
+
+const tag = process.argv[2] ?? "1m";
+const src = `read_json('data/c${tag}/schools/sch_acme/events/*/*.jsonl', format='newline_delimited', columns={v:'INTEGER', id:'VARCHAR', school:'VARCHAR', source:'VARCHAR', event_type:'VARCHAR', event_time:'TIMESTAMPTZ', ingest_time:'TIMESTAMPTZ', date:'DATE', tz:'VARCHAR', key:'VARCHAR', labels:'MAP(VARCHAR,VARCHAR)', idem:'VARCHAR', cause:'VARCHAR', text:'VARCHAR', postings:'STRUCT(account VARCHAR, amount DECIMAL(18,2), commodity VARCHAR)[]', payload:'STRUCT(input_tokens BIGINT, output_tokens BIGINT, cached_input_tokens BIGINT, reasoning_tokens BIGINT)', redacted:'JSON'})`;
+const envCols =
+	"v, id, school, source, event_type, event_time, ingest_time, date, tz, key, labels, idem, cause, text, postings";
+
+const variants: Record<string, { sql: string; read: string }> = {
+	// T2: payload kept whole but typed as a STRUCT, labels a MAP
+	t2_struct_payload_map_labels: {
+		sql: `COPY (SELECT ${envCols}, payload FROM ${src}) TO 'data/t2_${tag}.parquet' (FORMAT parquet, COMPRESSION zstd);`,
+		read: `SELECT key, date_trunc('month', date) m, labels['model'] model, sum(payload.input_tokens) i, sum(payload.output_tokens) o FROM read_parquet('data/t2_${tag}.parquet') GROUP BY ALL`,
+	},
+	// T3: envelope + promoted typed columns (model/feature/region, token counts), labels MAP and payload kept for fidelity
+	t3_envelope_plus_promoted: {
+		sql: `COPY (SELECT ${envCols}, payload, labels['model'] AS model, labels['feature'] AS feature, labels['region'] AS region, payload.input_tokens AS input_tokens, payload.output_tokens AS output_tokens, payload.cached_input_tokens AS cached_input_tokens, payload.reasoning_tokens AS reasoning_tokens FROM ${src}) TO 'data/t3_${tag}.parquet' (FORMAT parquet, COMPRESSION zstd);`,
+		read: `SELECT key, date_trunc('month', date) m, model, sum(input_tokens) i, sum(output_tokens) o FROM read_parquet('data/t3_${tag}.parquet') GROUP BY ALL`,
+	},
+};
+const baseline = `SELECT key, date_trunc('month', date) m, labels['model'] model, sum((payload->>'input_tokens')::BIGINT) i, sum((payload->>'output_tokens')::BIGINT) o FROM read_parquet('data/pe_${tag}_single.parquet') GROUP BY ALL`;
+const flat = `SELECT key, date_trunc('month', date) m, model, sum(input_tokens) i, sum(output_tokens) o FROM read_parquet('data/pf_${tag}.parquet') GROUP BY ALL`;
+
+for (const [name, v] of Object.entries(variants)) {
+	const c = runSql(`.timer on\n.mode trash\n${v.sql}`);
+	if (/Error/.test(c.stdout + c.stderr)) console.log(c.stdout.slice(0, 400));
+	console.log(name, "write", fmt(c.timers[0] ?? Number.NaN), "s");
+}
+const rows: [string, string, string][] = [
+	["i_json_payload_in_parquet", baseline, `data/pe_${tag}_single.parquet`],
+	["ii_a_struct_payload", variants.t2_struct_payload_map_labels?.read ?? "", `data/t2_${tag}.parquet`],
+	["ii_b_promoted_columns_plus_envelope", variants.t3_envelope_plus_promoted?.read ?? "", `data/t3_${tag}.parquet`],
+	["ii_c_flat_promoted_only", flat, `data/pf_${tag}.parquet`],
+];
+for (const [name, sql, file] of rows) {
+	const r = runSql(`.timer on\n.mode trash\n${sql};\n${sql};`);
+	console.log(
+		tag,
+		name,
+		`bytes=${statSync(file).size}`,
+		`cold=${fmt(r.timers[0] ?? Number.NaN, 3)}s warm=${fmt(r.timers[1] ?? Number.NaN, 3)}s rss=${fmt(r.rssMb, 0)}MB`,
+	);
+}

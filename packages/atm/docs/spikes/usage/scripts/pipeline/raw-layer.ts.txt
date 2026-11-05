@@ -1,0 +1,26 @@
+// usage: bun raw-layer.ts <tag> : size of a PII-stripped provider usage object kept beside the normalized event
+import { statSync } from "node:fs";
+import { fmt, runSql } from "./lib.ts";
+
+const tag = process.argv[2] ?? "1m";
+const rawJson = `json_object('id', 'msg_' || substr(md5(idem), 1, 24), 'type', 'message', 'role', 'assistant', 'model', model || '-20260101', 'stop_reason', CASE WHEN hash(idem) % 10 = 0 THEN 'max_tokens' ELSE 'end_turn' END, 'request_id', 'req_' || substr(md5(idem || 'r'), 1, 24), 'usage', json_object('input_tokens', input_tokens, 'output_tokens', output_tokens, 'cache_creation_input_tokens', 0, 'cache_read_input_tokens', cached_input_tokens, 'service_tier', 'standard'))::VARCHAR`;
+const withRaw = `SELECT e.*, ${rawJson} AS raw_usage FROM read_parquet('data/t3_${tag}.parquet') e`;
+const rawSql = withRaw.replace("e.*", "idem, date, e.model, e.input_tokens, e.output_tokens, e.cached_input_tokens, e.cached_input_tokens AS c").replace("SELECT idem, date, ", "SELECT idem, date, ");
+
+const steps: [string, string][] = [
+	["normalized_envelope_plus_raw_column", `COPY (${withRaw}) TO 'data/rawcol_${tag}.parquet' (FORMAT parquet, COMPRESSION zstd);`],
+	["raw_only_parquet", `COPY (SELECT idem, date, ${rawJson} AS raw_usage FROM read_parquet('data/t3_${tag}.parquet')) TO 'data/rawonly_${tag}.parquet' (FORMAT parquet, COMPRESSION zstd);`],
+	["raw_only_jsonl", `COPY (SELECT idem, date, ${rawJson} AS raw_usage FROM read_parquet('data/t3_${tag}.parquet')) TO 'data/rawonly_${tag}.csv.gz' (FORMAT csv, COMPRESSION gzip);`],
+	["raw_uncompressed_sample", `COPY (SELECT ${rawJson} AS raw_usage FROM read_parquet('data/t3_${tag}.parquet')) TO 'data/rawplain_${tag}.csv' (FORMAT csv, HEADER false, QUOTE '', ESCAPE '');`],
+];
+void rawSql;
+for (const [name, sql] of steps) {
+	const r = runSql(`.timer on\n.mode trash\n${sql}`);
+	if (/Error/.test(r.stdout + r.stderr)) console.log(r.stdout.slice(0, 500), r.stderr.slice(0, 300));
+	console.log(tag, name, fmt(r.timers[0] ?? Number.NaN), "s");
+}
+const rows = Number(
+	runSql(`.mode csv\nSELECT count(*) FROM read_parquet('data/t3_${tag}.parquet');`).stdout.trim().split("\n").pop(),
+);
+for (const f of [`t3_${tag}.parquet`, `rawcol_${tag}.parquet`, `rawonly_${tag}.parquet`, `rawonly_${tag}.csv.gz`, `rawplain_${tag}.csv`])
+	console.log(tag, f, statSync(`data/${f}`).size, "B", fmt(statSync(`data/${f}`).size / rows, 1), "B/event");
