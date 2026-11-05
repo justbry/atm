@@ -28,6 +28,7 @@ export const SPEC_VERSION = spec.stripeApiVersion;
 /** Which Stripe object an event type carries in `data.object`. */
 export const OBJECT_OF_EVENT: Record<string, string> = {
 	"invoice.paid": "invoice",
+	"invoice_payment.paid": "invoice_payment",
 	"charge.refunded": "charge",
 	"charge.dispute.created": "dispute",
 	"charge.dispute.closed": "dispute",

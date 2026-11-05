@@ -1,0 +1,34 @@
+{
+	"v": 1,
+	"source": "stripe",
+	"event": "invoice_payment.paid",
+	"target": "InvoicePaymentFact",
+	"stripeApiVersion": "2025-10-29.clover",
+	"fields": {
+		"id": {
+			"path": "$.id",
+			"type": "string"
+		},
+		"invoiceId": {
+			"path": "$.data.object.invoice",
+			"type": "string"
+		},
+		"paymentIntentId": {
+			"path": "$.data.object.payment.payment_intent",
+			"type": "string",
+			"optional": true,
+			"default": null
+		},
+		"chargeId": {
+			"path": "$.data.object.payment.charge",
+			"type": "string",
+			"optional": true,
+			"default": null
+		},
+		"at": {
+			"path": "$.created",
+			"type": "seconds"
+		}
+	},
+	"personal": []
+}

@@ -20,6 +20,7 @@ export const ROOTS = {
 	charge: "charge",
 	dispute: "dispute",
 	subscription: "subscription",
+	invoice_payment: "invoice_payment",
 } as const;
 
 type Json = Record<string, unknown>;

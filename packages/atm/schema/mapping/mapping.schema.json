@@ -23,7 +23,8 @@
 				"BillingInvoice",
 				"BillingRefund",
 				"BillingDispute",
-				"SubscriptionFact"
+				"SubscriptionFact",
+				"InvoicePaymentFact"
 			]
 		},
 		"stripeApiVersion": {

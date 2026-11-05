@@ -8,6 +8,9 @@ import * as rows from "./billing/rows.js";
 import * as status from "./billing/status.js";
 import * as stripeMenu from "./billing/stripe-menu.js";
 import { engineCommandTypes, runEngineCommand as run } from "./engine.js";
+import { HANDLER_DDL as handlerDdl } from "./handler/schema.js";
+import * as signature from "./handler/stripe-signature.js";
+import * as webhook from "./handler/stripe-webhook.js";
 import { deterministicUlid as deterministicUlidImpl } from "./ledger/ids.js";
 import { buildJournal as buildJournalImpl } from "./ledger/journal.js";
 import {
@@ -67,6 +70,7 @@ import type {
 	R2StoreOptions,
 	RowChanges,
 	RowTable,
+	SignatureVerdict,
 	StaleRevisionConstructor,
 	Store,
 	StripeEventInput,
@@ -77,6 +81,10 @@ import type {
 	SubscriptionFact,
 	SubscriptionItem,
 	SubscriptionStatus,
+	VerifySignatureInput,
+	WebhookDeps,
+	WebhookRequest,
+	WebhookResponse,
 } from "./types.js";
 
 export type * from "./types.js";
@@ -469,3 +477,29 @@ export const FolderStore: new (options: FolderStoreOptions) => Store =
 
 /** An R2 or other S3-compatible bucket on `aws4fetch`; conditional puts, sha256 identity, bounded retries. */
 export const R2Store: new (options: R2StoreOptions) => Store = r2Store.R2Store;
+
+// ---- The reference webhook handler (Bun or Node; not a Worker) ----
+
+/** The tables the handler keeps in the caller's SQLite: rows, event claims, the payment index and the ledger outbox. */
+export const HANDLER_DDL: string = handlerDdl;
+
+/** Checks a `Stripe-Signature` header against the raw body: HMAC-SHA256 over `t.payload`, constant time, 300 s tolerance. */
+export const verifyStripeSignature = (
+	input: VerifySignatureInput,
+): SignatureVerdict => signature.verifyStripeSignature(input);
+
+/** A `Stripe-Signature` header for a payload, for tests and local replays. */
+export const signStripePayload = (input: {
+	payload: string;
+	secret: string;
+	timestampSeconds: number;
+}): string => signature.signStripePayload(input);
+
+/**
+ * One Stripe webhook: verify the signature, claim the event id (a stale claim is taken over), then in one SQLite
+ * transaction apply the rows, append the events to the outbox and mark the claim done. See `src/handler/stripe-webhook.ts`.
+ */
+export const handleStripeWebhook = (
+	deps: WebhookDeps,
+	request: WebhookRequest,
+): WebhookResponse => webhook.handleStripeWebhook(deps, request);
