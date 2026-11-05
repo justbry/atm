@@ -10,15 +10,24 @@ Newest first. The version history before 0.3.0 and what a caller has to change f
 
   **How each was checked:** every PR above was merged on local gates (tests with `--timeout 60000`, `tsc`, Biome, the build, `knip`), run on the head and again on the tree with `dev` merged in; the inherited Autumn workflows never ran. The atm workflow ran on #43's head (`ea198874c`, run 42067266463, ubuntu-latest): hledger 1.52.1 installed with a matching sha256, 1061 pass, 51 skip, 0 fail, and the three `hledger agrees` tests passed (none skipped). Locally, on the merged tree of each: #41 1090 pass, #42 1094, #49 1124, #46 1138, #47 1166, #48 1223 (50 skipped, 0 failed in each). #41 to #49 had not run in CI when merged; `dev`'s own runs are the first. The skips are the staging R2 and SeaweedFS contract suites and the DuckDB DDL test (no credentials, no `weed`, no `duckdb`). Four of them (#46 to #49) were each reviewed with a high-effort pass that found and fixed real bugs before the merge.
 
-## Unreleased
+## 0.9.0
 
-On `dev` after `atm-v0.8.0`, not released.
+**Release 0.9.0**: B4 Uni's revenue share in the ledger, and money lines for a paid booking. The release record (tag, commit, tarball URL, sha256 and sha512) is added after the release, as for 0.8.0. What a caller has to change: `UPGRADING.md`, "Moving to 0.9.0 from 0.8.0". Stripe Connect fees (taking the share out of the transaction) are a later item in `ROADMAP.md`.
+
+Everything on `dev` after the `atm-v0.8.0` tag (`6e0dbaf75`):
 
 | PR | Merge commit | What |
 |---|---|---|
 | #77 | `534a55f52` | a non-USD dispute that moved money is answered 200 `non_usd` and leaves a `money.skipped` marker (`kind: "dispute"`) |
 | #72 | `d186b73fc` | an end-to-end reconciliation matrix (tests and `docs/e2e-reconciliation.md` only, no source change): each case runs the handler, journal and `atm reconcile` against hand-computed numbers, and records six open discrepancies, D1 to D6 |
-| #85 | pending | no behaviour change: `handleStripeEvent` is now `normalizeStripeEvent` and `handleStripeFact`, with `replayFactOf` and `inputCauseId` beside them (internal; the first step of the stored-inputs work in `docs/simulate-from-inputs.md`); proved against the old path by 300 seeded histories and every recorded event |
+| #82 | `02ee67891` | docs: the revenue-share design (a per-school percentage of what is collected, ledger first, invoiced after) and Stripe Connect fees as a later item |
+| #65 | `21641e901` | docs: the design for simulating the grant rules from stored Stripe inputs (no code) |
+| #84 | `b599240f4` | a paid booking's payment and refund make `payment.succeeded` and `payment.refunded`, and `reconcile` pairs them with Stripe by payment intent |
+| #86 | `0641d2d04` | the revenue share: `policy.revenueShare`, `share.accrued`, `share.reversed` and `share.settled` events, `shareStatement` and `atm share` |
+| #85 | `d4ca8a8ed` | no behaviour change: `handleStripeEvent` is now `normalizeStripeEvent` and `handleStripeFact` (the first step of the stored-inputs work) |
+| #90 | `c7dc8d7cc` | review fixes: a booking's refunds book each event's own amount, so `reconcile` ties out of order; the statement reads the settled amount from the posting; the policy schema no longer rejects valid rates in a plain validator; an invalid rate means no share and never blocks credits |
+
+**How it was checked:** each PR was merged on local gates (tests with `--timeout 60000`, `tsc`, Biome, the build, `knip`; the inherited Autumn workflows never ran). An Opus reviewer then tried to break the share and the booking money lines (rounding at every two-decimal rate against exact integer arithmetic, many partial refunds, out of order and repeated deliveries, month boundaries in the school's zone, hledger, a school with no rate against the 0.8.0 commit): it found no error in the share arithmetic or the ledger and five smaller defects, fixed in #90. The merged tree (`c7dc8d7cc`) ran 2193 pass, 50 skip, 0 fail, with hledger 1.52.1. Not verified: nothing ran against real Stripe for a booking's payment or a payment-intent listing, and no statement was invoiced.
 
 ## 0.8.0
 
