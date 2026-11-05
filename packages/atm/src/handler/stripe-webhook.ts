@@ -118,6 +118,7 @@ import {
 } from "../billing/normalize.js";
 import { type BillingRow, StaleRevision, subjectKey } from "../billing/rows.js";
 import { deterministicUlid } from "../ledger/ids.js";
+import { appendToOutbox } from "../ledger/outbox.js";
 import { canonicalize } from "../ledger/util.js";
 import type {
 	AtmEnv,
@@ -573,17 +574,7 @@ const applyOnce = ({
 			);
 		writeRows(db, result.rowChanges);
 	}
-	for (const decision of result.events)
-		db.run(
-			`INSERT INTO ledger_outbox (school_id, id, idem, date, body, batch_key, shipped_at) VALUES (?, ?, ?, ?, ?, NULL, NULL) ON CONFLICT (school_id, idem) DO NOTHING`,
-			[
-				decision.school,
-				decision.id,
-				decision.idem,
-				decision.date,
-				canonicalize(decision),
-			],
-		);
+	appendToOutbox(db, result.events);
 	if (event.type === "invoice.paid") {
 		const invoiceId = stringAt(event.object, "id");
 		if (invoiceId) {

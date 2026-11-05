@@ -167,6 +167,15 @@ Additive: nothing changes for a caller that does not call it. Until now the hand
 - `atm ship --db <handler sqlite file> --root <folder> --school <id>` runs it from a shell (Bun only, as the rest of the CLI; it opens the file read-write and waits up to 5 s for the handler's lock). It exits 1 on a conflict, on a `--root` that is not an existing folder (create it first: a typo in it would otherwise make a new folder and mark every row shipped into it), and on a `--school` with no rows in the outbox (it names the schools that have some).
 - Not built: R2 batches (the call works against `R2Store`, untested there), the `day.jsonl` combine, the signed manifest and Parquet. A batch is named `batch-*`, never `day.jsonl` or `late-*`. The shipper does not write into a day that already has a `day.jsonl` (a `conflicts` entry), since the reader would not read the batch; once the combine exists, it has to decide how a day combined after its rows shipped takes later rows (`late-*`).
 
+### Logging the family service's own commands (after 0.5.0)
+
+Additive: nothing changes for a caller that does not call it, and the handler writes what it wrote. New exports: `recordEngineCommand({ db, mutation, before, context, logsEveryCommand? })` and `recordLapse({ db, state, featureOf, feature, atMs, tz, drawnAfter?, labels? })`, which append to the same `ledger_outbox` the handler uses (`ON CONFLICT (school_id, idem) DO NOTHING`), so a log shipped by `atm ship` holds what the family service ran and `replayEvents` can replay it.
+
+- **What the family service changes.** After every engine command it runs (hold, finalize, spend, refund) and in the expiry cron, call these with the same `SqlDatabase`, inside the transaction that writes the subject's rows, after the revision check: run the command, write the rows, record the events. They open no transaction. Keep the command's `commandId` stable across a retry of the request so a retry adds no second event.
+- **What it records.** The whole mutation on every event, a `plan.changed` for a command that moves no credits, nothing for a null or rejected result (which change no rows either). The `context` carries what the postings need that the mutation does not (`feature`, `service`, `as`, `reason`, `settleAs`, `lowCreditThreshold`, ...); the school is the mutation's `identity.orgId`.
+- **`payload.complete`.** Left out unless `logsEveryCommand: true`; set it only if every engine command for the subject is recorded. A replay reads it only for commands named `<ULID>:<step>`.
+- Not built: commands that move several features (`reset`, `applyBillingPlan`) are not cut by feature and plan here; a family service does not run them (the handler does). A command that makes new rollover rows (the engine's random ids) is not recorded.
+
 ### Not in this release
 
 The `day.jsonl` combine, the R2 shipper and manifest, simulation, corrections, the Parquet export and webhook delivery. See `ROADMAP.md`.

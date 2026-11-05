@@ -863,6 +863,44 @@ export const mutationToEvents = ({
 	return made;
 };
 
+/**
+ * The record of a command that moved no credits (the cycle-end update after a renewal, a plan change that keeps the
+ * sessions): a `plan.changed` with the command and its whole mutation and no postings. Every command the writer ran is in
+ * the log once, so a replay can run the whole chain and its revisions follow on. `complete` is the writer's claim that it
+ * logs every command it runs (`payload.complete`, read by `replayEvents`).
+ */
+export const planChangedEvent = ({
+	mutation,
+	tz,
+	cause,
+	labels,
+	complete,
+}: {
+	mutation: SubjectStateMutation;
+	tz: string;
+	cause?: string;
+	labels?: Record<string, string>;
+	complete: boolean;
+}): AtmEvent => {
+	const { command, ...decided } = mutation as unknown as Record<
+		string,
+		unknown
+	> & { command: { type: string; occurredAt: number } };
+	return ledgerEvent({
+		type: "plan.changed",
+		school: mutation.identity.orgId,
+		tz,
+		eventTime: command.occurredAt,
+		key: mutation.identity.customerId,
+		idem: `plan:${mutation.id}`,
+		cause,
+		labels,
+		text: `${command.type} moved no credits`,
+		payload: { command, mutation: decided, ...(complete ? { complete } : {}) },
+		revision: mutation.revision.after,
+	});
+};
+
 // ---------------------------------------------------------------------------------------------------------------
 // Expiry by the clock (no mutation: the engine drops lapsed rows when it reads, the cron books the expiry).
 // ---------------------------------------------------------------------------------------------------------------

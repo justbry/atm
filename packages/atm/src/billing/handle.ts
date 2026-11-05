@@ -15,7 +15,7 @@ import type {
 	SubjectStateMutation,
 } from "@autumn/balance-engine";
 import { ULID_PATTERN } from "../ledger/ids.js";
-import { ledgerEvent, mutationToEvents } from "../ledger/postings.js";
+import { mutationToEvents, planChangedEvent } from "../ledger/postings.js";
 import { runOnState, toCatalog } from "../ledger/run.js";
 import type {
 	AtmEnv,
@@ -446,11 +446,7 @@ const eventsOf = ({
 	return events;
 };
 
-/**
- * The record of a command that moved no credits (the cycle-end update after a renewal, a plan change that keeps the
- * sessions): a `plan.changed` with the command and its whole mutation and no postings. Every command the rules ran is
- * in the log once, so a replay can run the whole chain and its revisions follow on.
- */
+/** The record of a command that moved no credits; the handler logs every command it runs, so it says `complete`. */
 const planChangedOf = ({
 	mutation,
 	input,
@@ -459,25 +455,14 @@ const planChangedOf = ({
 	mutation: SubjectStateMutation;
 	input: StripeEventInput;
 	labels: Record<string, string>;
-}): AtmEvent => {
-	const { command, ...decided } = mutation as unknown as Record<
-		string,
-		unknown
-	> & { command: { type: string; occurredAt: number } };
-	return ledgerEvent({
-		type: "plan.changed",
-		school: mutation.identity.orgId,
+}): AtmEvent =>
+	planChangedEvent({
+		mutation,
 		tz: input.menu.timeZone,
-		eventTime: command.occurredAt,
-		key: mutation.identity.customerId,
-		idem: `plan:${mutation.id}`,
 		cause: input.eventId,
 		labels,
-		text: `${command.type} moved no credits`,
-		payload: { command, mutation: decided, complete: true },
-		revision: mutation.revision.after,
+		complete: true,
 	});
-};
 
 // ---- The entry point ----
 

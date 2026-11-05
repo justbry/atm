@@ -118,6 +118,26 @@ So a gift that lapses before the tier's next reset is spent first under `expiry`
 
 A pack that lapses unused is "pack used up" too. `lapseAlertEvents` (beside `lapsedRows`/`lapseEvent`; the cron calls it with the state it read, and `drawnAfter`) returns a `credit.depleted` for a feature whose total over every plan goes from above 0 to 0 or below at an instant rows lapsed: one event per instant, so two rows lapsing together (or a rollover with its grant) make one, and none when other credits remain. It has `source: "cron"`, no postings, the payload `feature`, `available`, `threshold: null`, `previous_available` and `cause: "expired"` (no command or mutation), and the idem `lapse:<key>:depleted:<feature>:<instant>`, so a re-run books nothing new. The state holds balances as of now and no draw times, so a cron that runs late would judge a past instant on credits the family has since drawn from another live row (a false depletion): the required input `drawnAfter(instantMs)` is the units of the feature the holder drew after that instant and up to `atMs`, from the cron's ledger or journal (draws only; a refund take-back or reset is counted only if the caller folds it in), and each instant is judged with them added back. `() => 0` is right only when the state is as of the lapse. Give it the `revision` you give the `credit.expired` events of the same instant (the highest, if they differ): the alert is made at `revision + 1`, so it sorts after them in every order the ledger has (replay, journal, month files) while its `eventMs` stays the instant; a revision that is not a whole number, or is 16777215 or more, throws. It is opt-in by being called (`lapseEvent` is unchanged, so a cron that does not call it gets the events it always got), and no `credit.low` is made on a lapse, on purpose.
 
+### Logging the family service's own commands
+
+Only the handler writes `ledger_outbox`, so a log shipped by `atm ship` holds the money and the grants but not what the family service runs itself (holds, finalizes, spends, refunds, the expiry cron): `bal credits:` cannot match what members used, and `replayEvents`, which needs every command the engine ran, stops. `recordEngineCommand` and `recordLapse` append those to the same outbox, with the same ids, `idem` and ordering as the handler's. They take the caller's `SqlDatabase` and open no transaction: the caller wraps them with its row write, one transaction per command, in this order:
+
+1. run the engine command on the subject's rows as stored (`runEngineCommand`, or `runOnState`);
+2. write the rows, checking the revision (`rowChangesFromMutation` gives the writes; a stale revision rolls everything back);
+3. `recordEngineCommand({ db, mutation, before, context })`: `mutation` is what the engine returned, `before` the state it ran on, `context` how the events are booked (`tz`, `feature`, and as the command needs `service`, `as: "refunded"`, `reason`, `settleAs`, `lowCreditThreshold`).
+
+```ts
+db.transaction(() => {
+	const mutation = runEngineCommand({ subject, command });
+	writeRows(rowChangesFromMutation({ mutation, rows, revision })); // revision-checked
+	recordEngineCommand({ db, mutation, before: state, context: { tz, feature: "visit", service: "massage-90" } });
+});
+```
+
+Call it after every engine command, `commandId` stable for the request (a retry books nothing twice: `idem` is `engine:<commandId>:<kind>`). A command the engine rejected or decided nothing for writes no event and no rows; one that moves no credits is a `plan.changed`, as in the handler. The expiry cron calls `recordLapse({ db, state, featureOf, feature, atMs, tz })` where it reads the state (idempotent by holder, row and expiry; `drawnAfter` opts in to `credit.depleted`).
+
+`payload.complete` is a claim by the writer that it logs every command it runs, so a replay may step over a revision that has no event (a write of the grants row alone). The handler sets it; these functions set it only with `logsEveryCommand: true`, which a caller says only if it records every command for the subject. `replayEvents` reads it only for commands named `<ULID>:<step>` (the handler's names), so a caller whose command ids are anything else needs nothing. One call is for a command that moves one feature (`track`, `finalize`, `confirmExpiredLock`, `updateBalance`); the multi-feature commands (`reset`, `applyBillingPlan`) are the handler's and are not recorded here.
+
 ### Membership status
 
 `incomplete` means the first payment is not finished (Stripe `incomplete`); the other values are `active`, `past_due`, `ended` and `inactive` (`status.ts`).
