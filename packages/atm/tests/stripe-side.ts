@@ -20,7 +20,7 @@ const number = (event: AtmEvent, field: string): number => {
 export const stripeSideOf = (
 	events: readonly AtmEvent[],
 	{ disputeFee = 0 }: { disputeFee?: number } = {},
-): Required<ReconcileStripe> => {
+): Required<Omit<ReconcileStripe, "paymentIntents">> => {
 	const of = (type: AtmEvent["event_type"]) =>
 		events.filter((event) => event.event_type === type);
 	const closed = new Map(

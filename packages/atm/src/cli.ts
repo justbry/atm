@@ -299,7 +299,7 @@ exitTwoOnUsageError(shipCommand);
 program
 	.command("reconcile")
 	.description(
-		"compare a school's events for a month (or a range of days) with Stripe's records for the same period: paid invoices, refunds, disputes, payouts, fees and the net. Prints a summary, or --json; exits 0 when nothing differs, 1 when something does, 2 for input it cannot use",
+		"compare a school's events for a month (or a range of days) with Stripe's records for the same period: paid invoices, a booking's one-time payments, refunds, disputes, payouts, fees and the net. Prints a summary, or --json; exits 0 when nothing differs, 1 when something does, 2 for input it cannot use",
 	)
 	.option("--root <folder>", "the folder that holds schools/<id>/")
 	.option("--school <id>", "school id, as in schools/<id>/")
@@ -308,7 +308,7 @@ program
 	.option("--to <YYYY-MM-DD>", "last day of a range (inclusive)")
 	.option(
 		"--stripe <folder>",
-		"folder of the JSON that `stripe <resource> list` prints: invoices.json, refunds.json, disputes.json, payouts.json, balance_transactions.json (a missing file is reported as not supplied and exits 2)",
+		"folder of the JSON that `stripe <resource> list` prints: invoices.json, refunds.json, disputes.json, payouts.json, balance_transactions.json (a missing file is reported as not supplied and exits 2), and payment_intents.json, which a school whose log holds a booking payment must add",
 	)
 	.option(
 		"--time-zone <iana>",

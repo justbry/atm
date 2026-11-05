@@ -33,6 +33,11 @@
 			"type": "string",
 			"minLength": 1
 		},
+		"booking": {
+			"description": "The caller's booking id, when the refunded payment was a booking's (no invoice).",
+			"type": "string",
+			"minLength": 1
+		},
 		"amount_refunded": {
 			"description": "The charge's total refunded so far (cents), after this refund; amount is what this event added to it.",
 			"type": "integer",

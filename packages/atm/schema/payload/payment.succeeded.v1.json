@@ -2,7 +2,7 @@
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
 	"$id": "https://b4uni.com/_schema/payload/payment.succeeded.v1.json",
 	"title": "payment.succeeded payload v1",
-	"description": "A Stripe invoice.paid as the family service stored it. Amounts in cents.",
+	"description": "A Stripe invoice.paid as the family service stored it, or a booking's one-time payment (a paid payment-mode Checkout Session, no invoice: id is its payment intent, booking names it, and customer is the holder's id in atm). Amounts in cents.",
 	"type": "object",
 	"required": ["id", "amount_paid", "fee", "currency", "customer"],
 	"properties": {
@@ -27,6 +27,21 @@
 			"minLength": 1
 		},
 		"customer": {
+			"type": "string",
+			"minLength": 1
+		},
+		"booking": {
+			"description": "The caller's booking id, on a booking's payment (no invoice). `reconcile` pairs such a payment with Stripe's payment intents, not its invoices.",
+			"type": "string",
+			"minLength": 1
+		},
+		"session": {
+			"description": "The Checkout Session (cs_...) that collected a booking's payment.",
+			"type": "string",
+			"minLength": 1
+		},
+		"payment_intent": {
+			"description": "The Stripe payment intent (pi_...) of a booking's payment; also its id.",
 			"type": "string",
 			"minLength": 1
 		},

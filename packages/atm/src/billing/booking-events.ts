@@ -11,16 +11,21 @@
  * one-time add-on checkout: its invoice decides), and an unpaid `completed` (a delayed payment method: its
  * `async_payment_succeeded` decides). Each is `{ rowChanges: null, events: [] }`.
  *
- * The books: no money line (`payment.succeeded`, `payment.refunded`) is made for a booking's payment. A booking has no
- * invoice, and `reconcile` pairs a `payment.succeeded` with a Stripe invoice, so a booking's payment would show there as
- * a payment Stripe never had. Until reconcile pairs by charge, the booking's payment and its refund are left out of the
- * books (see the 0.8.0 notes in `ROADMAP.md`).
+ * The books: a paid booking makes a `payment.succeeded` (gross = the session's `amount_total`, income
+ * `income:billing:booking`, idem `stripe:<payment intent id>`, `labels.booking` the booking id; the Stripe fee is the
+ * caller's optional `StripeEventInput.fee`, as for an invoice), and a refund of a payment the books hold makes a
+ * `payment.refunded` for what the charge's running total rose by (`amount_refunded` less the record's `payment.refunded`,
+ * so an event that arrives late books nothing twice and nothing is lost). `payment.booked` on the record says the books took the
+ * payment; a payment decided before payments were booked, or one in another currency (a `money.skipped` marker, as for an
+ * invoice), has none and its refund books no `payment.refunded`. `reconcile` pairs the payment with Stripe's payment
+ * intents (`paymentIntents`) and the refund with Stripe's refunds, by payment intent.
  *
  * Pure: no clock, no network. Decided once: the replay of a paid session finds its record and decides nothing, so the
  * caller must write the rows and act on the outcome in one transaction (as for an invoice).
  */
 import type {
 	AtmEnv,
+	AtmEvent,
 	AtmIdentity,
 	BillingRefund,
 	BookingPaymentOutcome,
@@ -31,6 +36,13 @@ import type {
 	StripeEventRefusal,
 	StripeEventResult,
 } from "../types.js";
+import {
+	bookerOf,
+	bookingPaymentEvents,
+	feeProblem,
+	refundEvents,
+	skippedRefundEvents,
+} from "./money.js";
 import { grantsRow, subjectKey } from "./rows.js";
 
 const FAMILY_PREFIX = "family:";
@@ -64,6 +76,7 @@ const writeGrants = (
 	holder: Holder,
 	state: GrantsState,
 	booking: BookingPaymentOutcome,
+	events: AtmEvent[],
 ): StripeEventResult => {
 	const identity: AtmIdentity = {
 		orgId: holder.orgId,
@@ -79,7 +92,7 @@ const writeGrants = (
 			upserts: [grantsRow(state)],
 			deletes: [],
 		},
-		events: [],
+		events,
 		booking,
 	};
 };
@@ -91,6 +104,18 @@ const withBooking = (
 ): GrantsState => ({
 	...grants,
 	bookings: { ...grants.bookings, [bookingId]: record },
+});
+
+/** The labels of a booking's money lines: the versions and mapping every decision carries, and the booking's id. */
+const labelsOf = (
+	input: StripeEventInput,
+	mapping: string,
+	bookingId: string,
+): Record<string, string> => ({
+	menu_version: String(input.menuVersion),
+	policy_version: String(input.policyVersion),
+	mapping,
+	booking: bookingId,
 });
 
 /** A positive whole number of minor units, or null. */
@@ -167,10 +192,27 @@ export const decideCheckoutSession = ({
 			`booking ${bookingId} is already ${existing.state}${existing.payment ? ` (paid by session ${existing.payment.sessionId})` : ""}, and session ${fact.sessionId} paid for it too: refund one of the payments`,
 		);
 
+	const problem = feeProblem(input.fee, amount, "booking");
+	if (problem) return refuse("bad_event", problem);
+
 	const holder = known ?? {
 		orgId: schoolId,
 		customerId: `${FAMILY_PREFIX}${familyId}`,
 	};
+	const money = bookingPaymentEvents({
+		payment: {
+			bookingId,
+			sessionId: fact.sessionId,
+			paymentIntentId: fact.paymentIntentId,
+			amount,
+			currency: fact.currency,
+			at: fact.at,
+		},
+		fee: input.fee,
+		labels: labelsOf(input, fact.source.mapping, bookingId),
+		booker: bookerOf(input, holder),
+		holder,
+	});
 	const record: BookingRecord = {
 		state: "paid",
 		cost: { kind: "price", amount, currency: fact.currency },
@@ -182,6 +224,10 @@ export const decideCheckoutSession = ({
 			amount,
 			currency: fact.currency,
 			refunded: 0,
+			// Only a payment line is a payment the books took: the `money.skipped` marker of a non-USD booking is not one.
+			...(money.some((event) => event.event_type === "payment.succeeded")
+				? { booked: true }
+				: {}),
 		},
 	};
 	// A subject with no rows is created here from the metadata, as a dollar gift creates one: a grants row with a holder.
@@ -190,17 +236,24 @@ export const decideCheckoutSession = ({
 		bookingId,
 		record,
 	);
-	return writeGrants(input, env, holder, state, {
-		action: "paid",
-		bookingId,
-		familyId,
-		schoolId,
-		sessionId: fact.sessionId,
-		paymentIntentId: fact.paymentIntentId,
-		chargeId: null,
-		amount,
-		currency: fact.currency,
-	});
+	return writeGrants(
+		input,
+		env,
+		holder,
+		state,
+		{
+			action: "paid",
+			bookingId,
+			familyId,
+			schoolId,
+			sessionId: fact.sessionId,
+			paymentIntentId: fact.paymentIntentId,
+			chargeId: null,
+			amount,
+			currency: fact.currency,
+		},
+		money,
+	);
 };
 
 /**
@@ -253,20 +306,42 @@ export const decideBookingRefund = ({
 	const settled = record.state === "refunded";
 	if (settled || (total <= payment.refunded && !fact.full)) return nothing();
 	const full = fact.full;
+	// What this event added to the charge's refunded total, by the record's own running total: an event that arrives late (a
+	// smaller total than one already decided) adds nothing, and the books end at the charge's total whatever the order.
+	const refund: BillingRefund = {
+		...fact,
+		previousAmount: payment.refunded,
+		currency: fact.currency ?? payment.currency,
+	};
+	// Only a refund of a payment the books hold is a `payment.refunded`; a non-USD one leaves the marker either way.
+	const money = (payment.booked ? refundEvents : skippedRefundEvents)({
+		refund,
+		labels: labelsOf(input, fact.source.mapping, bookingId),
+		booker: bookerOf(input, holder),
+		holder,
+		...(payment.booked ? { bookingId } : {}),
+	});
 	const next: BookingRecord = {
 		...record,
 		state: full ? "refunded" : record.state,
 		payment: { ...payment, refunded: Math.max(total, payment.refunded) },
 	};
-	return writeGrants(input, env, holder, withBooking(grants, bookingId, next), {
-		action: full ? "refunded" : "partly_refunded",
-		bookingId,
-		familyId: familyOf(holder),
-		schoolId: holder.orgId,
-		sessionId: payment.sessionId,
-		paymentIntentId: payment.paymentIntentId ?? fact.paymentIntentId ?? null,
-		chargeId: fact.chargeId,
-		amount: total,
-		currency: fact.currency ?? payment.currency,
-	});
+	return writeGrants(
+		input,
+		env,
+		holder,
+		withBooking(grants, bookingId, next),
+		{
+			action: full ? "refunded" : "partly_refunded",
+			bookingId,
+			familyId: familyOf(holder),
+			schoolId: holder.orgId,
+			sessionId: payment.sessionId,
+			paymentIntentId: payment.paymentIntentId ?? fact.paymentIntentId ?? null,
+			chargeId: fact.chargeId,
+			amount: total,
+			currency: fact.currency ?? payment.currency,
+		},
+		money,
+	);
 };

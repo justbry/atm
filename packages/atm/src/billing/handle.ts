@@ -51,6 +51,7 @@ import {
 	ungrantedRecurringAddons,
 } from "./grants.js";
 import {
+	bookerOf,
 	disputeEvents,
 	feeProblem,
 	paymentEvents,
@@ -187,13 +188,6 @@ const unlinkedInvoice = (
 		`${fact.id} (charge ${fact.chargeId}, payment intent ${fact.paymentIntentId ?? "none"}) names no invoice this holder has been paid: pass invoiceIds, or retry once the invoice is handled`,
 	);
 };
-
-/** Who books the money lines: the holder's school, in the menu's time zone, caused by the stored input event. */
-const bookerOf = (input: StripeEventInput, holder: { orgId: string }) => ({
-	school: holder.orgId,
-	tz: input.menu.timeZone,
-	cause: input.eventId,
-});
 
 /** Names the invoice, the subscription and the add-on(s), says why atm grants none, and what to change in Stripe. */
 const addonOnlyMessage = (

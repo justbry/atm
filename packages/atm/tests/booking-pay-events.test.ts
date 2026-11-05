@@ -170,7 +170,10 @@ describe("checkout.session.completed of a booking", () => {
 		const s = world();
 		const result = s.handle(completed);
 		expect(result.refused).toBeUndefined();
-		expect(result.events).toEqual([]);
+		// the books' lines are in tests/booking-money.test.ts; the credits are untouched
+		expect(result.events.map((event) => event.event_type)).toEqual([
+			"payment.succeeded",
+		]);
 		expect(result.booking).toEqual({
 			action: "paid",
 			bookingId: "bk_trig1",
@@ -194,6 +197,7 @@ describe("checkout.session.completed of a booking", () => {
 					amount: 3000,
 					currency: "usd",
 					refunded: 0,
+					booked: true,
 				},
 			},
 		});
@@ -404,7 +408,9 @@ describe("charge.refunded of a booking's charge", () => {
 		s.bookingIds[paymentIntentId] = "bk_trig1";
 		const result = s.handle(fullRefund);
 		expect(result.refused).toBeUndefined();
-		expect(result.events).toEqual([]);
+		expect(result.events.map((event) => event.event_type)).toEqual([
+			"payment.refunded",
+		]);
 		expect(result.booking).toEqual({
 			action: "refunded",
 			bookingId: "bk_trig1",
@@ -436,7 +442,10 @@ describe("charge.refunded of a booking's charge", () => {
 		s.handle(completed);
 		const result = s.handle(fullRefund);
 		expect(result.refused).toBeUndefined();
-		expect(result.events).toEqual([]);
+		// no credit event: the only line is the refund's money line
+		expect(result.events.map((event) => event.event_type)).toEqual([
+			"payment.refunded",
+		]);
 	});
 
 	test("the redelivery of a full refund decides nothing", () => {
