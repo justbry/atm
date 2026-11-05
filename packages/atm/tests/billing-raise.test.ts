@@ -334,4 +334,69 @@ describe("invoiceToCommands grants what the two functions say", () => {
 		expect(granted).toEqual([expected]);
 		expect(raised.state.quantity).toBe(4);
 	});
+
+	describe("a tier change while a decrease waits for the renewal", () => {
+		// sparkle-2 x4 holds 8 visits; a decrease to x2 is pending (Stripe's count is 2, the credits still reflect 4); then the
+		// member moves to sparkle-4 (4 visits a unit). The baseline is what the credits hold (2 x 4 = 8), not Stripe's 2 x 2.
+		const changeMenu: Menu = {
+			...menu,
+			tiers: menu.tiers.map((t) =>
+				t.id === "sparkle-4" ? { ...t, quantities: [1, 2, 4] } : t,
+			),
+		};
+		const created = invoiceToCommands({
+			invoice: invoice("in_1", "subscription_create", CYCLE_START, [
+				tierLine({ quantity: 4, amount: 8000 }),
+			]),
+			menu: changeMenu,
+			policy: DEFAULT_POLICY,
+			state: EMPTY_GRANTS_STATE,
+			now: CYCLE_START,
+			menuVersion: 1,
+			policyVersion: 1,
+		});
+		const changeTo = (quantity: number) =>
+			invoiceToCommands({
+				invoice: invoice("in_2", "subscription_update", TEN_DAYS_IN, [
+					tierLine({
+						proration: true,
+						quantity: 2,
+						amount: -2000,
+						periodStart: TEN_DAYS_IN,
+					}),
+					tierLine({
+						tierId: "sparkle-4",
+						proration: true,
+						quantity,
+						amount: 2000 * quantity,
+						periodStart: TEN_DAYS_IN,
+					}),
+				]),
+				menu: changeMenu,
+				policy: DEFAULT_POLICY,
+				state: created.state,
+				now: TEN_DAYS_IN,
+				menuVersion: 1,
+				policyVersion: 1,
+			});
+		const visitUnits = (result: ReturnType<typeof changeTo>) =>
+			result.state.invoices.in_2?.granted
+				.filter((g) => g.rowId.includes("visit"))
+				.map((g) => g.units);
+
+		test("to a tier that holds no more than the credits already hold grants nothing", () => {
+			// 4 x 2 = 8 visits a cycle, the 8 the member holds
+			const result = changeTo(2);
+			expect(result.state.tierId).toBe("sparkle-4");
+			expect(result.state.quantity).toBe(2);
+			expect(visitUnits(result)).toEqual([]);
+		});
+
+		test("to a tier that holds more grants the prorated difference from what the credits hold", () => {
+			// 4 x 4 = 16 visits a cycle against the 8 held: 8 x 20/30 of the cycle left, rounded up
+			const result = changeTo(4);
+			expect(result.state.quantity).toBe(4);
+			expect(visitUnits(result)).toEqual([6]);
+		});
+	});
 });
