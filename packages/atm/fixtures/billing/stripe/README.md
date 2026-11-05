@@ -11,6 +11,7 @@ One event per file, for each event type that `schema/mapping/` covers:
 | `charge.refunded.json` | `charge.refunded` | Full refund |
 | `charge.dispute.created.json` | `charge.dispute.created` | Dispute opened |
 | `charge.dispute.closed.json` | `charge.dispute.closed` | Dispute won |
+| `payout.paid.json` | `payout.paid` | Automatic payout of 245.00 USD, from Stripe's documented payout object |
 | `customer.subscription.created.json` | `customer.subscription.created` | Active monthly subscription |
 | `customer.subscription.updated.json` | `customer.subscription.updated` | Cancel at period end |
 | `customer.subscription.deleted.json` | `customer.subscription.deleted` | Canceled |

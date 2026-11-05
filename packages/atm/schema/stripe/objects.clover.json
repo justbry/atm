@@ -7,7 +7,8 @@
 		"charge": "charge",
 		"dispute": "dispute",
 		"subscription": "subscription",
-		"invoice_payment": "invoice_payment"
+		"invoice_payment": "invoice_payment",
+		"payout": "payout"
 	},
 	"$defs": {
 		"address": {
@@ -745,6 +746,30 @@
 					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
 				},
 				"object": { "enum": ["application"], "type": "string" }
+			},
+			"required": ["deleted", "id", "object"],
+			"type": "object"
+		},
+		"deleted_bank_account": {
+			"properties": {
+				"currency": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"deleted": { "enum": [true], "type": "boolean" },
+				"id": { "maxLength": 5000, "type": "string" },
+				"object": { "enum": ["bank_account"], "type": "string" }
+			},
+			"required": ["deleted", "id", "object"],
+			"type": "object"
+		},
+		"deleted_card": {
+			"properties": {
+				"currency": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"deleted": { "enum": [true], "type": "boolean" },
+				"id": { "maxLength": 5000, "type": "string" },
+				"object": { "enum": ["card"], "type": "string" }
 			},
 			"required": ["deleted", "id", "object"],
 			"type": "object"
@@ -4043,6 +4068,139 @@
 			"type": "object"
 		},
 		"payment_method_details_zip": { "properties": {}, "type": "object" },
+		"payout": {
+			"properties": {
+				"amount": { "type": "integer" },
+				"application_fee": {
+					"anyOf": [
+						{ "anyOf": [{ "maxLength": 5000, "type": "string" }, {}] },
+						{ "type": "null" }
+					]
+				},
+				"application_fee_amount": {
+					"anyOf": [{ "type": "integer" }, { "type": "null" }]
+				},
+				"arrival_date": { "format": "unix-time", "type": "integer" },
+				"automatic": { "type": "boolean" },
+				"balance_transaction": {
+					"anyOf": [
+						{ "anyOf": [{ "maxLength": 5000, "type": "string" }, {}] },
+						{ "type": "null" }
+					]
+				},
+				"created": { "format": "unix-time", "type": "integer" },
+				"currency": { "format": "currency", "type": "string" },
+				"description": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"destination": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{ "maxLength": 5000, "type": "string" },
+								{},
+								{},
+								{ "$ref": "#/$defs/deleted_bank_account" },
+								{ "$ref": "#/$defs/deleted_card" }
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"failure_balance_transaction": {
+					"anyOf": [
+						{ "anyOf": [{ "maxLength": 5000, "type": "string" }, {}] },
+						{ "type": "null" }
+					]
+				},
+				"failure_code": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"failure_message": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"id": { "maxLength": 5000, "type": "string" },
+				"livemode": { "type": "boolean" },
+				"metadata": {
+					"anyOf": [
+						{
+							"additionalProperties": { "maxLength": 500, "type": "string" },
+							"type": "object"
+						},
+						{ "type": "null" }
+					]
+				},
+				"method": { "maxLength": 5000, "type": "string" },
+				"object": { "enum": ["payout"], "type": "string" },
+				"original_payout": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{ "maxLength": 5000, "type": "string" },
+								{ "$ref": "#/$defs/payout" }
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"payout_method": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"reconciliation_status": {
+					"enum": ["completed", "in_progress", "not_applicable"],
+					"type": "string"
+				},
+				"reversed_by": {
+					"anyOf": [
+						{
+							"anyOf": [
+								{ "maxLength": 5000, "type": "string" },
+								{ "$ref": "#/$defs/payout" }
+							]
+						},
+						{ "type": "null" }
+					]
+				},
+				"source_type": { "maxLength": 5000, "type": "string" },
+				"statement_descriptor": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				},
+				"status": { "maxLength": 5000, "type": "string" },
+				"trace_id": {
+					"anyOf": [
+						{ "anyOf": [{ "$ref": "#/$defs/payouts_trace_id" }] },
+						{ "type": "null" }
+					]
+				},
+				"type": { "enum": ["bank_account", "card"], "type": "string" }
+			},
+			"required": [
+				"amount",
+				"arrival_date",
+				"automatic",
+				"created",
+				"currency",
+				"id",
+				"livemode",
+				"method",
+				"object",
+				"reconciliation_status",
+				"source_type",
+				"status",
+				"type"
+			],
+			"type": "object"
+		},
+		"payouts_trace_id": {
+			"properties": {
+				"status": { "maxLength": 5000, "type": "string" },
+				"value": {
+					"anyOf": [{ "maxLength": 5000, "type": "string" }, { "type": "null" }]
+				}
+			},
+			"required": ["status"],
+			"type": "object"
+		},
 		"paypal_seller_protection": {
 			"properties": {
 				"dispute_categories": {
