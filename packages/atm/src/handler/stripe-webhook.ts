@@ -88,7 +88,7 @@
  * Answers (Stripe retries every non-2xx for up to three days)
  *
  *   200 applied            rows, outbox and claim done committed (also when the event changes nothing)
- *   200 non_usd            as `applied`, but an invoice, refund or payout not in USD left no money line: each left a
+ *   200 non_usd            as `applied`, but an invoice, refund, payout or dispute not in USD left no money line: each left a
  *                          `money.skipped` event, `body.skipped` names them, and `deps.warn` (default stderr) says so
  *   200 duplicate          the Stripe event id is already done; nothing else is touched
  *   200 ignored            an event type we do not map, with no claim recorded (a later version that maps it takes the
