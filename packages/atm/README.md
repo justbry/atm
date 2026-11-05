@@ -44,6 +44,33 @@ Pure rules for a school's menu, its Stripe facts, credit grants and storage rows
 - **One entry point**: `handleStripeEvent({ event, eventId, menu, menuVersion, policy, policyVersion, rows, revision, catalog, now, priceIds, invoiceIds })` gives `{ rowChanges, events, refused? }`. The caller verifies the signature, dedupes on the event id, loads the subject's rows, calls it and writes `rowChanges` and `events` in one transaction. Replaying an event gives `rowChanges: null`; an event atm cannot decide comes back `refused` with nothing to write. Two things a Stripe event (API `2025-10-29.clover`) does not carry are the caller's: `priceIds` (lookup key to Stripe price id, from publishing the menu: a line names its price by id only) and `invoiceIds` (payment intent to invoice id, from `invoice_payment.paid`: a charge or dispute does not name its invoice).
 - Shapes: `schema/stripe/objects.clover.json` is Stripe's OpenAPI spec for the pinned API version, pruned to the objects the mappings read (`bun run stripe-spec <spec3.json>`). The tests check every mapping path and every synthetic event against it.
 
+### Quantity raises without the grants state
+
+`invoiceToCommands` needs the whole `GrantsState`. A caller that keeps its own credits (the family service uses only `runEngineCommand`) reads a raise of a tier's quantity with the same two pure functions `invoiceToCommands` calls, so the rule has one copy:
+
+- `prorationPair(lines, isTierPrice)` returns `{ oldQuantity, newQuantity, start, end }` or `null`. `lines` are the invoice's lines (`InvoiceLine`, or anything with `proration`, `amount`, `quantity` and, in ms, `periodStart` and `periodEnd`); `isTierPrice(line)` picks the lines of the tier's price. Stripe's raise is a pair of proration lines: the credit line (negative) holds the OLD quantity, the charge line (positive) the NEW total, not the difference. With several pairs (a decrease made with `create_prorations` leaves an older one pending) the positive line that starts last is the raise, and its credit is the one that starts with it. `start` is when the raise took effect, `end` the end of the cycle. `oldQuantity` is null without a credit line, and the result is `null` without a charge line.
+- `raiseUnits({ perUnit, oldQuantity, newQuantity, at, cycleStart, cycleEnd, policy })` returns the units to grant: (new - old) x `perUnit` x the share of the cycle left at `at`, rounded up, following `policy.upgradeGrant` (`prorated`, the default; `full`; `none`). A decrease or the same count gives 0; without a cycle (either end null) the whole difference. `perUnit` is the grant per unit for the cycle (a yearly plan on a monthly grant: twelve times it). Only `policy.upgradeGrant` is read.
+
+`oldQuantity` for `raiseUnits` is the quantity your credits reflect, not the pair's `oldQuantity`. A decrease that waits for the renewal grants nothing, so after one Stripe's count is lower than the credits' count; a raise counted from Stripe's would grant units the member already holds.
+
+```ts
+import { DEFAULT_POLICY, prorationPair, raiseUnits } from "atm";
+
+const pair = prorationPair(lines, (line) => line.priceId === tierPriceId);
+if (pair?.start != null && pair.end != null) {
+  const units = raiseUnits({
+    perUnit: 2, // visits a unit grants a month
+    oldQuantity: membership.creditQuantity, // what the credits reflect
+    newQuantity: pair.newQuantity,
+    at: pair.start,
+    cycleStart: membership.cycleStart,
+    cycleEnd: pair.end,
+    policy: DEFAULT_POLICY,
+  });
+  // grant `units` (0 means nothing), then store pair.newQuantity as creditQuantity
+}
+```
+
 ### Deduction order
 
 A `track` takes from a holder's credit rows for one feature in this order (Autumn's engine, `balance-engine/src/deduction/deduct.ts`):

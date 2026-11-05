@@ -119,48 +119,61 @@ const create = (
 		CREATED,
 	);
 
-/** The probe's raise lines: the credit at the OLD quantity, the charge at the NEW total, both from the change to the cycle end. */
+/**
+ * The probe's raise lines: the credit at the OLD quantity, the charge at the NEW total, both from the change (`at`) to
+ * the cycle end (`end`; a yearly plan's is a year out).
+ */
 const raiseLines = ({
 	from = 2,
 	to = 4,
 	fromTier = "sparkle-2",
 	toTier = "sparkle-2",
+	interval = "month",
+	at = RAISED,
+	end = CYCLE_END,
 }: {
 	from?: number;
 	to?: number;
 	fromTier?: string;
 	toTier?: string;
+	interval?: "month" | "year";
+	at?: number;
+	end?: number;
 } = {}): EventLine[] => [
 	{
-		lookupKey: tierKey(fromTier, "month"),
+		lookupKey: tierKey(fromTier, interval),
 		amount: -1000 * from,
-		interval: "month",
+		interval,
 		quantity: from,
 		proration: true,
-		periodStart: RAISED,
-		periodEnd: CYCLE_END,
+		periodStart: at,
+		periodEnd: end,
 	},
 	{
-		lookupKey: tierKey(toTier, "month"),
+		lookupKey: tierKey(toTier, interval),
 		amount: 1000 * to,
-		interval: "month",
+		interval,
 		quantity: to,
 		proration: true,
-		periodStart: RAISED,
-		periodEnd: CYCLE_END,
+		periodStart: at,
+		periodEnd: end,
 	},
 ];
 
 /** The probe's `subscription_update` invoice: its own period is the cycle start to the change. */
-const raiseEvent = (lines: EventLine[] = raiseLines(), id = "raise") =>
+const raiseEvent = (
+	lines: EventLine[] = raiseLines(),
+	id = "raise",
+	at = RAISED,
+) =>
 	invoicePaid({
 		eventId: `evt_${id}`,
 		invoiceId: `in_${id}`,
-		at: RAISED,
+		at,
 		subscriptionId: "sub_q",
 		reason: "subscription_update",
 		periodStart: CREATED,
-		periodEnd: RAISED,
+		periodEnd: at,
 		lines,
 		metadata,
 	});
@@ -398,6 +411,60 @@ describe("a raise mid-cycle (2 -> 4, always_invoice)", () => {
 		expect(grantedUnits(s, "in_raise")).toEqual([]);
 		expect(grantsOf(s).quantity).toBe(4);
 		expect(s.avail(RAISED + SECOND)).toBe(8);
+	});
+});
+
+describe("a raise after a pending decrease (4 -> 2 at the renewal, then 2 -> 3)", () => {
+	// The decrease takes effect at the renewal and grants nothing, so the credits keep reflecting 4 until then.
+	// Stripe's raise reads 2 -> 3, but the member already holds the credits of 4 units this cycle.
+	const LATER = LOWERED + DAY;
+	const pendingDecrease = () => {
+		const s = newStore();
+		create(s, { quantity: 4 });
+		s.spend(2, CREATED + DAY);
+		s.handle(updated(2, LOWERED), LOWERED);
+		return s;
+	};
+	const raiseTo = (s: Store, to: number) =>
+		s.handle(
+			raiseEvent(raiseLines({ from: 2, to, at: LATER }), "raise", LATER),
+			LATER,
+		);
+
+	test("a raise to no more units than the credits reflect grants nothing and keeps the credits at 4", () => {
+		const s = pendingDecrease();
+		expect(grantsOf(s).quantity).toBe(4);
+		expect(grantsOf(s).membership?.quantity).toBe(2);
+		expect(raiseTo(s, 3).refused).toBeUndefined();
+		expect(grantedUnits(s, "in_raise")).toEqual([]);
+		expect(s.avail(LATER + SECOND)).toBe(6);
+		expect(grantsOf(s).quantity).toBe(4);
+	});
+
+	test("a raise above the credits grants only the units past what they reflect", () => {
+		const s = pendingDecrease();
+		raiseTo(s, 5);
+		// (5 - 4) x 2 visits x 16 of the 30 days left = 1.07, rounded up; not (5 - 2) x 2 x 16/30 = 3.2 -> 4
+		expect(grantedUnits(s, "in_raise")).toEqual([2]);
+		expect(s.avail(LATER + SECOND)).toBe(6 + 2);
+		expect(grantsOf(s).quantity).toBe(5);
+	});
+
+	test("the later raise back to the credits' count grants nothing either, and the renewal refills at what Stripe says", () => {
+		const s = pendingDecrease();
+		raiseTo(s, 3);
+		s.handle(
+			raiseEvent(
+				raiseLines({ from: 3, to: 4, at: LATER + HOUR }),
+				"raise_again",
+				LATER + HOUR,
+			),
+			LATER + HOUR,
+		);
+		expect(grantedUnits(s, "in_raise_again")).toEqual([]);
+		expect(s.avail(LATER + DAY)).toBe(6);
+		expect(renewal(s, { quantity: 4 }).refused).toBeUndefined();
+		expect(grantedUnits(s, "in_cycle_2")).toEqual([8]);
 	});
 });
 
@@ -720,12 +787,14 @@ describe("invoices that carry more than the raise", () => {
 		}
 	});
 
-	test("the credit line, not the stored quantity, says how many units the member had", () => {
-		// The credits reflect 4 (stored), but Stripe's credit line says the member had 2 and now has 3.
+	test("the stored quantity, not the credit line, says how many units the credits reflect", () => {
+		// The credits reflect 4 (stored); Stripe's credit line says the member had 2 and now has 3. The member already
+		// holds the credits of 4 units this cycle, so the raise adds nothing (a pending decrease, see its own tests).
 		const s = newStore();
 		create(s, { quantity: 4 });
 		s.handle(raiseEvent(raiseLines({ from: 2, to: 3 })), RAISED);
-		expect(grantedUnits(s, "in_raise")?.length).toBeGreaterThan(0);
+		expect(grantedUnits(s, "in_raise")).toEqual([]);
+		expect(grantsOf(s).quantity).toBe(4);
 	});
 });
 

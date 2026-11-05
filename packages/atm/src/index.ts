@@ -4,6 +4,7 @@ import * as handle from "./billing/handle.js";
 import * as menu from "./billing/menu.js";
 import * as normalizer from "./billing/normalize.js";
 import * as policy from "./billing/policy.js";
+import * as raise from "./billing/raise.js";
 import * as rows from "./billing/rows.js";
 import * as status from "./billing/status.js";
 import * as stripeMenu from "./billing/stripe-menu.js";
@@ -68,7 +69,10 @@ import type {
 	MenuValidation,
 	NormalizeContext,
 	NormalizeResult,
+	ProrationLine,
+	ProrationPair,
 	R2StoreOptions,
+	RaiseUnitsInput,
 	RowChanges,
 	RowTable,
 	SignatureVerdict,
@@ -238,6 +242,24 @@ export const menuCatalogRows = (input: {
 /** The engine commands a paid invoice makes (grants, resets, upgrades), and the next state. A replayed invoice gives none. */
 export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult =>
 	grants.invoiceToCommands(input);
+
+/**
+ * Stripe's proration pair for a raise of the quantity: the credit line holds the OLD quantity, the charge line the NEW
+ * total. With several pairs the positive line that starts last is the raise. `isTierPrice` picks the lines of the tier's
+ * price. Null when there is no such charge line. Pure; `invoiceToCommands` reads a raise through it.
+ */
+export const prorationPair = <Line extends ProrationLine>(
+	lines: readonly Line[],
+	isTierPrice: (line: Line) => boolean,
+): ProrationPair | null => raise.prorationPair(lines, isTierPrice);
+
+/**
+ * The units a raise grants: (new - old) x `perUnit` x the share of the cycle left at `at`, rounded up, following
+ * `policy.upgradeGrant` (`prorated`, `full`, `none`); a decrease or the same count gives 0. `oldQuantity` is the count
+ * the credits reflect, not Stripe's credit line. Pure; `invoiceToCommands` grants a raise through it.
+ */
+export const raiseUnits = (input: RaiseUnitsInput): number =>
+	raise.raiseUnits(input);
 
 /** A full refund takes back that invoice's unused credits (per policy); a partial refund changes nothing. */
 export const refundToCommands = (
