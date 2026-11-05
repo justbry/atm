@@ -1,0 +1,42 @@
+immediate  think=0ms same   K=1 |  23333 commits/s | attempts 35000 commits 35000 stale 0 (0.0%) busy 0 retries/track 0.00 | p50 34us p99 94us max 5.4ms | runs 23255/23333/23543 | revOk true balOk true
+immediate  think=0ms same   K=2 |  10717 commits/s | attempts 16076 commits 16076 stale 0 (0.0%) busy 0 retries/track 0.00 | p50 173us p99 523us max 10.3ms | runs 8001/10717/10931 | revOk true balOk true
+immediate  think=0ms same   K=4 |   5233 commits/s | attempts 7855 commits 7855 stale 0 (0.0%) busy 0 retries/track 0.00 | p50 337us p99 6427us max 67.4ms | runs 4451/5233/7268 | revOk true balOk true
+immediate  think=0ms same   K=8 |   4288 commits/s | attempts 6441 commits 6441 stale 0 (0.0%) busy 0 retries/track 0.00 | p50 1033us p99 10588us max 54.2ms | runs 3222/4288/4413 | revOk true balOk true
+immediate  think=0ms spread K=2 |   7259 commits/s | attempts 10888 commits 10888 stale 0 (0.0%) busy 0 retries/track 0.00 | p50 263us p99 810us max 14.2ms | runs 6730/7259/10069 | revOk true balOk true
+immediate  think=0ms spread K=4 |   3808 commits/s | attempts 5712 commits 5712 stale 0 (0.0%) busy 0 retries/track 0.00 | p50 668us p99 5396us max 29.1ms | runs 3568/3808/4888 | revOk true balOk true
+immediate  think=0ms spread K=8 |   2451 commits/s | attempts 3687 commits 3687 stale 0 (0.0%) busy 0 retries/track 0.00 | p50 1846us p99 17564us max 66.1ms | runs 2142/2451/2793 | revOk true balOk true
+optimistic think=0ms same   K=1 |  18704 commits/s | attempts 28056 commits 28056 stale 0 (0.0%) busy 0 retries/track 0.00 | p50 43us p99 139us max 8.7ms | runs 18579/18704/19001 | revOk true balOk true
+optimistic think=0ms same   K=2 |   7403 commits/s | attempts 16490 commits 11105 stale 5385 (32.7%) busy 0 retries/track 0.48 | p50 131us p99 2021us max 11.0ms | runs 6166/7403/9374 | revOk true balOk true
+optimistic think=0ms same   K=4 |   4186 commits/s | attempts 19037 commits 6279 stale 12758 (67.0%) busy 0 retries/track 2.03 | p50 502us p99 6617us max 35.1ms | runs 4073/4186/4480 | revOk true balOk true
+optimistic think=0ms same   K=8 |   2872 commits/s | attempts 21292 commits 4313 stale 16979 (79.7%) busy 0 retries/track 3.94 | p50 1086us p99 19071us max 161.6ms | runs 2813/2872/3190 | revOk true balOk true
+optimistic think=0ms spread K=2 |   6679 commits/s | attempts 10018 commits 10018 stale 0 (0.0%) busy 0 retries/track 0.00 | p50 162us p99 2162us max 6.2ms | runs 4053/6679/9209 | revOk true balOk true
+optimistic think=0ms spread K=4 |   7163 commits/s | attempts 10745 commits 10745 stale 0 (0.0%) busy 0 retries/track 0.00 | p50 361us p99 3284us max 40.1ms | runs 5061/7163/11948 | revOk true balOk true
+267 | 	{ sync = "NORMAL" as Sync, setWal = true } = {},
+268 | ): { raw: Database; db: SqlDatabase } => {
+269 | 	const raw = new Database(path, { create: true });
+270 | 	// WAL is stored in the file: the process that makes the file sets it, later openers (the workers) must not race a recovery.
+271 | 	if (path !== ":memory:" && setWal) raw.exec("PRAGMA journal_mode = WAL");
+272 | 	raw.exec(`PRAGMA synchronous = ${sync}`);
+           ^
+SQLiteError: database is locked
+      errno: 261,
+ byteOffset: -1,
+       code: "SQLITE_BUSY_RECOVERY"
+
+      at run (bun:sqlite:318:19)
+      at openDatabase (/Users/jmac/repos/atm/.claude/worktrees/agent-a679a6723a047cebe/packages/atm/tests/spikes/usage-track-harness.ts:272:6)
+      at workerMain (/Users/jmac/repos/atm/.claude/worktrees/agent-a679a6723a047cebe/packages/atm/tests/spikes/usage-track-harness.ts:927:17)
+      at /Users/jmac/repos/atm/.claude/worktrees/agent-a679a6723a047cebe/packages/atm/tests/spikes/usage-track-harness.ts:1087:38
+
+Bun v1.4.4 (macOS arm64)
+1041 | 			stderr: "inherit",
+1042 | 			env: { ...process.env, TZ: "UTC" },
+1043 | 		});
+1044 | 	});
+1045 | 	const reports: WorkerReport[] = [];
+1046 | 	for (const child of processes) {
+                           ^
+SyntaxError: JSON Parse error: Unexpected EOF
+      at <anonymous> (/Users/jmac/repos/atm/.claude/worktrees/agent-a679a6723a047cebe/packages/atm/tests/spikes/usage-track-harness.ts:1046:21)
+
+Bun v1.4.4 (macOS arm64)

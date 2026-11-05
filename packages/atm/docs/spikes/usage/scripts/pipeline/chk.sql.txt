@@ -1,0 +1,4 @@
+.timer on
+SELECT count(*), sum(payload.input_tokens) FROM read_json_auto('data/c1m/schools/sch_acme/events/*/*.jsonl', format='newline_delimited');
+SELECT count(*), sum(payload.input_tokens) FROM read_json('data/c1m/schools/sch_acme/events/*/*.jsonl', format='newline_delimited', columns={payload:'STRUCT(input_tokens BIGINT)'});
+SELECT count(*), sum(input_tokens) FROM read_parquet('data/pf_1m.parquet');

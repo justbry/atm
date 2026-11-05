@@ -1,0 +1,8 @@
+{"events":1000000,"distinct":1000000,"duplicates":9943,"late":10155,"layout":"combined","seconds":3.414104542,"shipperFiles":0}
+bun gen.ts 1000000 data/c1m combined  3.05s user 0.57s system 105% cpu 3.426 total
+{"events":1000000,"distinct":1000000,"duplicates":9943,"late":10155,"layout":"shipper","seconds":4.256997416,"shipperFiles":10038}
+bun gen.ts 1000000 data/s1m shipper  4.17s user 1.09s system 123% cpu 4.276 total
+{"events":10000000,"distinct":10000000,"duplicates":100282,"late":100405,"layout":"combined","seconds":35.758122416,"shipperFiles":0}
+bun gen.ts 10000000 data/c10m combined  32.67s user 4.01s system 102% cpu 35.775 total
+{"events":10000000,"distinct":10000000,"duplicates":100282,"late":100405,"layout":"shipper","seconds":46.811971541,"shipperFiles":29507}
+bun gen.ts 10000000 data/s10m shipper  52.29s user 5.40s system 122% cpu 46.958 total

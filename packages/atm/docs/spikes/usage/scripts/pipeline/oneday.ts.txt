@@ -1,0 +1,44 @@
+// usage: bun oneday.ts <rows> : every row on one event date, then the real shipOutbox (one batch per date)
+import { Database } from "bun:sqlite";
+import { mkdirSync, rmSync } from "node:fs";
+import { bunSqlite } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/src/handler/bun-sqlite.ts";
+import { HANDLER_DDL } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/src/handler/schema.ts";
+import { shipOutbox } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/src/ledger/ship.ts";
+import { FolderStore } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/src/store/folder-store.ts";
+import { generateUsage } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/tests/spikes/usage-events.ts";
+
+const W = "/tmp/atm-usage-pipeline/work";
+mkdirSync(W, { recursive: true });
+const n = Number(process.argv[2]);
+const mb = () => Math.round(process.memoryUsage().rss / 1048576);
+const path = `${W}/oneday-${n}.db`;
+for (const suffix of ["", "-wal", "-shm"]) rmSync(`${path}${suffix}`, { force: true });
+const raw = new Database(path);
+raw.exec("PRAGMA journal_mode=WAL");
+raw.exec("PRAGMA synchronous=NORMAL");
+const db = bunSqlite(raw);
+db.exec(HANDLER_DDL);
+const first = [...generateUsage({ events: 1, holders: 1, duplicateRate: 0, lateRate: 0 })][0];
+const template = first?.line ?? "";
+const insert = raw.prepare(
+	"INSERT INTO ledger_outbox (school_id, id, idem, date, body, batch_key, shipped_at) VALUES (?, ?, ?, ?, ?, NULL, NULL)",
+);
+const date = first?.eventDate ?? "";
+raw.transaction(() => {
+	for (let i = 0; i < n; i++) {
+		const id = `01M${String(i).padStart(23, "0")}`;
+		const body = template.replace(first?.id ?? "", id).replace(first?.idem ?? "", `r${i}`);
+		insert.run("sch_acme", id, `r${i}`, date, body);
+	}
+})();
+console.log(`filled ${n} rows on ${date}, rss=${mb()}MB`);
+const root = `${W}/oneday-root-${n}`;
+rmSync(root, { recursive: true, force: true });
+mkdirSync(root, { recursive: true });
+const start = performance.now();
+try {
+	const result = await shipOutbox({ db, store: new FolderStore({ root }), school: "sch_acme", nowMs: Date.now });
+	console.log(`shipped ${result.shipped} in ${result.batches.length} batch(es), ${((performance.now() - start) / 1000).toFixed(1)}s, peak rss=${mb()}MB`);
+} catch (error) {
+	console.log(`ship FAILED after ${((performance.now() - start) / 1000).toFixed(1)}s: ${(error as Error).message}, rss=${mb()}MB`);
+}

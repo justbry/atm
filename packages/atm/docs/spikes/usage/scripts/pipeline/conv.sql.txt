@@ -1,0 +1,8 @@
+.timer on
+.mode trash
+SET TimeZone='UTC';
+CREATE VIEW env AS SELECT * FROM read_json('data/c1m/schools/sch_acme/events/*/*.jsonl', format='newline_delimited', columns={v:'INTEGER', id:'VARCHAR', school:'VARCHAR', source:'VARCHAR', event_type:'VARCHAR', event_time:'TIMESTAMPTZ', ingest_time:'TIMESTAMPTZ', date:'DATE', tz:'VARCHAR', key:'VARCHAR', labels:'MAP(VARCHAR,VARCHAR)', idem:'VARCHAR', cause:'VARCHAR', text:'VARCHAR', postings:'STRUCT(account VARCHAR, amount DECIMAL(18,2), commodity VARCHAR)[]', payload:'JSON', redacted:'JSON'});
+COPY (SELECT * FROM env) TO 'data/p1m_env_unsorted.parquet' (FORMAT parquet, COMPRESSION zstd);
+COPY (SELECT * FROM env ORDER BY key, event_time) TO 'data/p1m_env_sorted.parquet' (FORMAT parquet, COMPRESSION zstd);
+COPY (SELECT * FROM env ORDER BY date, key, event_time) TO 'data/p1m_env_byday' (FORMAT parquet, COMPRESSION zstd, PARTITION_BY (date), OVERWRITE_OR_IGNORE);
+COPY (SELECT key, date, event_time, ingest_time, idem, labels['model'] AS model, labels['feature'] AS feature, labels['region'] AS region, payload->>'input_tokens' AS x FROM env LIMIT 0) TO 'data/zz.parquet' (FORMAT parquet);

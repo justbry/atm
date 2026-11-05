@@ -1,0 +1,157 @@
+import * as h from "/Users/jmac/repos/atm/.claude/worktrees/agent-a679a6723a047cebe/packages/atm/tests/spikes/usage-track-harness.ts";
+import { stateFromRows } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a679a6723a047cebe/packages/atm/src/billing/rows.ts";
+import { mutationToEvents } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a679a6723a047cebe/packages/atm/src/ledger/postings.ts";
+
+const T = Date.UTC(2026, 0, 5, 17, 0, 0);
+const DAY = 86_400_000;
+
+const fresh = (shape: h.HolderShape) => {
+	const { db } = h.openDatabase(":memory:");
+	h.seedHolders(db, 1, shape);
+	return db;
+};
+const sumDeltas = (m: any) =>
+	(m?.result?.deltas ?? []).reduce((s: number, d: any) => s - d.balanceDelta, 0);
+const show = (label: string, db: any, r: h.SpendResult) => {
+	const res = (r.mutation?.result ?? {}) as any;
+	console.log(
+		`${label.padEnd(52)} status=${res.status} reason=${res.reason} applied=${sumDeltas(r.mutation)} rev=${h.balancesOf(db, 0).revision} balances=${JSON.stringify(h.balancesOf(db, 0).rows)} wrote=${r.changes ? "yes" : "no"}`,
+	);
+};
+
+console.log("=== 1. batch of 13 x 10 = 130 against 100 credits");
+{
+	const db = fresh({ balance: 100 });
+	let applied = 0;
+	let rejected = 0;
+	for (let i = 0; i < 13; i++) {
+		const r = h.spend({ db, command: h.trackCommand({ holder: "u0", value: 10 }) });
+		if ((r.mutation?.result as any).status === "rejected") rejected++;
+		else applied++;
+	}
+	console.log(`per-call reject: applied ${applied} rejected ${rejected} balance ${JSON.stringify(h.balancesOf(db, 0).rows)}`);
+}
+for (const behavior of ["reject", "cap", "overflow"] as const) {
+	const db = fresh({ balance: 100 });
+	const r = h.spend({ db, command: h.trackCommand({ holder: "u0", value: 130, overageBehavior: behavior }) });
+	show(`batch 130, ${behavior}, row usage_allowed=false`, db, r);
+}
+for (const behavior of ["reject", "cap", "overflow"] as const) {
+	const db = fresh({ balance: 100, usageAllowed: true });
+	const r = h.spend({ db, command: h.trackCommand({ holder: "u0", value: 130, overageBehavior: behavior }) });
+	show(`batch 130, ${behavior}, row usage_allowed=true`, db, r);
+}
+console.log("check results (balance 100):");
+{
+	const db = fresh({ balance: 100 });
+	for (const required of [100, 101, 130]) {
+		const r = h.spend({ db, command: h.checkCommand({ holder: "u0", required }) });
+		console.log(`  check ${required}: ${JSON.stringify(r.decision)} rev=${h.balancesOf(db, 0).revision}`);
+	}
+	const dbOver = fresh({ balance: 100, usageAllowed: true });
+	const r = h.spend({ db: dbOver, command: h.checkCommand({ holder: "u0", required: 130 }) });
+	console.log(`  check 130 on usage_allowed row: ${JSON.stringify(r.decision)}`);
+}
+
+console.log("\n=== 1b. customer-level overage_allowed control and spend limit (customer row, no catalog change)");
+{
+	const set = (db: any, patch: Record<string, unknown>) => {
+		const key = h.keyOf(0);
+		const [row] = db.all("SELECT data FROM atm_rows WHERE subject_key=? AND table_name='customer'", [key]) as any[];
+		const data = { ...JSON.parse(row.data), ...patch };
+		db.run("UPDATE atm_rows SET data=? WHERE subject_key=? AND table_name='customer'", [JSON.stringify(data), key]);
+	};
+	for (const [label, patch] of [
+		["overage_allowed enabled", { overage_allowed: [{ feature_id: "credit", enabled: true }] }],
+		["overage_allowed enabled + spend limit 20", { overage_allowed: [{ feature_id: "credit", enabled: true }], spend_limits: [{ feature_id: "credit", enabled: true, overage_limit: 20 }] }],
+	] as const) {
+		for (const behavior of ["reject", "cap"] as const) {
+			const db = fresh({ balance: 100 });
+			set(db, patch as any);
+			try {
+				const r = h.spend({ db, command: h.trackCommand({ holder: "u0", value: 130, overageBehavior: behavior }) });
+				show(`  ${label}, batch 130 ${behavior}`, db, r);
+			} catch (e: any) {
+				console.log(`  ${label} ${behavior}: THROWS ${e.message}`);
+			}
+		}
+	}
+}
+
+console.log("\n=== 2. events");
+{
+	const db = fresh({ balance: 100 });
+	const r = h.decide({
+		command: h.trackCommand({ holder: "u0", value: 10 }),
+		snapshot: h.loadSubject(db, h.keyOf(0)),
+	});
+	try {
+		mutationToEvents({ mutation: r.mutation as any, context: { school: h.SCHOOL, tz: "UTC", feature: "credit", before: undefined } });
+		console.log("plain track -> events OK?");
+	} catch (e: any) {
+		console.log(`plain track (no lock) -> mutationToEvents THROWS: ${e.message}`);
+	}
+}
+{
+	const db = fresh({ balance: 100 });
+	console.log("held tracks with overflow, lowCreditThreshold 25, recorded in the outbox in the same transaction:");
+	const locks: any[] = [];
+	for (const [i, v] of [40, 40, 30, 20].entries()) {
+		const r = h.spend({
+			db,
+			command: h.trackCommand({ holder: "u0", value: v, overageBehavior: "overflow", lockId: `bk${i}`, commandId: `c${i}` }),
+			options: { outbox: { service: "llm" } },
+		});
+		locks.push(h.lockOf(r.mutation as any));
+	}
+	const events = (db.all("SELECT body FROM ledger_outbox ORDER BY id") as any[]).map((r) => JSON.parse(r.body));
+	for (const e of events)
+		console.log(`  ${e.event_type.padEnd(14)} idem=${e.idem} text="${e.text}" postings=${JSON.stringify(e.postings.map((p: any) => `${p.account}:${p.amount}`))} payload.keys=${Object.keys(e.payload).join(",")} ${e.payload.available !== undefined ? `available=${e.payload.available} prev=${e.payload.previous_available}` : ""}`);
+	console.log("  balances", JSON.stringify(h.balancesOf(db, 0).rows));
+	// settle
+	console.log("finalize each at its held value, then one above, one below:");
+	for (const [i, lock] of locks.entries()) {
+		for (const final of [[40, 40], [40, 40], [30, 30], [20, 25]][i] ? [[40, 40], [40, 40], [30, 30], [20, 25]][i]!.slice(1) : []) {
+			try {
+				const r = h.spend({ db, command: h.finalizeCommand({ holder: "u0", lock, finalValue: final }), options: { outbox: { service: "llm" } } });
+				console.log(`  finalize lock ${i} at ${final}: status=${(r.mutation?.result as any)?.status} balances=${JSON.stringify(h.balancesOf(db, 0).rows)}`);
+			} catch (e: any) {
+				console.log(`  finalize lock ${i} at ${final}: THROWS ${e.message}`);
+			}
+		}
+	}
+	const after = (db.all("SELECT body FROM ledger_outbox ORDER BY id") as any[]).map((r) => JSON.parse(r.body));
+	console.log("  all events:", after.map((e) => e.event_type).join(", "));
+	const held = after.filter((e) => e.event_type === "credit.held").reduce((s, e) => s + Number(e.postings[1].amount), 0);
+	console.log(`  sum of credit.held units = ${held}; (one credit.held carries overage in its units; no field says how much was overage)`);
+}
+
+console.log("\n=== 3. reset with overage");
+{
+	const db = fresh({ balance: 100 });
+	h.spend({ db, command: h.trackCommand({ holder: "u0", value: 130, overageBehavior: "overflow" }) });
+	console.log("  before reset", JSON.stringify(h.balancesOf(db, 0).rows));
+	const base = { ...h.checkCommand({ holder: "u0", required: 0, at: T + 31 * DAY }), type: "reset" } as any;
+	delete base.featureId; delete base.internalFeatureId; delete base.requiredBalance; delete base.properties;
+	for (const persist of [false, true]) {
+		const db2 = fresh({ balance: 100 });
+		h.spend({ db: db2, command: h.trackCommand({ holder: "u0", value: 130, overageBehavior: "overflow" }) });
+		const cmd = { ...base, org: { config: { ...base.org.config, persist_free_overage: persist } } };
+		try {
+			const snapshot = h.loadSubject(db2, h.keyOf(0));
+			const r = h.decide({ command: cmd, snapshot });
+			console.log(`  reset persist_free_overage=${persist}: mutation changes=${JSON.stringify((r.mutation as any)?.changes?.map((c: any) => ({ t: c.table, op: c.op, b: c.before?.balance, a: c.after?.balance })))}`);
+			if (r.changes) h.writeRows(db2, r.changes);
+			console.log(`    after reset`, JSON.stringify(h.balancesOf(db2, 0).rows));
+			try {
+				const before = stateFromRows({ identity: cmd.identity, revision: snapshot.revision, rows: snapshot.rows });
+				const ev = mutationToEvents({ mutation: r.mutation as any, context: { school: h.SCHOOL, tz: "UTC", feature: "credit", plan: "metered@v1", before: before as any } });
+				console.log(`    events: ${ev.map((e) => `${e.event_type}(${e.postings.map((p) => p.amount).join("/")})`).join(", ")}`);
+			} catch (e: any) {
+				console.log(`    mutationToEvents THROWS: ${e.message}`);
+			}
+		} catch (e: any) {
+			console.log(`  reset persist=${persist} THROWS ${e.message}`);
+		}
+	}
+}

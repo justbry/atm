@@ -1,0 +1,7 @@
+.mode box
+COPY (SELECT 'cus_1' AS holder, DATE '2026-10-01' AS date, 'md-2' AS model, 100::BIGINT AS input_tokens, 20::BIGINT AS output_tokens, 1 AS schema_version, 1 AS mapping_version) TO 'data/sd_v1.parquet' (FORMAT parquet, COMPRESSION zstd, KV_METADATA {schema_version: '1', mapping_version: '1', mapping: 'usage-normalize', note: 'input_tokens = billable input tokens'});
+COPY (SELECT 'cus_2' AS holder, DATE '2026-10-02' AS date, 'md-2' AS model, 50::BIGINT AS input_tokens, 5::BIGINT AS output_tokens, 7::BIGINT AS reasoning_tokens, 2 AS schema_version, 2 AS mapping_version) TO 'data/sd_v2.parquet' (FORMAT parquet, COMPRESSION zstd, KV_METADATA {schema_version: '2', mapping_version: '2'});
+SELECT * FROM parquet_schema('data/sd_v1.parquet');
+SELECT key::VARCHAR k, value::VARCHAR v FROM parquet_kv_metadata('data/sd_v1.parquet');
+SELECT * FROM read_parquet(['data/sd_v1.parquet','data/sd_v2.parquet'], union_by_name = true) ORDER BY date;
+SELECT * FROM read_parquet(['data/sd_v1.parquet','data/sd_v2.parquet']) ORDER BY date;
