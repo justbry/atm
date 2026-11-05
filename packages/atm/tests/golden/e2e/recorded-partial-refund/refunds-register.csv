@@ -1,0 +1,2 @@
+"txnidx","date","code","description","account","amount","total"
+"3","2026-11-05","01M6NSPB9000001M4B87560J15","payment.refunded | refunded 50 USD of charge ch_3UYPRcScrubTest02oJFhhc5","income:billing:refunds","50.00 USD","50.00 USD"

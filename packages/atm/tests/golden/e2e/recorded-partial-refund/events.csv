@@ -1,0 +1,4 @@
+date,event_type,idem,postings
+2026-11-05,payment.succeeded,stripe:in_1UYPRcScrubTest0TIWbdxka,"assets:stripe 252.16 USD | expenses:billing:stripe-fees 7.84 USD | income:billing:membership:sparkle -260.00 USD"
+2026-11-05,credit.granted,engine:01M6NSP1GG0000011D02CZ2YCX:1:granted,"credits:avail:family:fam_E2b:visit 2 VISIT | credits:issued:sparkle@v3 -2 VISIT"
+2026-11-05,payment.refunded,stripe:evt_3UYPRcScrubTest024d9VHVo,"assets:stripe -50.00 USD | income:billing:refunds 50.00 USD"

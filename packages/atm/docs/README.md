@@ -6,6 +6,7 @@ Reference material, findings and detail that used to sit in `ROADMAP.md`. The ro
 - `review-findings.md`: the eight-slice review and the open findings of the later reviews (raise rule, #22 to #24, adoption differences).
 - `receipts.md`: invoice links, the one-time Checkout, and the open `receiptOf` decision with its eight questions.
 - `financial-reports.md`: the log as a source of hledger reports and a reconciliation with Stripe: what exists and what is missing.
+- `e2e-reconciliation.md`: the end-to-end matrix: every handler path that moves money followed through the outbox, hledger and `atm reconcile` against hand numbers and a hand-built Stripe side; the discrepancies it found, the branches it does not reach, and the bugs it was shown to catch.
 - `log-and-r2.md`: the outbox, the folder shipper, shipping to R2, the combine, the manifest, replay, the Worker handler, the Parquet export.
 - `usage-metering.md`: usage invoicing and usage events as a ledger source (summary and decisions of the three spikes).
 - `spikes/usage/`: the full reports, raw results and scripts of the three usage spikes (`README.md` there).
