@@ -41,6 +41,7 @@ import {
 	refundToCommands,
 	subscriptionHolder,
 	subscriptionToCommands,
+	ungrantedRecurringAddons,
 } from "./grants.js";
 import {
 	feeProblem,
@@ -184,6 +185,15 @@ const bookerOf = (input: StripeEventInput, holder: { orgId: string }) => ({
 	cause: input.eventId,
 });
 
+/** Names the invoice, the subscription and the add-on(s), says why atm grants none, and what to change in Stripe. */
+const addonOnlyMessage = (
+	invoice: BillingInvoice,
+	{ lines, why, fix }: ReturnType<typeof ungrantedRecurringAddons>,
+): string => {
+	const addons = [...new Set(lines.map((l) => l.addonId))].join(", ");
+	return `invoice ${invoice.id} (subscription ${invoice.subscriptionId ?? "none"}) charges for the recurring add-on ${addons}, which atm grants only on the member's tier subscription, and ${why}: nothing was granted or recorded. ${fix}`;
+};
+
 const decide = (
 	target: string,
 	fact: unknown,
@@ -216,6 +226,20 @@ const decide = (
 				};
 			const problem = feeProblem(input.fee, resolved.invoice.amountPaid);
 			if (problem) return { ok: false, refusal: refuse("bad_event", problem) };
+			// Paid for a recurring add-on that no rule would grant: recording it as decided would charge the member and give
+			// nothing, with no error anywhere.
+			const stranded = ungrantedRecurringAddons({
+				invoice: resolved.invoice,
+				state: grants,
+			});
+			if (stranded.lines.length > 0)
+				return {
+					ok: false,
+					refusal: refuse(
+						"addon_only_subscription",
+						addonOnlyMessage(resolved.invoice, stranded),
+					),
+				};
 			const result = invoiceToCommands({
 				...common,
 				invoice: resolved.invoice,

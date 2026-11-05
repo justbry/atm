@@ -1537,6 +1537,332 @@ describe("subscription events", () => {
 	});
 });
 
+describe("a recurring add-on that no rule would grant is refused, not recorded as decided", () => {
+	const GLOW = 5000;
+	const DAY = 86_400_000;
+	type Line = Parameters<typeof invoicePaid>[0]["lines"][number];
+	const glowLine = (over: Partial<Line> = {}): Line => ({
+		lookupKey: addonKey("glow"),
+		amount: GLOW,
+		interval: "month",
+		...over,
+	});
+	/** A mid-cycle charge for Glow: a proration line, the share of the cycle left. */
+	const glowMidCycle = (over: Partial<Line> = {}): Line =>
+		glowLine({
+			amount: 2800,
+			proration: true,
+			periodStart: T0 + 3 * DAY,
+			periodEnd: T1,
+			...over,
+		});
+	/** An invoice of the given subscription carrying only the lines given (the spike: a customer buys Glow on its own). */
+	const invoiceOf = ({
+		id = "addon",
+		subscriptionId = "sub_addon",
+		reason = "subscription_create",
+		lines = [glowLine()],
+		at = T0 + 3 * DAY,
+	}: {
+		id?: string;
+		subscriptionId?: string | null;
+		reason?: Parameters<typeof invoicePaid>[0]["reason"];
+		lines?: Line[];
+		at?: number;
+	} = {}) =>
+		invoicePaid({
+			eventId: `evt_${id}`,
+			invoiceId: `in_${id}`,
+			at,
+			subscriptionId,
+			reason,
+			periodStart: reason === "subscription_cycle" ? T1 : T0,
+			periodEnd: reason === "subscription_cycle" ? T2 : T1,
+			lines,
+			metadata,
+		});
+	const grantsOf = (s: ReturnType<typeof store>) => grantsFromRows(s.rows);
+	const refusedWith = (result: StripeEventResult) => {
+		expect(result.rowChanges).toBeNull();
+		expect(result.events).toEqual([]);
+		return result.refused;
+	};
+
+	test("a holder with a tier subscription pays for a second, add-on-only subscription: refused, nothing changes", () => {
+		const s = store();
+		create(s);
+		const { rows, revision } = s;
+		const eventsBefore = s.events.length;
+		const grantsBefore = structuredClone(grantsOf(s));
+		const refusal = refusedWith(s.handle(invoiceOf(), T0 + 3 * DAY));
+		expect(refusal?.reason).toBe("addon_only_subscription");
+		// The message names the invoice, the subscription and the add-on, and the fix.
+		expect(refusal?.message).toContain("in_addon");
+		expect(refusal?.message).toContain("sub_addon");
+		expect(refusal?.message).toContain("glow");
+		expect(refusal?.message).toContain("sub_1");
+		expect(refusal?.message).toContain(
+			"Put the add-on on the member's tier subscription",
+		);
+		expect(s.rows).toBe(rows);
+		expect(s.revision).toBe(revision);
+		expect(s.events).toHaveLength(eventsBefore);
+		expect(grantsOf(s)).toEqual(grantsBefore);
+		expect(grantsOf(s).addonIds).toEqual([]);
+		expect(grantsOf(s).invoices.in_addon).toBeUndefined();
+		// Not recorded as decided: the same delivery gets the same answer.
+		expect(refusedWith(s.handle(invoiceOf(), T0 + 4 * DAY))?.reason).toBe(
+			"addon_only_subscription",
+		);
+	});
+
+	test("an add-on-only invoice for a holder with no tier is refused", () => {
+		const s = store();
+		const refusal = refusedWith(s.handle(invoiceOf(), T0));
+		expect(refusal?.reason).toBe("addon_only_subscription");
+		expect(refusal?.message).toContain("no tier subscription yet");
+		expect(s.rows).toEqual([]);
+		expect(s.revision).toBe(0);
+	});
+
+	test("a mid-cycle update invoice of another subscription than the holder's is refused", () => {
+		const s = store();
+		create(s);
+		const refusal = refusedWith(
+			s.handle(
+				invoiceOf({
+					reason: "subscription_update",
+					lines: [glowMidCycle()],
+				}),
+				T0 + 3 * DAY,
+			),
+		);
+		expect(refusal?.reason).toBe("addon_only_subscription");
+		expect(grantsOf(s).addonIds).toEqual([]);
+	});
+
+	test("the add-on on the tier subscription is granted at create, at renewal and bought mid-cycle", () => {
+		const tierLine: Line = {
+			lookupKey: tierKey("sparkle-2", "month"),
+			amount: 26000,
+			interval: "month",
+		};
+		const s = store();
+		const created = s.handle(
+			invoiceOf({
+				id: "c",
+				subscriptionId: "sub_1",
+				lines: [tierLine, glowLine()],
+			}),
+			T0,
+		);
+		expect(created.refused).toBeUndefined();
+		expect(grantsOf(s).addonIds).toEqual(["glow"]);
+		const renewed = s.handle(
+			invoiceOf({
+				id: "r",
+				subscriptionId: "sub_1",
+				reason: "subscription_cycle",
+				lines: [tierLine, glowLine()],
+				at: T1,
+			}),
+			T1,
+		);
+		expect(renewed.refused).toBeUndefined();
+		expect(grantsOf(s).addonIds).toEqual(["glow"]);
+		expect(grantsOf(s).invoices.in_r?.granted).not.toEqual([]);
+
+		const later = store();
+		create(later);
+		const bought = later.handle(
+			invoiceOf({
+				subscriptionId: "sub_1",
+				reason: "subscription_update",
+				lines: [glowMidCycle()],
+			}),
+			T0 + 3 * DAY,
+		);
+		expect(bought.refused).toBeUndefined();
+		expect(grantsOf(later).addonIds).toEqual(["glow"]);
+		expect(grantsOf(later).invoices.in_addon?.granted).not.toEqual([]);
+	});
+
+	test("an update invoice of the tier subscription that came before its create invoice is refused, and works re-sent after it", () => {
+		const s = store();
+		const update = () =>
+			invoiceOf({
+				subscriptionId: "sub_1",
+				reason: "subscription_update",
+				lines: [glowMidCycle()],
+			});
+		expect(refusedWith(s.handle(update(), T0 + 3 * DAY))?.reason).toBe(
+			"addon_only_subscription",
+		);
+		create(s);
+		const resent = s.handle(update(), T0 + 4 * DAY);
+		expect(resent.refused).toBeUndefined();
+		expect(grantsOf(s).addonIds).toEqual(["glow"]);
+	});
+
+	test("a one-time add-on or a gift on its own invoice is granted, whatever the subscription", () => {
+		const s = store();
+		create(s);
+		const pack = s.handle(
+			invoiceOf({
+				id: "pack",
+				lines: [{ lookupKey: addonKey("pack"), amount: 9000 }],
+			}),
+			T0 + 3 * DAY,
+		);
+		expect(pack.refused).toBeUndefined();
+		expect(creditEvents(pack.events).map((e) => e.text)).toEqual([
+			"granted 1 visit on pack@v3",
+		]);
+		const giftLines = [{ lookupKey: addonKey("gift-visit"), amount: 13000 }];
+		const gift = s.handle(
+			invoiceOf({
+				id: "gift",
+				subscriptionId: null,
+				reason: "manual",
+				lines: giftLines,
+			}),
+			T0 + 4 * DAY,
+		);
+		expect(gift.refused).toBeUndefined();
+		expect(creditEvents(gift.events)).toHaveLength(1);
+		// A holder with nothing yet (a gift is the first thing they own) is not refused either.
+		const first = store().handle(
+			invoiceOf({
+				id: "gift_first",
+				subscriptionId: null,
+				reason: "manual",
+				lines: giftLines,
+			}),
+			T0,
+		);
+		expect(first.refused).toBeUndefined();
+	});
+
+	test("a free add-on line, and a credit for a removed one, are not refused", () => {
+		const s = store();
+		create(s);
+		const free = s.handle(
+			invoiceOf({ id: "free", lines: [glowLine({ amount: 0 })] }),
+			T0 + 3 * DAY,
+		);
+		expect(free.refused).toBeUndefined();
+		const removed = s.handle(
+			invoiceOf({
+				id: "removed",
+				reason: "subscription_update",
+				lines: [glowMidCycle({ amount: -2800 })],
+			}),
+			T0 + 5 * DAY,
+		);
+		expect(removed.refused).toBeUndefined();
+		expect(grantsOf(s).addonIds).toEqual([]);
+	});
+
+	test("an add-on line of no units (a paused add-on) is not refused", () => {
+		const s = store();
+		create(s);
+		const r = s.handle(
+			invoiceOf({ id: "paused", lines: [glowLine({ quantity: 0 })] }),
+			T0 + 3 * DAY,
+		);
+		expect(r.refused).toBeUndefined();
+	});
+
+	test("a plan switch on the tier subscription that also bills an add-on is not refused", () => {
+		const s = store();
+		create(s);
+		const r = s.handle(
+			invoiceOf({
+				id: "switch",
+				subscriptionId: "sub_1",
+				reason: "subscription_update",
+				lines: [
+					{
+						lookupKey: tierKey("sparkle-4", "month"),
+						amount: 14000,
+						interval: "month",
+						proration: true,
+						periodStart: T0 + 3 * DAY,
+						periodEnd: T1,
+					},
+					{
+						lookupKey: tierKey("sparkle-2", "month"),
+						amount: -9000,
+						interval: "month",
+						proration: true,
+						periodStart: T0 + 3 * DAY,
+						periodEnd: T1,
+					},
+					glowMidCycle(),
+				],
+			}),
+			T0 + 3 * DAY,
+		);
+		expect(r.refused).toBeUndefined();
+	});
+
+	test("the tier subscription's own renewal that lost its tier line and still bills the add-on is refused", () => {
+		const s = store();
+		create(s);
+		const refusal = refusedWith(
+			s.handle(
+				invoiceOf({
+					id: "tierless",
+					subscriptionId: "sub_1",
+					reason: "subscription_cycle",
+					at: T1,
+				}),
+				T1,
+			),
+		);
+		expect(refusal?.reason).toBe("addon_only_subscription");
+		expect(refusal?.message).toContain("carries no tier line");
+		expect(grantsOf(s).invoices.in_tierless).toBeUndefined();
+	});
+
+	test("once the holder's subscription has ended, a late add-on invoice of it is left as it was", () => {
+		const s = store();
+		create(s);
+		s.handle(
+			subscriptionDeleted({
+				eventId: "evt_end",
+				subscriptionId: "sub_1",
+				tierId: "sparkle-2",
+				interval: "month",
+				periodStart: T0,
+				periodEnd: T1,
+				at: T0 + 2 * DAY,
+			}),
+			T0 + 2 * DAY,
+		);
+		const r = s.handle(
+			invoiceOf({
+				id: "late",
+				subscriptionId: "sub_1",
+				reason: "subscription_cycle",
+				at: T0 + 3 * DAY,
+			}),
+			T0 + 3 * DAY,
+		);
+		expect(r.refused).toBeUndefined();
+	});
+
+	test("an older Stripe API version is still refused first, as unknown_mapping", () => {
+		const s = store();
+		create(s);
+		const event = invoiceOf();
+		event.api_version = "2020-08-27";
+		expect(refusedWith(s.handle(event, T0 + 3 * DAY))?.reason).toBe(
+			"unknown_mapping",
+		);
+	});
+});
+
 describe("deduction order", () => {
 	const DAY = 86_400_000;
 	/** A one-month gift bought ten days before the tier: it lapses before the tier's first reset. */

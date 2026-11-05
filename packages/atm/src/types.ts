@@ -1266,6 +1266,7 @@ export type StripeEventRefusal = {
 		| "bad_event"
 		| "missing_metadata"
 		| "unmatched_line"
+		| "addon_only_subscription"
 		| "unmatched_invoice"
 		| "unknown_subscription"
 		| "rejected";
