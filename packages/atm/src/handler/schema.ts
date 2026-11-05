@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS atm_rows (
 ) WITHOUT ROWID;
 
 -- One row per Stripe event id (evt_...) and env: who is handling it, or that it is handled.
--- claimed: a worker took it at claimed_at; done: its effects are committed (outcome: 'applied' or 'ignored').
+-- claimed: a worker took it at claimed_at; done: its effects are committed (outcome: 'applied', 'non_usd' or 'ignored'; no CHECK on the column).
 CREATE TABLE IF NOT EXISTS atm_event_claims ${CLAIMS_TABLE};
 
 -- Which subject an invoice paid: written in the transaction that applies its invoice.paid (the invoice carries the

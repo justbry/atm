@@ -258,6 +258,45 @@ describe("the same Stripe ids under live and under test", () => {
 		).toBe(2);
 	});
 
+	test("a non-USD delivery under each env writes its own claim row with outcome non_usd, and a redelivery in the same env is a duplicate", () => {
+		const raw = new Database(":memory:");
+		const live = harness(undefined, { raw });
+		const test = harness(undefined, { raw, env: "test" });
+		const inEuros = (): RawEvent => {
+			const event = paid();
+			event.data.object.currency = "eur";
+			return event;
+		};
+		for (const endpoint of [live, test]) {
+			endpoint.deps.warn = () => undefined;
+			expect(endpoint.deliver(inEuros()).body.outcome).toBe("non_usd");
+		}
+		const claimRows = () =>
+			raw
+				.query(
+					`SELECT env, event_id, state, outcome FROM atm_event_claims ORDER BY env`,
+				)
+				.all();
+		expect(claimRows()).toEqual([
+			{
+				env: "live",
+				event_id: "evt_in_1",
+				state: "done",
+				outcome: "non_usd",
+			},
+			{
+				env: "test",
+				event_id: "evt_in_1",
+				state: "done",
+				outcome: "non_usd",
+			},
+		]);
+		for (const endpoint of [live, test]) {
+			expect(endpoint.deliver(inEuros()).body.outcome).toBe("duplicate");
+		}
+		expect(claimRows()).toHaveLength(2);
+	});
+
 	test("an invoice linked only in the live env is unmatched for a refund in the test env", () => {
 		const raw = new Database(":memory:");
 		const live = harness(undefined, { raw });

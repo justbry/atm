@@ -244,6 +244,7 @@ export const moneyPostings = (i: AtmLedgerEventInput): AtmPosting[] => {
 				usd("liabilities:b4uni", -amount),
 			];
 		case "plan.attached":
+		case "money.skipped":
 		case "plan.changed":
 		case "plan.canceled":
 		case "subject.erased":
@@ -261,7 +262,8 @@ const defaultSource = (type: AtmEventType): string => {
 	if (
 		type.startsWith("payment.") ||
 		type === "dispute.closed" ||
-		type === "payout.paid"
+		type === "payout.paid" ||
+		type === "money.skipped"
 	)
 		return "stripe";
 	if (type.startsWith("fundraise.")) return "zeffy";

@@ -116,7 +116,9 @@ export type AtmEventType =
 	| "referral.qualified"
 	| "referral.rewarded"
 	| "catalog.published"
-	| "policy.published";
+	| "policy.published"
+	/** A Stripe money fact the books did not take (a payment, refund or payout in a currency other than USD): no postings, a count. */
+	| "money.skipped";
 
 /** One line of a transaction. `amount` is a decimal string (two places for USD, none for credits), never a float. */
 export type AtmPosting = {
@@ -911,8 +913,9 @@ export type InvoiceRecord = {
 	removed: boolean;
 	/**
 	 * The cents the books took for this invoice (its `payment.succeeded`). Absent when none was booked: an invoice handled
-	 * before payments were booked, one that paid nothing or paid in another currency, or one a caller adopted. A refund of
-	 * such an invoice makes no `payment.refunded`: there is no payment for it to take back from.
+	 * before payments were booked, one that paid nothing or paid in another currency (its `money.skipped` marker is not a
+	 * payment), or one a caller adopted. A refund of such an invoice makes no `payment.refunded`: there is no payment for
+	 * it to take back from.
 	 */
 	paid?: number;
 };
@@ -2173,6 +2176,13 @@ export type WebhookDeps = {
 	 * from 0 to the amount paid is refused 422 `bad_event`.
 	 */
 	paymentFee?: (event: unknown) => number | null | undefined;
+	/**
+	 * Optional: where the handler says that it applied a delivery but did not book a money line (a non-USD invoice, refund
+	 * or payout: outcome `non_usd`). Called once per such delivery, after the transaction committed, with one line of text.
+	 * Default: the line goes to stderr. A throw here is caught (the delivery is committed, so it is still answered 200
+	 * `non_usd`): the line goes to stderr instead, with the error's message.
+	 */
+	warn?: (line: string) => void;
 };
 
 export type WebhookRequest = {
@@ -2190,6 +2200,11 @@ export type WebhookRequest = {
  */
 export type WebhookOutcome =
 	| "applied"
+	/**
+	 * 200, like `applied`: the rows and the credits were written, but a money line was not, because the invoice, refund or
+	 * payout is not in USD. Each one left a `money.skipped` event in the outbox and `body.skipped` names them.
+	 */
+	| "non_usd"
 	| "duplicate"
 	| "ignored"
 	| "busy"
@@ -2213,9 +2228,11 @@ export type WebhookResponse = {
 		/** `refused`: the reason from `handleStripeEvent`; `bad_signature`: why it failed. */
 		reason?: string;
 		message?: string;
-		/** `applied`: how many events went to the outbox and whether rows changed. */
+		/** `applied` and `non_usd`: how many events went to the outbox and whether rows changed. */
 		events?: number;
 		wroteRows?: boolean;
+		/** `non_usd`: what was not booked, one `<kind> <Stripe id> <amount> <currency>` per money line. */
+		skipped?: string[];
 	};
 };
 
@@ -2520,4 +2537,9 @@ export type ReconcileResult = {
 	counts: Record<ReconcileObject, { stripe: number | null; log: number }>;
 	/** Stripe records skipped, by reason (only reasons that applied). */
 	ignored: Record<string, number>;
+	/**
+	 * The log's own `money.skipped` events dated in the period, by reason (`non_usd`): money Stripe moved that the handler
+	 * deliberately did not book. Empty when there are none.
+	 */
+	skipped: Record<string, number>;
 };
