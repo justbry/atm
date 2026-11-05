@@ -197,6 +197,41 @@ describe("atm ship --json", () => {
 	test("--help still exits 0", () => {
 		expect(atm(["ship", "--help"]).exitCode).toBe(0);
 	});
+
+	test("a mistyped option is one stderr line: commander's did-you-mean second line is off", () => {
+		const run = ship("--jsn");
+		expect(run.exitCode).toBe(2);
+		expect(run.stdout.toString()).toBe("");
+		expect(run.stderr.toString().trimEnd().split("\n")).toEqual([
+			"error: unknown option '--jsn'",
+		]);
+	});
+
+	test("a reader that closes stdout early (a pipe into head) is no error: no stack trace, the exit code is the run's", () => {
+		makeDatabase(ROWS);
+		// bash runs atm into `true`, which exits at once; pipefail makes the pipeline's status atm's own
+		const run = Bun.spawnSync(
+			[
+				"bash",
+				"-c",
+				'set -o pipefail; "$@" | true',
+				"atm",
+				process.execPath,
+				BIN,
+				"ship",
+				"--db",
+				databaseFile,
+				"--root",
+				root,
+				"--school",
+				SCHOOL,
+				"--json",
+			],
+			{ stdout: "pipe", stderr: "pipe" },
+		);
+		expect(run.stderr.toString()).toBe("");
+		expect(run.exitCode).toBe(0);
+	});
 });
 
 describe("atm journal --json", () => {

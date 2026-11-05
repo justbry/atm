@@ -84,11 +84,16 @@ const unattended = async (
 	}
 };
 
-/** An option commander refuses (a missing one, an unknown flag) exits 2 too, not 1: 1 means a conflict. Help and version still exit 0. */
+/**
+ * An option commander refuses (a missing one, an unknown flag) exits 2 too, not 1: 1 means a conflict. Help and version
+ * still exit 0. Commander's "(Did you mean ...?)" second line is off, so the refusal is one stderr line.
+ */
 const exitTwoOnUsageError = (command: Command): Command =>
-	command.exitOverride((error) =>
-		process.exit(error.exitCode === 0 ? 0 : EXIT_ERROR),
-	);
+	command
+		.showSuggestionAfterError(false)
+		.exitOverride((error) =>
+			process.exit(error.exitCode === 0 ? 0 : EXIT_ERROR),
+		);
 
 const writeJson = (value: unknown): void => {
 	process.stdout.write(`${JSON.stringify(value)}\n`);

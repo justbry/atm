@@ -31,7 +31,7 @@ export type ReportRun = {
 };
 
 const oneLine = (text: string): string =>
-	text.trim().split("\n")[0] ?? "no message";
+	text.trim().split("\n")[0] || "no message";
 
 /** Throws a `HledgerError` that says so when `hledger` does not run, so a missing tool is never a silent skip. */
 const assertHledgerRuns = (): void => {

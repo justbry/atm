@@ -4,7 +4,7 @@
  * is missing runs everywhere.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { cp, mkdir, readdir, rm } from "node:fs/promises";
+import { chmod, cp, mkdir, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { journalMonth, readEvents } from "../src/ledger/files.js";
 import { hasHledger, readTree, tmp } from "./helpers.js";
@@ -161,6 +161,29 @@ describe("atm report", () => {
 		expect(message).not.toMatch(STACK_FRAME);
 		expect(message.trimEnd().split("\n")).toHaveLength(1);
 		expect(await readdir(join(fresh, "schools", SCHOOL))).toEqual(["events"]);
+		await rm(fresh, { recursive: true, force: true });
+	});
+
+	test("an hledger that fails without a word on stderr still gives a one-line message and exit 2", async () => {
+		const fresh = await tmp("report-silent-hledger");
+		await cp(FIXTURE, fresh, { recursive: true });
+		const fakeBin = join(fresh, "fake-bin");
+		await mkdir(fakeBin);
+		const fake = join(fakeBin, "hledger");
+		await Bun.write(
+			fake,
+			'#!/bin/sh\n[ "$1" = "--version" ] && exit 0\nexit 3\n',
+		);
+		await chmod(fake, 0o755);
+		const run = atm(
+			["report", "--root", fresh, "--school", SCHOOL, "--month", "2026-03"],
+			{ PATH: `${fakeBin}:${process.env.PATH}` },
+		);
+		expect(run.exitCode).toBe(2);
+		expect(run.stdout.toString()).toBe("");
+		expect(run.stderr.toString().trimEnd().split("\n")).toEqual([
+			"hledger income-statement failed: no message",
+		]);
 		await rm(fresh, { recursive: true, force: true });
 	});
 
