@@ -38,6 +38,7 @@ import {
 	planOutbox as planOutboxImpl,
 	shipOutbox as shipOutboxImpl,
 } from "./ledger/ship.js";
+import { simulate as simulateImpl } from "./ledger/simulate.js";
 import { outboxStatus as outboxStatusImpl } from "./ledger/status.js";
 import { validateEvent as validateEventImpl } from "./ledger/validate.js";
 import * as folderStore from "./store/folder-store.js";
@@ -57,6 +58,8 @@ import type {
 	AtmMutation,
 	AtmReplayResult,
 	AtmResultFor,
+	AtmSimulateInput,
+	AtmSimulation,
 	AtmSnapshot,
 	AtmStoreError,
 	AtmSubject,
@@ -255,6 +258,15 @@ export const replayEvents = (input: {
 	lastEventId?: string;
 	asOf?: string;
 }): AtmReplayResult => replayEventsImpl(input);
+
+/**
+ * A what-if: the log's commands run again under a candidate catalog (or menu) and policy, set against the log. Returns
+ * the balances, posting totals and decisions that differ, the commands the candidate refuses, and the candidate's events
+ * (build its journal from them). Credits only: it cannot change what Stripe charged, and the grant rules (`policy.upgradeGrant`,
+ * amounts decided from invoices) are not in the log's commands. Writes nothing; changes no input.
+ */
+export const simulate = (input: AtmSimulateInput): AtmSimulation =>
+	simulateImpl(input);
 
 /** Thrown by `replayEvents` where the engine disagrees with the log; `eventId` names the event. */
 export const ReplayError: ReplayErrorConstructor = ReplayErrorImpl;

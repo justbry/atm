@@ -286,6 +286,106 @@ export type AtmReplayResult = {
 	lossySubjects?: string[];
 };
 
+/** One row change of an engine mutation, shortened for a diff: the table, the op, the row's id, and the rest of the change as canonical JSON. */
+export type AtmSimulateChange = {
+	table: string;
+	op: string;
+	id: string | null;
+	detail: string;
+};
+
+/** A command the candidate decides differently from the log: the changes only one side makes. */
+export type AtmSimulateDecision = {
+	key: string;
+	commandId: string;
+	/** The engine command's type (`track`, `reset`, ...). */
+	command: string;
+	/** The command's time (the first of its events). */
+	at: string;
+	/** The recorded events of this command. */
+	eventIds: string[];
+	/** Changes the log has and the candidate does not make. */
+	removed: AtmSimulateChange[];
+	/** Changes the candidate makes and the log does not have. */
+	added: AtmSimulateChange[];
+	/** The engine's answer to the command (`result`) is not the recorded one. */
+	resultChanged: boolean;
+};
+
+/** A command the candidate's engine refused (it threw, decided nothing, or answered `rejected`); the replay went on from the state before it. */
+export type AtmSimulateRefusal = {
+	key: string;
+	commandId: string;
+	command: string;
+	at: string;
+	eventIds: string[];
+	reason: string;
+	/** The changes the log made that the candidate does not. */
+	lost: AtmSimulateChange[];
+};
+
+export type AtmSimulateBalanceChange = {
+	holder: string;
+	feature: string;
+	current: { avail: number; held: number };
+	candidate: { avail: number; held: number };
+};
+
+/** A posting total (summed over the events of `month`, by the school's calendar) that is not the same on both sides. */
+export type AtmSimulatePostingChange = {
+	month: string;
+	account: string;
+	commodity: string;
+	current: string;
+	candidate: string;
+};
+
+export type AtmSimulateInput = {
+	events: readonly AtmEvent[];
+	/** The catalog rows the log was written under. Give these or `menu`. */
+	catalog?: readonly AtmCatalogRow[];
+	/** The menu the log was written under, instead of `catalog` (its rows come from `menuCatalogRows`). */
+	menu?: Menu;
+	/** The school id the menus' rows are made for; default the first event's. */
+	school?: string;
+	/**
+	 * What to try. `catalog` or `menu` replaces the one the log ran under, `policy` sets the draw order
+	 * (`deductionOrder`) of every command that carries an `org`. Nothing given is the identity: no difference.
+	 */
+	candidate: {
+		catalog?: readonly AtmCatalogRow[];
+		menu?: Menu;
+		policy?: BillingPolicy;
+	};
+	/** Balances are counted at this instant on both sides; default the last event applied. */
+	asOf?: string;
+	/** `YYYY-MM`: report only the posting totals and the commands of this month (balances stay as of `asOf`). */
+	month?: string;
+};
+
+export type AtmSimulation = {
+	/** The candidate's events (every one the log has, as decided by the candidate); build its journal from these. Left out of the CLI's `--json`. */
+	events: AtmEvent[];
+	balances: { current: AtmBalance[]; candidate: AtmBalance[] };
+	/** The holder and feature pairs whose balance differs, sorted. */
+	balanceChanges: AtmSimulateBalanceChange[];
+	/** Posting totals by month, account and commodity that differ, sorted. */
+	postingChanges: AtmSimulatePostingChange[];
+	/** Transactions (events with postings) per month on each side, as `buildJournal` counts them. */
+	transactions: { month: string; current: number; candidate: number }[];
+	/** Commands the candidate decides differently. */
+	changed: AtmSimulateDecision[];
+	/** Commands the candidate's engine refuses. */
+	refused: AtmSimulateRefusal[];
+	/** Events no engine command made (payments, refunds, payouts, disputes, the cron's expiries), carried over as they are: a replay cannot change what Stripe charged. */
+	unaffected: { events: number; byType: Record<string, number> };
+	/** The sum of the balance, posting, changed and refused entries; 0 means the candidate changes nothing the log can show. */
+	differences: number;
+	asOf: string | null;
+	/** A few lines of text for a person. */
+	summary: string;
+};
+
 export type AtmValidationError = { path: string; message: string };
 
 export type AtmValidation =
@@ -1166,6 +1266,7 @@ export type StripeEventRefusal = {
 		| "bad_event"
 		| "missing_metadata"
 		| "unmatched_line"
+		| "addon_only_subscription"
 		| "unmatched_invoice"
 		| "unknown_subscription"
 		| "rejected";
