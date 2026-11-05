@@ -137,16 +137,21 @@ describe("Stripe's payout.paid", () => {
 		expect(outbox()).toHaveLength(1);
 	});
 
-	test("two payouts are two lines; a payout in another currency is answered applied with no line", () => {
-		const { deliver, outbox } = harness();
+	test("two payouts are two lines; a payout in another currency is answered non_usd with no line (tests/handler-non-usd.test.ts)", () => {
+		const { deliver, outbox, deps } = harness();
+		deps.warn = () => undefined;
 		deliver(payout());
 		deliver(payout({ eventId: "evt_po_2", payoutId: "po_2", amount: 100 }));
 		expect(outbox().map((e) => e.idem)).toEqual(["stripe:po_1", "stripe:po_2"]);
 		const euros = deliver(
 			payout({ eventId: "evt_po_3", payoutId: "po_3", currency: "eur" }),
 		);
-		expect(euros.body).toMatchObject({ outcome: "applied", events: 0 });
-		expect(outbox()).toHaveLength(2);
+		expect(euros.body).toMatchObject({ outcome: "non_usd", events: 1 });
+		expect(outbox().map((e) => e.event_type)).toEqual([
+			"payout.paid",
+			"payout.paid",
+			"money.skipped",
+		]);
 	});
 
 	test("a test-mode payout to a live endpoint is refused before any claim, and an unknown school releases its claim", () => {

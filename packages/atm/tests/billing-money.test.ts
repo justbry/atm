@@ -395,14 +395,15 @@ describe("a payout", () => {
 		expect(redelivered.events[0]?.id).toBe(first.events[0]?.id);
 	});
 
-	test("names no family, so it needs the school, and a payout in another currency makes no line", () => {
+	test("names no family, so it needs the school, and a payout in another currency makes no line, only a marker", () => {
 		const result = handleStripeEvent(input(payout(), null));
 		expect(result.refused?.reason).toBe("bad_event");
 		expect(result.events).toEqual([]);
-		expect(handleStripeEvent(input(payout({ currency: "eur" })))).toEqual({
-			rowChanges: null,
-			events: [],
-		});
+		const euros = handleStripeEvent(input(payout({ currency: "eur" })));
+		expect(euros.rowChanges).toBeNull();
+		expect(euros.events.map((e) => [e.event_type, e.postings])).toEqual([
+			["money.skipped", []],
+		]);
 	});
 
 	test("a payout of nothing is not an event atm reads", () => {

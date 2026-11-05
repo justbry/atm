@@ -67,7 +67,8 @@
 				"referral.qualified",
 				"referral.rewarded",
 				"catalog.published",
-				"policy.published"
+				"policy.published",
+				"money.skipped"
 			]
 		},
 		"event_time": {

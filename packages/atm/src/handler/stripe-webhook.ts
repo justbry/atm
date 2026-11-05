@@ -84,6 +84,8 @@
  * Answers (Stripe retries every non-2xx for up to three days)
  *
  *   200 applied            rows, outbox and claim done committed (also when the event changes nothing)
+ *   200 non_usd            as `applied`, but an invoice, refund or payout not in USD left no money line: each left a
+ *                          `money.skipped` event, `body.skipped` names them, and `deps.warn` (default stderr) says so
  *   200 duplicate          the Stripe event id is already done; nothing else is touched
  *   200 ignored            an event type we do not map, with no claim recorded (a later version that maps it takes the
  *                          owner's re-send); or an invoice / subscription event with no family metadata, recorded done
@@ -131,6 +133,7 @@ import { appendToOutbox } from "../ledger/outbox.js";
 import { canonicalize } from "../ledger/util.js";
 import type {
 	AtmEnv,
+	AtmEvent,
 	BillingInvoice,
 	InvoicePaymentFact,
 	RowChanges,
@@ -195,7 +198,13 @@ type Located =
 	| { kind: "unmatched_payment"; message: string };
 
 type Applied =
-	| { kind: "applied"; events: number; wroteRows: boolean }
+	| {
+			kind: "applied";
+			events: number;
+			wroteRows: boolean;
+			/** The money lines this delivery left unbooked for want of USD, from its `money.skipped` markers. */
+			skipped: string[];
+	  }
 	| { kind: "unknown_school" }
 	| { kind: "refused"; refusal: StripeEventRefusal };
 
@@ -462,10 +471,11 @@ const finishClaim = (
 	deps: WebhookDeps,
 	stripeEventId: string,
 	claim: Claim,
+	outcome: "applied" | "non_usd" = "applied",
 ): void => {
 	const { changes } = deps.db.run(
-		`UPDATE atm_event_claims SET state = 'done', done_at = ?, outcome = 'applied' WHERE event_id = ? AND state = 'claimed' AND claimed_by = ? AND claimed_at = ?`,
-		[deps.nowMs(), stripeEventId, deps.workerId, claim.claimedAt],
+		`UPDATE atm_event_claims SET state = 'done', done_at = ?, outcome = ? WHERE event_id = ? AND state = 'claimed' AND claimed_by = ? AND claimed_at = ?`,
+		[deps.nowMs(), outcome, stripeEventId, deps.workerId, claim.claimedAt],
 	);
 	if (changes !== 1) throw new ClaimLost(`claim on ${stripeEventId} was lost`);
 };
@@ -555,6 +565,15 @@ const feeOf = (deps: WebhookDeps, event: StripeEvent): number | undefined => {
 	return fee === null || fee === undefined ? undefined : (fee as number);
 };
 
+/** What the `money.skipped` markers among a delivery's events say was not booked, one line each. */
+const skippedLines = (events: readonly AtmEvent[]): string[] =>
+	events
+		.filter((event) => event.event_type === "money.skipped")
+		.map(
+			({ payload }) =>
+				`${String(payload.kind)} ${String(payload.id)} ${String(payload.amount)} ${String(payload.currency)}`,
+		);
+
 const applyOnce = ({
 	deps,
 	env,
@@ -625,11 +644,18 @@ const applyOnce = ({
 				);
 		}
 	}
-	finishClaim(deps, event.id, claim);
+	const skipped = skippedLines(result.events);
+	finishClaim(
+		deps,
+		event.id,
+		claim,
+		skipped.length > 0 ? "non_usd" : "applied",
+	);
 	return {
 		kind: "applied",
 		events: result.events.length,
 		wroteRows: result.rowChanges !== null,
+		skipped,
 	};
 };
 
@@ -642,6 +668,30 @@ const answerForRefusal = (
 		reason: refusal.reason,
 		message: refusal.message,
 	});
+
+/**
+ * A delivery applied whose money was not booked because it is not in USD: still 200 (the credits are granted and a retry
+ * could not change the currency), but its own outcome, the markers in the outbox, and a line out loud.
+ */
+const nonUsd = (
+	deps: WebhookDeps,
+	event: StripeEvent,
+	applied: Extract<Applied, { kind: "applied" }>,
+): WebhookResponse => {
+	const message = `${event.id} (${event.type}) was applied, but ${applied.skipped.length} money line(s) were not booked because they are not in USD: ${applied.skipped.join("; ")}. Credits were granted as usual; the log holds a money.skipped event for each.`;
+	(deps.warn ?? writeStderr)(`atm: non_usd: ${message}`);
+	return reply(200, "non_usd", {
+		stripeEventId: event.id,
+		events: applied.events,
+		wroteRows: applied.wroteRows,
+		skipped: applied.skipped,
+		message,
+	});
+};
+
+const writeStderr = (line: string): void => {
+	process.stderr.write(`${line}\n`);
+};
 
 const settle = (
 	deps: WebhookDeps,
@@ -661,6 +711,8 @@ const settle = (
 			if (error instanceof ClaimLost) return afterLostClaim(deps, event.id);
 			throw error;
 		}
+		if (applied.kind === "applied" && applied.skipped.length > 0)
+			return nonUsd(deps, event, applied);
 		if (applied.kind === "applied")
 			return reply(200, "applied", {
 				stripeEventId: event.id,

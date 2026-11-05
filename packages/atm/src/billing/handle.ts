@@ -48,6 +48,7 @@ import {
 	paymentEvents,
 	payoutEvents,
 	refundEvents,
+	skippedRefundEvents,
 } from "./money.js";
 import {
 	describeNormalizeError,
@@ -276,14 +277,13 @@ const decide = (
 				ok: true,
 				result,
 				reason: "refund",
-				money: ours
-					? refundEvents({
-							refund,
-							labels: result.labels,
-							booker: bookerOf(input, holder),
-							holder,
-						})
-					: [],
+				// A refund in another currency is no line either way; a marker says so (it is of a payment the books never held)
+				money: (ours ? refundEvents : skippedRefundEvents)({
+					refund,
+					labels: result.labels,
+					booker: bookerOf(input, holder),
+					holder,
+				}),
 			};
 		}
 		case "BillingDispute": {
