@@ -547,6 +547,13 @@ export type BillingRefund = {
 	 */
 	amount: number;
 	/**
+	 * What `amount` was before this event (`previous_attributes.amount_refunded`); 0 when the event carries none, as for a
+	 * first refund. `amount - previousAmount` is what this event refunded, which is what the books take.
+	 */
+	previousAmount?: number;
+	/** The charge's currency (lowercase ISO code). Absent on a fact built by hand; the books take it as USD then. */
+	currency?: string;
+	/**
 	 * The charge is refunded in full: Stripe's own `refunded` flag. Not a comparison of amounts: on a partly captured
 	 * charge `amount_refunded` may or may not count the released remainder, and the flag is right either way.
 	 */
@@ -579,6 +586,21 @@ export type InvoicePaymentFact = {
 	paymentIntentId: string | null;
 	/** Set when the payment's `type` is `charge` (a charge that has no payment intent); else null. */
 	chargeId: string | null;
+	at: number;
+};
+
+/**
+ * A Stripe `payout.paid`: money left the Stripe balance for the school's bank. Not about any family, so it has no
+ * subject; the books move it from `assets:stripe` to `assets:clearing:stripe-payouts`.
+ */
+export type StripePayout = {
+	source: FactSource;
+	/** The payout's id (`po_...`): the books' idem, so another delivery of the same payout books nothing. */
+	id: string;
+	/** What reaches the bank, in minor units: the payout's own `amount`, already net of Stripe's fees. */
+	amount: number;
+	currency: string;
+	/** The event's `created` (ms). */
 	at: number;
 };
 
@@ -705,6 +727,12 @@ export type InvoiceRecord = {
 	granted: GrantedRow[];
 	/** A refund or a lost dispute has already taken this invoice's unused credits back. */
 	removed: boolean;
+	/**
+	 * The cents the books took for this invoice (its `payment.succeeded`). Absent when none was booked: an invoice handled
+	 * before payments were booked, one that paid nothing or paid in another currency, or one a caller adopted. A refund of
+	 * such an invoice makes no `payment.refunded`: there is no payment for it to take back from.
+	 */
+	paid?: number;
 };
 
 /** Everything the rules need to remember between facts. Plain JSON: store it as is. */
@@ -1014,7 +1042,8 @@ export type MappingTarget =
 	| "BillingRefund"
 	| "BillingDispute"
 	| "SubscriptionFact"
-	| "InvoicePaymentFact";
+	| "InvoicePaymentFact"
+	| "StripePayout";
 
 /** A declarative mapping: one Stripe event type at one API version, and where each fact field sits in the raw JSON. */
 export type Mapping = {
@@ -1036,7 +1065,8 @@ export type BillingFact =
 	| BillingRefund
 	| BillingDispute
 	| SubscriptionFact
-	| InvoicePaymentFact;
+	| InvoicePaymentFact
+	| StripePayout;
 
 export type NormalizeError =
 	| { kind: "missing_path"; field: string; path: string }
@@ -1105,6 +1135,19 @@ export type StripeEventInput = {
 	 */
 	invoiceIds?: Readonly<Record<string, string>>;
 	/**
+	 * What Stripe took for the payment an `invoice.paid` is, in cents: the `fee` of the charge's balance transaction. No
+	 * webhook event carries it, so the caller reads it from Stripe (see `WebhookDeps.paymentFee`) and passes it in, which
+	 * keeps this function pure. It becomes the `fee` of the `payment.succeeded` event. Absent: no fee line is booked
+	 * (the books then hold the gross amount in `assets:stripe`). Anything but a whole number from 0 to the amount paid
+	 * comes back `refused` as `bad_event`. Read only for `invoice.paid`.
+	 */
+	fee?: number;
+	/**
+	 * The school the event is for. Needed only for events that name no family (`payout.paid`), which have no subject to
+	 * take it from; without it such an event comes back `refused` as `bad_event`.
+	 */
+	school?: string;
+	/**
 	 * Stripe's mode for this subject, part of its subject key and of `identity.env` on every command. Default `"live"`.
 	 * A school with both a test and a live endpoint passes it so the two do not share a subject; build `catalog` with
 	 * the same `env` (`menuCatalogRows`). Anything else throws.
@@ -1128,7 +1171,11 @@ export type StripeEventRefusal = {
 export type StripeEventResult = {
 	/** One write for the subject, or null when the event changes nothing (replayed, not about credits). */
 	rowChanges: RowChanges | null;
-	/** The decision events (credit.*), each with `cause` = the event id and the menu, policy and mapping labels. */
+	/**
+	 * The decision events, each with `cause` = the event id and the menu, policy and mapping labels: `credit.*` and
+	 * `plan.changed`, and the money lines of a payment (`payment.succeeded`), a refund (`payment.refunded`) and a payout
+	 * (`payout.paid`). A dispute books no money line yet.
+	 */
 	events: AtmEvent[];
 	refused?: StripeEventRefusal;
 };
@@ -1471,6 +1518,19 @@ export type WebhookDeps = {
 	 * `unmatched_payment` until Stripe gives up. Only the non-empty strings it returns are used.
 	 */
 	paymentRefs?: (event: unknown) => readonly string[];
+	/**
+	 * Optional: the Stripe fee, in cents, of the payment an `invoice.paid` event is (the `fee` of its charge's balance
+	 * transaction). Without it a payment books its gross amount and no `expenses:billing:stripe-fees` line. No webhook event
+	 * carries a fee, and an invoice names neither its charge nor its balance transaction, so Stripe has to be asked: before
+	 * calling the handler, read the invoice's payment, its charge and the charge's `balance_transaction` (for a direct
+	 * charge on a connected account, as that account) and return `fee` here. The handler is synchronous and calls this
+	 * inside its transaction, so it must answer from what the caller already holds, not by a network call. Called once per
+	 * `invoice.paid` attempt with the raw event; return `null` or `undefined` when the fee is not known (an asynchronous
+	 * payment whose balance transaction is not there yet): the payment is then booked with no fee, and the fee is not
+	 * booked later (the payment is booked once, and a re-send is answered `duplicate`). A value that is not a whole number
+	 * from 0 to the amount paid is refused 422 `bad_event`.
+	 */
+	paymentFee?: (event: unknown) => number | null | undefined;
 };
 
 export type WebhookRequest = {
@@ -1603,6 +1663,52 @@ export type OutboxStatus = {
 	 * event time.
 	 */
 	oldestUnshippedAgeMs: number | null;
+};
+
+/**
+ * How the events of one command the family service ran are booked: `AtmEventContext` without what `recordEngineCommand`
+ * sets from the mutation and the state (`school`, `before`) or keeps for itself (`payload`, `idemPrefix`, `slice`).
+ */
+export type AtmCommandContext = Omit<
+	AtmEventContext,
+	"school" | "before" | "payload" | "idemPrefix" | "slice"
+>;
+
+export type RecordEngineCommandInput = {
+	/** The database the handler writes. The caller's own transaction must be open: this opens none. */
+	db: SqlDatabase;
+	/** What `runEngineCommand` returned; null when the engine decided nothing. */
+	mutation: AtmMutation | null;
+	/** The subject as it was when the command ran (the state the engine ran on). Needed for the alerts, a delete and a lapsed rollover. */
+	before: AtmSubjectState | null;
+	/** The feature, service, reason and the rest the postings need; the school is the mutation's `identity.orgId`. */
+	context: AtmCommandContext;
+	/**
+	 * The caller's claim that it records every engine command it runs for this subject, written as `payload.complete`.
+	 * `replayEvents` reads it only for a command named `<ULID>:<step>` (the handler's names); a caller whose command ids
+	 * are anything else needs nothing here. Default false: a claim a writer cannot keep is worse than none.
+	 */
+	logsEveryCommand?: boolean;
+};
+
+export type RecordLapseInput = {
+	/** The database the handler writes. The caller's own transaction must be open: this opens none. */
+	db: SqlDatabase;
+	/** The subject as the cron read it; its identity names the school, the key and the holder, and its revision orders the events. */
+	state: AtmSubjectState;
+	featureOf: (internalFeatureId: string) => string | undefined;
+	feature: string;
+	atMs: number;
+	tz: string;
+	/** Opt in to `credit.depleted` (see `lapseAlertEvents`): the units of the feature the holder drew after an instant. */
+	drawnAfter?: (instantMs: number) => number;
+	labels?: Record<string, string>;
+};
+
+/** What a `record*` call made, and how many of those events were new to the outbox (a retry inserts none). */
+export type RecordedEvents = {
+	events: AtmEvent[];
+	inserted: number;
 };
 
 /** Thrown by `replayEvents` where the engine disagrees with the log; `eventId` names the event. */
