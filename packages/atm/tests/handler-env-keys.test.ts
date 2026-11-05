@@ -615,6 +615,50 @@ describe("migrating a database made by the old HANDLER_DDL", () => {
 		expect(migrateHandlerSchema(bunSqlite(current)).rebuilt).toEqual([]);
 	});
 
+	test("the stored-input tables come from HANDLER_DDL, in either order with the migration, and no row of the old tables is lost", () => {
+		for (const migrateFirst of [true, false]) {
+			const raw = oldDatabase();
+			raw.exec(`
+				INSERT INTO atm_event_claims VALUES ('evt_done', 'done', 10, 'worker-a', 11, 'applied');
+				INSERT INTO atm_invoice_index VALUES ('in_live', 'sch_vol|live|family:f1');
+				INSERT INTO atm_payment_index VALUES ('pi_live', 'in_live');
+				INSERT INTO ledger_outbox VALUES ('sch_vol', 'ev1', 'idem-1', '2026-01-15', '{"id":"ev1"}', NULL, NULL);
+			`);
+			const db = bunSqlite(raw);
+			if (migrateFirst) migrateHandlerSchema(db);
+			raw.exec(HANDLER_DDL);
+			if (!migrateFirst) migrateHandlerSchema(db);
+			for (const table of [
+				"atm_event_inputs",
+				"atm_input_contexts",
+				"atm_input_seeds",
+				"atm_input_erasures",
+			])
+				expect(columnsOf(raw, table).length).toBeGreaterThan(0);
+			// nothing was copied or rebuilt for the new tables, and the old ones kept every row
+			expect(
+				(
+					raw.query(`SELECT COUNT(*) AS n FROM atm_event_inputs`).get() as {
+						n: number;
+					}
+				).n,
+			).toBe(0);
+			for (const table of [
+				"atm_event_claims",
+				"atm_invoice_index",
+				"atm_payment_index",
+				"ledger_outbox",
+			])
+				expect(
+					(
+						raw.query(`SELECT COUNT(*) AS n FROM ${table}`).get() as {
+							n: number;
+						}
+					).n,
+				).toBe(1);
+		}
+	});
+
 	test("a failure rolls every table back: the old database is exactly as it was", () => {
 		const raw = oldDatabase();
 		raw.exec(`
@@ -782,9 +826,16 @@ describe("review of the migration and the shipper", () => {
 describe("the DDL stays portable", () => {
 	test("no trigger and no RAISE, and every statement is IF NOT EXISTS (the family service's schema-portable test reads Litestream's SQLite)", () => {
 		expect(HANDLER_DDL).not.toMatch(/TRIGGER|RAISE/i);
+		// the stored-input tables are plain SQL too: no STRICT table, no generated column
+		expect(HANDLER_DDL).not.toMatch(/STRICT|GENERATED|AS \(/i);
 		const creates = HANDLER_DDL.match(/CREATE TABLE/g) ?? [];
 		const guarded = HANDLER_DDL.match(/CREATE TABLE IF NOT EXISTS/g) ?? [];
-		expect(creates.length).toBe(6);
+		const indexes = HANDLER_DDL.match(/CREATE INDEX/g) ?? [];
+		const guardedIndexes =
+			HANDLER_DDL.match(/CREATE INDEX IF NOT EXISTS/g) ?? [];
+		// six older tables and the four of the stored inputs
+		expect(creates.length).toBe(10);
 		expect(guarded.length).toBe(creates.length);
+		expect(guardedIndexes.length).toBe(indexes.length);
 	});
 });

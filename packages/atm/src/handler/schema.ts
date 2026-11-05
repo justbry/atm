@@ -53,6 +53,10 @@ const OUTBOX_TABLE = `(
  * A database made by an earlier release has the last four tables without `env`, and `IF NOT EXISTS` leaves them as they
  * are: call `migrateHandlerSchema(db)` once at start too (before or after this; it does nothing on tables that already
  * have `env`), or the handler stops with an error that says so, before it touches anything.
+ *
+ * The last four tables (`atm_event_inputs`, `atm_input_contexts`, `atm_input_seeds`, `atm_input_erasures`) keep the stored
+ * inputs. They are additive: a database made by an earlier release gets them from this DDL, nothing is rebuilt or copied,
+ * and the handler stops with an error that names `HANDLER_DDL` when they are missing.
  */
 export const HANDLER_DDL = `
 CREATE TABLE IF NOT EXISTS atm_subjects (
@@ -86,7 +90,98 @@ CREATE TABLE IF NOT EXISTS atm_payment_index ${PAYMENT_INDEX_TABLE};
 -- insert. The insert is ON CONFLICT (school_id, env, idem) DO NOTHING. A shipper (not part of the handler) sets
 -- batch_key and shipped_at. The shipper reads a school's rows whatever their env.
 CREATE TABLE IF NOT EXISTS ledger_outbox ${OUTBOX_TABLE};
+
+-- One row per handled Stripe input: what the grant rules need to decide it again. env is part of the key (the same
+-- Stripe id can arrive under both modes). applied_order is the order the handler applied the inputs in (a refused row
+-- takes a new one when it is applied). body is the replay fact, never the raw event. batch_key and shipped_at are the
+-- shipper's marks, as on ledger_outbox. input_id is the ULID the decision events name as their cause; booking_refs the
+-- caller's booking index entries a booking refund was decided with.
+CREATE TABLE IF NOT EXISTS atm_event_inputs (
+  applied_order INTEGER PRIMARY KEY AUTOINCREMENT,
+  env TEXT NOT NULL CHECK (env IN ('live', 'test')),
+  event_id TEXT NOT NULL,
+  school_id TEXT NOT NULL,
+  subject_key TEXT,
+  type TEXT NOT NULL,
+  api_version TEXT NOT NULL,
+  mapping TEXT NOT NULL,
+  livemode INTEGER CHECK (livemode IS NULL OR livemode IN (0, 1)),
+  stripe_created INTEGER NOT NULL,
+  received_at INTEGER NOT NULL,
+  outcome TEXT NOT NULL CHECK (outcome IN ('applied', 'refused')),
+  reason TEXT,
+  attempts INTEGER NOT NULL DEFAULT 1,
+  revision_before INTEGER,
+  revision_after INTEGER,
+  atm_version TEXT NOT NULL,
+  context_hash TEXT,
+  menu_version TEXT,
+  policy_version TEXT,
+  fee INTEGER,
+  payment_refs TEXT CHECK (payment_refs IS NULL OR json_valid(payment_refs)),
+  input_id TEXT NOT NULL,
+  booking_refs TEXT CHECK (booking_refs IS NULL OR json_valid(booking_refs)),
+  raw_sha256 TEXT,
+  body TEXT CHECK (body IS NULL OR json_valid(body)),
+  erased_at INTEGER,
+  batch_key TEXT,
+  shipped_at INTEGER,
+  UNIQUE (env, event_id),
+  CHECK ((outcome = 'refused') = (reason IS NOT NULL))
+);
+CREATE INDEX IF NOT EXISTS atm_event_inputs_subject
+  ON atm_event_inputs (env, school_id, subject_key, applied_order);
+CREATE INDEX IF NOT EXISTS atm_event_inputs_unshipped
+  ON atm_event_inputs (env, school_id, applied_order) WHERE shipped_at IS NULL;
+
+-- The menu, the policy and the Stripe price ids in force when inputs were handled, one row per distinct content (the
+-- hash is of their canonical JSON). Lets a replay use what was in force, not what is current.
+CREATE TABLE IF NOT EXISTS atm_input_contexts (
+  env TEXT NOT NULL CHECK (env IN ('live', 'test')),
+  school_id TEXT NOT NULL,
+  context_hash TEXT NOT NULL,
+  menu_version TEXT NOT NULL,
+  policy_version TEXT NOT NULL,
+  first_used_at INTEGER NOT NULL,
+  body TEXT NOT NULL CHECK (json_valid(body)),
+  shipped_at INTEGER,
+  PRIMARY KEY (env, school_id, context_hash)
+) WITHOUT ROWID;
+
+-- A holder's rows (the engine rows and the grants row) and revision as they were just before its first stored input,
+-- written once, only when the holder already had rows. A replay of that holder starts here.
+CREATE TABLE IF NOT EXISTS atm_input_seeds (
+  env TEXT NOT NULL CHECK (env IN ('live', 'test')),
+  subject_key TEXT NOT NULL,
+  revision INTEGER NOT NULL,
+  taken_at INTEGER NOT NULL,
+  first_event_id TEXT NOT NULL,
+  rows TEXT NOT NULL CHECK (json_valid(rows)),
+  shipped_at INTEGER,
+  PRIMARY KEY (env, subject_key)
+) WITHOUT ROWID;
+
+-- Shipped objects that hold an erased holder's facts and are still to be rewritten or deleted. One row per object;
+-- done_at is set when the old object is gone.
+CREATE TABLE IF NOT EXISTS atm_input_erasures (
+  env TEXT NOT NULL CHECK (env IN ('live', 'test')),
+  school_id TEXT NOT NULL,
+  object_key TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('batch', 'seed')),
+  queued_at INTEGER NOT NULL,
+  replacement_key TEXT,
+  done_at INTEGER,
+  PRIMARY KEY (env, school_id, object_key)
+) WITHOUT ROWID;
 `;
+
+/** The stored-input tables `HANDLER_DDL` adds to a database made by a release before them. */
+export const INPUT_TABLES: readonly string[] = [
+	"atm_event_inputs",
+	"atm_input_contexts",
+	"atm_input_seeds",
+	"atm_input_erasures",
+];
 
 /**
  * One table of the migration: its definition in the new shape, its columns before `env`, and the SQL that tells which
@@ -154,6 +249,28 @@ export const assertCurrentSchema = (db: SqlDatabase): void => {
 		throw new Error(
 			`the handler's tables ${stale.join(", ")} have no env column (made by an earlier release): call migrateHandlerSchema(db) once at start, after taking a copy of the database`,
 		);
+};
+
+/** The stored-input tables that do not exist yet. Empty for a database made by this release's `HANDLER_DDL`. */
+export const missingInputTables = (db: SqlDatabase): string[] =>
+	INPUT_TABLES.filter((table) => !tableExists(db, table));
+
+const checkedInputTables = new WeakSet<SqlDatabase>();
+
+/**
+ * Throws, naming `HANDLER_DDL`, when a stored-input table is missing: the database was made by a release before the inputs
+ * were stored. Those tables are additive (every statement is `IF NOT EXISTS`, no table is rebuilt), so `db.exec(HANDLER_DDL)`
+ * once at start makes them and `migrateHandlerSchema` has nothing to do for them. For the code that writes an input (the
+ * webhook handler, `recordInput`): without it a delivery would fail on "no such table" with no hint, and a 5xx makes Stripe retry.
+ */
+export const assertInputTables = (db: SqlDatabase): void => {
+	if (checkedInputTables.has(db)) return;
+	const missing = missingInputTables(db);
+	if (missing.length > 0)
+		throw new Error(
+			`the handler's tables ${missing.join(", ")} do not exist (made by a release before inputs were stored): run db.exec(HANDLER_DDL) once at start; they are additive, so migrateHandlerSchema(db) has nothing to rebuild for them`,
+		);
+	checkedInputTables.add(db);
 };
 
 const migrationsFor = (db: SqlDatabase): TableMigration[] => [
