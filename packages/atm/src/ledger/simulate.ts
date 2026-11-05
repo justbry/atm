@@ -372,6 +372,12 @@ export const simulate = (input: AtmSimulateInput): AtmSimulation => {
 	const changed: (AtmSimulateDecision & { date: string })[] = [];
 	const refused: (AtmSimulateRefusal & { date: string })[] = [];
 
+	/** Where the log's own commands leave the subject: what the candidate's rows are compared with where a row lapses. */
+	const currentCatalog = toCatalog(currentRows);
+	const logStates: Record<string, SubjectState> = {};
+	/** The `credit.expired` events of a lapse the candidate's books have (the cron's, carried, or booked here): one each. */
+	const lapseIdems = new Set<string>();
+
 	const carry = (e: AtmEvent) => {
 		made.push(e);
 		unaffected.events += 1;
@@ -389,12 +395,15 @@ export const simulate = (input: AtmSimulateInput): AtmSimulation => {
 			carry(e);
 			return;
 		}
+		// booked already at the command that found the row lapsed
+		if (lapseIdems.has(e.idem)) return;
 		const state = states[e.key];
 		const found = (
 			row.table === "rollovers" ? state?.rollovers : state?.customerEntitlements
 		)?.find((r) => r.id === row.id);
 		if (!found || found.expires_at !== row.expires_at || found.balance <= 0)
 			return;
+		lapseIdems.add(e.idem);
 		if (found.balance === row.balance) {
 			carry(e);
 			return;
@@ -509,6 +518,103 @@ export const simulate = (input: AtmSimulateInput): AtmSimulation => {
 		groups.set(key, [...(groups.get(key) ?? []), e]);
 	}
 
+	/**
+	 * Rows the candidate's clock has lapsed by `atMs` and the log's has not. The cron of the log booked what it saw, so a row
+	 * the candidate holds that the log's state does not (a rollover the log's menu never made) is booked as expired at its
+	 * expiry, as the cron would have, before the next command of the subject moves or removes it. A row both hold lapsed
+	 * is the log's to have booked or not: it is left as the log has it.
+	 */
+	const bookLapses = (key: string, atMs: number) => {
+		const state = states[key];
+		if (!state) return;
+		const lapsedOf = (
+			of: SubjectState | undefined,
+			featureOf: (internal: string) => string | undefined,
+		) => {
+			const rows: {
+				feature: string;
+				row: ReturnType<typeof lapsedRows>[number];
+			}[] = [];
+			const features = new Set(
+				(of?.customerEntitlements ?? []).flatMap(
+					(r) => featureOf(r.internal_feature_id) ?? [],
+				),
+			);
+			if (of)
+				for (const feature of features)
+					for (const row of lapsedRows({ state: of, featureOf, feature, atMs }))
+						rows.push({ feature, row });
+			return rows;
+		};
+		const rowKey = (row: ReturnType<typeof lapsedRows>[number]) =>
+			[row.table, row.id, row.expires_at].join("\u0000");
+		const inLog = new Set(
+			lapsedOf(logStates[key], (id) => currentCatalog.features[id]?.id).map(
+				({ row }) => rowKey(row),
+			),
+		);
+		for (const { feature, row } of lapsedOf(
+			state,
+			(id) => catalog.features[id]?.id,
+		)) {
+			if (inLog.has(rowKey(row))) continue;
+			const sibling = [...ordered].reverse().find((e) => e.key === key);
+			if (!sibling) continue;
+			const plan = [...ordered]
+				.reverse()
+				.find(
+					(e) =>
+						e.key === key &&
+						e.labels.feature === feature &&
+						e.labels.plan !== undefined &&
+						Date.parse(e.event_time) <= row.expires_at,
+				)?.labels.plan;
+			const lapseMade = lapseEvent({
+				row,
+				holder: key,
+				key,
+				feature,
+				school: sibling.school,
+				tz: sibling.tz,
+				revision: state.revision,
+				labels: plan === undefined ? undefined : { plan },
+			});
+			if (lapseIdems.has(lapseMade.idem)) continue;
+			lapseIdems.add(lapseMade.idem);
+			made.push(lapseMade);
+		}
+	};
+
+	/**
+	 * The log's own command on the log's own state, with the current catalog: the state the candidate's is compared with.
+	 * Returns the state the command ran on.
+	 */
+	const advanceLog = (
+		command: CommandShape,
+		atMs: number,
+		recorded: RecordedMutation,
+	): SubjectState | null => {
+		const subject = command.identity.customerId;
+		const before = logStates[subject] ?? null;
+		if (before !== null && before.revision >= recorded.revision.after)
+			return before;
+		const start =
+			before && before.revision < recorded.revision.before
+				? { ...before, revision: recorded.revision.before }
+				: before;
+		try {
+			const run = runOnState({
+				state: start ? clone(start) : null,
+				catalog: currentCatalog,
+				command: { ...command, occurredAt: atMs },
+			});
+			if (run.state) logStates[subject] = inStoredOrder(run.state);
+		} catch {
+			// `replayEvents` ran this command on the same events and did not throw
+		}
+		return start;
+	};
+
 	const handled = new Set<string>();
 	for (const e of ordered) {
 		const payload = e.payload as { command?: CommandShape; mutation?: unknown };
@@ -528,6 +634,9 @@ export const simulate = (input: AtmSimulateInput): AtmSimulation => {
 		};
 		const recorded = gathered.mutation;
 		const subject = command.identity.customerId;
+		const atMs = Date.parse(e.event_time);
+		bookLapses(subject, atMs);
+		const logStart = advanceLog(command, atMs, recorded);
 		const before = states[subject] ?? null;
 		if (before !== null && before.revision >= recorded.revision.after) {
 			for (const g of group) carry(g);
@@ -584,8 +693,13 @@ export const simulate = (input: AtmSimulateInput): AtmSimulation => {
 			canonicalize({ ...decided, changes: null }) ===
 				canonicalize({ ...recorded, changes: null }) &&
 			(fit === "same" || (fit === "partial" && !gathered.sliced && oldShape));
+		// The recorded events carry the postings the log's own rows gave (what a reset expires is what was left): on rows
+		// that differ from the log's, the same decision books other credits, so its events are made again.
+		const onOtherRows =
+			canonicalize({ ...start, revision: 0 }) !==
+			canonicalize({ ...logStart, revision: 0 });
 		let outcome: AtmEvent[];
-		if (same) {
+		if (same && !onOtherRows) {
 			outcome = group;
 		} else {
 			const result = decided.result as
@@ -622,78 +736,7 @@ export const simulate = (input: AtmSimulateInput): AtmSimulation => {
 		settle(command, outcome, run.mutation);
 	}
 
-	// Rows the candidate's clock has lapsed by `asOf` and the log's has not: the cron of the log booked what it saw, so a row
-	// the candidate holds that the log's state does not is booked here, at its expiry, as the cron would have.
-	const lapsedAtEnd = (
-		stateOf: Record<string, unknown>,
-		featureOf: (internal: string) => string | undefined,
-	) => {
-		const rows = new Map<
-			string,
-			{
-				key: string;
-				feature: string;
-				row: ReturnType<typeof lapsedRows>[number];
-				revision: number;
-			}
-		>();
-		for (const [key, raw] of Object.entries(stateOf)) {
-			const state = raw as SubjectState;
-			const features = new Set(
-				state.customerEntitlements.flatMap(
-					(r) => featureOf(r.internal_feature_id) ?? [],
-				),
-			);
-			for (const feature of features)
-				for (const row of lapsedRows({
-					state,
-					featureOf,
-					feature,
-					atMs: asOfMs,
-				}))
-					rows.set([key, row.table, row.id, row.expires_at].join("\u0000"), {
-						key,
-						feature,
-						row,
-						revision: state.revision,
-					});
-		}
-		return rows;
-	};
-	const currentCatalog = toCatalog(currentRows);
-	const logLapsed = lapsedAtEnd(
-		current.snapshot.states,
-		(id) => currentCatalog.features[id]?.id,
-	);
-	const candidateLapsed = lapsedAtEnd(states, (id) => catalog.features[id]?.id);
-	const booked = new Set(made.map((e) => e.idem));
-	for (const [id, { key, feature, row, revision }] of candidateLapsed) {
-		if (logLapsed.has(id)) continue;
-		const sibling = [...ordered].reverse().find((e) => e.key === key);
-		if (!sibling) continue;
-		const plan = [...ordered]
-			.reverse()
-			.find(
-				(e) =>
-					e.key === key &&
-					e.labels.feature === feature &&
-					e.labels.plan !== undefined &&
-					Date.parse(e.event_time) <= row.expires_at,
-			)?.labels.plan;
-		const lapse = lapseEvent({
-			row,
-			holder: key,
-			key,
-			feature,
-			school: sibling.school,
-			tz: sibling.tz,
-			revision,
-			labels: plan === undefined ? undefined : { plan },
-		});
-		if (booked.has(lapse.idem)) continue;
-		booked.add(lapse.idem);
-		made.push(lapse);
-	}
+	for (const key of Object.keys(states)) bookLapses(key, asOfMs);
 
 	const candidateEvents = [...made].sort(byId);
 	const month = input.month;

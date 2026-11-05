@@ -12,15 +12,16 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { cp, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { generateYear } from "../fixtures/vibes.js";
-import { addUtcMonths } from "../src/billing/grants.js";
+import { addUtcMonths, menuCatalogRows } from "../src/billing/grants.js";
 import { DEFAULT_POLICY, resolvePolicy } from "../src/billing/policy.js";
 import { lookupKeyOf, tierPriceKey } from "../src/billing/stripe-menu.js";
 import type { Menu } from "../src/billing/types.js";
 import { buildJournal } from "../src/ledger/journal.js";
+import { replayEvents } from "../src/ledger/replay.js";
 import { simulate } from "../src/ledger/simulate.js";
 import type { AtmCatalogRow, AtmEvent, AtmSimulation } from "../src/types.js";
 import { FAMILY, menu, play, SCHOOL } from "./billing-play.js";
-import { createStore } from "./billing-store.js";
+import { createStore, type Store } from "./billing-store.js";
 import { hasHledger, readTree, tmp } from "./helpers.js";
 import { invoicePaid } from "./stripe-events.js";
 
@@ -302,6 +303,40 @@ describe("simulate: a candidate that decides more than the log recorded", () => 
 				delete (grant as { rollover?: unknown }).rollover;
 		return bare;
 	};
+	const JANUARY = Date.UTC(2026, 0, 3, 15, 0, 0);
+	/** The nth monthly invoice of the family on sparkle-2 (the first creates the subscription), paid at the start of its period. */
+	const payMonth = (store: Store, under: Menu, n: number) => {
+		const start = addUtcMonths(JANUARY, n - 1);
+		const price = under.tiers
+			.find((t) => t.id === "sparkle-2")
+			?.prices.find((p) => p.interval === "month")?.amount as number;
+		store.handle(
+			invoicePaid({
+				eventId: `evt_in_${n}`,
+				invoiceId: `in_${n}`,
+				at: start,
+				subscriptionId: "sub_1",
+				reason: n === 1 ? "subscription_create" : "subscription_cycle",
+				periodStart: start,
+				periodEnd: addUtcMonths(start, 1),
+				lines: [
+					{
+						lookupKey: lookupKeyOf(
+							SCHOOL,
+							tierPriceKey("sparkle-2", "month"),
+							price,
+							under.currency,
+						),
+						amount: price,
+						interval: "month",
+					},
+				],
+				metadata: { b4u_school: SCHOOL, family_id: ROLL_FAMILY },
+			}),
+			start,
+		);
+		return { start, price };
+	};
 	/** A family on sparkle-2 that pays four monthly renewals after the first invoice and spends nothing, under `under`. */
 	const fiveMonths = (under: Menu) => {
 		const store = createStore({
@@ -309,41 +344,15 @@ describe("simulate: a candidate that decides more than the log recorded", () => 
 			school: SCHOOL,
 			family: ROLL_FAMILY,
 		});
-		const price = under.tiers
-			.find((t) => t.id === "sparkle-2")
-			?.prices.find((p) => p.interval === "month")?.amount as number;
-		let start = Date.UTC(2026, 0, 3, 15, 0, 0);
-		for (let n = 1; n <= 5; n++) {
-			const end = addUtcMonths(start, 1);
-			store.handle(
-				invoicePaid({
-					eventId: `evt_in_${n}`,
-					invoiceId: `in_${n}`,
-					at: start,
-					subscriptionId: "sub_1",
-					reason: n === 1 ? "subscription_create" : "subscription_cycle",
-					periodStart: start,
-					periodEnd: end,
-					lines: [
-						{
-							lookupKey: lookupKeyOf(
-								SCHOOL,
-								tierPriceKey("sparkle-2", "month"),
-								price,
-								under.currency,
-							),
-							amount: price,
-							interval: "month",
-						},
-					],
-					metadata: { b4u_school: SCHOOL, family_id: ROLL_FAMILY },
-				}),
-				start,
-			);
-			start = end;
-		}
+		for (let n = 1; n <= 5; n++) payMonth(store, under, n);
 		return store.events;
 	};
+	const sumOf = (events: readonly AtmEvent[], account: string) =>
+		events
+			.flatMap((e) => e.postings)
+			.filter((p) => p.account === account)
+			.reduce((n, p) => n + Number(p.amount), 0);
+
 	test("a rollover the log's menu did not have is a decision the candidate makes: the four resets are listed and book what rolls over", () => {
 		const events = fiveMonths(withoutRollover());
 		const sim = simulate({
@@ -374,6 +383,49 @@ describe("simulate: a candidate that decides more than the log recorded", () => 
 				candidate: { avail: 4, held: 0 },
 			},
 		]);
+	});
+
+	test("a decision the candidate shares with the log is made again on the candidate's rows: its events are a log the replay accepts", () => {
+		// A rollover that holds at most 1 (the menu's holds 2): the same refunds and renewals are decided, on rows that hold other
+		// amounts, so what they expire and take back is not what the log booked.
+		const capped = structuredClone(menu) as Menu;
+		for (const tier of capped.tiers)
+			for (const grant of tier.grants)
+				if (grant.rollover) grant.rollover = { max: 1, months: 1 };
+		const rows = menuCatalogRows({ menu: capped, school: SCHOOL });
+		const unreplayable: string[] = [];
+		for (const seed of [42, 50, 56, 71, 74, 79, 118, 139, 142, 148]) {
+			const store = createStore({ menu, school: SCHOOL, family: FAMILY });
+			play({ seed, steps: 40, store });
+			const sim = simulate({
+				events: store.events,
+				menu,
+				candidate: { menu: capped },
+			});
+			expect(sim.refused).toEqual([]);
+			try {
+				replayEvents({ events: sim.events, catalog: rows });
+			} catch (error) {
+				unreplayable.push(`seed ${seed}: ${(error as Error).message}`);
+			}
+		}
+		expect(unreplayable).toEqual([]);
+	});
+
+	test("the candidate's books agree with its engine: a rollover that lapsed unspent before a later reset removed it is booked as expired", () => {
+		const events = fiveMonths(withoutRollover());
+		const sim = simulate({
+			events,
+			menu: withoutRollover(),
+			school: SCHOOL,
+			candidate: { menu },
+		});
+		const avail = `credits:avail:${ROLL_HOLDER}:visit`;
+		// the rollovers of February, March and April lapsed at the next reset (6 credits) and May's is still live
+		expect(sumOf(sim.events, avail)).toBe(4);
+		expect(sumOf(sim.events, "credits:expired")).toBe(6);
+		expect(sim.balances.candidate[0]?.avail).toBe(4);
+		expect(creditSums(sim.events)).toEqual({ VISIT: 0 });
 	});
 });
 
