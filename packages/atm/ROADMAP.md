@@ -120,7 +120,10 @@ All eight slices were reviewed by sub-agents and the findings fixed slice by sli
 - [ ] Document the effect of a backfill on issued documents: a new version, never an overwrite.
 
 ### The log path to R2 (rest of phase 1)
-- [ ] The shipper (outbox rows into batches, plan then put with `If-None-Match: *`), the `day.jsonl` combine and `late-*` batches.
+- [x] The folder shipper (`shipOutbox`, `planOutbox`, `atm ship`; outbox rows into one `batch-*.jsonl` per event date, plan then create-only put with `If-None-Match: *`, then mark `batch_key` and `shipped_at`). `atm journal` works end to end on a plain folder with no R2. Tested with `FolderStore`: determinism, rerun, crash between put and mark, two shippers, a conflicting key, and the real handler through `journalMonth` and hledger (`tests/ship.test.ts`). Details in `README.md` and `UPGRADING.md`.
+  - [ ] Shipping to R2 (`R2Store`): the same call takes it, but it is not run against R2 or SeaweedFS.
+  - [ ] The `day.jsonl` combine and `late-*` batches. Open for it: the reader keeps only `late-*` beside a `day.jsonl`, so the shipper reports a day that has one as a conflict (rows stay unshipped) rather than put a `batch-*` that would not be read; the combine (or the shipper's naming, `late-*`) has to settle how such a day takes later rows.
+  - [ ] Two shippers that read different rows at the same moment, or a crash between put and mark followed by new rows for the same day, write two overlapping batches (different keys); the reader drops the repeated events by `idem`, so the journal is right, but the files hold some events twice until a combine.
 - [ ] The signed monthly manifest (Ed25519) with history, replaced with `If-Match`.
 - [ ] Replace the third-party PyPI SeaweedFS wheel with the official release, pinned by version and checksum, before CI depends on it.
 - [ ] Check whether R2 honours `If-Match` on DELETE (undocumented; production code does not depend on it).
