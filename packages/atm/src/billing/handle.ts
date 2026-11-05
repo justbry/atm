@@ -27,6 +27,7 @@ import type {
 	CheckoutSessionFact,
 	GrantResult,
 	GrantsState,
+	InvoiceLine,
 	Menu,
 	StripeEventInput,
 	StripeEventRefusal,
@@ -46,6 +47,7 @@ import {
 	refundToCommands,
 	subscriptionHolder,
 	subscriptionToCommands,
+	tierLinesOfOtherSubscription,
 	ungrantedRecurringAddons,
 } from "./grants.js";
 import {
@@ -199,6 +201,16 @@ const addonOnlyMessage = (
 	return `invoice ${invoice.id} (subscription ${invoice.subscriptionId ?? "none"}) charges for the recurring add-on ${addons}, which atm grants only on the member's tier subscription, and ${why}: nothing was granted or recorded. ${fix}`;
 };
 
+/** Names the invoice, the subscription it is on and the holder's own, and what to change in Stripe. */
+const otherTierMessage = (
+	invoice: BillingInvoice,
+	lines: InvoiceLine[],
+	holderSubscriptionId: string | null,
+): string => {
+	const tiers = [...new Set(lines.map((l) => l.tierId))].join(", ");
+	return `invoice ${invoice.id} (${invoice.reason}) is for subscription ${invoice.subscriptionId ?? "none"} and has a tier line (${tiers}), but this member's tier subscription is ${holderSubscriptionId ?? "none"}: the membership follows one subscription, so nothing was granted or recorded. Cancel the other subscription in Stripe (and refund this invoice if the member should not keep it), or change the member's own subscription instead; re-sending this event gives the same refusal`;
+};
+
 const decide = (
 	target: string,
 	fact: unknown,
@@ -231,6 +243,23 @@ const decide = (
 				};
 			const problem = feeProblem(input.fee, resolved.invoice.amountPaid);
 			if (problem) return { ok: false, refusal: refuse("bad_event", problem) };
+			// A tier line of a subscription that is not the holder's own would refill or move the holder's credits.
+			const otherTier = tierLinesOfOtherSubscription({
+				invoice: resolved.invoice,
+				state: grants,
+			});
+			if (otherTier.length > 0)
+				return {
+					ok: false,
+					refusal: refuse(
+						"tier_on_other_subscription",
+						otherTierMessage(
+							resolved.invoice,
+							otherTier,
+							grants.subscriptionId,
+						),
+					),
+				};
 			// Paid for a recurring add-on that no rule would grant: recording it as decided would charge the member and give
 			// nothing, with no error anywhere.
 			const stranded = ungrantedRecurringAddons({
