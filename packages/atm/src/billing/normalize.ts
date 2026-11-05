@@ -368,11 +368,15 @@ export function describeNormalizeError(error: NormalizeError): string {
 		case "unknown_mapping": {
 			if (error.known.length === 0)
 				return `atm has no mapping for the event type ${JSON.stringify(error.event)}`;
-			return wrongVersion(error.event, error.apiVersion, error.known);
+			return wrongVersion(
+				`the ${error.event} event`,
+				error.apiVersion,
+				error.known,
+			);
 		}
 		case "api_version":
 			return wrongVersion(
-				"this",
+				"the event",
 				typeof error.got === "string" ? error.got : null,
 				[error.expected],
 			);
@@ -390,14 +394,14 @@ export function describeNormalizeError(error: NormalizeError): string {
 }
 
 const wrongVersion = (
-	event: string,
+	subject: string,
 	apiVersion: string | null,
 	known: readonly string[],
 ): string => {
 	const supported = known.join(" or ");
 	if (apiVersion === null || apiVersion === "")
-		return `the ${event} event has no api_version, so atm cannot tell how to read it (it reads ${supported}). Stripe puts the sending endpoint's api_version on every event: check that this body is an unmodified Stripe event, from an endpoint created with api_version ${supported}.`;
-	return `the ${event} event is at Stripe API version ${apiVersion}, which atm does not read (it reads ${supported}). The webhook endpoint that sent it is on that version: recreate the endpoint with api_version ${supported} (the endpoint's version decides the shape of every event it sends), then retry or discard this event.`;
+		return `${subject} has no api_version, so atm cannot tell how to read it (it reads ${supported}). Stripe puts the sending endpoint's api_version on every event: check that this body is an unmodified Stripe event, from an endpoint created with api_version ${supported}.`;
+	return `${subject} is at Stripe API version ${apiVersion}, which atm does not read (it reads ${supported}). The webhook endpoint that sent it is on that version: recreate the endpoint with api_version ${supported} (the endpoint's version decides the shape of every event it sends), then retry or discard this event.`;
 };
 
 /** Every mapping file this package ships (generated index: `bun schema/mapping/build.ts`). */

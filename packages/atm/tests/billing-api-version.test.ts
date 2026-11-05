@@ -125,6 +125,9 @@ describe("an event from an API version atm does not read", () => {
 		expect(describeNormalizeError(result.error)).toContain(
 			`recreate the endpoint with api_version ${CLOVER}`,
 		);
+		expect(describeNormalizeError(result.error)).toStartWith(
+			`the event is at Stripe API version ${OLDER}`,
+		);
 	});
 
 	test("an event type no mapping reads is not blamed on the version", () => {

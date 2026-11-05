@@ -979,6 +979,21 @@ describe("rows that cannot be placed are refused, naming the problem", () => {
 		expect(() => run({})).not.toThrow();
 	});
 
+	test("a repeated add-on id is one add-on", () => {
+		const membershipWithGlow = membershipRow({ addon_ids: "glow" });
+		const lots = callerGrant({
+			membership: membershipWithGlow,
+			menu: utcMenu,
+			invoice: IN_1,
+			existing: [],
+		});
+		const { state } = run({
+			membership: { addon_ids: "glow,glow, glow" },
+			lots,
+		});
+		expect(state.addonIds).toEqual(["glow"]);
+	});
+
 	test("a tier the menu does not have", () => {
 		expect(() => run({ membership: { tier_id: "gold" } })).toThrow(
 			/tier "gold", which the menu does not have/,
