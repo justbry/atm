@@ -26,6 +26,7 @@ import {
 	runCase,
 	stripeBalanceOf,
 	stripeFeesOf,
+	stripeInvoice,
 } from "./e2e-matrix.js";
 import { RECORDED_CASES } from "./e2e-recorded-cases.js";
 import { hasHledger } from "./helpers.js";
@@ -250,6 +251,73 @@ const matrixRow = (c: Case, index: number, got: BookRun): string => {
 			: `${differences} difference${differences === 1 ? "" : "s"}${explained}`,
 	].join(",");
 };
+
+/**
+ * Controls for the oracle: a clean case with one thing in Stripe's side moved by hand, and the one difference `atm reconcile`
+ * must then print. The matrix's clean cases cannot notice reconcile ceasing to compare an invoice's or a payout's amount,
+ * a dispute's outcome or an invoice's date (only a case that expects a difference sees a comparison break), so these do.
+ */
+const controlled = (
+	id: string,
+	move: (
+		stripe: Case["books"][number]["stripe"],
+	) => Case["books"][number]["stripe"],
+): Case => {
+	const found = ALL_CASES.find((c) => c.id === id) as Case;
+	const [book] = found.books as [Case["books"][number]];
+	return { ...found, books: [{ ...book, stripe: move(book.stripe) }] };
+};
+
+const controlDifferences = async (c: Case): Promise<string[]> => {
+	const run = await runCase(c);
+	return (run.books[0]?.reconciled["2026-01"]?.differences ?? []).map(
+		differenceLine,
+	);
+};
+
+describe.skipIf(!hasHledger)("reconcile controls", () => {
+	test("an invoice and a payout that Stripe has for other amounts are amount_differs", async () => {
+		// the books have 260.00 paid and 252.16 paid out; Stripe says 250.00 and 250.00 (its balance transactions are untouched)
+		const c = controlled("payout-with-fees", (stripe) => ({
+			...stripe,
+			invoices: (stripe.invoices ?? []).map((invoice) => ({
+				...invoice,
+				amount_paid: 25_000,
+			})),
+			payouts: (stripe.payouts ?? []).map((payout) => ({
+				...payout,
+				amount: 25_000,
+			})),
+		}));
+		expect(await controlDifferences(c)).toEqual([
+			"amount_differs invoice in_1",
+			"amount_differs payout po_1",
+		]);
+	});
+
+	test("a dispute Stripe says was won, that the books lost, is outcome_differs", async () => {
+		const c = controlled("dispute-lost", (stripe) => ({
+			...stripe,
+			disputes: (stripe.disputes ?? []).map((dispute) => ({
+				...dispute,
+				status: "won",
+			})),
+		}));
+		expect(await controlDifferences(c)).toEqual([
+			"outcome_differs dispute dp_1",
+		]);
+	});
+
+	test("an invoice Stripe dates in February, that the books date 15 January, is period_differs", async () => {
+		const c = controlled("create", (stripe) => ({
+			...stripe,
+			invoices: [stripeInvoice("in_1", 26_000, "2026-02-20T18:00:00Z")],
+		}));
+		expect(await controlDifferences(c)).toEqual([
+			"period_differs invoice in_1",
+		]);
+	});
+});
 
 describe.skipIf(!hasHledger)("the end-to-end reconciliation matrix", () => {
 	const rows = new Map<string, string[]>();

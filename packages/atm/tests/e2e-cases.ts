@@ -373,7 +373,7 @@ export const CASES: Case[] = [
 			{
 				school: SCHOOL,
 				// 520.00 for two units, then 352.26 for the raise: 872.26 of sparkle-2; fees 15.38 (52,000 x 2.9% = 1,508 + 30) and
-				// 10.52 (35,226 x 2.9% = 1,021 + 30); cash 872.26 - 25.90 = 846.36
+				// 10.52 (35,226 x 2.9% = 1,021.55, plus 30 = 1,051.55, rounded to 1,052); cash 872.26 - 25.90 = 846.36
 				// credits: 4 visits for two units, and the raise adds 2 units x 2 visits x 21/31 = 2.71, rounded up to 3: 7
 				hand: {
 					"income:membership:sparkle-2": 87_226,
@@ -2070,15 +2070,16 @@ export const CASES: Case[] = [
 		books: [
 			{
 				school: SCHOOL,
-				// not the school's money: its books stay empty
+				// not the school's money: its books stay empty. Stripe's side: 50.00 charged, fee 1.75 (5,000 x 2.9% = 145, plus
+				// 30), 48.25 left in its balance
 				hand: {},
-				foreign: { balance: 4855, fees: 145 },
+				foreign: { balance: 4825, fees: 175 },
 				stripe: {
 					invoices: [stripeInvoice("in_other", 5000, JAN15)],
 					refunds: [],
 					disputes: [],
 					payouts: [],
-					balanceTransactions: [charge("in_other", 5000, 145, FIRST_AT)],
+					balanceTransactions: [charge("in_other", 5000, 175, FIRST_AT)],
 				},
 				reconcile: {
 					"2026-01": [

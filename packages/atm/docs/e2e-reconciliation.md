@@ -25,30 +25,30 @@ How to read the table: dollars; `-` is zero; **bold `a / b`** is where the books
 | case | what | income | refunds | disputes | fees | dispute fees | Stripe | clearing | net | reconcile | verdict | booked at (src/) |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | create | subscription create invoice | 260.00 | - | - | 7.84 | - | 252.16 | - | 252.16 | clean | OK | money.ts:105 -> postings.ts:198 |
-| renewal | monthly cycle renewal | 520.00 | - | - | 15.68 | - | 504.32 | - | 504.32 | clean | OK | money.ts:105 -> postings.ts:198; grants.ts:805 |
+| renewal | monthly cycle renewal | 520.00 | - | - | 15.68 | - | 504.32 | - | 504.32 | clean | OK | money.ts:105 -> postings.ts:198; grants.ts:806 |
 | upgrade | upgrade invoice: sparkle-2 to sparkle-4 ten days in (proration) | 436.13 | - | - | 13.25 | - | 422.88 | - | 422.88 | clean | OK | money.ts:85 (income kind), money.ts:105 |
-| quantity-raise | quantity raise: two units to four ten days in | 872.26 | - | - | 25.90 | - | 846.36 | - | 846.36 | clean | OK | money.ts:105; grants.ts:805 |
-| quantity-decrease | quantity decrease at renewal: four units to two | 1560.00 | - | - | 45.84 | - | 1514.16 | - | 1514.16 | clean | OK | money.ts:105; grants.ts:805 |
+| quantity-raise | quantity raise: two units to four ten days in | 872.26 | - | - | 25.90 | - | 846.36 | - | 846.36 | clean | OK | money.ts:105; grants.ts:806 |
+| quantity-decrease | quantity decrease at renewal: four units to two | 1560.00 | - | - | 45.84 | - | 1514.16 | - | 1514.16 | clean | OK | money.ts:105; grants.ts:806 |
 | addon-recurring | add-on purchase: glow bought ten days into the cycle | 293.87 | - | - | 9.12 | - | 284.75 | - | 284.75 | clean | OK | money.ts:85, money.ts:105 |
 | create-with-addon | one invoice for a tier and a recurring add-on | 310.00 | - | - | 9.29 | - | 300.71 | - | 300.71 | clean | DISCREPANCY D6 | money.ts:85-103 (one income account per payment) |
 | addon-once | add-on purchase: a one-time pack, no subscription | 90.00 | - | - | 2.91 | - | 87.09 | - | 87.09 | clean | OK | money.ts:85, money.ts:105 |
 | refund-partial | partial refund | 260.00 | 50.00 | - | 7.84 | - | 202.16 | - | 202.16 | clean | OK | money.ts:198 -> postings.ts:208 |
 | refund-two-partials | two partial refunds of one payment | 260.00 | 80.00 | - | 7.84 | - | 172.16 | - | 172.16 | clean | OK | money.ts:209 (amount less previous) |
-| refund-partials-to-full | two partial refunds that add up to the whole charge | 260.00 | 260.00 | - | 7.84 | - | -7.84 | - | -7.84 | clean | OK | money.ts:209; grants.ts:1628 (credits) |
-| refund-full | full refund | 260.00 | 260.00 | - | 7.84 | - | -7.84 | - | -7.84 | clean | OK | money.ts:198; grants.ts:1628 (credits) |
+| refund-partials-to-full | two partial refunds that add up to the whole charge | 260.00 | 260.00 | - | 7.84 | - | -7.84 | - | -7.84 | clean | OK | money.ts:209; grants.ts:1657 (credits) |
+| refund-full | full refund | 260.00 | 260.00 | - | 7.84 | - | -7.84 | - | -7.84 | clean | OK | money.ts:198; grants.ts:1657 (credits) |
 | refund-before-link | refund before its payment is linked: 409, then the retry | 260.00 | 50.00 | - | 7.84 | - | 202.16 | - | 202.16 | clean | OK | stripe-webhook.ts:411 (409 unmatched_payment), money.ts:198 |
 | link-before-invoice | invoice_payment.paid before invoice.paid | 260.00 | 50.00 | - | 7.84 | - | 202.16 | - | 202.16 | clean | OK | stripe-webhook.ts:811 (409 unmatched_invoice), money.ts:198 |
 | duplicate-delivery | duplicate deliveries of every event type | 260.00 | 50.00 | - | 7.84 | - | - | 202.16 | 202.16 | clean | OK | stripe-webhook.ts:455 (claim done), handle.ts:232, outbox.ts:40 (idem) |
 | failed-delivery-retry | failed delivery, then the retry | 260.00 | - | - | 7.84 | - | 252.16 | - | 252.16 | clean | OK | stripe-webhook.ts:578 (feeOf throws), :457 (takeover) |
 | dispute-opened | dispute opened: 260.00 withdrawn with a 15.00 fee | 260.00 | - | 260.00 | 7.84 | 15.00 | -22.84 | - | -22.84 | clean | OK | handle.ts:326 -> money.ts:295 -> postings.ts:213 |
-| dispute-lost | dispute lost (the closing lists the withdrawal again) | 260.00 | - | 260.00 | 7.84 | 15.00 | -22.84 | - | -22.84 | clean | OK | postings.ts:229 (lost: no postings); grants.ts:1648 (credits) |
+| dispute-lost | dispute lost (the closing lists the withdrawal again) | 260.00 | - | 260.00 | 7.84 | 15.00 | -22.84 | - | -22.84 | clean | OK | postings.ts:229 (lost: no postings); grants.ts:1677 (credits) |
 | dispute-won | dispute won | 260.00 | - | - | 7.84 | 15.00 | 237.16 | - | 237.16 | clean | OK | postings.ts:229 (won: the amount back, not the fee) |
 | dispute-redelivered | a dispute's events delivered again (same event id, new event id), then lost | 260.00 | - | 260.00 | 7.84 | 15.00 | -22.84 | - | -22.84 | clean | OK | money.ts:295 (idem `stripe:<dispute>`); outbox.ts:40 (`ON CONFLICT` on idem) |
 | payout-with-fees | payout.paid after a payment with a fee | 260.00 | - | - | 7.84 | - | - | 252.16 | 252.16 | clean | OK | money.ts:243 -> postings.ts:238 |
 | payout-several-payments | one payout covering three payments of three families | 650.00 | - | - | 19.75 | - | - | 630.25 | 630.25 | clean | OK | money.ts:243 -> postings.ts:238 |
 | payout-across-months | a payout created in January that arrives in February | 260.00 | - | - | 7.84 | - | - | 252.16 | 252.16 | clean | OK | money.ts:243 (dated by the event, `created`) |
 | month-boundary | month boundary: Denver's 31 January is UTC's 1 February | 390.00 | 50.00 | - | 11.91 | - | - | 328.09 | 328.09 | clean | OK | postings.ts:81 (`date: localDate(eventMs, tz)`) |
-| yearly | yearly invoice | 2600.00 | - | - | 75.70 | - | 2524.30 | - | 2524.30 | clean | OK | money.ts:105 (cash basis); grants.ts:112 (12 x allowance) |
+| yearly | yearly invoice | 2600.00 | - | - | 75.70 | - | 2524.30 | - | 2524.30 | clean | OK | money.ts:105 (cash basis); grants.ts:114 (12 x allowance) |
 | second-school | the same family in a second school | 260.00 | - | - | 7.84 | - | - | 252.16 | 252.16 | clean | OK | stripe-webhook.ts:351 (school_mismatch) |
 | second-school (sch_two) | the same family in a second school | 130.00 | - | - | 4.07 | - | - | 125.93 | 125.93 | clean | OK | stripe-webhook.ts:351 (school_mismatch) |
 | erasure | erasure after payments | 260.00 | 50.00 | - | 7.84 | - | - | 202.16 | 202.16 | clean | OK | postings.ts:262 (subject.erased: no postings) |
@@ -59,8 +59,8 @@ How to read the table: dollars; `-` is zero; **bold `a / b`** is where the books
 | refused-invoice | a paid invoice the menu does not know | **260.00 / 0.00** | - | - | **7.84 / 0.00** | - | **252.16 / 0.00** | - | **252.16 / 0.00** | 3 differences | DISCREPANCY D4 | handle.ts:132-144 (422 unmatched_line) |
 | foreign-invoice | another product's invoice on the same Stripe account | - | - | - | - | - | - | - | - | 3 differences | DISCREPANCY D5 | reconcile.ts:512 (every Stripe invoice is compared) |
 | zero-invoice | an invoice that paid nothing (100% discount) | - | - | - | - | - | - | - | - | clean | OK | money.ts:118 |
-| subscription-canceled | subscription canceled after a payment | 260.00 | - | - | 7.84 | - | 252.16 | - | 252.16 | clean | OK | grants.ts:1455 (credits only) |
-| recorded-full-refund | recorded: full refund, the link and the refund arriving before the invoice | 260.00 | 260.00 | - | 7.84 | - | -7.84 | - | -7.84 | clean | OK | money.ts:198; grants.ts:1628 |
+| subscription-canceled | subscription canceled after a payment | 260.00 | - | - | 7.84 | - | 252.16 | - | 252.16 | clean | OK | grants.ts:1485 (credits only) |
+| recorded-full-refund | recorded: full refund, the link and the refund arriving before the invoice | 260.00 | 260.00 | - | 7.84 | - | -7.84 | - | -7.84 | clean | OK | money.ts:198; grants.ts:1657 |
 | recorded-partial-refund | recorded: partial refund of 50.00 | 260.00 | 50.00 | - | 7.84 | - | 202.16 | - | 202.16 | clean | OK | money.ts:198 |
 | recorded-dispute-lost | recorded: dispute opened and lost | 260.00 | - | 260.00 | 7.84 | 15.00 | -22.84 | - | -22.84 | clean | OK | postings.ts:213, postings.ts:229 |
 | recorded-dispute-won | recorded: dispute opened and won, the fee not returned | 260.00 | - | - | 7.84 | 15.00 | 237.16 | - | 237.16 | clean | OK | postings.ts:213, postings.ts:229 |
@@ -116,7 +116,7 @@ Product bugs are reported here, not fixed. `K1` and `K2` were found by the first
 - **Case:** `refused-invoice` (an invoice line whose price the menu does not know: `422 refused unmatched_line`).
 - **Where:** `src/billing/handle.ts:132-144` refuses the whole invoice; the handler releases the claim and writes nothing (`src/handler/stripe-webhook.ts`, the "refused" answers).
 - **Why:** by design, the answer is the alarm and the owner re-sends the event once the menu is fixed. The money and the credits are decided together, so a refusal drops the payment fact too.
-- **Impact:** the family has paid and has no credits, and the books lack the whole payment (260.00 income, 7.84 fee, 252.16 cash in the case) for as long as nobody notices, and the same for `addon_only_subscription`. `atm reconcile` notices (`missing_in_log invoice`, plus the fee and net totals).
+- **Impact:** the family has paid and has no credits, and the books lack the whole payment (260.00 income, 7.84 fee, 252.16 cash in the case) for as long as nobody notices, and the same for `addon_only_subscription`. Stripe retries a 422 for up to three days, so a menu fixed in that window books the payment by itself; after that only a re-send does. `atm reconcile` notices (`missing_in_log invoice`, plus the fee and net totals).
 - **Fix (a design choice):** book the payment fact (to `income:billing:other`) before the grant decision, and refuse only the grant, so the books never lag Stripe; or surface the 422 count in `outboxStatus`.
 
 ### D5: reconcile on a shared Stripe account reports another product's invoices as missing
@@ -174,7 +174,7 @@ The matrix must catch a wrong book, not only describe a right one. Each change b
 | M13 | a won dispute returns the fee with the amount (`dispute-fees` -15.00, cash +275.00) | `src/billing/money.ts`, `src/ledger/postings.ts` | 2 (`dispute-won`, `recorded-dispute-won`) | hand `disputeFees` 15.00, report 0.00 |
 | M14 | the `money.skipped` marker dropped from the outbox (the answer is still `non_usd`) | `src/ledger/outbox.ts` | 1 (`non-usd`) | hand `skipped` `non_usd: 2` in January, reconcile's count `{}` |
 
-M5b shows the limit of a reconcile mutation: reconcile is "clean" for most cases, so only a case that expects a difference sees the comparison break. The `fee-unknown`, `refund-no-previous`, `payout-failed`, `refused-invoice`, `foreign-invoice` and `non-usd` cases are those. The first version of M3b said "hand credits 2, report and replay 4"; with the replay check now run first in the case, a doubled event is refused before the counts are compared. M12 is caught by every dispute case: the closing event of the lost, won and recorded cases lists the withdrawal again, and `dispute-redelivered` sends the opening again under a new event id.
+Review found three more reconcile mutants that no case noticed, because a clean case has nothing for the comparison to flag: the outcome comparison of a closed dispute switched off, the date check (`period_differs`) switched off, and the amount comparison of invoices and payouts switched off (all 40 books still passed). The three `reconcile controls` tests in `tests/e2e-reconcile.test.ts` close that: each takes a clean case, moves one thing in Stripe's side by hand (a dispute won in Stripe and lost in the books, an invoice dated 20 February against 15 January, an invoice of 250.00 and a payout of 250.00 against 260.00 and 252.16) and asserts the one difference `atm reconcile` must print. Each of the three mutants fails its control. M5b shows the limit of a reconcile mutation: reconcile is "clean" for most cases, so only a case that expects a difference sees the comparison break. The `fee-unknown`, `refund-no-previous`, `payout-failed`, `refused-invoice`, `foreign-invoice` and `non-usd` cases are those. The first version of M3b said "hand credits 2, report and replay 4"; with the replay check now run first in the case, a doubled event is refused before the counts are compared. M12 is caught by every dispute case: the closing event of the lost, won and recorded cases lists the withdrawal again, and `dispute-redelivered` sends the opening again under a new event id.
 
 ## How the oracle was kept honest
 
