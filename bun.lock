@@ -400,6 +400,7 @@
       "dependencies": {
         "@autumn/balance-engine": "workspace:*",
         "ajv": "8.20.0",
+        "aws4fetch": "1.0.20",
         "commander": "14.0.3",
       },
       "devDependencies": {
@@ -4029,6 +4030,8 @@
     "avsc": ["avsc@5.7.9", "", {}, "sha512-yOA4wFeI7ET3v32Di/sUybQ+ttP20JHSW3mxLuNGeO0uD6PPcvLrIQXSvy/rhJOWU5JrYh7U4OHplWMmtAtjMg=="],
 
     "aws-msk-iam-sasl-signer-js": ["aws-msk-iam-sasl-signer-js@1.0.3", "", { "dependencies": { "@aws-crypto/sha256-js": "^4.0.0", "@aws-sdk/client-sts": "^3.993.0", "@aws-sdk/credential-providers": "^3.993.0", "@aws-sdk/util-format-url": "^3.347.0", "@smithy/signature-v4": "^2.0.1", "@types/buffers": "0.1.31" } }, "sha512-bFsI5p7HAUtVxXLNWLgbcLGFKiUuoTphCNq/UoSW5669LXomh2qI7gAvY0JP8l0UaLXjNKr+D+MeQY0Gqm8RKg=="],
+
+    "aws4fetch": ["aws4fetch@1.0.20", "", {}, "sha512-/djoAN709iY65ETD6LKCtyyEI04XIBP5xVvfmNxsEP0uJB5tyaGBztSryRr4HqMStr9R06PisQE7m9zDTXKu6g=="],
 
     "axe-core": ["axe-core@4.13.0", "", {}, "sha512-UzGt8zg7Ny8djbYMhxl2zuEevVa7r2gJjYY5Lwr1xM7+XU2nd6CkIWFTVcCIbAP63vSz71NaVyyuSk9lHKcy0A=="],
 

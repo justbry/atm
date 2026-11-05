@@ -24,3 +24,23 @@ export const hasHledger =
 export const hasDuckdb =
 	Bun.spawnSync(["duckdb", "--version"], { stdout: "pipe", stderr: "pipe" })
 		.exitCode === 0;
+
+/** The `weed` binary for the SeaweedFS contract run: env ATM_WEED when it runs, else `weed` on PATH, else null. */
+export const weedBinary = (() => {
+	const candidates = [process.env.ATM_WEED, "weed"].filter(
+		(candidate): candidate is string => Boolean(candidate),
+	);
+	for (const candidate of candidates) {
+		try {
+			const result = Bun.spawnSync([candidate, "version"], {
+				stdout: "pipe",
+				stderr: "pipe",
+			});
+			if (result.exitCode === 0) return candidate;
+		} catch {
+			// not an executable: try the next candidate
+		}
+	}
+	return null;
+})();
+export const hasSeaweedfs = weedBinary !== null;

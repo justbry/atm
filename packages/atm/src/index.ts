@@ -18,6 +18,9 @@ import {
 import { replayEvents as replayEventsImpl } from "./ledger/replay.js";
 import { runOnState as runOnStateImpl, toCatalog } from "./ledger/run.js";
 import { validateEvent as validateEventImpl } from "./ledger/validate.js";
+import * as folderStore from "./store/folder-store.js";
+import * as r2Store from "./store/r2-store.js";
+import * as store from "./store/store.js";
 import type {
 	AtmCatalogRow,
 	AtmCommand,
@@ -32,6 +35,7 @@ import type {
 	AtmReplayResult,
 	AtmResultFor,
 	AtmSnapshot,
+	AtmStoreError,
 	AtmSubject,
 	AtmSubjectState,
 	AtmValidation,
@@ -45,6 +49,7 @@ import type {
 	CheckoutParams,
 	CheckoutParamsWithPrices,
 	CheckoutResult,
+	FolderStoreOptions,
 	GrantCommand,
 	GrantRemovalInput,
 	GrantResult,
@@ -58,9 +63,11 @@ import type {
 	MenuValidation,
 	NormalizeContext,
 	NormalizeResult,
+	R2StoreOptions,
 	RowChanges,
 	RowTable,
 	StaleRevisionConstructor,
+	Store,
 	StripeEventInput,
 	StripeEventResult,
 	StripeOp,
@@ -398,3 +405,54 @@ export const applyRowChanges = (input: {
 	revision: number;
 	changes: RowChanges;
 }): { rows: BillingRow[]; revision: number } => rows.applyRowChanges(input);
+
+// ---- The object store the ledger writes through ----
+
+type ErrorClass<Args extends unknown[]> = new (...args: Args) => AtmStoreError;
+
+export type StoreError = AtmStoreError;
+
+export const StoreError: ErrorClass<[message: string, key?: string | null]> =
+	store.StoreError;
+export const AlreadyExists: ErrorClass<[key: string]> = store.AlreadyExists;
+export const Stale: ErrorClass<[key: string]> = store.Stale;
+export const NotFound: ErrorClass<[key: string]> = store.NotFound;
+export const Transient: ErrorClass<
+	[key: string | null, message: string, cause?: unknown]
+> = store.Transient;
+export const ShaMismatch: ErrorClass<
+	[key: string, expected: string, actual: string]
+> = store.ShaMismatch;
+export const Conflict: ErrorClass<
+	[key: string, expected: string, actual: string]
+> = store.Conflict;
+export const Unsupported: ErrorClass<[operation: string]> = store.Unsupported;
+
+export const sha256Hex = (bytes: Uint8Array): string => store.sha256Hex(bytes);
+export const utf8 = (text: string): Uint8Array => store.utf8(text);
+
+/** The object's sha256: the stored `x-amz-meta-sha256`, else the hash of its body. Throws NotFound. */
+export const identify = (s: Store, key: string): Promise<string> =>
+	store.identify(s, key);
+
+/** Put-once step (the ADR's 412 rules): "created", or "existing" when an equal object is already there; different bytes throw Conflict. */
+export const putOnce = (
+	s: Store,
+	key: string,
+	body: Uint8Array,
+): Promise<"created" | "existing"> => store.putOnce(s, key, body);
+
+/** Upsert step: replace while the ETag matches; "existing" when the object already holds these bytes; another change throws Stale. */
+export const replaceIfMatch = (
+	s: Store,
+	key: string,
+	body: Uint8Array,
+	etag: string,
+): Promise<"replaced" | "existing"> => store.replaceIfMatch(s, key, body, etag);
+
+/** Objects as files under a folder: the Store for tests and local runs. ETag is the sha256 of the bytes. */
+export const FolderStore: new (options: FolderStoreOptions) => Store =
+	folderStore.FolderStore;
+
+/** An R2 or other S3-compatible bucket on `aws4fetch`; conditional puts, sha256 identity, bounded retries. */
+export const R2Store: new (options: R2StoreOptions) => Store = r2Store.R2Store;
