@@ -896,6 +896,109 @@ describe("a raise on a monthly plan whose tier has a yearly grant (sparkle-4: a 
 	});
 });
 
+describe("a raise after the plan moved between month and year", () => {
+	const YEAR_END = CREATED + 365 * DAY;
+	/** The switch invoice: the credit of the old plan's unused time and the charge of the new plan, from `at`. */
+	const switchLines = ({
+		from,
+		to,
+		end,
+		oldEnd,
+	}: {
+		from: "month" | "year";
+		to: "month" | "year";
+		end: number;
+		oldEnd: number;
+	}): EventLine[] => [
+		{
+			lookupKey: tierKey("sparkle-2", from),
+			amount: -1500,
+			interval: from,
+			quantity: 1,
+			proration: true,
+			periodStart: RAISED,
+			periodEnd: oldEnd,
+		},
+		{
+			lookupKey: tierKey("sparkle-2", to),
+			amount: 3000,
+			interval: to,
+			quantity: 1,
+			proration: true,
+			periodStart: RAISED,
+			periodEnd: end,
+		},
+	];
+
+	test("monthly to yearly: the cycle is the new year, so a yearly raise grants its share of the year, not 0", () => {
+		const s = newStore();
+		create(s, { quantity: 1 });
+		const newEnd = RAISED + 365 * DAY;
+		s.handle(
+			raiseEvent(
+				switchLines({
+					from: "month",
+					to: "year",
+					end: newEnd,
+					oldEnd: CYCLE_END,
+				}),
+				"switch",
+			),
+			RAISED,
+		);
+		expect(grantsOf(s).interval).toBe("year");
+		expect(grantsOf(s).cycleStart).toBe(RAISED);
+		expect(grantsOf(s).cycleEnd).toBe(newEnd);
+
+		// 40 days after the switch, past the old month's end: 2 visits x 12 x 1 more unit = 24, and 325 of 365 days are left
+		// (24 x 325/365 = 21.37, rounded up).
+		const at = RAISED + 40 * DAY;
+		s.handle(
+			raiseEvent(
+				raiseLines({ from: 1, to: 2, interval: "year", end: newEnd, at }),
+				"raise",
+				at,
+			),
+			at,
+		);
+		expect(grantedUnits(s, "in_raise")).toEqual([22]);
+	});
+
+	test("yearly to monthly: the cycle is the new month, so a monthly raise prorates over the month, not the old year", () => {
+		const s = newStore();
+		create(s, { quantity: 1, interval: "year", end: YEAR_END });
+		const newEnd = RAISED + 30 * DAY;
+		s.handle(
+			raiseEvent(
+				switchLines({
+					from: "year",
+					to: "month",
+					end: newEnd,
+					oldEnd: YEAR_END,
+				}),
+				"switch",
+			),
+			RAISED,
+		);
+		expect(grantsOf(s).interval).toBe("month");
+		expect(grantsOf(s).cycleStart).toBe(RAISED);
+		expect(grantsOf(s).cycleEnd).toBe(newEnd);
+
+		// 1 -> 4 units, 28 days into the new month: 2 visits x 3 more units = 6, and 2 of 30 days are left
+		// (6 x 2/30 = 0.4, rounded up).
+		const at = RAISED + 28 * DAY;
+		s.handle(
+			raiseEvent(
+				raiseLines({ from: 1, to: 4, interval: "month", end: newEnd, at }),
+				"raise",
+				at,
+			),
+			at,
+		);
+		expect(grantedUnits(s, "in_raise")).toEqual([1]);
+	});
+});
+
 describe("a decrease (4 -> 2)", () => {
 	test("grants nothing now, keeps the sessions, and the renewal at 2 refills twice the unit amount", () => {
 		const s = newStore();

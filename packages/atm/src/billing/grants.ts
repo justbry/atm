@@ -995,7 +995,9 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 	) {
 		const tierId = upLine.tierId as string;
 		const interval = upLine.interval as Interval;
-		const sameTier = tierId === state.tierId && interval === state.interval;
+		// Read before `moveTier`, which sets `state.interval` to the new one.
+		const intervalChanged = interval !== state.interval;
+		const sameTier = tierId === state.tierId && !intervalChanged;
 		// Stripe's raise (API 2025-10-29.clover, recorded): the credit line of the plan left carries the OLD quantity, the
 		// charge line the NEW total (not the difference). Without a credit line the quantity the credits reflect is the old.
 		// The credit of THIS raise starts when its charge does; a stale pair's credit starts earlier and is not it.
@@ -1102,7 +1104,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 				b.add(now, s.feature, s.rowId, units);
 				grantRow(s, units, newEnd);
 			}
-			if (interval !== state.interval) {
+			if (intervalChanged) {
 				state.cycleStart = periodStart;
 				state.cycleEnd = periodEnd;
 			}
