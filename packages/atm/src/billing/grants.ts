@@ -18,6 +18,7 @@
  */
 
 import type { AtmEnv } from "../types.js";
+import { heldOnRows, owedOnRows } from "./booking-holds.js";
 import { resolveEnv } from "./env.js";
 import { commodityProblems } from "./menu.js";
 import {
@@ -1364,6 +1365,9 @@ const moveTier = ({
  * - credits of a refill that has since reset were carried over by the engine as a rollover that lapses at
  *   `rolloverExpiresAt`: that rollover is cut by what the invoice granted (delete, then insert what stays).
  * A row that already lapsed, or is not in the subject, gives nothing back.
+ * Credits an open booking holds are not in the balance: the units it holds on a row of the invoice (up to what the
+ * invoice granted there and could not take back) are recorded in the invoice's `owed`, and the release that frees them
+ * takes them back (`booking-commands.ts`).
  */
 const removeInvoice = ({
 	invoiceId,
@@ -1391,6 +1395,23 @@ const removeInvoice = ({
 	const held = heldOf(input.subject);
 	const cut = new Map<string, number>();
 	const ops: Op[] = [];
+	// What the invoice granted and the balance cannot give back, up to what open bookings hold on the row (less what other
+	// removed invoices are owed there), is owed by the release.
+	const holding = heldOnRows({
+		grants: state,
+		nextResetOf: (rowId) => held.get(rowId)?.nextResetAt,
+		now: input.now,
+	});
+	const owedSoFar = owedOnRows(state);
+	const owed: Record<string, number> = {};
+	const owe = (rowId: string, units: number): number => {
+		const free = (holding.get(rowId) ?? 0) - (owedSoFar.get(rowId) ?? 0);
+		const owedUnits = Math.min(units, free);
+		if (owedUnits <= 0) return 0;
+		owed[rowId] = (owed[rowId] ?? 0) + owedUnits;
+		owedSoFar.set(rowId, (owedSoFar.get(rowId) ?? 0) + owedUnits);
+		return owedUnits;
+	};
 	for (const g of record.granted) {
 		const row = held.get(g.rowId);
 		if (!row) continue;
@@ -1398,6 +1419,7 @@ const removeInvoice = ({
 		if (refills === g.epoch) {
 			const alive = row.expiresAt === null || row.expiresAt > input.now;
 			const units = alive ? Math.min(g.units, Math.max(0, row.balance)) : 0;
+			if (alive) owe(g.rowId, g.units - units);
 			if (units <= 0) continue;
 			row.balance -= units;
 			ops.push({
@@ -1422,6 +1444,12 @@ const removeInvoice = ({
 			cut.set(roll.id, (cut.get(roll.id) ?? 0) + units);
 			left -= units;
 		}
+		for (const roll of row.rollovers) {
+			if (left <= 0) break;
+			if (roll.expiresAt !== g.rolloverExpiresAt) continue;
+			if (roll.expiresAt <= input.now) continue;
+			left -= owe(roll.id, left);
+		}
 	}
 	for (const row of held.values()) {
 		for (const roll of row.rollovers) {
@@ -1441,7 +1469,9 @@ const removeInvoice = ({
 		}
 	}
 	b.plan(input.now, ops);
-	(state.invoices[invoiceId as string] as InvoiceRecord).removed = true;
+	const removed = state.invoices[invoiceId as string] as InvoiceRecord;
+	removed.removed = true;
+	if (Object.keys(owed).length > 0) removed.owed = owed;
 	return { commands: b.commands, labels, state };
 };
 
