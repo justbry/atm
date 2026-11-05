@@ -2215,7 +2215,7 @@ export type WebhookDeps = {
 	 */
 	paymentFee?: (event: unknown) => number | null | undefined;
 	/**
-	 * Optional: where the handler says that it applied a delivery but did not book a money line (a non-USD invoice, refund
+	 * Optional: where the handler says that it applied a delivery but did not book a money line (a non-USD invoice, refund,
 	 * payout or dispute: outcome `non_usd`). Called once per such delivery, after the transaction committed, with one line of text.
 	 * Default: the line goes to stderr. A throw here is caught (the delivery is committed, so it is still answered 200
 	 * `non_usd`): the line goes to stderr instead, with the error's message.

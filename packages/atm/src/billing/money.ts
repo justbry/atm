@@ -281,6 +281,49 @@ export const payoutEvents = ({
 			];
 
 /**
+ * A dispute in another currency that moved money, which the books do not take: its marker, or nothing for one in USD, one
+ * with no withdrawal (an inquiry) or one with no amount. The idem is `stripe:<dispute id>:non_usd` and the date is the
+ * opening line's, so the created event, the closed event and a re-send leave one marker (the outbox drops the others).
+ * Asked for a dispute of a payment the books do not hold too (a non-USD invoice was never booked, so a dispute of it is
+ * not a `payment.disputed` either, as for a refund), which is why `disputeEvents` is not the only caller.
+ */
+export const skippedDisputeEvents = ({
+	dispute,
+	labels,
+	booker,
+	holder,
+}: {
+	dispute: BillingDispute;
+	labels: GrantLabels;
+	booker: Booker;
+	holder: { customerId: string };
+}): AtmEvent[] => {
+	const { amount, fee, withdrawn } = dispute;
+	const currency = dispute.currency ?? USD;
+	if (
+		currency === USD ||
+		amount === undefined ||
+		amount <= 0 ||
+		fee === undefined ||
+		withdrawn === undefined ||
+		withdrawn >= 0
+	)
+		return [];
+	return [
+		skippedNonUsd({
+			kind: "dispute",
+			id: dispute.id,
+			amount,
+			currency,
+			at: dispute.withdrawnAt ?? dispute.openedAt ?? dispute.at,
+			key: holder.customerId,
+			labels,
+			booker,
+		}),
+	];
+};
+
+/**
  * A dispute that moved money: `payment.disputed` for what Stripe withdrew when it opened (the disputed amount, and the
  * dispute fee it took with it: both are in the dispute's own `balance_transactions`, so nothing is asked of the caller), and
  * for a `charge.dispute.closed` also `dispute.closed`. A closed event carries the same withdrawal, so it makes the opening
@@ -318,20 +361,8 @@ export const disputeEvents = ({
 	// One marker for the dispute, whichever of its events comes (idem `stripe:<dispute id>:non_usd`, dated like the opening
 	// line): the closing makes it again and the outbox drops it. The closing line is not made either: a lost one has no
 	// postings and a won one would reverse an opening that was never booked.
-	const currency = dispute.currency ?? USD;
-	if (currency !== USD)
-		return [
-			skippedNonUsd({
-				kind: "dispute",
-				id: dispute.id,
-				amount,
-				currency,
-				at: dispute.withdrawnAt ?? dispute.openedAt ?? dispute.at,
-				key: holder.customerId,
-				labels,
-				booker,
-			}),
-		];
+	if ((dispute.currency ?? USD) !== USD)
+		return skippedDisputeEvents({ dispute, labels, booker, holder });
 	const opened = ledgerEvent({
 		type: "payment.disputed",
 		school: booker.school,

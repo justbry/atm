@@ -382,6 +382,33 @@ describe("a non-USD dispute", () => {
 		expect(credits(eur).length).toBeGreaterThan(0);
 	});
 
+	test("a euro dispute on a euro invoice (a payment the books never held) is marked too, as its refund is", () => {
+		const h = quiet({ in_1: FEE });
+		h.deliver(inEuros(paid()));
+		h.deliver(linked("in_1"), T0 + 1000);
+		const response = h.deliver(euroDispute("charge.dispute.created"), OPENED);
+		expect(response.body).toMatchObject({
+			outcome: "non_usd",
+			skipped: [`dispute du_eur ${GROSS} eur`],
+		});
+		expect(
+			ofType(h.outbox(), "money.skipped").map((e) => e.payload.kind),
+		).toEqual(["invoice", "dispute"]);
+		expect(ofType(h.outbox(), "payment.disputed")).toEqual([]);
+		// the closing leaves the same one marker and is told again
+		const closing = h.deliver(euroDispute("charge.dispute.closed"), CLOSED);
+		expect(closing.body.outcome).toBe("non_usd");
+		expect(ofType(h.outbox(), "money.skipped")).toHaveLength(2);
+		// a dollar dispute of a payment the books never held stays nothing
+		const dollars = quiet({ in_1: FEE });
+		dollars.deliver(inEuros(paid()));
+		dollars.deliver(linked("in_1"), T0 + 1000);
+		const usd = euroDispute("charge.dispute.created");
+		usd.data.object.currency = "usd";
+		expect(dollars.deliver(usd, OPENED).body.outcome).toBe("applied");
+		expect(ofType(dollars.outbox(), "payment.disputed")).toEqual([]);
+	});
+
 	test("a USD dispute is applied with no marker", () => {
 		const h = withInvoice();
 		const response = h.deliver(
