@@ -144,6 +144,19 @@ Call it after every engine command, with a `commandId` of its own for each comma
 
 `incomplete` means the first payment is not finished (Stripe `incomplete`); the other values are `active`, `past_due`, `ended` and `inactive` (`status.ts`).
 
+### Bookings, paid bookings and codes (0.8.0)
+
+atm prices what a booking or an event costs and spends the credits for it; the caller stores the rows and talks to Stripe. What to call, in the order a booking goes:
+
+- `validateBilling(billing, menu)` checks an item's price tag: `free`, `included { featureId, credits, tierIds? }`, `price { amount, currency }` or `included_or_price` (credits for the tiers in `tierIds` that can afford it, the price for the rest).
+- `quoteBooking(...)` gives the cost for one member: nothing, credits to hold, or a price, or a typed refusal.
+- `holdBooking`, `confirmBooking`, `releaseBooking`, `cancelBooking`, `noShowBooking`, `expiredHolds`, `settleExpiredHold` hold credits on an engine lock (the balance's `held`), then spend them or give them back. `cancelBooking` and `noShowBooking` follow `policy.cancelCutoffHours`, `policy.lateCancel` and `policy.noShow`. Each takes the subject's rows and returns one write and its events, like `handleStripeEvent`; the events include `credit.low` and `credit.depleted` at `policy.lowCreditThreshold`.
+- `bookingCheckoutParams(...)` makes a payment-mode Checkout Session for a paid booking; `handleStripeEvent` answers `checkout.session.completed`, `.expired` and the refund of its charge with a `booking` outcome (`paid`, `expired`, `refunded`, `partly_refunded`).
+- Member codes are `menu.codes` (percent off tiers; `menuToStripe` makes the coupon and promotion code, `checkoutParams` allows or applies a code); `dollarGiftOps` makes a one-use dollar gift's Stripe steps; `createSessionGiftCode` and `redeemSessionGiftCode` make and redeem a code that grants credits, once, with no Stripe.
+- A discount never changes the credits an invoice grants.
+
+What the caller has to store and handle, with the order of calls and every refusal: `UPGRADING.md`, "Moving to 0.8.0 from 0.6.0". The design and what is not built: `ROADMAP.md`.
+
 ## Build
 
 ```bash
