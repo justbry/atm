@@ -78,7 +78,20 @@ describe("built library", () => {
 				"const balances = replayEvents({ events, catalog: [] }).balances;",
 				'import { deterministicUlid } from "./dist/index.js";',
 				'const eventId: string = deterministicUlid({ timeMs: 0, revision: 0, seed: "sch_vol|evt_1" });',
-				"export { decision, mutation, checked, files, balances, eventId };",
+				'import { appendToOutbox, balancesOf, canonicalize, decimalToUnits, duckdbDdl, HledgerError, journalMonth, localDate, readEvents, REPORT_NAMES, reportMonth, type AtmBalance, type AtmEventFile, type JournalRun, type ReportRun, type SqlDatabase } from "./dist/index.js";',
+				"declare const db: SqlDatabase;",
+				'const inserted: number = appendToOutbox(db, events, "live");',
+				"const owned: AtmBalance[] = balancesOf({ states: {}, holds: {}, catalog: [], asOfMs: 0 });",
+				"const bytes: string = canonicalize({ b: 1, a: 2 });",
+				'const day: string = localDate(0, "UTC");',
+				'const units: bigint = decimalToUnits("1.00", 2);',
+				"const ddl: string = duckdbDdl({});",
+				'const read: Promise<{ events: typeof events; files: AtmEventFile[] }> = readEvents("root", "sch_vol");',
+				'const journal: Promise<JournalRun> = journalMonth({ root: "root", school: "sch_vol", month: "2026-01" });',
+				'const report: Promise<ReportRun> = reportMonth({ root: "root", school: "sch_vol", month: "2026-01", report: "credits", format: "csv" });',
+				"const names: readonly string[] = REPORT_NAMES;",
+				'const failure: Error = new HledgerError("hledger is not installed");',
+				"export { decision, mutation, checked, files, balances, eventId, inserted, owned, bytes, day, units, ddl, read, journal, report, names, failure };",
 			].join("\n"),
 		);
 		await writeFile(
@@ -147,6 +160,59 @@ describe("built library", () => {
 			}),
 		);
 	});
+
+	test("the folder readers and ledger helpers run from the bundle alone, under Node", async () => {
+		cpSync(
+			join(import.meta.dir, "../fixtures/vibes-year"),
+			join(dir, "books"),
+			{ recursive: true },
+		);
+		await writeFile(
+			join(dir, "sdk.mjs"),
+			[
+				'import { readFileSync } from "node:fs";',
+				'import { readEvents, journalMonth, reportMonth, HledgerError, REPORT_NAMES, canonicalize, localDate, decimalToUnits, duckdbDdl, balancesOf, appendToOutbox } from "./dist/index.js";',
+				'const { events, files } = await readEvents("books", "sch_vol");',
+				'const journal = await journalMonth({ root: "books", school: "sch_vol", month: "2026-01" });',
+				// the PATH is empty, so hledger is missing: the library says so by class, under Node as under Bun
+				'const report = await reportMonth({ root: "books", school: "sch_vol", month: "2026-01" }).catch((error) => error);',
+				"console.log(JSON.stringify({",
+				"  events: events.length, lines: files.reduce((sum, f) => sum + f.lines, 0), built: journal.written.length > 0,",
+				"  missing: report instanceof HledgerError, names: REPORT_NAMES,",
+				'  canonical: canonicalize({ b: 1, a: 2 }), day: localDate(Date.parse("2026-11-03T03:30:00Z"), "America/Denver"),',
+				'  units: decimalToUnits("130.00", 2).toString(), ddl: duckdbDdl(JSON.parse(readFileSync("envelope.json", "utf8"))).includes("TIMESTAMPTZ"),',
+				'  balances: balancesOf({ states: {}, holds: { l: { holder: "h", feature: "f", units: 3 } }, catalog: [], asOfMs: 0 }),',
+				"  appendToOutbox: typeof appendToOutbox,",
+				"}));",
+			].join("\n"),
+		);
+		await writeFile(
+			join(dir, "envelope.json"),
+			readFileSync(join(import.meta.dir, "../schema/envelope.v1.json")),
+		);
+		const node = Bun.which("node");
+		if (!node) throw new Error("node is not on PATH");
+		const ran = Bun.spawnSync([node, "sdk.mjs"], {
+			cwd: dir,
+			env: { PATH: await mkdtemp(join(tmpdir(), "atm-empty-path-")) },
+		});
+		if (ran.exitCode !== 0)
+			throw new Error(ran.stdout.toString() + ran.stderr.toString());
+		const out = JSON.parse(ran.stdout.toString());
+		expect(out).toEqual({
+			events: 81,
+			lines: 81,
+			built: true,
+			missing: true,
+			names: ["income-statement", "balance-sheet", "credits"],
+			canonical: '{"a":2,"b":1}',
+			day: "2026-11-02",
+			units: "13000",
+			ddl: true,
+			balances: [{ holder: "h", feature: "f", avail: 0, held: 3 }],
+			appendToOutbox: "function",
+		});
+	}, 60_000);
 
 	test("runs under Node", () => {
 		expect(JSON.parse(run(["node", "consumer.mjs"]))).toEqual(expected);

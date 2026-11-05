@@ -15,6 +15,7 @@ import {
 } from "../src/billing/rows.js";
 import { engineCommandTypes } from "../src/engine.js";
 import { commandTypes } from "../src/index.js";
+import { HledgerError as HledgerErrorImpl } from "../src/ledger/report.js";
 import type {
 	AtmCheckResult,
 	AtmCommand,
@@ -23,11 +24,13 @@ import type {
 	AtmResultFor,
 	AtmSubject,
 	AtmSubjectState,
+	HledgerErrorConstructor,
 	RowTable,
 	StaleRevisionConstructor,
 } from "../src/types.js";
 
 /* Compile-time drift checks, run by `bun run ts`: each line stops compiling if the engine's type stops fitting atm's. */
+
 const subjectFits = (s: WorkerFullSubject): AtmSubject => s;
 const checkCommandFits = (c: CheckCommand): AtmCommand => c;
 const checkResultFits = (r: CheckResult): AtmCheckResult => r;
@@ -57,6 +60,9 @@ const rowTablesFitBack = (
 const staleRevisionFits = (
 	c: typeof StaleRevisionImpl,
 ): StaleRevisionConstructor => c;
+const hledgerErrorFits = (
+	c: typeof HledgerErrorImpl,
+): HledgerErrorConstructor => c;
 
 test("billing row types are the engine's", () => {
 	expect([
@@ -65,7 +71,9 @@ test("billing row types are the engine's", () => {
 		rowTablesFit,
 		rowTablesFitBack,
 		staleRevisionFits,
-	]).toHaveLength(5);
+		hledgerErrorFits,
+	]).toHaveLength(6);
+	expect(new HledgerErrorImpl("no hledger")).toBeInstanceOf(Error);
 	expect(new StaleRevisionImpl(1, 2)).toBeInstanceOf(Error);
 });
 
