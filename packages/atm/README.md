@@ -2,6 +2,8 @@
 
 Autumn's balance engine (`@autumn/balance-engine`) as a local CLI and a TypeScript library. It runs one engine command against a subject and returns what the engine decides; it reads and writes nothing else.
 
+**Scope.** atm is a credits and flat-subscription engine: it grants credits from paid fixed-price invoices (tiers, add-ons, gifts) and a `track` spends them. It does not price metered usage or invoice it, and it does not deliver webhooks or email. What is planned or ruled out is in `ROADMAP.md`.
+
 Commands it runs: `check`, `finalize`, `confirmExpiredLock`, `reset`, `recalculateBalance`, `track`, `updateBalance`, `deleteBalance`. Not run: `evict`, `initialize` and `applyBillingPlan` take a `SubjectState` (and a catalog or entities), not a subject.
 
 ## CLI
