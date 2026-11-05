@@ -733,6 +733,19 @@ describe("one rule per event type", () => {
 					revision: 3,
 				} as unknown as Parameters<typeof lapseAlertEvents>[0]),
 			).toThrow(/drawnAfter must be a function/);
+			// also when nothing lapses (atMs before the lapse), so a caller that forgot it learns at once
+			expect(() =>
+				lapseAlertEvents({
+					state,
+					featureOf,
+					feature: "visit",
+					atMs: T,
+					key: identity.customerId,
+					school: SCHOOL,
+					tz: "America/Denver",
+					revision: 3,
+				} as unknown as Parameters<typeof lapseAlertEvents>[0]),
+			).toThrow(/drawnAfter must be a function/);
 		});
 	});
 	describe("credit.expiration_changed", () => {

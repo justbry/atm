@@ -976,10 +976,6 @@ const drawnSince = (
 	drawnAfter: (instantMs: number) => number,
 	atMs: number,
 ): number => {
-	if (typeof drawnAfter !== "function")
-		throw new Error(
-			`lapseAlertEvents: drawnAfter must be a function, got ${String(drawnAfter)}`,
-		);
 	const drawn = drawnAfter(atMs);
 	if (typeof drawn !== "number" || !Number.isFinite(drawn))
 		throw new Error(
@@ -1069,6 +1065,11 @@ export const lapseAlertEvents = ({
 	labels?: Record<string, string>;
 	ingestTime?: string | number;
 }): AtmEvent[] => {
+	// Checked before the first lapse is found, so a caller that never passes it is told at once, not on the day a row lapses.
+	if (typeof drawnAfter !== "function")
+		throw new Error(
+			`lapseAlertEvents: drawnAfter must be a function, got ${String(drawnAfter)}`,
+		);
 	if (!Number.isInteger(revision) || revision < 0 || revision >= MAX_REVISION)
 		throw new Error(
 			`lapseAlertEvents: revision must be a whole number from 0 to ${MAX_REVISION - 1}, got ${String(revision)}`,
