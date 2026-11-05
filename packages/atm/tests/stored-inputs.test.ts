@@ -753,7 +753,8 @@ describe("erasure", () => {
 			subjectKey: keyOf(FAMILY),
 			nowMs: QUEUED_AT,
 		});
-		expect(done).toEqual({ inputs: 1, seeds: 1, queued: 0 });
+		// the seed is queued although nothing was shipped: a put may have landed without its mark
+		expect(done).toEqual({ inputs: 1, seeds: 1, queued: 1 });
 
 		const [tombstone] = inputRows(h.raw, `WHERE event_id = 'evt_in_a2'`);
 		expect(tombstone).toMatchObject({

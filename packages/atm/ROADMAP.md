@@ -99,7 +99,7 @@ The critical path. Simulation, corrections, the Parquet export, decoupling and t
 
 - [ ] **KPIs the cash-basis books cannot carry (found by the scenario parity work, not built):** MRR (new, expansion, contraction, churned), ARR and logo churn need a payment's interval and period, which `payment.succeeded` does not carry; a `money.skipped` event has no postings, so a hledger journal cannot count it. Proposed: an `interval` and `period_end` label on `payment.succeeded`. (detail: docs/scenarios.md#dropped-and-why)
 - [ ] `atm billing simulate --menu <file> --policy <file> --events <dir>`: replay the log against a candidate menu or policy and diff journals and per-holder balances against the current ones. No writes. A replay re-decides credits only; it cannot change what Stripe already charged. Orb runs up to five scenarios against historical events.
-- [ ] Stored Stripe inputs and `atm simulate --inputs`: keep each handled input, ship them like events, and replay them through the grant rules with a candidate menu or policy. Design in `docs/simulate-from-inputs.md` (PR #65), decided by the owner on 2026-11-05; planned for 0.9.0; the build is in progress as phase 2, in four PRs: A1, A2, C, B. A2 built.
+- [ ] Stored Stripe inputs and `atm simulate --inputs`: keep each handled input, ship them like events, and replay them through the grant rules with a candidate menu or policy. Design in `docs/simulate-from-inputs.md` (PR #65), decided by the owner on 2026-11-05; planned for 0.9.0; the build is in progress as phase 2, in four PRs: A1, A2, C, B. A2 built. C built (`atm inputs ship`, the folder and store readers; R2 not run).
 
 ### Bitemporal, small
 - [ ] A `correction` event that names the event it supersedes (`supersedes: <id>`); never delete.
