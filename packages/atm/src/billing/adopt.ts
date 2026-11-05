@@ -67,8 +67,14 @@ type RowPlan = {
 /** A one-time add-on's lot: its own row, never refilled. */
 type OncePlan = { lot: Lot; addon: MenuAddon; feature: string };
 
-const byCreation = (a: Lot, b: Lot): number =>
-	a.created_at - b.created_at || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+/** UTF-16 code unit order (not the locale's), so the output is the same wherever it runs. */
+const compareText = (left: string, right: string): number => {
+	if (left < right) return -1;
+	return left > right ? 1 : 0;
+};
+
+const byCreation = (first: Lot, second: Lot): number =>
+	first.created_at - second.created_at || compareText(first.id, second.id);
 
 const lapsed = (lot: Lot, now: number): boolean =>
 	lot.expires_at !== null && lot.expires_at <= now;
@@ -105,7 +111,7 @@ export const grantsStateFromCallerRows = (
 	const addonIds = membership.addon_ids
 		.split(",")
 		.map((id) => id.trim())
-		.filter((id) => id !== "");
+		.filter((id, index, ids) => id !== "" && ids.indexOf(id) === index);
 	const membershipAddons: MenuAddon[] = [];
 	for (const id of addonIds) {
 		const addon = menu.addons.find((a) => a.id === id);
@@ -440,12 +446,12 @@ export const grantsStateFromCallerRows = (
 				epoch,
 				// The newest lot's leftovers become the rollover the engine makes at the next reset (its own month arithmetic);
 				// an older lot's already are one, expiring where the caller's lot expires.
-				rolloverExpiresAt:
-					lot === newest
-						? rolloverExpiry(spec.rollover, boundary)
-						: spec.rollover
-							? lot.expires_at
-							: null,
+				rolloverExpiresAt: rolloverExpiresAtOf({
+					lot,
+					newest,
+					rollover: spec.rollover,
+					boundary,
+				}),
 			});
 		}
 	}
@@ -487,8 +493,8 @@ export const grantsStateFromCallerRows = (
 		same.push(lot);
 		lotsByInvoice.set(lot.invoice_id, same);
 	}
-	for (const [invoiceId, same] of [...lotsByInvoice].sort(([a], [b]) =>
-		a < b ? -1 : a > b ? 1 : 0,
+	for (const [invoiceId, same] of [...lotsByInvoice].sort(([left], [right]) =>
+		compareText(left, right),
 	)) {
 		const record: InvoiceRecord = {
 			paidAt: Math.min(...same.map((l) => l.created_at)),
@@ -498,6 +504,22 @@ export const grantsStateFromCallerRows = (
 		state.invoices[invoiceId] = record;
 	}
 	return { state, rows: sortRows([...engineRows, grantsRow(state)]) };
+};
+
+/** The newest lot's leftovers roll over at `boundary`; an older lot's already are a rollover, expiring where the lot does. */
+const rolloverExpiresAtOf = ({
+	lot,
+	newest,
+	rollover,
+	boundary,
+}: {
+	lot: Lot;
+	newest: Lot;
+	rollover: RowSpec["rollover"];
+	boundary: number;
+}): number | null => {
+	if (lot === newest) return rolloverExpiry(rollover, boundary);
+	return rollover ? lot.expires_at : null;
 };
 
 const throwIfAny = (problems: readonly string[]): void => {

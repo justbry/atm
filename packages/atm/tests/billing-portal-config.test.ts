@@ -35,10 +35,13 @@ function portalFieldsOf(
 ): Record<string, string> | null {
 	const quantitiesOf = (tier: Menu["tiers"][number]) => tier.quantities ?? [1];
 	const tiers = menu.tiers.filter(
-		(t) => t.public && quantitiesOf(t).length > 1 && ids.products[`t:${t.id}`],
+		(tier) =>
+			tier.public &&
+			quantitiesOf(tier).length > 1 &&
+			ids.products[`t:${tier.id}`],
 	);
 	if (tiers.length === 0) return null;
-	const f: Record<string, string> = {
+	const fields: Record<string, string> = {
 		"features[invoice_history][enabled]": "true",
 		"features[payment_method_update][enabled]": "true",
 		"features[subscription_cancel][enabled]": "true",
@@ -50,22 +53,25 @@ function portalFieldsOf(
 			"decreasing_item_amount",
 		"metadata[b4u_key]": "portal",
 	};
-	tiers.forEach((t, i) => {
-		const q = quantitiesOf(t);
-		const k = `features[subscription_update][products][${i}]`;
-		f[`${k}[product]`] = ids.products[`t:${t.id}`] as string;
+	for (const [index, tier] of tiers.entries()) {
+		const counts = quantitiesOf(tier);
+		const prefix = `features[subscription_update][products][${index}]`;
+		fields[`${prefix}[product]`] = ids.products[`t:${tier.id}`] as string;
 		// Dense indexes: Stripe refuses a form array with a gap.
-		t.prices
-			.map((p) => ids.prices[`t:${t.id}:${p.interval}`])
-			.filter((x): x is string => !!x)
-			.forEach((price, j) => {
-				f[`${k}[prices][${j}]`] = price;
-			});
-		f[`${k}[adjustable_quantity][enabled]`] = "true";
-		f[`${k}[adjustable_quantity][minimum]`] = String(Math.min(...q));
-		f[`${k}[adjustable_quantity][maximum]`] = String(Math.max(...q));
-	});
-	return f;
+		const priceIds = tier.prices
+			.map((price) => ids.prices[`t:${tier.id}:${price.interval}`])
+			.filter((priceId): priceId is string => !!priceId);
+		for (const [priceIndex, priceId] of priceIds.entries())
+			fields[`${prefix}[prices][${priceIndex}]`] = priceId;
+		fields[`${prefix}[adjustable_quantity][enabled]`] = "true";
+		fields[`${prefix}[adjustable_quantity][minimum]`] = String(
+			Math.min(...counts),
+		);
+		fields[`${prefix}[adjustable_quantity][maximum]`] = String(
+			Math.max(...counts),
+		);
+	}
+	return fields;
 }
 
 describe("portalConfigOf", () => {

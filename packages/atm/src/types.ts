@@ -853,7 +853,7 @@ export type CheckoutParamsWithPrices = Omit<CheckoutParams, "line_items"> & {
 
 /**
  * The Stripe ids a portal configuration names, by the menu's own keys: `products["t:<tierId>"]` and
- * `prices["t:<tierId>:<interval>"]` (the `key` and `productKey` of `menuToStripe`'s steps, and `tierPriceKey`).
+ * `prices["t:<tierId>:<interval>"]` (the product step's `key` and `tierPriceKey`; a price step carries that key only as its `metadata.b4u_key`, and names its product by `productKey`).
  */
 export type PortalConfigIds = {
 	products: Readonly<Record<string, string>>;

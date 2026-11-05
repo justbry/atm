@@ -444,9 +444,10 @@ export function portalConfigOf(
 		const counts = quantitiesOf(tier);
 		const product = ids.products[`t:${tier.id}`];
 		if (!tier.public || counts.length < 2 || !product) continue;
-		const prices = tier.prices
-			.map((price) => ids.prices[tierPriceKey(tier.id, price.interval)] ?? null)
-			.filter((priceId) => priceId !== null);
+		const prices = tier.prices.flatMap((price) => {
+			const priceId = ids.prices[tierPriceKey(tier.id, price.interval)];
+			return priceId ? [priceId] : [];
+		});
 		// Stripe requires `prices` on every product of a subscription update.
 		if (prices.length === 0) continue;
 		products.push({

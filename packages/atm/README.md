@@ -69,7 +69,9 @@ if (pair?.start != null && pair.end != null) {
     cycleEnd: pair.end,
     policy: DEFAULT_POLICY,
   });
-  // grant `units` (0 means nothing), then store pair.newQuantity as creditQuantity
+  // grant `units` (0 means nothing). Store pair.newQuantity as creditQuantity only when it is above the current
+  // creditQuantity: a pair below it is a decrease (or a raise short of what the credits hold), and a decrease takes
+  // effect at the renewal, where the refill sets creditQuantity to the renewal line's quantity.
 }
 ```
 
