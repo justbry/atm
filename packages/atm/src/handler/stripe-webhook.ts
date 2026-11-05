@@ -99,8 +99,8 @@
  *   409 unmatched_invoice  an invoice_payment.paid whose invoice is not indexed (its invoice.paid is not handled yet)
  *   409 stale_revision     3 attempts lost the revision race
  *   409 refused            `unmatched_invoice`, `unknown_subscription`: the cause may arrive on its own, retry
- *   422 refused            `unmatched_line`, `missing_metadata`, `addon_only_subscription`, `unknown_mapping`,
- *                          `bad_event`, `rejected`; and 422 `unknown_school` when `context` returns null: a human has to fix something
+ *   422 refused            `unmatched_line`, `missing_metadata`, `addon_only_subscription`,
+ *                          `tier_on_other_subscription`, `unknown_mapping`, `bad_event`, `rejected`; and 422 `unknown_school` when `context` returns null: a human has to fix something
  *   422 school_mismatch    the event's school is not `deps.schoolId`
  *   422 livemode_mismatch  the event's `livemode` disagrees with `deps.env` (a test-mode event to a live handler, or a
  *                          live one to `env: "test"`); refused before any claim, nothing written. An event with no

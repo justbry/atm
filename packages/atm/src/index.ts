@@ -1,5 +1,8 @@
 import type { WorkerFullSubject } from "@autumn/balance-engine";
 import * as adopt from "./billing/adopt.js";
+import * as bookable from "./billing/bookable.js";
+import * as bookingPay from "./billing/booking-pay.js";
+import * as codes from "./billing/codes.js";
 import * as grants from "./billing/grants.js";
 import * as handle from "./billing/handle.js";
 import * as menu from "./billing/menu.js";
@@ -74,18 +77,29 @@ import type {
 	BillingPolicy,
 	BillingRefund,
 	BillingRow,
+	BillingValidation,
+	BookingCheckoutInput,
+	BookingCheckoutResult,
+	BookingQuote,
+	BookingResult,
 	CallerRowsImport,
 	CallerRowsInput,
 	CheckoutInput,
 	CheckoutParams,
 	CheckoutParamsWithPrices,
 	CheckoutResult,
+	CreateSessionGiftCodeInput,
+	CreateSessionGiftCodeResult,
+	DollarGiftInput,
+	DollarGiftResult,
+	ExpiredHold,
 	FolderStoreOptions,
 	GrantCommand,
 	GrantRemovalInput,
 	GrantResult,
 	GrantsState,
 	HandlerMigrationResult,
+	HoldBookingInput,
 	InvoiceGrantInput,
 	InvoiceLine,
 	LineItem,
@@ -108,6 +122,7 @@ import type {
 	PortalConfigIds,
 	ProrationLine,
 	ProrationPair,
+	QuoteInput,
 	R2StoreOptions,
 	RaiseUnitsInput,
 	ReconcileInput,
@@ -115,10 +130,13 @@ import type {
 	RecordEngineCommandInput,
 	RecordedEvents,
 	RecordLapseInput,
+	RedeemSessionGiftCodeInput,
+	RedeemSessionGiftCodeResult,
 	ReplayErrorConstructor,
 	ReplayGapErrorConstructor,
 	RowChanges,
 	RowTable,
+	SettleBookingInput,
 	ShipOutboxInput,
 	ShipOutboxResult,
 	SignatureVerdict,
@@ -447,10 +465,15 @@ export const oneTimeCheckoutParams = (
 	input: OneTimeCheckoutInput,
 ): OneTimeCheckoutResult => stripeMenu.oneTimeCheckoutParams(input);
 
-/** `params` (a membership's or a one-time checkout's) with each line's lookup key swapped for its Stripe price id; null when a price is not published yet. */
+/**
+ * `params` (a membership's or a one-time checkout's) with each line's lookup key swapped for its Stripe price id; null when a
+ * price is not published yet. A membership checkout made with a `code` carries `discounts` by the code's text: pass
+ * `promotionCodeIds` (Stripe's `promo_...` id by code text, compared without case) to swap it for the id; null when it is missing.
+ */
 export function withPriceIds(
 	params: CheckoutParams,
 	priceIds: Readonly<Record<string, string>>,
+	promotionCodeIds?: Readonly<Record<string, string>>,
 ): CheckoutParamsWithPrices | null;
 export function withPriceIds(
 	params: OneTimeCheckoutParams,
@@ -459,10 +482,11 @@ export function withPriceIds(
 export function withPriceIds(
 	params: CheckoutParams | OneTimeCheckoutParams,
 	priceIds: Readonly<Record<string, string>>,
+	promotionCodeIds?: Readonly<Record<string, string>>,
 ): CheckoutParamsWithPrices | OneTimeCheckoutParamsWithPrices | null {
 	return params.mode === "payment"
 		? stripeMenu.withPriceIds(params, priceIds)
-		: stripeMenu.withPriceIds(params, priceIds);
+		: stripeMenu.withPriceIds(params, priceIds, promotionCodeIds);
 }
 
 /** Flattens nested params to Stripe's form encoding (`line_items[0][price]`). */
@@ -753,3 +777,84 @@ export const recordEngineCommand = (
  */
 export const recordLapse = (input: RecordLapseInput): RecordedEvents =>
 	recordLapseImpl(input);
+
+// ---- Bookable items and codes (0.8.0) ----
+
+/**
+ * Checks an unknown value as a bookable item's `billing` (`free`, `included`, `price`, `included_or_price`) against the
+ * menu: the feature exists, credits are a whole number of 1 or more, the amount is a whole number of cents above 0, the
+ * currency is the menu's and every tier id exists. Dotted paths of what fails, as `validateMenu`.
+ */
+export const validateBilling = (
+	input: unknown,
+	menu: Menu,
+): BillingValidation => bookable.validateBilling(input, menu);
+
+/**
+ * What one booking costs this member: credits to hold and spend, a price to pay at Checkout, nothing, or a typed reason
+ * (`not_a_member`, `membership_not_active`, `tier_not_included`, `insufficient_credits`, ...). Pure; it reads no balance
+ * unless the caller passes `available`.
+ */
+export const quoteBooking = (input: QuoteInput): BookingQuote =>
+	bookable.quoteBooking(input);
+
+/**
+ * Holds a booking's credits on an engine lock (`track` with a lock, rejecting, `commandOrg(policy)` on it): they leave
+ * what the member can spend but are not spent yet. Returns one write for the subject and its ledger events, like
+ * `handleStripeEvent`; write it in one transaction after checking `revision`. The same call twice is a replay: ok, nothing to write.
+ * Makes `credit.held`, and `credit.low` or `credit.depleted` when the hold takes the balance to the policy's threshold or to zero.
+ */
+export const holdBooking = (input: HoldBookingInput): BookingResult =>
+	bookable.holdBooking(input);
+
+/** Spends what a booking holds (`finalize` at the lock's value): the session happened. Makes `credit.spent`. */
+export const confirmBooking = (input: SettleBookingInput): BookingResult =>
+	bookable.confirmBooking(input);
+
+/** Gives back what a booking holds (`finalize` at 0): the credits return to the rows they came from. */
+export const releaseBooking = (input: SettleBookingInput): BookingResult =>
+	bookable.releaseBooking(input);
+
+/**
+ * A member's cancel: before `policy.cancelCutoffHours` ahead of the start the credits are released; after it,
+ * `policy.lateCancel` decides (`spend` confirms, `release` releases). The result says which (`late`). A spend here and a no-show's are `credit.forfeited`.
+ */
+export const cancelBooking = (input: SettleBookingInput): BookingResult =>
+	bookable.cancelBooking(input);
+
+/** The session passed and the member did not come: `policy.noShow` (`spend` confirms, `release` releases). */
+export const noShowBooking = (input: SettleBookingInput): BookingResult =>
+	bookable.noShowBooking(input);
+
+/** The holds whose expiry has passed with nobody settling them, soonest first: a cron's worklist for `settleExpiredHold`. */
+export const expiredHolds = (input: {
+	rows: readonly BillingRow[];
+	now: number;
+}): ExpiredHold[] => bookable.expiredHolds(input);
+
+/** Applies an expired hold's own expiry action (`confirm` or `release`, fixed when it was held from `policy.noShow`). */
+export const settleExpiredHold = (input: SettleBookingInput): BookingResult =>
+	bookable.settleExpiredHold(input);
+
+/**
+ * A payment-mode Checkout Session for one paid booking: one inline price, `b4u_school`, `family_id` and `booking_id` in the
+ * metadata of the session and its payment intent. `handleStripeEvent` answers its `checkout.session.completed` and the
+ * refund of its charge with a `booking` outcome.
+ */
+export const bookingCheckoutParams = (
+	input: BookingCheckoutInput,
+): BookingCheckoutResult => bookingPay.bookingCheckoutParams(input);
+
+/** A session gift certificate: a code that grants credits of a feature once, redeemed in atm with no Stripe. */
+export const createSessionGiftCode = (
+	input: CreateSessionGiftCodeInput,
+): CreateSessionGiftCodeResult => codes.createSessionGiftCode(input);
+
+/** Redeems a session gift code for a holder: one new grant of credits and the code's next state; once only, and not after `redeemBy`. */
+export const redeemSessionGiftCode = (
+	input: RedeemSessionGiftCodeInput,
+): RedeemSessionGiftCodeResult => codes.redeemSessionGiftCode(input);
+
+/** The Stripe steps for a dollar gift certificate: a fixed-amount coupon and a promotion code that works once and ends. */
+export const dollarGiftOps = (input: DollarGiftInput): DollarGiftResult =>
+	codes.dollarGiftOps(input);
