@@ -93,7 +93,7 @@ All eight slices were reviewed by sub-agents and the findings fixed slice by sli
 
 ### Alerts
 - [x] `credit.low` and `credit.depleted` ledger events by crossing, with `BillingPolicy.lowCreditThreshold` (default 2, 0 turns `credit.low` off). Delivery stays with the caller.
-- [ ] Expiries by the clock (`lapseEvent`, the cron) do not make alerts yet.
+- [x] Expiries by the clock make `credit.depleted` (not `credit.low`, on purpose, for now): `lapseAlertEvents` returns one event, `cause: "expired"`, for each instant rows lapse that take the feature's total from above 0 to 0 or below. Opt-in by the cron calling it; `lapseEvent` is unchanged.
 
 ### Object store and the webhook handler
 - [x] `Store`, typed errors and the 412 rules; `FolderStore` and `R2Store` (on `aws4fetch`); a contract suite that passes on the folder store and SeaweedFS 4.48.

@@ -16,6 +16,7 @@ import * as webhook from "./handler/stripe-webhook.js";
 import { deterministicUlid as deterministicUlidImpl } from "./ledger/ids.js";
 import { buildJournal as buildJournalImpl } from "./ledger/journal.js";
 import {
+	lapseAlertEvents as lapseAlertEventsImpl,
 	lapsedRows as lapsedRowsImpl,
 	lapseEvent as lapseEventImpl,
 	ledgerEvent as ledgerEventImpl,
@@ -175,6 +176,31 @@ export const lapseEvent = (input: {
 	labels?: Record<string, string>;
 	ingestTime?: string | number;
 }): AtmEvent => lapseEventImpl(input);
+
+/**
+ * The `credit.depleted` events (payload `cause: "expired"`) for a feature whose credits ran out by the clock: its total
+ * over every plan goes from above 0 to 0 or below at an instant rows lapsed. One event per instant, none when other
+ * credits remain, no `credit.low`. Opt-in by calling it; `lapseEvent` is unchanged. Give it the state `lapsedRows` read.
+ */
+export const lapseAlertEvents = ({
+	state,
+	...input
+}: {
+	state: AtmSubjectState;
+	featureOf: (internalFeatureId: string) => string | undefined;
+	feature: string;
+	atMs: number;
+	key: string;
+	school: string;
+	tz: string;
+	revision: number;
+	labels?: Record<string, string>;
+	ingestTime?: string | number;
+}): AtmEvent[] =>
+	lapseAlertEventsImpl({
+		state: state as unknown as Parameters<typeof lapsedRowsImpl>[0]["state"],
+		...input,
+	});
 
 /**
  * The id of a stored input event, derived from a time, a revision and a seed: a ULID whose 48-bit time is `timeMs`
