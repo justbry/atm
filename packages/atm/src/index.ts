@@ -205,11 +205,12 @@ export const lapseEvent = (input: {
  * credits remain, no `credit.low`. Opt-in by calling it; `lapseEvent` is unchanged.
  *
  * `drawnAfter(t)` is required: the units of the feature the holder drew strictly after `t` and up to `atMs`, from the
- * cron's ledger or journal (draws only). It is called with `instant - 1` for a lapse at `instant`, so it counts the
- * draws at the lapse instant itself too (they could not have used the row that lapsed). The state holds balances as of
- * now, so a late run is judged with those draws added back; `() => 0` is right only when `state` is the state `lapsedRows` read, as of the lapse. `revision` is
- * the one you give the `credit.expired` events of the instant (the highest, if they differ): the alert shares their time
- * and is booked at `revision + 1`, so every ordering by id (replay, journal, month files) puts it after them.
+ * cron's ledger or journal (draws only). It is called once per lapse instant, with `instant - 1`, so it counts the draws
+ * at the lapse instant itself too (they could not have used the row that lapsed). The state holds balances as of now,
+ * so a late run is judged with those draws added back; `() => 0` is right only when `state` is the state `lapsedRows`
+ * read, as of the lapse. `revision` is the one you give the `credit.expired` events of the instant (the highest, if they
+ * differ): the alert shares their time and is booked at `revision + 1`, so every ordering by id (replay, journal, month
+ * files) puts it after them.
  */
 export const lapseAlertEvents = ({
 	state,
