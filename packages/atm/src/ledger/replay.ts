@@ -228,7 +228,7 @@ export const replayOrder = (events: readonly AtmEvent[]): AtmEvent[] => {
 /** What the handler writes names its command `<ULID of the stored input event>:<step>`; the family service's own commands do not. */
 const HANDLER_COMMAND = new RegExp(`${ULID_PATTERN.slice(0, -1)}:\\d+$`);
 
-type RecordedMutation = {
+export type RecordedMutation = {
 	id: string;
 	revision: MutationRevision;
 	changes: unknown[];
@@ -240,7 +240,7 @@ type RecordedMutation = {
  * mutation that moved no credits in none), so the whole mutation may be more than the log holds; an event with a
  * `payload.slice` is the current shape, which records it whole.
  */
-const recordedMutations = (events: readonly AtmEvent[]) => {
+export const recordedMutations = (events: readonly AtmEvent[]) => {
 	const byMutation = new Map<
 		string,
 		{ mutation: RecordedMutation; sliced: boolean }
@@ -271,7 +271,7 @@ const recordedMutations = (events: readonly AtmEvent[]) => {
  * does not count: the events of an old booking are put together in the order they are in, which is not the engine's.
  * (A whole event's own order is held to by the comparison of the event itself.)
  */
-const compareChanges = (
+export const compareChanges = (
 	decided: readonly unknown[],
 	recorded: readonly unknown[],
 ): "same" | "partial" | "differs" => {
@@ -312,7 +312,7 @@ const positionsIn = (
  * own row order on (the order the rows were inserted in) would decide the same mutation with its changes in another
  * order, and fail on the first command that moves two rows (a reset of a monthly and a yearly row together).
  */
-const inStoredOrder = (state: SubjectState): SubjectState =>
+export const inStoredOrder = (state: SubjectState): SubjectState =>
 	stateFromRows({
 		identity: state.identity,
 		revision: state.revision,
