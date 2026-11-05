@@ -1,8 +1,8 @@
 # Upgrading atm
 
-## On dev since 0.8.0 (not released)
+## Moving to 0.9.0 from 0.8.0
 
-Changes merged to `dev` after the `atm-v0.8.0` tag. Nothing here is in a release yet.
+A minor release (the number 0.7.0 stays unused: it is held by the stored-inputs design, #65, whose first step, #85, changes no behaviour). It adds B4 Uni's revenue share to the ledger and makes a paid booking's payment a money line. Nothing is removed. A school with no `revenueShare` in its policy makes no share event, and its invoice output is byte for byte what 0.8.0 made (tested against the 0.8.0 commit); a paid booking is the one place where events change for every school.
 
 - **B4 Uni's revenue share is booked in the school's ledger (opt-in per school).** Additive for a school with no rate; a log reader built before this cannot read a log that holds the new events.
   - **To use it, set `revenueShare` in the school's policy.** `BillingPolicy` gains `revenueShare: { percent: number } | null`: `catalog/policy.json` takes `"revenueShare": { "percent": 2.5 }` (0 to 100, at most two decimals; `resolvePolicy` refuses a third decimal, a negative or a value over 100; the policy schema bounds the rate to 0..100 and no longer carries a `multipleOf`, which a plain Ajv got wrong for rates such as 0.07), and `DEFAULT_POLICY.revenueShare` is `null`. A policy stored without the field means no share; code that builds a whole `BillingPolicy` literal must add `revenueShare: null` (a type error tells you). Pass the rate in `StripeEventInput.policy` (and the booking commands' `policy`) as for any policy field; each payment is accrued under the rate in force when it is booked. Pass the policy through `resolvePolicy`: a hand-built policy with an invalid rate makes no share (it never blocks credits or payment lines).
