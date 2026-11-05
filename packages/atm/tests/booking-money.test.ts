@@ -336,7 +336,7 @@ describe("a refund of a booking's payment", () => {
 		expect(booked).toBe(PRICE);
 	});
 
-	test("the books end at the charge's total whatever the order: the later event first, the older one books nothing", () => {
+	test("each event books its own amount whatever the order: the later event first (2000), then the older one (1000)", () => {
 		const s = world();
 		s.handle(second);
 		const rest = structuredClone(partialRefund);
@@ -344,17 +344,26 @@ describe("a refund of a booking's payment", () => {
 		rest.data.object.amount_refunded = PRICE;
 		rest.data.object.refunded = true;
 		rest.data.previous_attributes = { amount_refunded: PART };
-		expect(only(s.handle(rest), "payment.refunded").payload.amount).toBe(PRICE);
-		expect(s.handle(partialRefund)).toEqual(NOTHING);
-		expect(ofType(s.events, "payment.refunded")).toHaveLength(1);
+		expect(only(s.handle(rest), "payment.refunded").payload.amount).toBe(
+			PRICE - PART,
+		);
+		const late = s.handle(partialRefund);
+		expect(late.rowChanges).toBeNull();
+		expect(only(late, "payment.refunded").payload.amount).toBe(PART);
+		const booked = ofType(s.events, "payment.refunded").map(
+			(event) => event.payload.amount as number,
+		);
+		expect(booked).toEqual([PRICE - PART, PART]);
 	});
 
-	test("the redelivery of a refund books nothing", () => {
+	test("the redelivery of a refund decides nothing and makes the same line, which the outbox keeps once", () => {
 		const s = world();
 		s.handle(completed);
-		s.handle(fullRefund);
-		expect(s.handle(fullRefund)).toEqual(NOTHING);
-		expect(ofType(s.events, "payment.refunded")).toHaveLength(1);
+		const first = s.handle(fullRefund);
+		const again = s.handle(fullRefund);
+		expect(again.rowChanges).toBeNull();
+		expect(again.booking).toBeUndefined();
+		expect(again.events).toEqual(first.events);
 	});
 
 	test("a refund of a payment the books never took books nothing, though the booking outcome is decided", () => {

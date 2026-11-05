@@ -1,5 +1,6 @@
 import { Ajv2020 } from "ajv/dist/2020.js";
 import policySchema from "../../schema/catalog/policy.v1.json";
+import { hundredthsOf } from "./share.js";
 import type { BillingPolicy } from "./types.js";
 
 /** The defaults from the tiers spec, "Default billing rules" (owner 2026-11-04). */
@@ -47,8 +48,6 @@ export const resolvePolicy = (overrides: unknown): BillingPolicy => {
 	validate ??= new Ajv2020({
 		allErrors: true,
 		strict: false,
-		// `multipleOf: 0.01` in floating point: 0.07 / 0.01 is 7.000000000000001, which is a whole number of hundredths
-		multipleOfPrecision: 6,
 	}).compile(policySchema);
 	if (!validate(overrides)) {
 		const why = (validate.errors ?? [])
@@ -63,6 +62,13 @@ export const resolvePolicy = (overrides: unknown): BillingPolicy => {
 			.join("; ");
 		throw new Error(`policy is invalid: ${why}`);
 	}
+	// The schema bounds the rate (0 to 100); "at most two decimals" is checked here, not as a `multipleOf` that a plain Ajv
+	// gets wrong in floating point (0.07 / 0.01 is 7.000000000000001).
+	const percent = (overrides as Partial<BillingPolicy>).revenueShare?.percent;
+	if (percent !== undefined && hundredthsOf(percent) === null)
+		throw new Error(
+			`policy is invalid: /revenueShare/percent must be a percent from 0 to 100 with at most two decimals, got ${String(percent)}`,
+		);
 	return structuredClone({
 		...DEFAULT_POLICY,
 		...(overrides as Partial<BillingPolicy>),

@@ -453,7 +453,13 @@ describe("charge.refunded of a booking's charge", () => {
 		s.handle(completed);
 		s.handle(fullRefund);
 		const revision = s.revision;
-		expect(s.handle(fullRefund)).toEqual(NOTHING);
+		// nothing is decided (no write, no outcome); the refund line it makes again has the first one's idem
+		const again = s.handle(fullRefund);
+		expect(again.rowChanges).toBeNull();
+		expect(again.booking).toBeUndefined();
+		expect(again.events.map((event) => event.event_type)).toEqual([
+			"payment.refunded",
+		]);
 		expect(s.revision).toBe(revision);
 	});
 
@@ -492,7 +498,11 @@ describe("charge.refunded of a booking's charge", () => {
 		});
 		const old = structuredClone(partialRefund);
 		old.id = "evt_old";
-		expect(s.handle(old)).toEqual(NOTHING);
+		const late = s.handle(old);
+		expect(late.rowChanges).toBeNull();
+		expect(late.booking).toBeUndefined();
+		// it books only its own 1000, and the running total stays 3000
+		expect(late.events.map((event) => event.payload.amount)).toEqual([1000]);
 	});
 
 	test("a refund that names a booking this holder has not paid for is refused unmatched_booking (retry once the session is handled)", () => {

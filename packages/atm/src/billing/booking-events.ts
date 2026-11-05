@@ -14,8 +14,10 @@
  * The books: a paid booking makes a `payment.succeeded` (gross = the session's `amount_total`, income
  * `income:billing:booking`, idem `stripe:<payment intent id>`, `labels.booking` the booking id; the Stripe fee is the
  * caller's optional `StripeEventInput.fee`, as for an invoice), and a refund of a payment the books hold makes a
- * `payment.refunded` for what the charge's running total rose by (`amount_refunded` less the record's `payment.refunded`,
- * so an event that arrives late books nothing twice and nothing is lost). `payment.booked` on the record says the books took the
+ * `payment.refunded` for what that event refunded (`amount_refunded` less `previous_attributes.amount_refunded`, as for an
+ * invoice, so each line matches one of Stripe's refunds whatever the order the events arrive in; a redelivery makes the same
+ * idem and the outbox keeps one). The record's running total (`payment.refunded`) decides only the state and the share's
+ * reversal. `payment.booked` on the record says the books took the
  * payment; a payment decided before payments were booked, or one in another currency (a `money.skipped` marker, as for an
  * invoice), has none and its refund books no `payment.refunded`. `reconcile` pairs the payment with Stripe's payment
  * intents (`paymentIntents`) and the refund with Stripe's refunds, by payment intent.
@@ -323,17 +325,21 @@ export const decideBookingRefund = ({
 			`${fact.id} refunds payment intent ${fact.paymentIntentId}, but booking ${bookingId} was paid by ${payment.paymentIntentId}`,
 		);
 
-	// `amount` is the charge's total refunded after this event: an event that does not raise it (a redelivery, or an older
-	// one that arrived late) decides nothing, and the full refund is decided once.
+	// `amount` is the charge's total refunded after this event. The books take each event's own amount (the total less what
+	// it was before the event), as an invoice's refund does, so the lines match Stripe's refunds whatever the order the
+	// events arrive in; a redelivery makes the same line (same idem), which the outbox keeps once.
 	const total = fact.amount;
 	const settled = record.state === "refunded";
-	if (settled || (total <= payment.refunded && !fact.full)) return nothing();
-	const full = fact.full;
-	// What this event added to the charge's refunded total, by the record's own running total: an event that arrives late (a
-	// smaller total than one already decided) adds nothing, and the books end at the charge's total whatever the order.
+	const raisesTotal = total > payment.refunded;
+	// The event's own `previous_attributes.amount_refunded` (0 when it carries none). A total that rises past the record's with
+	// a 0 before can only be an event without `previous_attributes` (a first refund has a total no larger than any later
+	// one), so the record's running total says what it added.
+	const eventPrevious = fact.previousAmount ?? 0;
+	let previousAmount = eventPrevious;
+	if (eventPrevious <= 0 && raisesTotal) previousAmount = payment.refunded;
 	const refund: BillingRefund = {
 		...fact,
-		previousAmount: payment.refunded,
+		previousAmount,
 		currency: fact.currency ?? payment.currency,
 	};
 	// Only a refund of a payment the books hold is a `payment.refunded`; a non-USD one leaves the marker either way.
@@ -346,6 +352,11 @@ export const decideBookingRefund = ({
 		holder,
 		...(payment.booked ? { bookingId } : {}),
 	});
+	// An event that does not raise the running total (a redelivery, or an older one that arrived late) or one that follows
+	// the full refund decides nothing about the record or the share, which already count it; only its own line is booked.
+	if (settled || (!raisesTotal && !fact.full))
+		return { rowChanges: null, events: refunded };
+	const full = fact.full;
 	const refundedTotal = Math.max(total, payment.refunded);
 	// The part of the payment's share this refund takes back, from the record's own running total.
 	const share = reverseShare({

@@ -15,6 +15,10 @@
  * payment's record (`InvoiceRecord.share`, `BookingRecord.payment.share`), so a refund reverses its own part of what
  * was accrued, whatever the policy says by then. A payment booked before the school had a rate has no record of a share,
  * so a refund of it reverses nothing. USD only, like the money lines: a payment that is not in USD makes no share.
+ *
+ * A policy must pass `resolvePolicy`, which refuses a rate that is not 0 to 100 with at most two decimals. A policy built by
+ * hand with such a rate makes no share, consistently and without an error: the handler never refuses a family's credits or
+ * payment lines because of a rate.
  */
 import { ledgerEvent } from "../ledger/postings.js";
 import type { AtmEvent, BillingPolicy } from "../types.js";
@@ -32,18 +36,28 @@ const HUNDREDTHS_TOLERANCE = 1e-6;
 type ShareRecord = { accrued: number; reversed: number };
 
 /**
+ * A rate as a whole number of hundredths of a percent (2.5 -> 250), or null when it is not a usable rate: not a finite
+ * number, below 0, above 100, or with more than two decimals (noise within `HUNDREDTHS_TOLERANCE` of a whole number of
+ * hundredths is floating point, not a third decimal). The one rule every caller shares: `resolvePolicy` refuses a null,
+ * `rateOf` turns it into no share.
+ */
+export const hundredthsOf = (percent: unknown): number | null => {
+	if (typeof percent !== "number" || !Number.isFinite(percent)) return null;
+	if (percent < 0 || percent > 100) return null;
+	const hundredths = Math.round(percent * HUNDREDTHS_PER_PERCENT);
+	return Math.abs(percent * HUNDREDTHS_PER_PERCENT - hundredths) >
+		HUNDREDTHS_TOLERANCE
+		? null
+		: hundredths;
+};
+
+/**
  * A rate as a whole number of hundredths of a percent (2.5 -> 250). Throws for a rate outside 0 to 100 or with more than
  * two decimals, so an unchecked rate never reaches the arithmetic.
  */
 export const percentToHundredths = (percent: number): number => {
-	const hundredths = Math.round(percent * HUNDREDTHS_PER_PERCENT);
-	if (
-		!Number.isFinite(percent) ||
-		percent < 0 ||
-		percent > 100 ||
-		Math.abs(percent * HUNDREDTHS_PER_PERCENT - hundredths) >
-			HUNDREDTHS_TOLERANCE
-	)
+	const hundredths = hundredthsOf(percent);
+	if (hundredths === null)
 		throw new RangeError(
 			`a revenue share rate is a percent from 0 to 100 with at most two decimals, got ${String(percent)}`,
 		);
@@ -94,10 +108,17 @@ export const shareAfterRefund = ({
 	return share - Number(reversed);
 };
 
-/** The rate a policy puts on a payment, or null for none: a policy stored without the field has none, and so has 0. */
+/**
+ * The rate a policy puts on a payment, or null for none: a policy stored without the field has none, and so has 0. The
+ * rate is the normalized one (whole hundredths over 100: 2.5000000001 is 2.5), the number the events and the statement
+ * show. A rate that is not valid (not a finite number, below 0, above 100, more than two decimals) is no share too, never
+ * an error: a policy that skipped `resolvePolicy` must not block a family's credits or payment lines.
+ */
 export const rateOf = (policy: BillingPolicy): number | null => {
-	const percent = policy.revenueShare?.percent ?? 0;
-	return percent > 0 ? percent : null;
+	const hundredths = hundredthsOf(policy.revenueShare?.percent ?? 0);
+	return hundredths === null || hundredths <= 0
+		? null
+		: hundredths / HUNDREDTHS_PER_PERCENT;
 };
 
 type Common = {
