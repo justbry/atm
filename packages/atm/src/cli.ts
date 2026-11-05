@@ -9,7 +9,13 @@ import { resolvePolicy } from "./billing/policy.js";
 import type { BillingPolicy, Menu } from "./billing/types.js";
 import { engineCommandTypes, runEngineCommand } from "./engine.js";
 import { bunSqlite } from "./handler/bun-sqlite.js";
+import { assertInputTables } from "./handler/schema.js";
 import { journalMonth, readEvents } from "./ledger/files.js";
+import {
+	InputsDestinationError,
+	R2_ENV,
+	resolveInputsDestination,
+} from "./ledger/inputs-destination.js";
 import { ReconcileInputError } from "./ledger/reconcile.js";
 import {
 	formatReconcile,
@@ -29,9 +35,11 @@ import {
 	shareStatement,
 } from "./ledger/share-statement.js";
 import { shipOutbox } from "./ledger/ship.js";
+import { inputsShipStatus, shipInputs } from "./ledger/ship-inputs.js";
 import { simulate } from "./ledger/simulate.js";
 import { outboxStatus } from "./ledger/status.js";
 import { FolderStore } from "./store/folder-store.js";
+import { R2Store } from "./store/r2-store.js";
 import type { AtmCatalogRow } from "./types.js";
 
 /** How long `atm ship` waits for the handler's write lock on a busy database. */
@@ -344,6 +352,159 @@ const shipCommand = program
 		unattended("ship", opts.json === true, () => ship(opts)),
 	);
 exitTwoOnUsageError(shipCommand);
+
+// ---- atm inputs ship (stored inputs, part C) ----
+
+type InputsShipOptions = {
+	db: string;
+	school: string;
+	env: string;
+	root?: string;
+	r2Bucket?: string;
+	r2Endpoint?: string;
+	r2Prefix?: string;
+	json?: boolean;
+};
+
+/** The folder or the bucket the objects go to; a refusal in the options is one line, exit 2. */
+const inputsStore = async (opts: InputsShipOptions) => {
+	let destination: ReturnType<typeof resolveInputsDestination>;
+	try {
+		destination = resolveInputsDestination(opts, process.env);
+	} catch (error) {
+		if (error instanceof InputsDestinationError)
+			throw new InputError(error.message);
+		throw error;
+	}
+	if (destination.kind === "r2") return new R2Store(destination.options);
+	// A typo in --root would otherwise make a new folder and mark every row shipped into it.
+	const root = await stat(destination.root).catch(() => null);
+	if (!root?.isDirectory())
+		throw new InputError(
+			`--root ${destination.root} is not an existing folder; create it first (atm inputs ship does not create the root, so that a typo in it ships nothing)`,
+		);
+	return new FolderStore({ root: destination.root });
+};
+
+const inputsShip = async (opts: InputsShipOptions): Promise<void> => {
+	if (opts.env !== "live" && opts.env !== "test")
+		throw new InputError("--env must be live or test");
+	const env = opts.env;
+	const store = await inputsStore(opts);
+	const database = new Database(opts.db, { readwrite: true });
+	try {
+		database.exec(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS}`);
+		const db = bunSqlite(database);
+		assertInputTables(db);
+		// A typo in --school would otherwise ship nothing and exit 0; an empty table has nothing to lose to one.
+		const schools = db
+			.all<{ school_id: string }>(
+				"SELECT DISTINCT school_id FROM atm_event_inputs ORDER BY school_id",
+			)
+			.map((row) => row.school_id);
+		if (schools.length > 0 && !schools.includes(opts.school))
+			throw new InputError(
+				`--school ${opts.school} has no rows in atm_event_inputs of ${opts.db}; schools there: ${schools.join(", ")}`,
+			);
+		const result = await shipInputs({
+			db,
+			store,
+			school: opts.school,
+			env,
+			nowMs: Date.now,
+		});
+		for (const conflict of result.conflicts)
+			process.stderr.write(`conflict ${conflict.key}: ${conflict.message}\n`);
+		if (result.erasures.pending > 0)
+			process.stderr.write(
+				`erasure pending: ${result.erasures.pending} shipped object(s) of an erased holder are not rewritten or deleted yet; run atm inputs ship again\n`,
+			);
+		const status = inputsShipStatus({
+			db,
+			school: opts.school,
+			env,
+			nowMs: Date.now,
+		});
+		if (opts.json)
+			writeJson({
+				ok: result.conflicts.length === 0 && result.erasures.pending === 0,
+				school: opts.school,
+				env,
+				batches: result.batches.length,
+				shipped: result.shipped,
+				contexts: result.contexts,
+				seeds: result.seeds,
+				conflicts: result.conflicts.map(({ key, message }) => ({
+					key,
+					message,
+				})),
+				erasuresSettled: result.erasures.settled,
+				erasuresPending: result.erasures.pending,
+				unshipped: status.unshipped,
+				oldestUnshippedAgeMs: status.oldestUnshippedAgeMs,
+			});
+		else {
+			for (const batch of result.batches)
+				process.stdout.write(
+					`${batch.status} ${batch.key}: ${batch.inputs} inputs\n`,
+				);
+			process.stdout.write(
+				`${result.shipped} inputs shipped in ${result.batches.length} batches, ${result.contexts} contexts, ${result.seeds} seeds; ${result.conflicts.length} conflicts; erasures settled ${result.erasures.settled}, pending ${result.erasures.pending}\n`,
+			);
+		}
+		if (result.conflicts.length > 0 || result.erasures.pending > 0)
+			process.exitCode = EXIT_CONFLICT;
+	} finally {
+		database.close();
+	}
+};
+
+/** Commander echoes `--flag=value` of an unknown flag; a secret given that way must not reach the log. */
+const redactUnknownOptionValue = (text: string): string =>
+	text.replace(/(unknown option '--[^=']+)=[^']*'/, "$1'");
+
+const inputsCommand = program
+	.command("inputs")
+	.description(
+		"the stored Stripe inputs the webhook handler keeps (see: inputs ship)",
+	);
+exitTwoOnUsageError(inputsCommand);
+
+const inputsShipCommand = inputsCommand
+	.command("ship")
+	.description(
+		`ship a school's unshipped stored inputs (atm_event_inputs) from the handler's SQLite file to <root>/schools/<id>/inputs/<env>/date=YYYY-MM-DD/batch-*.jsonl (UTC commit day), with the contexts/ and seeds/ they refer to, create-only, safe to rerun, run it from cron before \`atm ship\`. First settles the erasure queue: a shipped batch that held an erased holder's facts is rewritten under a new key with the tombstone and the old object deleted. Exits 0 when done (also when there was nothing to ship), 1 when a key already holds different bytes (conflict lines on stderr) or an erasure is still pending, 2 on any other error (one line on stderr). R2 credentials are read from the environment only (${R2_ENV.accessKeyId}, ${R2_ENV.secretAccessKey}, optional ${R2_ENV.sessionToken}); the R2 path has not been run against R2`,
+	)
+	.requiredOption("--db <file>", "the SQLite file the webhook handler writes")
+	.requiredOption("--school <id>", "school id, as in schools/<id>/")
+	.requiredOption("--env <live|test>", "the Stripe mode whose inputs to ship")
+	.option(
+		"--root <folder>",
+		"an existing folder that holds (or will hold) schools/<id>/",
+	)
+	.option(
+		"--r2-bucket <name>",
+		`an R2 bucket, instead of --root (or ${R2_ENV.bucket})`,
+	)
+	.option(
+		"--r2-endpoint <url>",
+		`the bucket's S3 endpoint, with --r2-bucket (or ${R2_ENV.endpoint})`,
+	)
+	.option(
+		"--r2-prefix <prefix>",
+		`keep every key under this prefix (or ${R2_ENV.prefix})`,
+	)
+	.option(
+		"--json",
+		"print one JSON line ({ok, school, env, batches, shipped, contexts, seeds, conflicts: [{key, message}], erasuresSettled, erasuresPending, unshipped, oldestUnshippedAgeMs}) instead of the lines per batch",
+	)
+	.configureOutput({
+		outputError: (text, write) => write(redactUnknownOptionValue(text)),
+	})
+	.action((opts: InputsShipOptions) =>
+		unattended("inputs ship", opts.json === true, () => inputsShip(opts)),
+	);
+exitTwoOnUsageError(inputsShipCommand);
 
 program
 	.command("reconcile")

@@ -2147,6 +2147,73 @@ export interface InputsSource {
 	read(filter: { env: AtmEnv; school: string }): Promise<InputsRead>;
 }
 
+// ---- Shipping the stored inputs ----
+
+/**
+ * What a shipped line holds (serialized with the table's snake_case column names, `body` as `fact`, canonical JSON): the
+ * stored input without the shipper's own marks. A tombstone has `erasedAt` set and `fact`, `subjectKey`, `paymentRefs`,
+ * `bookingRefs`, `fee` and `rawSha256` null.
+ */
+export type ShippedInputLine = Omit<StoredInput, "batchKey" | "shippedAt">;
+
+/** One planned object: the unshipped inputs of one commit day (UTC), each a pure function of its rows. */
+export type InputsBatch = {
+	/** `schools/<school>/inputs/<env>/date=<UTC day of receivedAt>/batch-<first appliedOrder, 12 digits>-<16 hex>.jsonl` */
+	key: string;
+	date: string;
+	/** The `appliedOrder` of each line, ascending. */
+	orders: number[];
+	text: string;
+	sha256: string;
+};
+
+export type ShipInputsInput = {
+	/** The handler's database (`atm_event_inputs` and its helper tables). */
+	db: SqlDatabase;
+	/** Where the objects go. Any `Store`: `FolderStore`, `R2Store`. */
+	store: Store;
+	school: string;
+	env: AtmEnv;
+	/** Stamps `shipped_at`, `done_at` (milliseconds). */
+	nowMs: () => number;
+};
+
+/** The erasure queue after a settle: rows closed this call, rows still open, and the objects that could not be rewritten or deleted. */
+export type SettleInputErasuresResult = {
+	settled: number;
+	pending: number;
+	conflicts: ShipConflict[];
+};
+
+export type ShipInputsResult = {
+	batches: {
+		key: string;
+		date: string;
+		/** The rows this call marked shipped. */
+		inputs: number;
+		status: "created" | "existing";
+	}[];
+	/** Context objects this call marked shipped. */
+	contexts: number;
+	/** Seed objects this call marked shipped. */
+	seeds: number;
+	/** Input rows marked shipped (batches written, and rows moved into a rewritten batch). */
+	shipped: number;
+	/** A key that already holds different bytes: nothing was written, the rows stay unshipped. */
+	conflicts: ShipConflict[];
+	erasures: { settled: number; pending: number };
+};
+
+/** What a health check reads about one school's and env's stored inputs and their erasure queue. Nothing is written. */
+export type InputsShipStatus = {
+	/** Applied inputs (erased ones too) not yet marked shipped. */
+	unshipped: number;
+	oldestUnshippedAgeMs: number | null;
+	/** Queued objects still to be rewritten or deleted. */
+	erasuresPending: number;
+	oldestErasurePendingAgeMs: number | null;
+};
+
 // ---- Storage rows ----
 
 /**

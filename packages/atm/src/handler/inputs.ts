@@ -513,6 +513,33 @@ export const readInputs = (
 	return read;
 };
 
+/**
+ * The applied inputs of one school and env that are not marked shipped yet, in applied order, for the shipper. A refusal is
+ * never shipped, so it is never returned. An erased row comes back as a tombstone (its `body` is cleared by the erasure).
+ */
+export const readUnshippedInputs = (
+	db: SqlDatabase,
+	filter: { env: AtmEnv; school: string },
+): StoredInput[] =>
+	db
+		.all<InputRow>(
+			`SELECT * FROM atm_event_inputs WHERE env = ? AND school_id = ? AND outcome = 'applied' AND shipped_at IS NULL ORDER BY applied_order`,
+			[filter.env, filter.school],
+		)
+		.map(storedInputOf);
+
+/** The applied inputs whose `batch_key` is `batchKey`, in applied order: the rows of one shipped (or about to be shipped) object. */
+export const readInputsOfBatch = (
+	db: SqlDatabase,
+	filter: { env: AtmEnv; school: string; batchKey: string },
+): StoredInput[] =>
+	db
+		.all<InputRow>(
+			`SELECT * FROM atm_event_inputs WHERE env = ? AND school_id = ? AND outcome = 'applied' AND batch_key = ? ORDER BY applied_order`,
+			[filter.env, filter.school, filter.batchKey],
+		)
+		.map(storedInputOf);
+
 /** The handler's SQLite behind the `InputsSource` interface the replay reads through. */
 export const sqliteInputsSource = (
 	db: SqlDatabase,
