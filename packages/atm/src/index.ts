@@ -10,7 +10,10 @@ import * as rows from "./billing/rows.js";
 import * as status from "./billing/status.js";
 import * as stripeMenu from "./billing/stripe-menu.js";
 import { engineCommandTypes, runEngineCommand as run } from "./engine.js";
-import { HANDLER_DDL as handlerDdl } from "./handler/schema.js";
+import {
+	HANDLER_DDL as handlerDdl,
+	migrateHandlerSchema as migrateHandlerSchemaImpl,
+} from "./handler/schema.js";
 import * as signature from "./handler/stripe-signature.js";
 import * as webhook from "./handler/stripe-webhook.js";
 import { deterministicUlid as deterministicUlidImpl } from "./ledger/ids.js";
@@ -82,6 +85,7 @@ import type {
 	GrantRemovalInput,
 	GrantResult,
 	GrantsState,
+	HandlerMigrationResult,
 	InvoiceGrantInput,
 	InvoiceLine,
 	LineItem,
@@ -118,6 +122,7 @@ import type {
 	ShipOutboxInput,
 	ShipOutboxResult,
 	SignatureVerdict,
+	SqlDatabase,
 	StaleRevisionConstructor,
 	Store,
 	StripeEventInput,
@@ -666,6 +671,15 @@ export const R2Store: new (options: R2StoreOptions) => Store = r2Store.R2Store;
 
 /** The tables the handler keeps in the caller's SQLite: rows, event claims, the payment index and the ledger outbox. */
 export const HANDLER_DDL: string = handlerDdl;
+
+/**
+ * Brings a handler database made before `env` was a key to the shape of `HANDLER_DDL`: rebuilds `atm_event_claims`,
+ * `atm_invoice_index`, `atm_payment_index` and `ledger_outbox` with `env` in their keys, in one transaction, copying every
+ * row (existing rows read as `"live"`, except that an invoice or payment index row of a test subject reads as `"test"`).
+ * Does nothing on a current database, so call it at every start, with `HANDLER_DDL`. Take a copy first. See `UPGRADING.md`.
+ */
+export const migrateHandlerSchema = (db: SqlDatabase): HandlerMigrationResult =>
+	migrateHandlerSchemaImpl(db);
 
 /** Checks a `Stripe-Signature` header against the raw body: HMAC-SHA256 over `t.payload`, constant time, 300 s tolerance. */
 export const verifyStripeSignature = (
