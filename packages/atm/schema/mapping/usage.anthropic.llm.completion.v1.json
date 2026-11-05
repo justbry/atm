@@ -1,0 +1,63 @@
+{
+	"v": 1,
+	"source": "anthropic",
+	"event": "llm.completion",
+	"sourceVersion": { "path": "$.schema", "equals": "gateway-log-2026-01" },
+	"id": { "path": "$.message.id", "type": "string", "onRepeat": "max" },
+	"time": {
+		"path": "$.timestamp",
+		"type": "iso",
+		"late": { "afterSeconds": 86400, "policy": "flag" }
+	},
+	"holder": { "path": "$.user.id", "prefix": "family:", "type": "string" },
+	"labels": {
+		"model": {
+			"path": "$.message.model",
+			"values": ["gpt-x", "claude-y"],
+			"onUnknown": "other"
+		},
+		"usage_feature": {
+			"path": "$.feature",
+			"default": "chat",
+			"maxDistinct": 32
+		}
+	},
+	"quantities": {
+		"input_tokens": {
+			"path": "$.message.usage.input_tokens",
+			"type": "int",
+			"unit": "token",
+			"meaning": "UNCACHED input tokens: Anthropic reports them apart from the cache counts"
+		},
+		"cache_read_tokens": {
+			"path": "$.message.usage.cache_read_input_tokens",
+			"type": "int",
+			"unit": "token",
+			"optional": true,
+			"default": 0,
+			"meaning": "input tokens served from the provider's cache (reported apart from input_tokens)"
+		},
+		"cache_write_tokens": {
+			"path": "$.message.usage.cache_creation_input_tokens",
+			"type": "int",
+			"unit": "token",
+			"optional": true,
+			"default": 0,
+			"meaning": "input tokens written to the provider's cache (reported apart from input_tokens)"
+		},
+		"output_tokens": {
+			"path": "$.message.usage.output_tokens",
+			"type": "int",
+			"unit": "token",
+			"meaning": "generated tokens, extended thinking included: Anthropic does not split it out, so reasoning_tokens is 0 by declaration"
+		},
+		"reasoning_tokens": {
+			"type": "int",
+			"unit": "token",
+			"default": 0,
+			"meaning": "tokens spent on reasoning when the provider reports them apart; this provider does not"
+		}
+	},
+	"personal": ["$.user.email", "$.message.content"],
+	"ignore": ["$.message.type", "$.message.role", "$.message.stop_reason"]
+}

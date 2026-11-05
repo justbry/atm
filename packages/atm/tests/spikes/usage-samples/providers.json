@@ -1,0 +1,50 @@
+{
+	"_note": "Synthetic shapes modelled on the agentlake example (examples/agent-logs/sync.py parsers). The same call, 1200 prompt tokens of which 1000 cached, 300 generated of which 100 reasoning, is written by each provider in its own way; all three normalize to the same disjoint quantities.",
+	"openai": {
+		"schema": "gateway-log-2026-01",
+		"request_id": "req_p1",
+		"created": 1767225600,
+		"model": "gpt-x",
+		"user": { "id": "fam_8k2" },
+		"usage": {
+			"prompt_tokens": 1200,
+			"completion_tokens": 300,
+			"prompt_tokens_details": { "cached_tokens": 1000 },
+			"completion_tokens_details": { "reasoning_tokens": 100 }
+		}
+	},
+	"anthropic": {
+		"schema": "gateway-log-2026-01",
+		"message": {
+			"id": "msg_p1",
+			"model": "gpt-x",
+			"usage": {
+				"input_tokens": 200,
+				"cache_read_input_tokens": 1000,
+				"cache_creation_input_tokens": 0,
+				"output_tokens": 300
+			}
+		},
+		"timestamp": "2026-01-01T00:00:00Z",
+		"user": { "id": "fam_8k2" }
+	},
+	"grok": {
+		"schema": "gateway-log-2026-01",
+		"update": {
+			"sessionUpdate": "turn_completed",
+			"turnId": "turn_p1",
+			"finishedAtMs": 1767225600000,
+			"model": "gpt-x",
+			"elapsed_ms": 1800,
+			"usage": {
+				"inputTokens": 1200,
+				"cachedReadTokens": 1000,
+				"outputTokens": 200,
+				"reasoningTokens": 100,
+				"costUsdTicks": 42000000
+			}
+		},
+		"user": { "id": "fam_8k2" }
+	},
+	"grokTicks": [1000000000, 2000000000, 1234567891, 7]
+}

@@ -1,0 +1,156 @@
+[
+	{
+		"name": "full",
+		"event": {
+			"schema": "gateway-log-2026-01",
+			"request_id": "req_001",
+			"created": 1767225600,
+			"model": "gpt-x",
+			"feature": "tutor",
+			"region": "us-east",
+			"user": { "id": "fam_8k2" },
+			"usage": {
+				"prompt_tokens": 1200,
+				"completion_tokens": 300,
+				"prompt_tokens_details": { "cached_tokens": 1000 },
+				"completion_tokens_details": { "reasoning_tokens": 100 },
+				"cost_usd": "0.004200"
+			},
+			"duration_ms": 1800,
+			"trace_id": "t-1"
+		}
+	},
+	{
+		"name": "missing optional label and default label",
+		"event": {
+			"schema": "gateway-log-2026-01",
+			"request_id": "req_002",
+			"created": 1767225660,
+			"model": "claude-y",
+			"user": { "id": "fam_8k2" },
+			"usage": { "prompt_tokens": 50, "completion_tokens": 20 }
+		}
+	},
+	{
+		"name": "unknown model",
+		"event": {
+			"schema": "gateway-log-2026-01",
+			"request_id": "req_003",
+			"created": 1767225720,
+			"model": "gpt-z-preview",
+			"feature": "chat",
+			"region": "eu-west",
+			"user": { "id": "fam_9x1" },
+			"usage": { "prompt_tokens": 10, "completion_tokens": 5 }
+		}
+	},
+	{
+		"name": "duplicate of req_001 (a retried delivery)",
+		"event": {
+			"schema": "gateway-log-2026-01",
+			"request_id": "req_001",
+			"created": 1767225601,
+			"model": "gpt-x",
+			"feature": "tutor",
+			"region": "us-east",
+			"user": { "id": "fam_8k2" },
+			"usage": {
+				"prompt_tokens": 1200,
+				"completion_tokens": 300,
+				"prompt_tokens_details": { "cached_tokens": 1000 },
+				"completion_tokens_details": { "reasoning_tokens": 100 },
+				"cost_usd": "0.004200"
+			},
+			"duration_ms": 1800,
+			"trace_id": "t-1-retry"
+		}
+	},
+	{
+		"name": "late event, a year old",
+		"event": {
+			"schema": "gateway-log-2026-01",
+			"request_id": "req_005",
+			"created": 1735689600,
+			"model": "gpt-x",
+			"feature": "chat",
+			"user": { "id": "fam_8k2" },
+			"usage": { "prompt_tokens": 400, "completion_tokens": 80 }
+		}
+	},
+	{
+		"name": "personal data in the payload",
+		"event": {
+			"schema": "gateway-log-2026-01",
+			"request_id": "req_006",
+			"created": 1767225900,
+			"model": "gpt-x",
+			"feature": "chat",
+			"user": { "id": "fam_8k2", "email": "parent@example.org" },
+			"messages": [
+				{
+					"role": "user",
+					"content": "My daughter Ada Lovelace is 7 and struggles with fractions."
+				},
+				{ "role": "assistant", "content": "Let's start with halves." }
+			],
+			"response": { "text": "Let's start with halves." },
+			"usage": { "prompt_tokens": 900, "completion_tokens": 40 }
+		}
+	},
+	{
+		"name": "malformed quantity: prompt_tokens is a string",
+		"event": {
+			"schema": "gateway-log-2026-01",
+			"request_id": "req_007",
+			"created": 1767226000,
+			"model": "gpt-x",
+			"feature": "chat",
+			"user": { "id": "fam_8k2" },
+			"usage": { "prompt_tokens": "1200", "completion_tokens": 40 }
+		}
+	},
+	{
+		"name": "malformed quantity: cached tokens exceed the prompt",
+		"event": {
+			"schema": "gateway-log-2026-01",
+			"request_id": "req_008",
+			"created": 1767226100,
+			"model": "gpt-x",
+			"feature": "chat",
+			"user": { "id": "fam_8k2" },
+			"usage": {
+				"prompt_tokens": 100,
+				"completion_tokens": 40,
+				"prompt_tokens_details": { "cached_tokens": 500 }
+			}
+		}
+	},
+	{
+		"name": "malformed quantity: cost with more than six places",
+		"event": {
+			"schema": "gateway-log-2026-01",
+			"request_id": "req_009",
+			"created": 1767226200,
+			"model": "gpt-x",
+			"feature": "chat",
+			"user": { "id": "fam_8k2" },
+			"usage": {
+				"prompt_tokens": 100,
+				"completion_tokens": 40,
+				"cost_usd": "0.0000001"
+			}
+		}
+	},
+	{
+		"name": "an email where the user id should be",
+		"event": {
+			"schema": "gateway-log-2026-01",
+			"request_id": "req_010",
+			"created": 1767226300,
+			"model": "gpt-x",
+			"feature": "chat",
+			"user": { "id": "parent@example.org" },
+			"usage": { "prompt_tokens": 100, "completion_tokens": 40 }
+		}
+	}
+]

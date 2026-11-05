@@ -1,0 +1,83 @@
+{
+	"v": 1,
+	"source": "openai",
+	"event": "llm.completion",
+	"sourceVersion": { "path": "$.schema", "equals": "gateway-log-2026-01" },
+	"id": { "path": "$.request_id", "type": "string", "onRepeat": "first" },
+	"time": {
+		"path": "$.created",
+		"type": "seconds",
+		"late": { "afterSeconds": 86400, "policy": "flag" }
+	},
+	"holder": { "path": "$.user.id", "prefix": "family:", "type": "string" },
+	"labels": {
+		"model": {
+			"path": "$.model",
+			"values": ["gpt-x", "claude-y"],
+			"onUnknown": "other",
+			"other": "other"
+		},
+		"usage_feature": {
+			"path": "$.feature",
+			"default": "chat",
+			"maxDistinct": 32
+		},
+		"region": { "path": "$.region", "optional": true, "maxDistinct": 16 }
+	},
+	"quantities": {
+		"cache_read_tokens": {
+			"path": "$.usage.prompt_tokens_details.cached_tokens",
+			"type": "int",
+			"unit": "token",
+			"optional": true,
+			"default": 0,
+			"meaning": "prompt tokens served from the provider's cache (OpenAI counts them inside prompt_tokens)"
+		},
+		"cache_write_tokens": {
+			"type": "int",
+			"unit": "token",
+			"default": 0,
+			"meaning": "tokens written to the provider's cache; this provider does not report them, so 0 by declaration"
+		},
+		"reasoning_tokens": {
+			"path": "$.usage.completion_tokens_details.reasoning_tokens",
+			"type": "int",
+			"unit": "token",
+			"optional": true,
+			"default": 0,
+			"meaning": "tokens spent on reasoning (OpenAI counts them inside completion_tokens)"
+		},
+		"input_tokens": {
+			"path": "$.usage.prompt_tokens",
+			"minus": ["cache_read_tokens"],
+			"type": "int",
+			"unit": "token",
+			"meaning": "UNCACHED input tokens: prompt_tokens less the cached part"
+		},
+		"output_tokens": {
+			"path": "$.usage.completion_tokens",
+			"minus": ["reasoning_tokens"],
+			"type": "int",
+			"unit": "token",
+			"meaning": "generated tokens that are not reasoning: completion_tokens less the reasoning part"
+		},
+		"cost_usd": {
+			"path": "$.usage.cost_usd",
+			"type": "decimal",
+			"scale": 6,
+			"unit": "USD",
+			"optional": true,
+			"meaning": "what the provider charged for the call, in dollars, exact to a millionth"
+		},
+		"duration_ms": {
+			"path": "$.duration_ms",
+			"type": "int",
+			"unit": "ms",
+			"optional": true,
+			"default": 0,
+			"meaning": "wall time of the call in milliseconds"
+		}
+	},
+	"personal": ["$.user.email", "$.messages", "$.response.text"],
+	"ignore": ["$.trace_id", "$.system_fingerprint", "$.object"]
+}

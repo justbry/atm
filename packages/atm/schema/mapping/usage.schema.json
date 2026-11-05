@@ -1,0 +1,220 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://b4uni.com/_schema/mapping/usage.schema.json",
+	"title": "Usage mapping v1 (PROPOSED, feasibility spike)",
+	"description": "Declarative map from one raw usage event (an LLM completion, a storage snapshot, an API call) to a normalized usage fact: who used it (holder), when, which axes to group by (labels, strings, bounded), and how much (quantities, whole numbers or exact decimals). One file pins one source event at one source version; a change of the source payload means a new file with a new `v` (and, when the source says so, a new `sourceVersion`), never new code. Same path subset, optional/default/values/personal vocabulary as mapping.schema.json, which this does not replace.",
+	"type": "object",
+	"required": [
+		"v",
+		"source",
+		"event",
+		"id",
+		"time",
+		"holder",
+		"labels",
+		"quantities",
+		"personal"
+	],
+	"additionalProperties": false,
+	"properties": {
+		"v": { "type": "integer", "minimum": 1 },
+		"source": {
+			"type": "string",
+			"pattern": "^[a-z][a-z0-9_-]*$",
+			"not": { "const": "stripe" },
+			"description": "The producer of the raw events (a gateway, a worker). Becomes the envelope `source`."
+		},
+		"event": {
+			"type": "string",
+			"pattern": "^[a-z_]+(\\.[a-z_]+)+$",
+			"description": "The raw event kind, e.g. llm.completion."
+		},
+		"sourceVersion": {
+			"type": "object",
+			"required": ["path", "equals"],
+			"additionalProperties": false,
+			"description": "Pins the source payload version, as stripeApiVersion does: an event whose value at `path` is not `equals` is refused, not guessed.",
+			"properties": {
+				"path": { "$ref": "#/$defs/path" },
+				"equals": { "type": "string", "minLength": 1 }
+			}
+		},
+		"id": {
+			"type": "object",
+			"required": ["path"],
+			"additionalProperties": false,
+			"description": "The producer's own unique id for the event (a request id). It becomes the envelope `idem` as `usage:<source>/<event>:<id>`, unique per school, so a retry is dropped by the outbox. It is never a label.",
+			"properties": {
+				"path": { "$ref": "#/$defs/path" },
+				"type": { "enum": ["string", "int"] },
+				"onRepeat": {
+					"enum": ["first", "max"],
+					"description": "What happens to several raw events that share this id (streaming repeats one response's usage as it grows). first (default): the first stands, as the ledger's idem rule does anyway. max: collapse them BEFORE the ledger, each quantity taking its largest value (counts only grow within a response); a later value below an earlier one is reported as a conflict. The ledger cannot do `max` itself: its outbox keeps the first write of an idem."
+				}
+			}
+		},
+		"time": {
+			"type": "object",
+			"required": ["path", "type"],
+			"additionalProperties": false,
+			"description": "When the usage happened (envelope `event_time`). The ingest time is the clock at the ingest endpoint, never read from the payload.",
+			"properties": {
+				"path": { "$ref": "#/$defs/path" },
+				"type": { "enum": ["seconds", "millis", "iso"] },
+				"late": {
+					"type": "object",
+					"required": ["afterSeconds", "policy"],
+					"additionalProperties": false,
+					"description": "An event older than `afterSeconds` at ingest is `flag`ged (fact.late = true, still recorded; the ledger keeps event_time and ingest_time apart) or `reject`ed.",
+					"properties": {
+						"afterSeconds": { "type": "integer", "minimum": 1 },
+						"policy": { "enum": ["flag", "reject"] }
+					}
+				}
+			}
+		},
+		"holder": {
+			"type": "object",
+			"required": ["path", "prefix"],
+			"additionalProperties": false,
+			"description": "Who the usage belongs to: prefix + the value at path is the envelope `key` (the timeline), e.g. family:fam_8k2. The school is NOT in the mapping or the payload: it is the ingest endpoint's (authenticated) context, as with the Stripe webhook endpoint.",
+			"properties": {
+				"path": { "$ref": "#/$defs/path" },
+				"prefix": { "type": "string", "pattern": "^[a-z][a-z0-9_]*:$" },
+				"type": { "enum": ["string", "int"] }
+			}
+		},
+		"labels": {
+			"type": "object",
+			"maxProperties": 8,
+			"propertyNames": {
+				"pattern": "^[a-z][a-z0-9_]*$",
+				"not": { "enum": ["mapping", "source", "school", "key", "idem"] }
+			},
+			"additionalProperties": { "$ref": "#/$defs/label" },
+			"description": "Named axes to group by. Values are strings. At most 8 axes; each is enumerated (`values`) or capped (`maxDistinct`). Request ids and user ids are not labels."
+		},
+		"quantities": {
+			"type": "object",
+			"minProperties": 1,
+			"propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+			"additionalProperties": { "$ref": "#/$defs/quantity" },
+			"description": "What was used, by name. Whole numbers or exact decimals; carried in the ledger payload, never in labels."
+		},
+		"personal": {
+			"type": "array",
+			"items": { "$ref": "#/$defs/path" },
+			"description": "Paths holding personal data (prompts, emails). They are removed from any copy of the raw event the system keeps, and no field above may read from under one."
+		},
+		"ignore": {
+			"type": "array",
+			"items": { "$ref": "#/$defs/path" },
+			"description": "Paths the source sends that this mapping deliberately does not use and that are not personal (a trace id, a system fingerprint). With the paths read and `personal` they are the keys the mapping knows; any other key in an event is format drift, which the contract test fails on."
+		}
+	},
+	"$defs": {
+		"path": {
+			"type": "string",
+			"pattern": "^\\$((\\.[A-Za-z0-9_]+)|(\\[\\d+\\]))*$"
+		},
+		"label": {
+			"type": "object",
+			"required": ["path"],
+			"additionalProperties": false,
+			"properties": {
+				"path": { "$ref": "#/$defs/path" },
+				"type": { "enum": ["string", "int", "bool"] },
+				"optional": { "type": "boolean" },
+				"default": { "type": ["string", "integer", "boolean"] },
+				"values": {
+					"type": "array",
+					"uniqueItems": true,
+					"minItems": 1,
+					"maxItems": 64,
+					"items": { "type": "string", "pattern": "^[A-Za-z0-9_.:/-]{1,64}$" },
+					"description": "The enumerated values this axis may take."
+				},
+				"onUnknown": {
+					"enum": ["other", "reject"],
+					"description": "A value outside `values` (or past `maxDistinct`) goes to the `other` bucket or is rejected for a human to look at. Required with `values`."
+				},
+				"other": {
+					"type": "string",
+					"pattern": "^[A-Za-z0-9_.:/-]{1,64}$",
+					"description": "The bucket's name; default \"other\"."
+				},
+				"maxDistinct": {
+					"type": "integer",
+					"minimum": 1,
+					"maximum": 1000,
+					"description": "At most this many distinct values of this label per school. The next new value is treated as unknown. Required without `values`; with `values` it defaults to their count."
+				},
+				"maxLength": { "type": "integer", "minimum": 1, "maximum": 64 }
+			},
+			"allOf": [
+				{
+					"if": { "required": ["values"] },
+					"then": { "required": ["onUnknown"] },
+					"else": { "required": ["maxDistinct"] }
+				},
+				{
+					"if": { "required": ["other"] },
+					"then": {
+						"properties": { "onUnknown": { "const": "other" } },
+						"required": ["onUnknown"]
+					}
+				}
+			]
+		},
+		"quantity": {
+			"type": "object",
+			"required": ["type", "unit", "meaning"],
+			"anyOf": [{ "required": ["path"] }, { "required": ["default"] }],
+			"additionalProperties": false,
+			"properties": {
+				"path": { "$ref": "#/$defs/path" },
+				"meaning": {
+					"type": "string",
+					"minLength": 8,
+					"description": "What the number counts, in words, so providers that count differently normalize to the same meaning. Convention for LLM usage: input_tokens is UNCACHED input; cache_read_tokens and cache_write_tokens are separate; output_tokens excludes reasoning_tokens. The quantities are disjoint, so their sum is the total billed."
+				},
+				"minus": {
+					"type": "array",
+					"uniqueItems": true,
+					"items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+					"description": "Names of other quantities of this mapping to subtract from the value read (OpenAI counts cached tokens inside prompt_tokens). The result must not fall below `min`."
+				},
+				"rawPlaces": {
+					"type": "integer",
+					"minimum": 1,
+					"maximum": 18,
+					"description": "Decimal only: the raw value is a JSON integer counting 10^-rawPlaces units (Grok's cost is an integer of 10^-10 dollars). The conversion is exact; `scale` must be at least rawPlaces."
+				},
+				"type": {
+					"enum": ["int", "decimal"],
+					"description": "int: a JSON integer within the safe range, carried as a JSON integer. decimal: an exact decimal read from a JSON string (or a JSON number with no exponent), carried as a decimal string with exactly `scale` places. More places than `scale` is refused, never rounded. Never a float."
+				},
+				"unit": {
+					"type": "string",
+					"pattern": "^[A-Za-z][A-Za-z0-9_]{0,15}$",
+					"description": "token, byte, request, USD ..."
+				},
+				"scale": { "type": "integer", "minimum": 1, "maximum": 12 },
+				"optional": { "type": "boolean" },
+				"default": { "type": ["integer", "string"] },
+				"min": {
+					"type": ["integer", "string"],
+					"description": "Smallest value accepted; default 0 (a negative quantity is refused unless min says so)."
+				},
+				"max": { "type": ["integer", "string"] }
+			},
+			"if": { "properties": { "type": { "const": "decimal" } } },
+			"then": { "required": ["scale"] },
+			"else": {
+				"not": {
+					"anyOf": [{ "required": ["scale"] }, { "required": ["rawPlaces"] }]
+				}
+			}
+		}
+	}
+}

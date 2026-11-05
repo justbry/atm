@@ -1,0 +1,112 @@
+[
+	{
+		"name": "full",
+		"event": {
+			"schema": "storage-meter-1",
+			"snapshot_id": "snap_001",
+			"taken_at_ms": 1767225600000,
+			"owner": { "id": "fam_8k2" },
+			"class": "standard",
+			"region": "us-east",
+			"stored_bytes": 5368709120,
+			"objects": 1204,
+			"accrued_cost": "0.123456",
+			"bucket_id": "b-77"
+		}
+	},
+	{
+		"name": "missing optional cost",
+		"event": {
+			"schema": "storage-meter-1",
+			"snapshot_id": "snap_002",
+			"taken_at_ms": 1767229200000,
+			"owner": { "id": "fam_8k2" },
+			"class": "archive",
+			"region": "us-east",
+			"stored_bytes": 100,
+			"objects": 2
+		}
+	},
+	{
+		"name": "unknown class (this mapping rejects)",
+		"event": {
+			"schema": "storage-meter-1",
+			"snapshot_id": "snap_003",
+			"taken_at_ms": 1767232800000,
+			"owner": { "id": "fam_9x1" },
+			"class": "glacier-deep",
+			"region": "eu-west",
+			"stored_bytes": 100,
+			"objects": 2
+		}
+	},
+	{
+		"name": "missing required label region",
+		"event": {
+			"schema": "storage-meter-1",
+			"snapshot_id": "snap_004",
+			"taken_at_ms": 1767236400000,
+			"owner": { "id": "fam_8k2" },
+			"class": "standard",
+			"stored_bytes": 100,
+			"objects": 2
+		}
+	},
+	{
+		"name": "duplicate of snap_001",
+		"event": {
+			"schema": "storage-meter-1",
+			"snapshot_id": "snap_001",
+			"taken_at_ms": 1767225600000,
+			"owner": { "id": "fam_8k2" },
+			"class": "standard",
+			"region": "us-east",
+			"stored_bytes": 5368709120,
+			"objects": 1204,
+			"accrued_cost": "0.123456"
+		}
+	},
+	{
+		"name": "personal data in the payload",
+		"event": {
+			"schema": "storage-meter-1",
+			"snapshot_id": "snap_006",
+			"taken_at_ms": 1767243600000,
+			"owner": {
+				"id": "fam_8k2",
+				"email": "parent@example.org",
+				"display_name": "Ada's parent"
+			},
+			"class": "standard",
+			"region": "us-east",
+			"stored_bytes": 7,
+			"objects": 1
+		}
+	},
+	{
+		"name": "malformed quantity: stored_bytes is a unit string",
+		"event": {
+			"schema": "storage-meter-1",
+			"snapshot_id": "snap_007",
+			"taken_at_ms": 1767247200000,
+			"owner": { "id": "fam_8k2" },
+			"class": "standard",
+			"region": "us-east",
+			"stored_bytes": "12GB",
+			"objects": 2
+		}
+	},
+	{
+		"name": "malformed quantity: negative object count",
+		"event": {
+			"schema": "storage-meter-1",
+			"snapshot_id": "snap_008",
+			"taken_at_ms": 1767250800000,
+			"owner": { "id": "fam_8k2" },
+			"class": "standard",
+			"region": "us-east",
+			"stored_bytes": 10,
+			"objects": -3
+		}
+	}
+]

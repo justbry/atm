@@ -1,0 +1,73 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://b4uni.com/_schema/payload/usage.recorded.v1.json",
+	"title": "usage.recorded payload v1 (PROPOSED, feasibility spike)",
+	"description": "One metered use by a holder: an LLM completion, a storage snapshot, an API call. No postings: this is a measurement, not money; rating it into dollars (and any postings) is a later, separate event. Labels carry the bounded axes to group by (model, region); the numbers are here, never in labels. Whole numbers are JSON integers; fractional or money-like values are decimal strings with a fixed number of places, never floats. The raw event (prompts, messages) is not here: it stays in the input store under this event's `cause`, with the mapping's personal paths removed. Must not carry `command`: the replay reads a payload with a `command` as an engine mutation.",
+	"type": "object",
+	"required": [
+		"payload_schema",
+		"mapping",
+		"mapping_digest",
+		"raw_sha256",
+		"request_id",
+		"quantities",
+		"units"
+	],
+	"additionalProperties": false,
+	"not": { "required": ["command"] },
+	"properties": {
+		"payload_schema": {
+			"const": 1,
+			"description": "The version of this payload schema (usage.recorded.v1.json). The envelope's `v` versions the envelope, not the payload; the event_type + this number name the schema file."
+		},
+		"mapping_digest": {
+			"type": "string",
+			"pattern": "^[0-9a-f]{64}$",
+			"description": "sha256 of the canonical JSON of the mapping file that produced this fact. `mapping` names it; the digest proves the file a reader holds is the one that ran."
+		},
+		"raw_sha256": {
+			"type": "string",
+			"pattern": "^[0-9a-f]{64}$",
+			"description": "sha256 of the canonical JSON of the raw source event with the mapping's personal paths removed. The redacted raw is stored apart under this hash (content-addressed, so identical events share one object); with it and the mapping, the fact can be re-derived."
+		},
+		"mapping": {
+			"type": "string",
+			"pattern": "^[a-z][a-z0-9_-]*/[a-z_]+(\\.[a-z_]+)+@v\\d+$",
+			"description": "The mapping that produced this fact, e.g. openai/llm.completion@v1."
+		},
+		"request_id": {
+			"type": "string",
+			"minLength": 1,
+			"maxLength": 128,
+			"description": "The producer's own id. Also inside `idem`; here so a reader does not parse idem."
+		},
+		"quantities": {
+			"type": "object",
+			"minProperties": 1,
+			"propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+			"additionalProperties": {
+				"oneOf": [
+					{
+						"type": "integer",
+						"minimum": -9007199254740991,
+						"maximum": 9007199254740991
+					},
+					{ "type": "string", "format": "decimal" }
+				]
+			}
+		},
+		"units": {
+			"type": "object",
+			"propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+			"additionalProperties": {
+				"type": "string",
+				"pattern": "^[A-Za-z][A-Za-z0-9_]{0,15}$"
+			},
+			"description": "The unit of each quantity, by the same names."
+		},
+		"late": {
+			"const": true,
+			"description": "Present when the event reached ingest after the mapping's late threshold (event_time and ingest_time are far apart)."
+		}
+	}
+}

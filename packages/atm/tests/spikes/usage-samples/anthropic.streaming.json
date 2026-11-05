@@ -1,0 +1,69 @@
+[
+	{
+		"name": "msg_s1 first delta",
+		"event": {
+			"schema": "gateway-log-2026-01",
+			"message": {
+				"id": "msg_s1",
+				"model": "claude-y",
+				"usage": {
+					"input_tokens": 500,
+					"cache_read_input_tokens": 4000,
+					"cache_creation_input_tokens": 0,
+					"output_tokens": 1
+				}
+			},
+			"timestamp": "2026-01-01T00:00:00Z",
+			"user": { "id": "fam_8k2" }
+		}
+	},
+	{
+		"name": "msg_s1 second delta",
+		"event": {
+			"schema": "gateway-log-2026-01",
+			"message": {
+				"id": "msg_s1",
+				"model": "claude-y",
+				"usage": {
+					"input_tokens": 500,
+					"cache_read_input_tokens": 4000,
+					"cache_creation_input_tokens": 0,
+					"output_tokens": 120
+				}
+			},
+			"timestamp": "2026-01-01T00:00:02Z",
+			"user": { "id": "fam_8k2" }
+		}
+	},
+	{
+		"name": "msg_s1 final",
+		"event": {
+			"schema": "gateway-log-2026-01",
+			"message": {
+				"id": "msg_s1",
+				"model": "claude-y",
+				"usage": {
+					"input_tokens": 500,
+					"cache_read_input_tokens": 4000,
+					"cache_creation_input_tokens": 0,
+					"output_tokens": 480
+				}
+			},
+			"timestamp": "2026-01-01T00:00:05Z",
+			"user": { "id": "fam_8k2" }
+		}
+	},
+	{
+		"name": "msg_s2 after the stream (separate response)",
+		"event": {
+			"schema": "gateway-log-2026-01",
+			"message": {
+				"id": "msg_s2",
+				"model": "claude-y",
+				"usage": { "input_tokens": 30, "output_tokens": 12 }
+			},
+			"timestamp": "2026-01-01T00:01:00Z",
+			"user": { "id": "fam_8k2" }
+		}
+	}
+]

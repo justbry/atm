@@ -1,0 +1,79 @@
+{
+	"v": 1,
+	"source": "grok",
+	"event": "llm.completion",
+	"sourceVersion": { "path": "$.schema", "equals": "gateway-log-2026-01" },
+	"id": { "path": "$.update.turnId", "type": "string" },
+	"time": { "path": "$.update.finishedAtMs", "type": "millis" },
+	"holder": { "path": "$.user.id", "prefix": "family:", "type": "string" },
+	"labels": {
+		"model": {
+			"path": "$.update.model",
+			"values": ["gpt-x", "claude-y"],
+			"onUnknown": "other"
+		},
+		"usage_feature": {
+			"path": "$.feature",
+			"default": "chat",
+			"maxDistinct": 32
+		}
+	},
+	"quantities": {
+		"cache_read_tokens": {
+			"path": "$.update.usage.cachedReadTokens",
+			"type": "int",
+			"unit": "token",
+			"optional": true,
+			"default": 0,
+			"meaning": "input tokens served from the provider's cache (counted inside inputTokens)"
+		},
+		"input_tokens": {
+			"path": "$.update.usage.inputTokens",
+			"minus": ["cache_read_tokens"],
+			"type": "int",
+			"unit": "token",
+			"meaning": "UNCACHED input tokens: inputTokens less the cached part"
+		},
+		"cache_write_tokens": {
+			"path": "$.update.usage.cacheCreationTokens",
+			"type": "int",
+			"unit": "token",
+			"optional": true,
+			"default": 0,
+			"meaning": "input tokens written to the provider's cache"
+		},
+		"output_tokens": {
+			"path": "$.update.usage.outputTokens",
+			"type": "int",
+			"unit": "token",
+			"meaning": "generated tokens as reported; whether reasoningTokens is inside this number is unconfirmed for this provider, so the two are not subtracted"
+		},
+		"reasoning_tokens": {
+			"path": "$.update.usage.reasoningTokens",
+			"type": "int",
+			"unit": "token",
+			"optional": true,
+			"default": 0,
+			"meaning": "tokens spent on reasoning as reported"
+		},
+		"cost_usd": {
+			"path": "$.update.usage.costUsdTicks",
+			"type": "decimal",
+			"rawPlaces": 10,
+			"scale": 10,
+			"unit": "USD",
+			"optional": true,
+			"meaning": "cost in dollars; the provider sends an integer of 1/10^10 dollar ticks (assumed, unconfirmed), converted exactly"
+		},
+		"duration_ms": {
+			"path": "$.update.elapsed_ms",
+			"type": "int",
+			"unit": "ms",
+			"optional": true,
+			"default": 0,
+			"meaning": "wall time of the turn in milliseconds"
+		}
+	},
+	"personal": ["$.user.email", "$.update.content", "$.update.rawOutput"],
+	"ignore": ["$.update.sessionUpdate", "$.update.stop_reason"]
+}

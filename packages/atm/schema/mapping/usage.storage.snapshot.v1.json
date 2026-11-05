@@ -1,0 +1,41 @@
+{
+	"v": 1,
+	"source": "storage",
+	"event": "storage.snapshot",
+	"sourceVersion": { "path": "$.schema", "equals": "storage-meter-1" },
+	"id": { "path": "$.snapshot_id", "type": "string" },
+	"time": { "path": "$.taken_at_ms", "type": "millis" },
+	"holder": { "path": "$.owner.id", "prefix": "family:", "type": "string" },
+	"labels": {
+		"bucket_class": {
+			"path": "$.class",
+			"values": ["standard", "archive"],
+			"onUnknown": "reject"
+		},
+		"region": { "path": "$.region", "maxDistinct": 16 }
+	},
+	"quantities": {
+		"stored_bytes": {
+			"path": "$.stored_bytes",
+			"type": "int",
+			"unit": "byte",
+			"meaning": "bytes held in the bucket at the moment of the snapshot (a level, not a flow: do not sum across snapshots)"
+		},
+		"object_count": {
+			"path": "$.objects",
+			"type": "int",
+			"unit": "object",
+			"meaning": "objects held at the moment of the snapshot (a level, not a flow)"
+		},
+		"gb_month_cost": {
+			"path": "$.accrued_cost",
+			"type": "decimal",
+			"scale": 6,
+			"unit": "USD",
+			"optional": true,
+			"meaning": "storage cost accrued since the previous snapshot, in dollars, exact to a millionth"
+		}
+	},
+	"personal": ["$.owner.email", "$.owner.display_name"],
+	"ignore": ["$.bucket_id"]
+}
