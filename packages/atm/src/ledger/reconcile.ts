@@ -20,6 +20,7 @@ const MS_PER_SECOND = 1000;
 const MONTH = /^(\d{4})-(\d{2})$/;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const STRIPE_PREFIX = /^stripe:/;
+const REFUND_ID_PREFIX = "re_";
 const LEDGER_CURRENCY = "usd";
 
 /** Balance transaction types that move money out to the bank (or back): compared as payouts, not in the net. */
@@ -121,6 +122,11 @@ type Item = {
 	currency: string | null;
 	date: string;
 	status: string | null;
+	/** Seconds since the epoch: orders refunds on one payment. Only refunds carry it. */
+	at?: number;
+	/** What a refund names: the payment intent and the charge it refunds. */
+	paymentIntent?: string | null;
+	charge?: string | null;
 };
 
 const lower = (text: string | null | undefined): string | null =>
@@ -153,6 +159,102 @@ const itemOfEvent = (event: AtmEvent): Item => {
 	};
 };
 
+/** The text of a payload field when it is a non-empty string. */
+const textOf = (value: unknown): string | null =>
+	typeof value === "string" && value !== "" ? value : null;
+
+/**
+ * A refund event the handler made is labelled with the Stripe event id (`evt_...`, a `charge.refunded` delivers a Charge,
+ * which has no refund id) and names the charge and the payment intent instead. Its refund is found among Stripe's by those
+ * and the amount. An event with a `re_...` id, or with neither, is matched by its id as before.
+ */
+const isTiedRefund = (event: AtmEvent): boolean =>
+	!stripeIdOf(event).startsWith(REFUND_ID_PREFIX) &&
+	(textOf(event.payload.payment_intent) !== null ||
+		textOf(event.payload.charge) !== null);
+
+/** Whether a refund event and a Stripe refund are of one payment: the same payment intent, else the same charge. */
+const samePayment = (event: AtmEvent, refund: Item): boolean => {
+	const eventIntent = textOf(event.payload.payment_intent);
+	if (eventIntent !== null && refund.paymentIntent)
+		return eventIntent === refund.paymentIntent;
+	const eventCharge = textOf(event.payload.charge);
+	return eventCharge !== null && eventCharge === refund.charge;
+};
+
+/**
+ * Pairs the handler-made refund events with Stripe's refunds, one to one, and returns the Stripe id each event stands for.
+ * Refunds of one payment are a multiset in time order: an event takes the unpaired Stripe refund of the same payment
+ * and amount nearest to it in time (one on its own day first), so two equal refunds pair two to two, and a third on one
+ * side only is left over. Left-over pairs of one payment, both in the period or both out, are the same refund with
+ * another amount: paired so that it is `amount_differs`, not a missing record on each side. Refunds of equal amount on
+ * one payment cannot be told apart, only counted.
+ */
+const tieRefunds = (
+	events: readonly AtmEvent[],
+	stripe: readonly Item[],
+	scope: Scope,
+): Map<string, string> => {
+	const tied = events
+		.filter(isTiedRefund)
+		.sort(
+			(a, b) =>
+				Date.parse(a.event_time) - Date.parse(b.event_time) ||
+				(a.id < b.id ? -1 : 1),
+		);
+	const byId = new Set(
+		events.filter((event) => !isTiedRefund(event)).map(stripeIdOf),
+	);
+	const pool = stripe
+		.filter((refund) => !byId.has(refund.id))
+		.sort((a, b) => (a.at ?? 0) - (b.at ?? 0) || (a.id < b.id ? -1 : 1));
+	const paired = new Map<string, string>();
+	const taken = new Set<string>();
+	const sameMoney = (event: AtmEvent, refund: Item) => {
+		const item = itemOfEvent(event);
+		return (
+			item.amount === refund.amount &&
+			(item.currency === null ||
+				refund.currency === null ||
+				item.currency === refund.currency)
+		);
+	};
+	const rules: ((event: AtmEvent, refund: Item) => boolean)[] = [
+		(event, refund) => sameMoney(event, refund) && event.date === refund.date,
+		sameMoney,
+		(event, refund) => scope.has(event.date) === scope.has(refund.date),
+	];
+	// Each rule pairs the closest in time first, over every event and refund at once: an event taking the earliest equal
+	// refund would take one that a later event is nearer to, and pair that one wrongly.
+	for (const rule of rules) {
+		const candidates = tied.flatMap((event) =>
+			pool
+				.filter(
+					(refund) =>
+						!paired.has(event.id) &&
+						!taken.has(refund.id) &&
+						samePayment(event, refund) &&
+						rule(event, refund),
+				)
+				.map((refund) => ({
+					event,
+					refund,
+					gap: Math.abs(
+						Date.parse(event.event_time) / MS_PER_SECOND - (refund.at ?? 0),
+					),
+				})),
+		);
+		// Stable: equal gaps keep the order of the events and then of the refunds.
+		candidates.sort((a, b) => a.gap - b.gap);
+		for (const { event, refund } of candidates) {
+			if (paired.has(event.id) || taken.has(refund.id)) continue;
+			paired.set(event.id, refund.id);
+			taken.add(refund.id);
+		}
+	}
+	return paired;
+};
+
 type Pairing = {
 	object: ReconcileObject;
 	eventType: AtmEventType;
@@ -167,6 +269,8 @@ type Pairing = {
 	compareStatus?: boolean;
 	/** False for a record that has no amount of its own (a `dispute.closed` names the dispute, not its sum): amount and currency are not compared. */
 	compareAmount?: boolean;
+	/** The Stripe id an event stands for, when it is not the one it carries (a handler-made refund event, see `tieRefunds`). */
+	idOf?: (event: AtmEvent) => string;
 };
 
 const describeItem = (item: Item): string =>
@@ -183,7 +287,7 @@ const pair = (
 	const stripeById = new Map(pairing.stripe.map((item) => [item.id, item]));
 	const eventsById = new Map<string, AtmEvent[]>();
 	for (const event of pairing.events) {
-		const id = stripeIdOf(event);
+		const id = pairing.idOf?.(event) ?? stripeIdOf(event);
 		eventsById.set(id, [...(eventsById.get(id) ?? []), event]);
 	}
 	const ids = [...new Set([...stripeById.keys(), ...eventsById.keys()])].sort();
@@ -284,7 +388,8 @@ const byObjectIdKind = (a: ReconcileDifference, b: ReconcileDifference) =>
 
 /**
  * Compares a school's events with Stripe's records for one period and reports every difference. Pure: it reads only
- * its argument. Matching is by Stripe's id (`payload.id` of the event); a record counts for the period when it is dated
+ * its argument. Matching is by Stripe's id (`payload.id` of the event), except a refund event labelled with a Stripe event
+ * id that names its payment (the handler's, see `tieRefunds`); a record counts for the period when it is dated
  * in it, by the school's calendar (an event's own `date`, the one `buildJournal` uses; a Stripe record's `created`, or
  * an invoice's `paid_at`, in the school's zone). A pair is compared when either side is in the period.
  */
@@ -351,8 +456,15 @@ export const reconcile = (input: ReconcileInput): ReconcileResult => {
 				currency: lower(refund.currency),
 				date: dayOf(refund.created),
 				status: null,
+				at: refund.created,
+				paymentIntent: refund.payment_intent ?? null,
+				charge: refund.charge ?? null,
 			}),
 		);
+	const refundEvents = ofType("payment.refunded");
+	const tiedRefunds = refunds
+		? tieRefunds(refundEvents, refunds, scope)
+		: new Map<string, string>();
 	const disputeRecords = stripe.disputes?.filter(inMode).filter((dispute) => {
 		if (!DISPUTE_STATES_WITHOUT_MONEY.has(dispute.status)) return true;
 		return ignore("dispute_no_money_moved");
@@ -405,8 +517,9 @@ export const reconcile = (input: ReconcileInput): ReconcileResult => {
 				object: "refund",
 				eventType: "payment.refunded",
 				stripe: refunds,
-				events: ofType("payment.refunded"),
+				events: refundEvents,
 				flagPeriodShift: true,
+				idOf: (event) => tiedRefunds.get(event.id) ?? stripeIdOf(event),
 			},
 			scope,
 			scope.label,

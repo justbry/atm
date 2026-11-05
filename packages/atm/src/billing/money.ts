@@ -134,7 +134,19 @@ export const refundEvents = ({
 			labels,
 			amount: refunded,
 			text: `refunded ${refunded / CENTS_PER_DOLLAR} USD of charge ${refund.chargeId}`,
-			payload: { id: refund.id, amount: refunded, currency: USD },
+			payload: {
+				id: refund.id,
+				amount: refunded,
+				currency: USD,
+				// What ties the event to Stripe's refund list: its refunds name the charge and the payment intent, never the
+				// event. `reconcile` pairs by these and the amount; `amount_refunded` is the total the amount was taken from.
+				charge: refund.chargeId,
+				...(refund.paymentIntentId
+					? { payment_intent: refund.paymentIntentId }
+					: {}),
+				...(refund.invoiceId ? { invoice: refund.invoiceId } : {}),
+				amount_refunded: refund.amount,
+			},
 		}),
 	];
 };
