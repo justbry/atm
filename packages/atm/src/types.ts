@@ -1933,6 +1933,55 @@ export type StripeEventResult = {
 	refused?: StripeEventRefusal;
 };
 
+/**
+ * A `BillingFact` without what the grant rules never read: its `source` (rebuilt from the event id, the mapping and the API
+ * version), the invoice's number and its bearer links. A fact's `metadata` is cut to the keys the rules read
+ * (`REPLAY_METADATA_KEYS`; a checkout session also keeps `booking_id`). Built by `replayFactOf`.
+ */
+export type ReplayFact =
+	| Omit<
+			BillingInvoice,
+			"source" | "number" | "hostedInvoiceUrl" | "invoicePdf"
+	  >
+	| Omit<BillingRefund, "source">
+	| Omit<BillingDispute, "source">
+	| Omit<SubscriptionFact, "source">
+	| Omit<InvoicePaymentFact, "source">
+	| Omit<StripePayout, "source">
+	| Omit<CheckoutSessionFact, "source">;
+
+/** The shape of a stored fact body. `v` is the version of this shape. */
+export type StoredFactBody = { v: 1; fact: ReplayFact };
+
+/** The mapping and normalization step of `handleStripeEvent`: the fact the rules will decide on, or why there is none. */
+export type NormalizedStripeEvent =
+	| {
+			ok: true;
+			target: MappingTarget;
+			/** `stripe/invoice.paid@v1`: the label the fact's `source.mapping` carries. */
+			mappingLabel: string;
+			apiVersion: string;
+			/** The event's `type`. */
+			type: string;
+			fact: BillingFact;
+	  }
+	| { ok: false; refusal: StripeEventRefusal };
+
+/** `handleStripeEvent` from the step "decide" on: an already normalized fact in place of the raw event. */
+export type StripeFactInput = Omit<StripeEventInput, "event"> & {
+	/** The fact, or the stored replay fact (`replayFactOf`); `source` is rebuilt from `eventId`, `mapping` and `apiVersion`. */
+	fact: ReplayFact;
+	target: MappingTarget;
+	/**
+	 * The event type. The dispute rule reads it to tell `charge.dispute.closed` from `charge.dispute.created`; there is
+	 * no raw event here to read it from.
+	 */
+	type: string;
+	apiVersion: string;
+	/** `stripe/invoice.paid@v1` */
+	mapping: string;
+};
+
 // ---- Storage rows ----
 
 /**
