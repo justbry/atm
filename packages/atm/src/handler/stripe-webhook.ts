@@ -41,6 +41,12 @@
  *   `ledger_outbox` `(school_id, env, id)`, `env` being `deps.env`, so one Stripe id delivered under both envs is claimed,
  *   indexed and booked once in each, and a refund's payment-to-invoice join stays inside its env. A database made before
  *   env was a key needs `migrateHandlerSchema(db)` once; without it the handler throws before touching anything.
+ * - Stored inputs. In the same transaction as the rows, the outbox rows and the claim's done mark, the delivery is also
+ *   written to `atm_event_inputs` by `recordInput` (src/handler/inputs.ts): the trimmed fact the rules decided on, the fee and
+ *   payment refs, the SHA-256 of the raw body (never the body), and the menu and policy in force. What is stored: an applied
+ *   delivery (an `invoice_payment.paid` too) and a 422 refusal (replaced when the event is applied later). Not stored: a
+ *   409 wait, another product's event, a type we do not map, a refusal before the claim, an event that does not normalize.
+ *   A storage error throws with the rest: nothing is committed, the claim stays `claimed`, Stripe retries.
  * - The Stripe event id is deduplicated here; `handleStripeEvent` gets a ULID derived from the school and that id
  *   and the event's `created`, so the same delivery always decides the same way.
  * - A refund or dispute names its charge and payment intent, never the invoice, and the webhook's invoice names no
@@ -133,7 +139,7 @@
  * budget (3) for stale revisions; `now` for the engine is the event's `created`, in whole seconds.
  */
 import { resolveEnv } from "../billing/env.js";
-import { handleStripeEvent } from "../billing/handle.js";
+import { handleStripeEvent, normalizeStripeEvent } from "../billing/handle.js";
 import {
 	describeNormalizeError,
 	mappingFor,
@@ -145,12 +151,17 @@ import type {
 	AtmEnv,
 	AtmEvent,
 	BillingInvoice,
+	InputOutcome,
 	InvoicePaymentFact,
 	RowChanges,
 	StripeEventRefusal,
+	WebhookContext,
 } from "../types.js";
-import { inputCauseId } from "./inputs.js";
-import { assertCurrentSchema as assertCurrentTables } from "./schema.js";
+import { inputCauseId, recordInput } from "./inputs.js";
+import {
+	assertCurrentSchema as assertCurrentTables,
+	assertInputTables,
+} from "./schema.js";
 import { verifyStripeSignature } from "./stripe-signature.js";
 import type {
 	SqlDatabase,
@@ -194,6 +205,8 @@ type StripeEvent = {
 	created: number;
 	object: JsonObject;
 	raw: unknown;
+	/** The verified request body, byte for byte: hashed into the stored input, never stored. */
+	payload: string;
 };
 
 /** Where the claim stands for this worker: both values identify it, a takeover changes `claimedAt`. */
@@ -256,7 +269,7 @@ const parseEvent = (payload: string): StripeEvent | null => {
 	const created = raw.created;
 	if (typeof created !== "number" || !Number.isInteger(created) || created < 0)
 		return null;
-	return { id, type, created, object, raw };
+	return { id, type, created, object, raw, payload };
 };
 
 // ---- Finding the subject ----
@@ -619,6 +632,75 @@ const withPaymentNote = (
 	};
 };
 
+/** The event's boolean `livemode`, or null for an older hand-built fixture that has none. */
+const livemodeOf = (event: StripeEvent): boolean | null => {
+	const livemode = isObject(event.raw) ? event.raw.livemode : undefined;
+	return typeof livemode === "boolean" ? livemode : null;
+};
+
+/**
+ * Stores the delivery as an input (`recordInput`), in the transaction that is open: the same one that writes the rows and the
+ * outbox rows and marks the claim done, so a storage error throws and rolls the whole delivery back (500, Stripe retries).
+ * An event that does not normalize has no fact to store and is left out (`handleStripeEvent` refused it before it decided).
+ */
+const storeInput = ({
+	deps,
+	env,
+	event,
+	inputId,
+	subjectKey: key,
+	outcome,
+	reason,
+	revisionBefore,
+	revisionAfter,
+	rowsBefore,
+	context,
+	fee,
+	paymentRefs,
+}: {
+	deps: WebhookDeps;
+	env: AtmEnv;
+	event: StripeEvent;
+	inputId: string;
+	subjectKey: string;
+	outcome: InputOutcome;
+	reason: StripeEventRefusal["reason"] | null;
+	revisionBefore: number;
+	revisionAfter: number;
+	rowsBefore: readonly BillingRow[];
+	context: WebhookContext | null;
+	fee: number | null;
+	paymentRefs: readonly string[] | null;
+}): void => {
+	const normalized = normalizeStripeEvent(event.raw, inputId);
+	if (!normalized.ok) return;
+	recordInput(deps.db, {
+		env,
+		schoolId: schoolOf(key),
+		event: {
+			id: event.id,
+			type: event.type,
+			created: event.created,
+			apiVersion: normalized.apiVersion,
+			livemode: livemodeOf(event),
+		},
+		rawBody: event.payload,
+		normalized,
+		outcome,
+		reason,
+		subjectKey: key,
+		revisionBefore,
+		revisionAfter,
+		rowsBefore,
+		context,
+		fee,
+		paymentRefs,
+		inputId,
+		bookingRefs: null,
+		nowMs: deps.nowMs(),
+	});
+};
+
 const applyOnce = ({
 	deps,
 	env,
@@ -642,13 +724,14 @@ const applyOnce = ({
 	}
 	const { rows, revision } = loadSubject(db, located.subjectKey);
 	const fee = feeOf(deps, event);
+	const inputId = inputCauseId({
+		school,
+		eventId: event.id,
+		stripeCreated: event.created,
+	});
 	const result = handleStripeEvent({
 		event: event.raw,
-		eventId: inputCauseId({
-			school,
-			eventId: event.id,
-			stripeCreated: event.created,
-		}),
+		eventId: inputId,
 		menu: context.menu,
 		menuVersion: context.menuVersion,
 		policy: context.policy,
@@ -669,6 +752,23 @@ const applyOnce = ({
 		// payment line is the same idem, which the outbox keeps once.
 		const { payment } = result.refused;
 		if (payment) appendToOutbox(db, payment, env);
+		// A 422 is stored (the retry replaces it when it is applied); a 409 is a wait and stores nothing.
+		if (!RETRYABLE_REFUSALS.has(result.refused.reason))
+			storeInput({
+				deps,
+				env,
+				event,
+				inputId,
+				subjectKey: located.subjectKey,
+				outcome: "refused",
+				reason: result.refused.reason,
+				revisionBefore: revision,
+				revisionAfter: revision,
+				rowsBefore: rows,
+				context,
+				fee: typeof fee === "number" ? fee : null,
+				paymentRefs: null,
+			});
 		releaseClaim(deps, event.id, claim);
 		return {
 			kind: "refused",
@@ -685,6 +785,8 @@ const applyOnce = ({
 		writeRows(db, result.rowChanges);
 	}
 	appendToOutbox(db, result.events, env);
+	// What an invoice paid with: the payment index learns it, and the stored input keeps it (a refund finds its invoice by it).
+	let invoiceRefs: string[] | null = null;
 	if (event.type === "invoice.paid") {
 		const invoiceId = stringAt(event.object, "id");
 		if (invoiceId) {
@@ -692,13 +794,29 @@ const applyOnce = ({
 				`INSERT INTO atm_invoice_index (env, invoice_id, subject_key) VALUES (?, ?, ?) ON CONFLICT (env, invoice_id) DO NOTHING`,
 				[env, invoiceId, located.subjectKey],
 			);
-			for (const ref of invoiceRefsOf(deps, event))
+			invoiceRefs = invoiceRefsOf(deps, event);
+			for (const ref of invoiceRefs)
 				db.run(
 					`INSERT INTO atm_payment_index (env, payment_ref, invoice_id) VALUES (?, ?, ?) ON CONFLICT (env, payment_ref) DO NOTHING`,
 					[env, ref, invoiceId],
 				);
 		}
 	}
+	storeInput({
+		deps,
+		env,
+		event,
+		inputId,
+		subjectKey: located.subjectKey,
+		outcome: "applied",
+		reason: null,
+		revisionBefore: revision,
+		revisionAfter: result.rowChanges?.nextRevision ?? revision,
+		rowsBefore: rows,
+		context,
+		fee: typeof fee === "number" ? fee : null,
+		paymentRefs: invoiceRefs,
+	});
 	const skipped = skippedLines(result.events);
 	finishClaim(
 		deps,
@@ -861,6 +979,28 @@ const recordPaymentOnce = (
 			`INSERT INTO atm_payment_index (env, payment_ref, invoice_id) VALUES (?, ?, ?) ON CONFLICT (env, payment_ref) DO NOTHING`,
 			[envOf(deps), ref, fact.invoiceId],
 		);
+	// It teaches the payment index, so it is part of the history a replay needs. It decides nothing, moves no rows and reads
+	// no menu or policy: the holder's revision is as it was, and there is no context.
+	const holder = loadSubject(db, known.subject_key);
+	storeInput({
+		deps,
+		env: envOf(deps),
+		event,
+		inputId: inputCauseId({
+			school,
+			eventId: event.id,
+			stripeCreated: event.created,
+		}),
+		subjectKey: known.subject_key,
+		outcome: "applied",
+		reason: null,
+		revisionBefore: holder.revision,
+		revisionAfter: holder.revision,
+		rowsBefore: holder.rows,
+		context: null,
+		fee: null,
+		paymentRefs: null,
+	});
 	finishClaim(deps, event.id, claim);
 	return { kind: "recorded", refs: refs.length };
 };
@@ -968,6 +1108,7 @@ const currentSchemas = new WeakSet<SqlDatabase>();
 const assertCurrentSchema = (db: SqlDatabase): void => {
 	if (currentSchemas.has(db)) return;
 	assertCurrentTables(db);
+	assertInputTables(db);
 	currentSchemas.add(db);
 };
 
