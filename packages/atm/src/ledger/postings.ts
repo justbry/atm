@@ -967,3 +967,98 @@ export const lapseEvent = ({
 		payload: { lapsed: [row] },
 		revision,
 	});
+
+/** What `feature` holds in live rows and rollovers at `atMs`: a row with no expiry, or one that ends after it. */
+const liveTotalAt = ({
+	state,
+	featureOf,
+	feature,
+	atMs,
+}: {
+	state: SubjectState;
+	featureOf: (internalFeatureId: string) => string | undefined;
+	feature: string;
+	atMs: number;
+}): number => {
+	const own = state.customerEntitlements.filter(
+		(r) => featureOf(r.internal_feature_id) === feature,
+	);
+	const ids = new Set(own.map((r) => r.id));
+	let total = 0;
+	for (const r of own) if (isLive(r.expires_at, atMs)) total += r.balance;
+	for (const r of state.rollovers)
+		if (ids.has(r.cus_ent_id) && isLive(r.expires_at, atMs)) total += r.balance;
+	return total;
+};
+
+/**
+ * The `credit.depleted` events for a feature whose credits ran out by the clock: for each instant a row lapsed (up to
+ * `atMs`), the feature's total over every plan goes from above 0 just before it to 0 or below at it. Rows that lapse at
+ * the same instant (two packs, a rollover and its grant) make one event, and a lapse that leaves other credits makes
+ * none. There is no `credit.low` on a lapse. Opt-in by being called: `lapseEvent` makes the same `credit.expired`
+ * events with or without it, so a cron that never calls this gets what it always got. Judged on `state` as the cron
+ * found the lapse (the state it gives `lapsedRows`, before it books anything later). Idempotent on the holder key, the
+ * feature and the instant, so a second run on the same state books nothing new.
+ */
+export const lapseAlertEvents = ({
+	state,
+	featureOf,
+	feature,
+	atMs,
+	key,
+	school,
+	tz,
+	revision,
+	labels,
+	ingestTime,
+}: {
+	state: SubjectState;
+	featureOf: (internalFeatureId: string) => string | undefined;
+	feature: string;
+	atMs: number;
+	key: string;
+	school: string;
+	tz: string;
+	revision: number;
+	labels?: Record<string, string>;
+	ingestTime?: string | number;
+}): AtmEvent[] => {
+	const instants = new Set<number>();
+	for (const row of lapsedRows({ state, featureOf, feature, atMs }))
+		instants.add(row.expires_at);
+	const events: AtmEvent[] = [];
+	for (const instant of [...instants].sort((a, b) => a - b)) {
+		const before = liveTotalAt({
+			state,
+			featureOf,
+			feature,
+			atMs: instant - 1,
+		});
+		const after = liveTotalAt({ state, featureOf, feature, atMs: instant });
+		if (before <= 0 || after > 0) continue;
+		events.push(
+			buildEvent({
+				type: "credit.depleted",
+				school,
+				source: "cron",
+				eventMs: instant,
+				ingestMs: ingestTime === undefined ? instant : asMs(ingestTime),
+				tz,
+				key,
+				labels: { feature, ...(labels ?? {}) },
+				idem: `lapse:${key}:depleted:${feature}:${instant}`,
+				text: `${feature} credits used up`,
+				postings: [],
+				payload: {
+					feature,
+					available: after,
+					threshold: null,
+					previous_available: before,
+					cause: "expired",
+				},
+				revision,
+			}),
+		);
+	}
+	return events;
+};
