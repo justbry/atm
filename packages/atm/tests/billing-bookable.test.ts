@@ -110,7 +110,7 @@ describe("hold", () => {
 		const [held] = events;
 		expect(held?.labels).toMatchObject({
 			feature: "visit",
-			booking: "bk_b1",
+			booking: "b1",
 			menu_version: "1",
 			policy_version: "1",
 			mapping: "atm/booking",
@@ -330,7 +330,7 @@ describe("confirm, release, cancel and no-show", () => {
 
 		const release = member({ policy: policyWith({ lateCancel: "release" }) });
 		ok(hold(release));
-		const released = ok(settle(cancelBooking, release, STARTS + HOUR));
+		const released = ok(settle(cancelBooking, release, STARTS - HOUR));
 		expect(released.late).toBe(true);
 		expect(released.booking).toMatchObject({
 			state: "released",
@@ -347,7 +347,7 @@ describe("confirm, release, cancel and no-show", () => {
 		expect(late.late).toBe(true);
 		const none = member({ policy: policyWith({ cancelCutoffHours: 0 }) });
 		ok(hold(none));
-		expect(ok(settle(cancelBooking, none, STARTS)).late).toBe(false);
+		expect(ok(settle(cancelBooking, none, STARTS - 1)).late).toBe(false);
 	});
 
 	test("a policy stored before the booking fields existed gets the defaults", () => {
@@ -535,7 +535,7 @@ describe("replays and refusals", () => {
 	test("a late cancel replayed, even at another time, answers the same", () => {
 		const m = member();
 		ok(hold(m));
-		ok(settle(cancelBooking, m, STARTS));
+		ok(settle(cancelBooking, m, STARTS - HOUR));
 		expect(ok(settle(cancelBooking, m, STARTS + DAY))).toMatchObject({
 			rowChanges: null,
 			late: true,
@@ -623,7 +623,7 @@ describe("ids and the stored state", () => {
 		const run = () => {
 			const m = member({ invoices: ["inv-create-s2-pack"] });
 			const hold1 = hold(m, { credits: 3 });
-			const settled = settle(cancelBooking, m, STARTS);
+			const settled = settle(cancelBooking, m, STARTS - HOUR);
 			return JSON.stringify([hold1, settled, m.rows, m.events]);
 		};
 		expect(run()).toBe(run());

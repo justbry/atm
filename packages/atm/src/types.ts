@@ -915,6 +915,13 @@ export type InvoiceRecord = {
 	 * such an invoice makes no `payment.refunded`: there is no payment for it to take back from.
 	 */
 	paid?: number;
+	/**
+	 * Units of this invoice that an open booking held when a refund or a lost dispute removed it, by credit row id: they were
+	 * not in the balance, so the removal could not take them back. The release that frees them takes them back instead (a
+	 * `credit.adjusted`); a confirm spends them (they were used) and clears them. Absent when nothing was held, so a state that
+	 * never booked is written as before.
+	 */
+	owed?: Record<string, number>;
 };
 
 /** Everything the rules need to remember between facts. Plain JSON: store it as is. */
@@ -1239,6 +1246,7 @@ export type BookingCost =
  * - `already_settled`: the booking was already spent, released or paid and this call would undo that.
  * - `hold_expired`: the hold's expiry has passed and this call would do the opposite of its expiry action (a release or a free cancel of a `confirm` hold, a spend of a `release` hold): use `settleExpiredHold`. A call that does what the expiry action does still works.
  * - `not_credits`: the call is for credits and the booking's cost is free or a price.
+ * - `session_started`: a cancel at or after the session's `startsAt`: the session is not cancelled once it has started; settle it with `noShowBooking` (or `confirmBooking`).
  */
 export type BookingRefusalReason =
 	| "invalid_billing"
@@ -1253,7 +1261,8 @@ export type BookingRefusalReason =
 	| "no_hold"
 	| "already_settled"
 	| "hold_expired"
-	| "not_credits";
+	| "not_credits"
+	| "session_started";
 
 export type BookingRefusal = {
 	ok: false;
@@ -1312,6 +1321,12 @@ export type BookingRecord = {
 	expiryAction?: "confirm" | "release";
 	/** The open lock row while `state` is `held`; dropped when settled. */
 	lock?: HoldLock;
+	/**
+	 * When each refilling credit row the hold drew from (a tier or recurring add-on row) was due to reset when the hold was
+	 * made, by row id; dropped when settled. A release after that reset ran does not give last cycle's credits to the new
+	 * cycle: they go back as the row's rollover would have carried them, or lapse. Absent when the hold drew from no such row.
+	 */
+	resetsAt?: Record<string, number>;
 	/** When the hold was made, and when it was settled (ms). */
 	heldAt?: number;
 	settledAt?: number;
