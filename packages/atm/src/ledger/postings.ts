@@ -545,7 +545,14 @@ export const mutationToEvents = ({
 	const { id: mutationId, revision } = mutation;
 	const { command: _command, ...mutationWithoutCommand } =
 		mutation as unknown as Record<string, unknown>;
-	const booking = bookingOf(mutation);
+	// The events are made from the slice the caller names; the payload keeps the whole mutation.
+	const moved: SubjectStateMutation = context.slice
+		? ({
+				...mutation,
+				changes: context.slice.map((position) => mutation.changes[position]),
+			} as SubjectStateMutation)
+		: mutation;
+	const booking = bookingOf(moved);
 	const baseLabels: Record<string, string> = {
 		feature,
 		...(mutation.identity.entityId
@@ -598,6 +605,7 @@ export const mutationToEvents = ({
 				payload: {
 					command: mutation.command,
 					mutation: mutationWithoutCommand,
+					...(context.slice ? { slice: context.slice } : {}),
 					...(context.payload ?? {}),
 					...(extra.payload ?? {}),
 				},
@@ -607,7 +615,7 @@ export const mutationToEvents = ({
 	};
 	const what = (n: number) => `${n} ${feature}`;
 	const moves = balanceMoves(
-		mutation,
+		moved,
 		context.before as unknown as SubjectState | null | undefined,
 		atMs,
 	);
@@ -724,7 +732,7 @@ export const mutationToEvents = ({
 		}
 		case "applyBillingPlan": {
 			if (moves.delta > 0) {
-				const grantExpiry = mutation.changes.flatMap((c) =>
+				const grantExpiry = moved.changes.flatMap((c) =>
 					c.table === "customerEntitlements" &&
 					c.op === "insert" &&
 					c.row.expires_at != null
@@ -786,21 +794,21 @@ export const mutationToEvents = ({
 		default:
 			throw new Error(`no ledger events for a ${command.type} command`);
 	}
-	for (const moved of expiryMoves(mutation)) {
-		const date = isoInstant(moved.expiresAt);
+	for (const expiry of expiryMoves(moved)) {
+		const date = isoInstant(expiry.expiresAt);
 		// The key is scoped to the command: row ids repeat across holders (every family has a ce_tier_visit_month).
 		emit(
 			"credit.expiration_changed",
-			`expiry:${moved.rowId}`,
+			`expiry:${expiry.rowId}`,
 			0,
-			`${feature} credits now expire ${date}${moved.refillsEnded ? ", refills ended" : ""}`,
+			`${feature} credits now expire ${date}${expiry.refillsEnded ? ", refills ended" : ""}`,
 			{
 				labels: { expires_at: date },
 				payload: {
-					row_id: moved.rowId,
-					previous_expires_at: moved.previousExpiresAt,
-					expires_at: moved.expiresAt,
-					refills_ended: moved.refillsEnded,
+					row_id: expiry.rowId,
+					previous_expires_at: expiry.previousExpiresAt,
+					expires_at: expiry.expiresAt,
+					refills_ended: expiry.refillsEnded,
 				},
 			},
 		);
@@ -814,7 +822,7 @@ export const mutationToEvents = ({
 		!isDraw || threshold === undefined
 			? null
 			: availableAround(
-					mutation,
+					moved,
 					(context.featureChanges as unknown as
 						| SubjectStateMutation["changes"]
 						| undefined) ?? null,

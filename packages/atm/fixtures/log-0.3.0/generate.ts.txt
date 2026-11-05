@@ -1,0 +1,238 @@
+/**
+ * Writes the committed fixtures `fixtures/log-0.3.0/` with the 0.3.0 writer. Run it in a checkout of the tag `atm-v0.3.0`
+ * (it needs that release's `handleStripeEvent`, grants rules and test helpers), with TZ=UTC:
+ *
+ *   git archive atm-v0.3.0 packages/atm | tar -x -C <scratch>   # then link node_modules, and copy this file to fixtures/
+ *   TZ=UTC bun fixtures/gen-log-030.ts <out dir>
+ *
+ * Per scenario it writes `events.jsonl` (what the writer put in the log: `result.events` in order, plus the family's own
+ * bookings), `commands.json` (every engine command the writer ran, with the whole mutation the engine decided: the
+ * oracle, most of which the log does not hold) `state.json` (the engine's rows as the stored rows ended) and `rows.json` (all the stored rows and the revision,
+ * to carry on from).
+ */
+import { mock } from "bun:test";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+const out = process.argv[2];
+if (!out) throw new Error("usage: bun fixtures/gen-log-030.ts <out dir>");
+
+const ran: { command: unknown; mutation: unknown }[] = [];
+const original = { ...(await import("../src/ledger/run.js")) };
+mock.module("../src/ledger/run.js", () => ({
+	...original,
+	runOnState: (input: Parameters<typeof original.runOnState>[0]) => {
+		const result = original.runOnState(input);
+		ran.push({ command: input.command, mutation: result.mutation });
+		return result;
+	},
+}));
+
+const { menuCatalogRows } = await import("../src/billing/grants.js");
+const { stateFromRows } = await import("../src/billing/rows.js");
+const { addonPriceKey, lookupKeyOf, tierPriceKey } = await import(
+	"../src/billing/stripe-menu.js"
+);
+const { mutationToEvents } = await import("../src/ledger/postings.js");
+const { canonicalize } = await import("../src/ledger/util.js");
+const { createStore } = await import("../tests/billing-store.js");
+const { invoicePaid, subscriptionDeleted } = await import(
+	"../tests/stripe-events.js"
+);
+type Menu = import("../src/billing/types.js").Menu;
+
+const SCHOOL = "sch_vol";
+const FAMILY = "fam_old";
+const menu = JSON.parse(
+	readFileSync(
+		join(import.meta.dir, "billing/grants/menu.json"),
+		"utf8",
+	),
+) as Menu;
+const metadata = { b4u_school: SCHOOL, family_id: FAMILY };
+const T0 = Date.parse("2026-01-15T18:00:00Z");
+const T1 = Date.parse("2026-02-15T18:00:00Z");
+const T2 = Date.parse("2026-03-15T18:00:00Z");
+const DAY = 86_400_000;
+
+const priceOf = (tierId: string) =>
+	menu.tiers
+		.find((t) => t.id === tierId)
+		?.prices.find((p) => p.interval === "month")?.amount as number;
+const tierLine = (tierId: string) => ({
+	lookupKey: lookupKeyOf(
+		SCHOOL,
+		tierPriceKey(tierId, "month"),
+		priceOf(tierId),
+		menu.currency,
+	),
+	amount: priceOf(tierId),
+	interval: "month" as const,
+});
+const giftLine = (addonId: string) => {
+	const addon = menu.addons.find((a) => a.id === addonId) as Menu["addons"][number];
+	return {
+		lookupKey: lookupKeyOf(
+			SCHOOL,
+			addonPriceKey(addon.id, addon.price.every, addon.gift),
+			addon.price.amount,
+			menu.currency,
+		),
+		amount: addon.price.amount,
+	};
+};
+const payment = (
+	tierId: string,
+	reason: "subscription_create" | "subscription_cycle",
+	start: number,
+	end: number,
+	invoice: string,
+) =>
+	invoicePaid({
+		eventId: `evt_${invoice}`,
+		invoiceId: invoice,
+		at: start + 10_000,
+		subscriptionId: "sub_1",
+		reason,
+		periodStart: start,
+		periodEnd: end,
+		lines: [tierLine(tierId)],
+		metadata,
+	});
+
+type Store = ReturnType<typeof createStore>;
+const identityOf = (store: Store) => ({
+	orgId: SCHOOL,
+	env: "live",
+	customerId: store.holder,
+	entityId: null,
+});
+/** The family service logs its own command as it runs it; the 0.3.0 test store does not, so this does. */
+const spendAndLog = (store: Store, units: number, at: number) => {
+	const before = stateFromRows({
+		identity: identityOf(store),
+		revision: store.revision,
+		rows: store.rows,
+	});
+	store.spend(units, at);
+	const mutation = ran.at(-1)?.mutation as never;
+	store.events.push(
+		...mutationToEvents({
+			mutation,
+			context: {
+				school: SCHOOL,
+				tz: menu.timeZone,
+				feature: "visit",
+				reason: "visit taken",
+				before: before as never,
+			},
+		}),
+	);
+};
+const scenarios: Record<string, (store: Store) => void> = {
+	"sparkle-4-create": (store) => {
+		store.handle(
+			payment("sparkle-4", "subscription_create", T0, T1, "in_1"),
+			T0 + 10_000,
+		);
+	},
+	"sparkle-2-year": (store) => {
+		store.handle(
+			payment("sparkle-2", "subscription_create", T0, T1, "in_1"),
+			T0 + 10_000,
+		);
+		store.handle(
+			payment("sparkle-2", "subscription_cycle", T1, T2, "in_2"),
+			T1 + 10_000,
+		);
+		store.handle(
+			subscriptionDeleted({
+				eventId: "evt_sd",
+				subscriptionId: "sub_1",
+				tierId: "sparkle-2",
+				interval: "month",
+				periodStart: T1,
+				periodEnd: T2,
+				at: T1 + DAY,
+			}),
+			T1 + DAY,
+		);
+	},
+	// the cycle-end update is not a no-op after a month end: the engine steps Feb 28 to Mar 28, Stripe bills Mar 31
+	// (the third write, Mar 31, is the new writer's in the tests)
+	"sparkle-2-month-end": (store) => {
+		const jan31 = Date.parse("2026-01-31T18:00:00Z");
+		const feb28 = Date.parse("2026-02-28T18:00:00Z");
+		const mar31 = Date.parse("2026-03-31T18:00:00Z");
+		store.handle(
+			payment("sparkle-2", "subscription_create", jan31, feb28, "in_1"),
+			jan31 + 10_000,
+		);
+		store.handle(
+			payment("sparkle-2", "subscription_cycle", feb28, mar31, "in_2"),
+			feb28 + 10_000,
+		);
+	},
+	// a dollar gift writes the grants row alone; the family spends a visit (logged by the family service as it ran)
+	"sparkle-2-gift-spend": (store) => {
+		store.handle(
+			payment("sparkle-2", "subscription_create", T0, T1, "in_1"),
+			T0 + 10_000,
+		);
+		store.handle(
+			invoicePaid({
+				eventId: "evt_gift",
+				invoiceId: "in_gift",
+				at: T0 + 2 * DAY,
+				subscriptionId: null,
+				reason: "manual",
+				periodStart: T0 + 2 * DAY,
+				periodEnd: T0 + 2 * DAY,
+				lines: [giftLine("gift-dollars")],
+				metadata,
+			}),
+			T0 + 2 * DAY,
+		);
+		spendAndLog(store, 1, T0 + 3 * DAY);
+		store.handle(
+			payment("sparkle-2", "subscription_cycle", T1, T2, "in_2"),
+			T1 + 10_000,
+		);
+	},
+};
+
+const catalog = menuCatalogRows({ menu, school: SCHOOL });
+mkdirSync(out, { recursive: true });
+writeFileSync(join(out, "catalog.json"), `${JSON.stringify(catalog, null, "\t")}\n`);
+
+for (const [name, run] of Object.entries(scenarios)) {
+	ran.length = 0;
+	const store = createStore({ menu, school: SCHOOL, family: FAMILY });
+	run(store);
+	const dir = join(out, name);
+	mkdirSync(dir, { recursive: true });
+	writeFileSync(
+		join(dir, "events.jsonl"),
+		`${store.events.map((e) => canonicalize(e)).join("\n")}\n`,
+	);
+	writeFileSync(
+		join(dir, "commands.json"),
+		`${JSON.stringify(ran, null, "\t")}\n`,
+	);
+	const state = stateFromRows({
+		identity: {
+			orgId: SCHOOL,
+			env: "live",
+			customerId: store.holder,
+			entityId: null,
+		},
+		revision: store.revision,
+		rows: store.rows,
+	});
+	writeFileSync(
+		join(dir, "rows.json"),
+		`${JSON.stringify({ revision: store.revision, rows: store.rows }, null, "\t")}\n`,
+	);
+	writeFileSync(join(dir, "state.json"), `${JSON.stringify(state, null, "\t")}\n`);
+	console.log(name, "events", store.events.length, "commands", ran.length);
+}

@@ -29,8 +29,13 @@ import type {
 	StripeEventInput,
 } from "../src/billing/types.js";
 import { deterministicUlid } from "../src/ledger/ids.js";
-import { lapsedRows, lapseEvent, ledgerEvent } from "../src/ledger/postings.js";
-import { balancesOf } from "../src/ledger/replay.js";
+import {
+	lapsedRows,
+	lapseEvent,
+	ledgerEvent,
+	mutationToEvents,
+} from "../src/ledger/postings.js";
+import { balancesOf, contextFromEvent } from "../src/ledger/replay.js";
 import { runOnState, toCatalog } from "../src/ledger/run.js";
 import { canonicalize } from "../src/ledger/util.js";
 import type { AtmEvent, AtmHold } from "../src/types.js";
@@ -278,6 +283,11 @@ export type Replay = {
 	decisions: AtmEvent[];
 	/** Every credit event: the decisions plus the family's own (bookings), taken as the fixture has them. */
 	credit: AtmEvent[];
+	/**
+	 * The log this replay wrote: the decisions (credit events and the plan changes that moved no credits), the family's
+	 * bookings made again from the commands as they ran on this chain, in no particular order. What `replayEvents` takes.
+	 */
+	log: AtmEvent[];
 	rows: BillingRow[];
 	revision: number;
 	balances: ReturnType<typeof balancesOf>;
@@ -312,6 +322,7 @@ export const replayYear = ({
 	let revision = 0;
 	const decisions: AtmEvent[] = [];
 	const family: AtmEvent[] = [];
+	const bookings: AtmEvent[] = [];
 	const holds: Record<string, AtmHold> = {};
 	const lapsed = new Set<string>();
 	const familyEvents = new Map<string, AtmEvent[]>();
@@ -394,7 +405,8 @@ export const replayYear = ({
 			decisions.push(...result.events);
 			continue;
 		}
-		const run = runOnState({ state: state(), catalog, command: step.command });
+		const before = state();
+		const run = runOnState({ state: before, catalog, command: step.command });
 		if (!run.mutation)
 			throw new Error(`${String(step.command.type)} decided nothing`);
 		const changes = rowChangesFromMutation({
@@ -408,7 +420,18 @@ export const replayYear = ({
 			commandId: string;
 			lock?: { id: string };
 		};
-		family.push(...(familyEvents.get(command.commandId) ?? []));
+		const originals = familyEvents.get(command.commandId) ?? [];
+		family.push(...originals);
+		// the same bookings, made from the mutation this chain decided (the fixture's own had its revisions)
+		for (const original of originals) {
+			const made = mutationToEvents({
+				mutation: run.mutation,
+				context: contextFromEvent(original, before),
+			}).find((e) => e.idem === original.idem);
+			if (!made)
+				throw new Error(`no ${original.idem} from ${command.commandId}`);
+			bookings.push(made);
+		}
 		if (command.type === "track") {
 			const lock = run.mutation.changes.find(
 				(c) => c.table === "locks" && c.op === "insert",
@@ -434,5 +457,12 @@ export const replayYear = ({
 	const credit = [...decisions, ...family].filter((e) =>
 		e.event_type.startsWith("credit."),
 	);
-	return { decisions, credit, rows, revision, balances };
+	return {
+		decisions,
+		credit,
+		log: [...decisions, ...bookings],
+		rows,
+		revision,
+		balances,
+	};
 };

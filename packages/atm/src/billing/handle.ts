@@ -15,7 +15,7 @@ import type {
 	SubjectStateMutation,
 } from "@autumn/balance-engine";
 import { ULID_PATTERN } from "../ledger/ids.js";
-import { mutationToEvents } from "../ledger/postings.js";
+import { ledgerEvent, mutationToEvents } from "../ledger/postings.js";
 import { runOnState, toCatalog } from "../ledger/run.js";
 import type {
 	AtmEvent,
@@ -395,16 +395,18 @@ const eventsOf = ({
 				? -1
 				: 1,
 	);
-	if (groups.length === 0) return [];
 	const plansOfFeature = new Map<string, number>();
 	for (const g of groups)
 		plansOfFeature.set(g.feature, (plansOfFeature.get(g.feature) ?? 0) + 1);
 	const events: AtmEvent[] = [];
 	for (const [index, group] of groups.entries()) {
-		const slice = mutation.changes.filter((c) => {
+		const slice = mutation.changes.flatMap((c, position) => {
 			const own = groupOf(c);
-			if (own === null) return index === 0;
-			return own.feature === group.feature && own.plan === group.plan;
+			const mine =
+				own === null
+					? index === 0
+					: own.feature === group.feature && own.plan === group.plan;
+			return mine ? [position] : [];
 		});
 		const idemPrefix =
 			(plansOfFeature.get(group.feature) ?? 0) > 1
@@ -414,7 +416,7 @@ const eventsOf = ({
 					: "engine";
 		events.push(
 			...mutationToEvents({
-				mutation: { ...mutation, changes: slice } as SubjectStateMutation,
+				mutation,
 				context: {
 					school: mutation.identity.orgId,
 					tz: input.menu.timeZone,
@@ -424,6 +426,11 @@ const eventsOf = ({
 					cause: input.eventId,
 					labels,
 					idemPrefix,
+					// the write logs every command it ran, so a replay may step over a revision gap in the log (a write of the grants row alone)
+					payload: { complete: true },
+					// The payload keeps the whole mutation (a replay runs the whole command); the events are made from this cut.
+					// A mutation with one group has nothing to cut.
+					...(groups.length > 1 ? { slice } : {}),
 					// No `lowCreditThreshold`: a Stripe event only grants, refills and takes back by the rules, never a draw by
 					// the family, so it makes no `credit.low` or `credit.depleted`.
 					before: before as never,
@@ -432,6 +439,39 @@ const eventsOf = ({
 		);
 	}
 	return events;
+};
+
+/**
+ * The record of a command that moved no credits (the cycle-end update after a renewal, a plan change that keeps the
+ * sessions): a `plan.changed` with the command and its whole mutation and no postings. Every command the rules ran is
+ * in the log once, so a replay can run the whole chain and its revisions follow on.
+ */
+const planChangedOf = ({
+	mutation,
+	input,
+	labels,
+}: {
+	mutation: SubjectStateMutation;
+	input: StripeEventInput;
+	labels: Record<string, string>;
+}): AtmEvent => {
+	const { command, ...decided } = mutation as unknown as Record<
+		string,
+		unknown
+	> & { command: { type: string; occurredAt: number } };
+	return ledgerEvent({
+		type: "plan.changed",
+		school: mutation.identity.orgId,
+		tz: input.menu.timeZone,
+		eventTime: command.occurredAt,
+		key: mutation.identity.customerId,
+		idem: `plan:${mutation.id}`,
+		cause: input.eventId,
+		labels,
+		text: `${command.type} moved no credits`,
+		payload: { command, mutation: decided, complete: true },
+		revision: mutation.revision.after,
+	});
 };
 
 // ---- The entry point ----
@@ -573,8 +613,8 @@ const decideAndRun = (
 		deletes: engine.deletes,
 	};
 
-	const events = mutations.flatMap(({ mutation, before }) =>
-		eventsOf({
+	const events = mutations.flatMap(({ mutation, before }) => {
+		const credits = eventsOf({
 			mutation,
 			before,
 			catalog,
@@ -582,7 +622,10 @@ const decideAndRun = (
 			grants: result.state,
 			labels: result.labels,
 			reason: decision.reason,
-		}),
-	);
+		});
+		return credits.length > 0
+			? credits
+			: [planChangedOf({ mutation, input, labels: result.labels })];
+	});
 	return { rowChanges, events };
 };

@@ -46,6 +46,18 @@
 		"reason": {
 			"type": "string",
 			"minLength": 1
+		},
+		"slice": {
+			"type": "array",
+			"items": {
+				"type": "integer",
+				"minimum": 0
+			},
+			"description": "Positions in mutation.changes that this event is made from, when one mutation is booked as several events (one per feature and plan). Absent: all of them. The mutation is always the whole one."
+		},
+		"complete": {
+			"type": "boolean",
+			"description": "Written by a handler that logs every engine command it runs (after atm 0.3.0), so a revision with no event in the log was a write of the grants row alone. Absent on what 0.3.0 wrote, which did not log some commands."
 		}
 	}
 }
