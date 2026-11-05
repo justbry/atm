@@ -1,6 +1,6 @@
-# Simulating the grant rules: stored inputs (design for atm 0.7.0)
+# Simulating the grant rules: stored inputs (design for atm 0.9.0)
 
-Status: design only (phase 1, 2026-11-05, revised the same day after the owner's decisions). No code is written by this document. Three implementers share it: A builds the storage (the tables, the writer, the erasure hook, the SQLite reader), C builds the shipper that copies stored inputs to a folder or R2 and the reader for that copy, and B builds the replay and the `atm simulate --inputs` mode. The section "Interfaces" is the contract between them and section "The PR split" says which can run in parallel. The roadmap line it answers is "Simulation or what-if" in `ROADMAP.md`; the 0.6.0 command-level mode it extends is described in `README.md` ("What if (simulate)") and `src/ledger/simulate.ts`.
+Status: design only (phase 1, 2026-11-05, revised the same day after the owner's decisions, then checked against the tree after the 0.8.0 release). No code is written by this document. The work releases as **0.9.0**: 0.8.0 (tag `atm-v0.8.0`) is out without it. Section "What changed in 0.8.0 that this design had to absorb" lists what the release changed under it. Three implementers share it: A builds the storage (the tables, the writer, the erasure hook, the SQLite reader), C builds the shipper that copies stored inputs to a folder or R2 and the reader for that copy, and B builds the replay and the `atm simulate --inputs` mode. The section "Interfaces" is the contract between them and section "The PR split" says which can run in parallel. The roadmap line it answers is "Simulation or what-if" in `ROADMAP.md`; the 0.6.0 command-level mode it extends is described in `README.md` ("What if (simulate)") and `src/ledger/simulate.ts`.
 
 ## The problem, in one paragraph
 
@@ -17,10 +17,28 @@ Status: design only (phase 1, 2026-11-05, revised the same day after the owner's
 | 5 | Fidelity | The decision clock is the event's `created`, not `nowMs`; ids are derived; the engine's random ids are canonicalized; the sources that were not controlled (fee, payment refs, menu and policy in force, order of handling, writes that are not Stripe inputs) are stored or detected. The baseline run must equal the recorded outbox: that identity is the first test. |
 | 6 | Simulate | `atm simulate --inputs <handler sqlite file or shipped folder> --env <live\|test> ...` next to the unchanged 0.6.0 log mode. Exit 0 no difference, 1 difference, 2 bad input; a baseline that does not reproduce the log is exit 2 unless `--allow-baseline-drift`. |
 | 7 | Migration | Inputs exist from the first delivery after the upgrade. A holder that already had rows is replayed from a stored seed of those rows; earlier history is `not_replayable` and the CLI says so with a count. |
+| 8 | Booking checkout events (0.8.0) | Not stored in phase 1: the reference handler does not decide them, their decision has no event and reads no menu or policy, and the refund needs an index only the family service holds. A holder with such a write, or with credit holds, is reported `not_replayable` (`non_input_writes`, `booking_writes`). Owner decision 18. |
+
+## What changed in 0.8.0 that this design had to absorb
+
+The design was first written against the tree of #69 and #68. 0.8.0 (the tag `atm-v0.8.0`) added disputes that book money (#66), bookable items with paid bookings and holds, gift and member codes and discounts. Re-checked on the merged tree: every `src/` line cited here (listed in the last section) was re-read, the byte measurements and the proof run were repeated. What moved or was wrong:
+
+- **Line numbers.** `stripe-webhook.ts` is unchanged by 0.8.0, so its citations stand, except `deterministicUlid` is at `:618-622` (the design said `:617-621`, one line off from the start). `handle.ts` grew 15 lines: the mapping and normalization step is `614-626` (was cited as `598-611`), the `b4u_school` read is `:121` (was `:120`). `grants.ts`: `:665-666` and `:1551-1552` (were `:664-665` and `:1521-1522`). `money.ts:155` (was `:153`). `schema.ts`, `ship.ts`, `cli.ts:218`, `outbox.ts`, `replay.ts` and `run.ts` names and lines hold.
+- **A second read of the raw event, `handle.ts:347`.** The dispute rule decides whether the event is `charge.dispute.closed` by reading `input.event.type`. `handleStripeFact` has no raw event, so the refactor in section 7 must read the `type` it already takes (`StripeFactInput.type`) there, and `decide` must be handed it. Left as it is, the line would read the type of an event that is not there: it throws on a missing event, and if it were given a stub it would decide every dispute as a `created` one (no `dispute.closed` line), so the baseline fails on the dispute fixtures. A test feeds every dispute fixture through both entry points.
+- **Disputes are decisions, not carried events.** A dispute that moved money now makes `payment.disputed` (the amount withdrawn plus Stripe's dispute fee) and, when it closes, `dispute.closed` (`disputeEvents`, `src/billing/money.ts`), inside `handleStripeEvent`, with the input's ULID as `cause`. So the baseline compares them as the input's decisions (section 5 said they were carried; corrected there). The fact grew to carry what the lines are made from (`amount`, `currency`, `openedAt`, `withdrawn`, `fee`, `withdrawnAt`, `reversedAt`, `invoiceId`): the replay fact of a `created` is 255 bytes (was 160) and of a `closed` 288 (was 160); the totals in section 1 are re-measured. Rows 18 to 22 of the fidelity table are new.
+- **The `booking` outcome.** `StripeEventResult` has a new optional `booking` (`BookingPaymentOutcome`: `paid`, `refunded`, `partly_refunded`, `expired`) for a payment-mode Checkout Session made by `bookingCheckoutParams` and for the refund of its charge. It is not a `WebhookOutcome` (the handler's outcomes, and `atm_event_claims.outcome`, are as before: `applied`, `non_usd`, `ignored`, ...). **Decision: stored inputs do not include these events in phase 1.**
+  - The reference handler never decides them. `HANDLED_TYPES` (`stripe-webhook.ts:163-173`) has no `checkout.session.*`: they answer `ignored` and record no claim. A booking charge's refund is not in `atm_payment_index`, so `locateSubject` answers 409 `unmatched_payment` before `handleStripeEvent` runs (`UPGRADING.md`, "A booking paid in money", item 4). Only the family service's own endpoint calls `handleStripeEvent` for them, in its own transaction; the handler's transaction in `applyOnce` has nowhere to write the input.
+  - Their decision gives a candidate nothing to change. `decideCheckoutSession` and `decideBookingRefund` (`src/billing/booking-events.ts`) read neither `input.menu` nor `input.policy`, return `events: []` (no credit event, and by design no `payment.succeeded`: a booking has no invoice for `reconcile` to pair), and write only `bookings[bookingId]` in the grants row. A baseline would have no event to compare.
+  - The refund's input is not in the event: it needs `StripeEventInput.bookingIds` (payment intent or charge id to booking), an index only the family service keeps.
+  - The cost, stated: a paid or refunded booking writes the grants row at the next revision with no event in the log, a revision gap. The replay finds it by `revision_before` and reports the holder from there on as `not_replayable`, reason `non_input_writes`, as for the caller-row import. If the owner wants those holders replayable, the way is to export `recordInput` for the family service to call in its own transaction, add `CheckoutSessionFact` to `ReplayFact` and a `booking_refs` column for `bookingIds`; `handleStripeFact` already routes on `target`. Owner decision 18.
+- **A refund now reads open holds.** `removeInvoice` (`grants.ts`) asks `heldOnRows` (`src/billing/booking-holds.ts`) what open credit holds keep on the invoice's rows and records what it could not take back as the invoice's `owed`; a release later settles it. So the grant decision for a refund depends on `grants.bookings`, which the family service's booking commands (`holdBooking`, `confirmBooking`, `cancelBooking`, `noShowBooking`, `settleExpiredHold`, `releaseBooking`) write, and which `runOnState` on the engine rows alone does not reproduce. The interleave of section 4 would replay the holds' engine rows and still decide the refund on a grants row without the booking records. Rule: a holder with a carried command labelled with a booking (`labels.booking`), or a seed whose grants row has `bookings` or an invoice's `owed`, is `not_replayable` with the new reason `booking_writes`, counted, its decisions carried over unchanged. This is conservative (only a refund that meets an open hold needs it), and it is the first thing to narrow once a school with bookings asks for the what-if. Owner decision 19.
+- **Seeds and contexts grow, by themselves.** The grants row has new members (`bookings`, `redeemed`, the invoices' `owed`) and the menu has bookable items' `billing` and `codes`, the policy has the booking and gift settings; the seed stores the grants row whole and the context stores the menu and policy whole, so nothing in the design changes. The cost figures for a context (0.013 ms to hash a 2.1 KB menu) were not re-measured for a menu with codes.
+- **Gift and member codes, discounts.** Member codes are in the menu (the context). The invoice's discount amounts are in the fact and no grant rule reads them (`UPGRADING.md`, "Discounts do not change credits"), so a discounted invoice replays like a full-price one (the six `discount/` fixtures are in the byte table). `redeemSessionGiftCode` and `dollarGiftOps` are the caller's calls, not Stripe inputs: a redemption is a carried command (its credit row is an engine mutation); `GrantsState.redeemed` is read by no grant rule, only by booking quotes, so a missing entry cannot change a Stripe decision.
+- **Re-run on the merged tree.** The 8 recorded delivery scenarios, through the real handler and then through `handleStripeEvent` on mapped paths only: 8 of 8 outboxes identical (the dispute scenarios included, with their new `payment.disputed` and `dispute.closed` lines), the same outbox hashes under UTC, America/Denver, Pacific/Auckland and Asia/Kolkata. The applied order differs from the created order in 6 of 8, as before. As before, no fixture has a closed dispute delivered before its created, a hold, a gift code or a booking: those are designed from the code, not run.
 
 ## 1. What to store: measured evidence
 
-The measurements are on the 64 Stripe events of the handler's own types in `fixtures/billing/stripe/recorded/` (the 14 top-level events, the 6 discounted invoices of `discount/` and the 44 events of `delivered/`, all at API `2025-10-29.clover`; the four `booking/` checkout-session events are not handled by the webhook handler and are left out), with throwaway scripts that were not committed (method in the last section).
+The measurements are on the 64 Stripe events of the handler's own types in `fixtures/billing/stripe/recorded/` (the 14 top-level events, the 6 discounted invoices of `discount/` and the 44 events of `delivered/`, all at API `2025-10-29.clover`; the six `booking/` fixtures, four checkout-session events and two refunds of a booking's charge, are left out: the reference webhook handler does not decide them, see "What changed in 0.8.0"), with throwaway scripts that were not committed (method in the last section).
 
 ### Bytes per event
 
@@ -31,12 +49,12 @@ The measurements are on the 64 Stripe events of the handler's own types in `fixt
 | `customer.subscription.updated` | 8 | 4,754 | 4,754 | 586 | 445 |
 | `customer.subscription.deleted` | 1 | 3,608 | 3,608 | 463 | 322 |
 | `charge.refunded` | 3 | 2,644 | 2,438 | 334 | 207 |
-| `charge.dispute.created` | 3 | 2,162 | 1,237 | 294 | 160 |
-| `charge.dispute.closed` | 2 | 2,540 | 1,566 | 293 | 160 |
+| `charge.dispute.created` | 3 | 2,162 | 1,237 | 389 | 255 |
+| `charge.dispute.closed` | 2 | 2,540 | 1,566 | 421 | 288 |
 | `invoice_payment.paid` | 13 | 655 | 655 | 294 | 162 |
-| all 64 | 64 | 3,307 | 3,165 | 600 | 419 |
+| all 64 | 64 | 3,307 | 3,165 | 608 | 428 |
 
-Totals: raw 211,671 bytes; raw after `redactPersonal` 202,554 (95.7% of raw); normalized 38,385 (18.1%); replay fact 26,821 (12.7%). The largest replay fact is an `invoice.paid` at 862 bytes. The size of the stored and the shipped row is in section 3.
+Totals: raw 211,671 bytes; raw after `redactPersonal` 202,554 (95.7% of raw); normalized 38,927 (18.4%); replay fact 27,363 (12.9%). The largest replay fact is an `invoice.paid` at 862 bytes. The size of the stored and the shipped row is in section 3.
 
 ### Personal data in the raw event
 
@@ -57,21 +75,21 @@ The recorded fixtures are scrubbed (see `fixtures/billing/stripe/recorded/README
 The mapping lists are in `schema/mapping/stripe.*.v1.json` (`personal`). Two consequences:
 
 - **Raw minus the `personal` paths is not a safe store.** `redactPersonal` saves 4.3% of the bytes and still leaves a card's last four digits, fingerprint and expiry in every refund event, the receipt link, and the invoice bearer links. It is a denylist; a Stripe field added tomorrow is kept.
-- **The normalized fact is nearly clean, not clean.** The fields the grant rules read hold no name, email, address or card. But the normalized invoice also carries `hostedInvoiceUrl`, `invoicePdf` and `number` (nothing under `src/` outside the mapping and the type reads them), and `metadata` copies every string pair of the checkout metadata (the caller sets those). The grant rules read only `b4u_school` and `family_id` from it (`src/billing/grants.ts:664-665` and `:1521-1522`, `src/billing/handle.ts:120`). The fact keeps `customerId` (`cus_...`) because `src/billing/money.ts:153` copies it into `payment.succeeded`. So the stored fact is an allowlist: the normalized fact minus `source`, `number`, `hostedInvoiceUrl`, `invoicePdf`, with `metadata` cut to the two keys. If `replayFactOf` proves hard to keep in step with the mappings, the owner's fallback is the full normalized fact with those four removed by the same rule; the `{"v":1,"fact":...}` shape does not change.
+- **The normalized fact is nearly clean, not clean.** The fields the grant rules read hold no name, email, address or card. But the normalized invoice also carries `hostedInvoiceUrl`, `invoicePdf` and `number` (nothing under `src/` outside the mapping and the type reads them), and `metadata` copies every string pair of the checkout metadata (the caller sets those). The grant rules read only `b4u_school` and `family_id` from it (`src/billing/grants.ts:665-666` and `:1551-1552`, `src/billing/handle.ts:121`). The fact keeps `customerId` (`cus_...`) because `src/billing/money.ts:155` copies it into `payment.succeeded`. So the stored fact is an allowlist: the normalized fact minus `source`, `number`, `hostedInvoiceUrl`, `invoicePdf`, with `metadata` cut to the two keys. If `replayFactOf` proves hard to keep in step with the mappings, the owner's fallback is the full normalized fact with those four removed by the same rule; the `{"v":1,"fact":...}` shape does not change.
 
 ### Does the decision depend on anything the normalized fact lacks?
 
-Proven by a throwaway script, not only by reading `src/billing/handle.ts:598-611` (which reads only `type` and `api_version` from the raw event and then `normalize()`s). For the 44 delivered events (8 scenarios) the script replayed, through `handleStripeEvent` with an in-memory store that evolves its rows, events cut down to exactly the paths their mapping reads (11 to 25 KB of raw JSON per scenario, down to 2.5 to 5.6 KB). The outbox it produced equaled the real handler's outbox (every body, every id) in 8 of 8 scenarios, re-run on the tree after the env-key change (#69) and the non-USD change. So the grant decision is a function of the mapped fields; everything else in a raw event is not needed for replay.
+Proven by a throwaway script, not only by reading `src/billing/handle.ts` (now `handle.ts:614-626`, which reads only `type` and `api_version` from the raw event and then `normalize()`s; the one other read of the raw event is `handle.ts:347`, see "What changed in 0.8.0"). For the 44 delivered events (8 scenarios) the script replayed, through `handleStripeEvent` with an in-memory store that evolves its rows, events cut down to exactly the paths their mapping reads (11 to 25 KB of raw JSON per scenario, down to 2.5 to 5.6 KB). The outbox it produced equaled the real handler's outbox (every body, every id) in 8 of 8 scenarios, re-run on the tree after the env-key change (#69) and the non-USD change, and again on the 0.8.0 tree (disputes that book money, bookable items): 8 of 8 again, the same outbox hashes under UTC, America/Denver, Pacific/Auckland and Asia/Kolkata. So the grant decision is a function of the mapped fields; everything else in a raw event is not needed for replay.
 
 ### What is lost by storing the fact and not the raw event
 
 - A later change to the mapping (a new field, a corrected path) cannot be replayed from facts. A fact is the output of `stripe/<event>@v<n>`; the row records that label, and a new mapping version is a new label. A mapping bug that mis-read a field is baked into the stored fact; the SHA-256 of the raw body lets an operator check a re-fetched Stripe event against the row, but the re-fetch itself is out of scope (Stripe lists events only for a limited time, 30 days from memory, not checked here).
-- Facts the mapping does not extract today cannot be asked later: tax lines, discounts, the customer's country, the payment method. `ROADMAP.md` already lists "no tax lines" under Taxes; if the receipt or revenue-timing work needs them, storing starts only after they are mapped.
+- Facts the mapping does not extract today cannot be asked later: tax lines, the customer's country, the payment method. (Discounts are extracted: the invoice's and each line's discount amounts are in the fact, as numbers; no grant rule reads them and the coupon or promotion code text is not in the fact.) `ROADMAP.md` already lists "no tax lines" under Taxes; if the receipt or revenue-timing work needs them, storing starts only after they are mapped.
 - It is consistent with the roadmap decision of 2026-11-05 to store no raw payload for usage events ("Decisions taken"): atm keeps no raw third-party payload anywhere.
 
 ### Decision: the replay fact plus side inputs plus a hash
 
-Store, per input: the replay fact (JSON, 419 bytes on average), the columns that are not in any event (below), and `raw_sha256` of the verified payload. Not stored: the raw JSON, any name, email, address, card detail, receipt or invoice link, the invoice number, and any metadata key but the two. Every event the handler applies is stored, including one that books only money (a refund, a payout, an `invoice_payment.paid`) or books nothing (the owner's decision: no skipping of types). The only deliveries without a row are the ones the handler itself did not handle (table below).
+Store, per input: the replay fact (JSON, 428 bytes on average), the columns that are not in any event (below), and `raw_sha256` of the verified payload. Not stored: the raw JSON, any name, email, address, card detail, receipt or invoice link, the invoice number, and any metadata key but the two. Every event the handler applies is stored, including one that books only money (a refund, a payout, an `invoice_payment.paid`) or books nothing (the owner's decision: no skipping of types). The only deliveries without a row are the ones the handler itself did not handle (table below).
 
 ### Retention and erasure
 
@@ -85,7 +103,7 @@ Store, per input: the replay fact (JSON, 419 bytes on average), the columns that
 
 `handleStripeWebhook` already commits claim done, rows and outbox rows in one transaction (`src/handler/stripe-webhook.ts`, `applyOnce` from line 593; the commit is `deps.db.transaction` in `settle`, line 740). The input row is written inside the same transaction:
 
-| Where | Line (at the merge of #69 and #68) | Write |
+| Where | Line (`stripe-webhook.ts` is unchanged by 0.8.0; checked) | Write |
 |---|---|---|
 | `applyOnce`, after the outbox append (648) and the index writes (649-662), before `finishClaim` (664) | `applied` (also an `applied` that ends `non_usd`) | the input row with outcome `applied`, the seed if it is the holder's first stored input, the context row if new |
 | `applyOnce`, the `result.refused` branch (637-640) | a 422 refusal | an upsert with outcome `refused` and `reason`; not for the retryable 409 reasons (`unmatched_invoice`, `unknown_subscription`), which are waits and become `applied` on the retry |
@@ -192,9 +210,9 @@ CREATE TABLE IF NOT EXISTS atm_input_erasures (
 | `env`, `event_id` | the key, as in #69: the same Stripe id under both modes is two rows. |
 | `school_id`, `subject_key` | which holder the input belonged to (`<school>\|<env>\|family:<id>`; a payout uses `stripe:payouts`), resolved by `locateSubject` at handling time. NULL after erasure. |
 | `type`, `api_version`, `mapping`, `livemode` | which mapping read the event (`stripe/invoice.paid@v1`), so a fact is attributable to the code that made it. |
-| `stripe_created` | the decision clock: `now = event.created * 1000` (`stripe-webhook.ts:630`); also the seed of the event's ULID (`:617-621`). |
+| `stripe_created` | the decision clock: `now = event.created * 1000` (`stripe-webhook.ts:630`); also the seed of the event's ULID (`:618-622`). |
 | `received_at` | `deps.nowMs()` at commit; information only (it decides nothing), and the day a shipped batch is filed under. |
-| `outcome`, `reason`, `attempts` | `applied`, or `refused` with the 422 reason code (`unmatched_line`, `addon_only_subscription`, `tier_on_other_subscription`, `missing_metadata`, `rejected`, `bad_event`); how often Stripe has retried it. The message is not stored (it quotes event content). |
+| `outcome`, `reason`, `attempts` | `applied`, or `refused` with the 422 reason code (`unmatched_line`, `addon_only_subscription`, `tier_on_other_subscription`, `missing_metadata`, `rejected`, `bad_event`; `unmatched_booking` exists since 0.8.0 but the handler cannot reach it, see "What changed in 0.8.0"); how often Stripe has retried it. The message is not stored (it quotes event content). |
 | `revision_before`, `revision_after` | the holder's revision when the input was handled and after its write. The replay checks that its own revision equals `revision_before` at every step; a mismatch means a write that is not a Stripe input happened in between (a spend, a lapse, an import), which the driver then interleaves from the log or reports (section 4). |
 | `atm_version` | the package version that decided it, so a baseline mismatch is attributable to a code change. |
 | `context_hash`, `menu_version`, `policy_version` | the menu and policy in force (`deps.context(school)` is called inside the transaction at every event, `stripe-webhook.ts:609`). The versions end up in event labels (`menu_version`, `policy_version`), so they matter for identity. |
@@ -207,7 +225,7 @@ CREATE TABLE IF NOT EXISTS atm_input_erasures (
 
 ### The writer in one sentence per piece
 
-- One normalization: `handleStripeEvent` and the handler share `normalizeStripeEvent` (extracted from `handle.ts:598-611`), so the fact the handler stores is the fact the rules decided on.
+- One normalization: `handleStripeEvent` and the handler share `normalizeStripeEvent` (extracted from `handle.ts:614-626`), so the fact the handler stores is the fact the rules decided on.
 - The context row is written when its `(env, school_id, context_hash)` is new. Hashing a 2.1 KB menu, policy and price-id map costs 0.013 ms per event (measured, 2,000 runs), so it is hashed on every event.
 - The seed is written when the holder has rows (`loadSubject`, `:522`, already loaded in `applyOnce`) and no stored input or seed yet.
 
@@ -240,7 +258,7 @@ schools/<school>/inputs/<env>/seeds/seed-<16 hex of sha256 of the subject_key>.j
 - **One batch per ship run per day**, the unshipped rows of that commit day in `applied_order`, as the outbox shipper plans them. The key carries the first order and the first 16 hex digits of the SHA-256 of the text, so the same rows give the same key and bytes on every try and on every shipper, and different rows another key (two honest shippers do not conflict). A cron every 5 minutes would make up to 288 objects a day; the recommendation is an hourly run (at most 24 a day per env). There is no `day.jsonl` combine for inputs in this design; the events combine is still open (`docs/log-and-r2.md`) and inputs wait for it.
 - **A line is a row**: the table's columns under their names, `body` replaced by the parsed `fact`, `batch_key` and `shipped_at` left out (local bookkeeping), canonicalized (`canonicalize` from `src/ledger/util.ts`: sorted keys, no spaces) so the bytes are stable, one line per input, no newline inside. An erased row ships as a tombstone line: the same columns with `fact`, `subject_key`, `payment_refs`, `fee` and `raw_sha256` null and `erased_at` set. The planner refuses, as `planOutbox` does, a line with a newline, a date that is not `YYYY-MM-DD`, or an id that is not plain characters.
 - **Contexts and seeds are separate objects**, written before the batches that refer to them. A context is immutable and named by its hash (create-only is exact); a seed is written once and named by a hash of its holder so the file name does not carry the family id. Both are created only when their `shipped_at` is NULL.
-- Size: a shipped line averages about 1.2 KB (the 419-byte fact plus about 750 bytes of column names and values; one measured `invoice.paid` line was 1,518 bytes with a 763-byte fact). At three events per family-month (an assumption) 1,000 families ship about 3.6 MB a month, 43 MB a year, in at most 24 objects a day; reading a year back is about 9 `list` pages of 1,000 keys and up to 8,760 `get` calls, which is why the combine matters later.
+- Size: a shipped line averages about 1.2 KB (the 428-byte fact plus about 750 bytes of column names and values; one measured `invoice.paid` line was 1,518 bytes with a 763-byte fact). At three events per family-month (an assumption) 1,000 families ship about 3.6 MB a month, 43 MB a year, in at most 24 objects a day; reading a year back is about 9 `list` pages of 1,000 keys and up to 8,760 `get` calls, which is why the combine matters later.
 
 ### (b) The command, the flags and the configuration
 
@@ -304,37 +322,42 @@ A "versioned overwrite" of the same key, `Store.putIfMatch(key, body, etag)`, wo
 
 ## 4. Replay fidelity
 
-To reproduce a decision the replay needs the same inputs, the same order, the same clock, and the menu and policy in force. `handleStripeEvent` is pure (`src/billing/handle.ts:1-12`: no clock read). The table lists every source of non-determinism found in `handleStripeEvent`, `invoiceToCommands` and what the handler passes in, and how replay controls it.
+To reproduce a decision the replay needs the same inputs, the same order, the same clock, and the menu and policy in force. `handleStripeEvent` is pure (`src/billing/handle.ts:1-12`: no clock read). The table lists every source of non-determinism found in `handleStripeEvent`, `invoiceToCommands` and what the handler passes in, and how replay controls it. Rows 1 to 17 are from the first draft and were re-checked on the 0.8.0 tree; rows 18 to 22 are new in 0.8.0.
 
 | # | Source | Where | How replay controls it |
 |---|---|---|---|
 | 1 | The clock | the handler reads `deps.nowMs()` for claims, signature tolerance and `done_at` only. The engine gets `now: event.created * 1000` (`stripe-webhook.ts:630`). | Replay uses `stripe_created * 1000`. No clock is read. Proven: the handler ran with a clock set to created + 1 s and the replay with none, same outbox. |
-| 2 | The input event id (`cause` of every decision event, id of every command) | `deterministicUlid({ timeMs: created*1000, revision: 0, seed: canonicalize([school, eventId]) })` (`:617-621`); unchanged by #69, no env in the seed | Recomputed from `(school_id, event_id, stripe_created)` by `inputCauseId`. Not stored. |
+| 2 | The input event id (`cause` of every decision event, id of every command) | `deterministicUlid({ timeMs: created*1000, revision: 0, seed: canonicalize([school, eventId]) })` (`:618-622`); unchanged by #69, no env in the seed | Recomputed from `(school_id, event_id, stripe_created)` by `inputCauseId`. Not stored. |
 | 3 | The decision events' own ids | `deterministicUlid` includes 24 bits of the holder's revision, so an event's id depends on how many writes the holder had before it. | The revision must match at every step: `revision_before` is checked. (Seen in the experiment: one refused event lowered a revision and changed 1 character of the ids that followed.) |
 | 4 | Random rollover ids | the engine mints random KSUIDs for rollover rows | `canonicalRolloverIds` (`src/ledger/run.ts`) rewrites each to `roll_<commandId>_<n>` in every mutation. Already done on both sides. |
 | 5 | The process time zone | the engine adds months in local time | `withUtc` (`run.ts`) pins `TZ=UTC` around each engine call. Proven: the outbox hash of all 8 scenarios is the same under TZ UTC, America/Denver, Pacific/Auckland and Asia/Kolkata. |
-| 6 | The runtime's time zone database | `wallMs` in `grants.ts` uses `Intl.DateTimeFormat` with `menu.timeZone` | Not controlled; the same runtime gives the same result. A replay on a newer ICU could differ across a changed zone rule. Reported as uncertain; `atm_version` does not capture it. |
+| 6 | The runtime's time zone database | `wallMs` in `grants.ts` uses `Intl.DateTimeFormat` with `menu.timeZone`; since 0.8.0 also `addZonedMonths` (a gift code's expiry) and `addUtcMonths` (a rollover kept by a release) | Not controlled; the same runtime gives the same result. A replay on a newer ICU could differ across a changed zone rule. Reported as uncertain; `atm_version` does not capture it. |
 | 7 | Payment fee | `deps.paymentFee(raw)`, an outside read | Stored in `fee`; replay passes it as `input.fee`. |
 | 8 | Payment refs | `deps.paymentRefs(raw)` and `invoice.payments` of the raw event | Stored in `payment_refs`; replay writes its own index from them. |
 | 9 | The payment and invoice index tables | `atm_invoice_index`, `atm_payment_index`, read in `locateSubject` (`:372`) to give `invoiceIds` to a refund or dispute, now inside one env | Replay keeps its own two maps per env, written in the order of replay by the same rules as the handler: first write wins (`ON CONFLICT DO NOTHING`); an `invoice.paid` indexes the invoice and its `payment_refs`; an `invoice_payment.paid` indexes its refs. |
 | 10 | `hits[0]` of an unordered join in `locateSubject` | `:408` | Only used when all hits name one subject (more than one is `ambiguous_payment`), so the order does not matter. Replay does the same. |
 | 11 | The menu, policy, versions, catalog and price ids in force | `deps.context(school)`, read per event | The context row (`context_hash`) holds the menu, policy and price ids; the catalog is `menuCatalogRows({ menu, school, env })`, rebuilt. Baseline uses each input's own context; the candidate replaces it (from `--effective-from` or from the start). |
 | 12 | The holder's rows and revision | loaded from `atm_rows` | Replay evolves its own rows from the seed (or from none) with `applyRowChanges`. |
-| 13 | Writes that are not Stripe inputs | the family service's `track`, `finalize`, `confirmExpiredLock`, `updateBalance`, `recordLapse` (`recordEngineCommand`, `src/ledger/outbox.ts`); the caller-row import | These change the rows a later `reset` or refund reads (a reset rolls over what is left), so a replay from Stripe inputs alone drifts. Detected by `revision_before` and handled by interleaving the log's own commands (below). |
+| 13 | Writes that are not Stripe inputs | the family service's `track`, `finalize`, `confirmExpiredLock`, `updateBalance`, `recordLapse` (`recordEngineCommand`, `src/ledger/outbox.ts`); the caller-row import | These change the rows a later `reset` or refund reads (a reset rolls over what is left), so a replay from Stripe inputs alone drifts. Detected by `revision_before` and handled by interleaving the log's own commands (below). Since 0.8.0 the booking commands and the paid-booking record also write the grants row, which the interleave cannot reproduce: rows 20 and 21. |
 | 14 | The order of handling | Stripe order races (above) | `applied_order`. |
 | 15 | Repeat deliveries | the claim `ON CONFLICT (env, event_id) DO NOTHING`; the outbox `ON CONFLICT (school_id, env, idem) DO NOTHING` | One input row per `(env, event_id)`; replay drops a repeated `idem`, first wins. |
 | 16 | The code | the grant rules change between releases | `atm_version` per row. A baseline mismatch under a newer version is a finding (a code change would have decided differently), reported as drift. |
-| 17 | A non-USD money line | a `money.skipped` marker replaces the line (`stripe-webhook.ts`, outcome `non_usd`) | Pure in the facts (`currency` is in the fact), so replay makes the same marker. |
+| 17 | A non-USD money line | a `money.skipped` marker replaces the line (`stripe-webhook.ts`, outcome `non_usd`) | Pure in the facts (`currency` is in the fact), so replay makes the same marker. A dispute in another currency (or with no withdrawal, as an inquiry) makes neither a line nor a marker (`disputeEvents` returns nothing), so it is answered `applied`, not `non_usd`; replay does the same. |
+| 18 | A dispute's opening line has two makers | `charge.dispute.created` and `charge.dispute.closed` both make `payment.disputed` with the same `idem` `stripe:<dispute id>` and the same instant; each names its own input as `cause`. The outbox keeps the first applied and drops the other (`ON CONFLICT (school_id, env, idem) DO NOTHING`), so a `closed` delivered first owns the line | `applied_order` says which came first; replay dedupes by `idem`, first wins (row 15), so the same copy survives, with the same `cause`. The baseline compares by `idem`, so a dropped duplicate is not a difference. A `closed` before a `created` is not in the recorded fixtures: it is a test (section 10). |
+| 19 | What a dispute line is made from, and the "ours" test | the amount, fee, `openedAt`, `withdrawnAt`, `reversedAt`, currency and status come from the event's own balance transactions, so nothing is asked of the caller (unlike the payment fee, row 7). The lines are made only when `grants.invoices[invoiceId].paid` is set, which depends on the holder's rows (`handle.ts` dispute branch). The type test at `handle.ts:347` reads the raw event | In the stored fact (every field is in `Omit<BillingDispute, "source">`). The "ours" test reads the replay's own evolving rows and its own invoice index (row 9). `handleStripeFact` reads the type from `StripeFactInput.type`. |
+| 20 | Credit holds, their expiry and the sweep (0.8.0) | `holdBooking`, `confirmBooking`, `cancelBooking`, `noShowBooking`, `releaseBooking` and `settleExpiredHold` take `now`, `startsAt` and `expiresAt` from the caller; the engine never runs a lock's expiry action by itself and the caller's cron (`expiredHolds({ rows, now })`) reads the clock. They write the engine rows and `grants.bookings`. A refund of an invoice reads the open holds (`heldOnRows`) and records `owed` | Not Stripe inputs: carried commands (row 13), recorded in the log with their own times. The grants-row half is not reproduced by `runOnState`, so a refund can decide differently in the replay: a holder with a booking-labelled command or a seed with `bookings` or `owed` is `not_replayable`, reason `booking_writes` ("What cannot be replayed"). |
+| 21 | Booking ids and the booking index (0.8.0) | the booking id is the caller's (a UUID in the family service) or, for a paid session, `metadata.booking_id`; a refund finds its booking through `StripeEventInput.bookingIds` (caller's index of payment intent or charge to booking) or the charge's metadata. The reference handler passes no `bookingIds` | Booking checkout events are not stored in phase 1 ("What changed in 0.8.0"); a paid or refunded booking is a revision gap, found by `revision_before` and reported `non_input_writes`. If they are stored later, `bookingIds` is a side input like `payment_refs`. |
+| 22 | Gift codes, member codes and discounts (0.8.0) | a gift code's id and `issuedAt`/`now` are the caller's; its credit row id is derived (`ce_gift_code_<length of id>_<id>_<feature>`, so no two pairs meet); `createHash` in `codes.ts` only names Stripe objects. Member codes are in the menu; an invoice's discount amounts are in the fact | Redemptions and code creation are not Stripe inputs: carried (the credit row is an engine mutation). No code reads a clock or random source (checked: `codes.ts`, `bookable.ts`, `booking-*.ts` have no `Date.now`, `new Date()` or `Math.random`). Menu `codes` are in the context row. Discounts change no credit (`UPGRADING.md`), and the fact holds the amounts. |
 
 ### The proof run (throwaway, not committed)
 
-A script built the real handler over each of the 8 `delivered/` scenarios (retrying 409s as Stripe does, remembering the order of application), then replayed the stored inputs through `handleStripeEvent` with an in-memory store: the rows evolve with `applyRowChanges`, the two index maps are rebuilt, the decision events are deduped by `idem`. Result: in 8 of 8 scenarios the replayed events equal the handler's outbox byte for byte, run twice and under four time zones, before and after the merge of #69. Replaying in Stripe's created order instead of the applied order also matched on these fixtures, but that is not evidence that order is irrelevant: the script did not model the handler's waits (its driver indexed a payment before its invoice, and refused one dispute that had no link yet), and the fixtures hold no out-of-order raise invoices, which `ROADMAP.md` says do depend on order. The stored order is `applied_order`, not `stripe_created`.
+A script built the real handler over each of the 8 `delivered/` scenarios (retrying 409s as Stripe does, remembering the order of application), then replayed the stored inputs through `handleStripeEvent` with an in-memory store: the rows evolve with `applyRowChanges`, the two index maps are rebuilt, the decision events are deduped by `idem`. Result: in 8 of 8 scenarios the replayed events equal the handler's outbox byte for byte, run twice and under four time zones, before and after the merge of #69 and again on the 0.8.0 tree. Replaying in Stripe's created order instead of the applied order also matched on these fixtures, but that is not evidence that order is irrelevant: the script did not model the handler's waits (its driver indexed a payment before its invoice, and refused one dispute that had no link yet), and the fixtures hold no out-of-order raise invoices, which `ROADMAP.md` says do depend on order. The stored order is `applied_order`, not `stripe_created`.
 
 ### The log's own commands are interleaved
 
 Replay of Stripe inputs alone is exact only for a holder whose every write was an input. When the family service also spent credits, a later `reset` or refund ran on rows the replay would not have. The design does not give up on those holders. Each stored input records `revision_before`. The log's events carry the engine mutation with `revision.before` and `revision.after` (`src/ledger/replay.ts`, `recordedMutations`). So per holder the driver builds one timeline:
 
-1. Items are the stored inputs (applied) and the log's commands whose `cause` is not the `inputCauseId` of a stored input (the carried commands: spends, lapses, adjustments).
+1. Items are the stored inputs (applied) and the log's commands whose `cause` is not the `inputCauseId` of a stored input (the carried commands: spends, lapses, adjustments; not the booking commands, which make the holder `booking_writes`, see below).
 2. They are ordered by the recorded revision (`revision_before` of an input, `revision.before` of a command), ties by `applied_order`, then the log's order. The order is fixed from the recorded history; the candidate then evolves its own revision.
 3. An input runs through `handleStripeFact` on the candidate's rows. A carried command runs through the same engine path `simulate()` uses (`runOnState` with `withPolicy`) on the same rows, converted with `stateFromRows` and written back with `rowChangesFromMutation`.
 
@@ -345,6 +368,8 @@ B may ship this in two steps: first holders with no carried commands (every `rev
 - Inputs not stored (handled before the upgrade, or foreign, or never normalized, or not yet shipped when reading a folder): `not_replayable`, with a count.
 - A holder whose pre-upgrade rows are not in a seed (should not occur once A is deployed; a seed is taken at the first stored input).
 - Erased holders (tombstones).
+- A holder with a write to the grants row that is not a Stripe input and that the interleave cannot reproduce (0.8.0): a carried command labelled with a booking (`labels.booking`: a hold, a settle, a release), or a seed whose grants row has `bookings` or an invoice's `owed`. Reason `booking_writes`; the holder's decisions are carried over unchanged and counted. It is conservative: only a refund that meets an open hold decides differently. Narrowing it to those holders is the first improvement once a school with bookings needs the what-if.
+- A holder whose paid or refunded booking left a revision gap with no log event: `non_input_writes`, as for the caller-row import.
 - The caller-row import (`grantsStateFromCallerRows`, `src/billing/adopt.ts`) writes rows with no input: for a holder imported after its seed it is a revision gap with no carried command in the log, reported as `non_input_writes`.
 
 ## 5. The simulate mode
@@ -356,7 +381,7 @@ B may ship this in two steps: first holders with no carried commands (every `rev
 For one school and one env:
 
 1. Read the log events (`--root`, `--school`, as in 0.6.0) and the stored inputs (`--inputs`, `--env`): from a SQLite file or a shipped folder, through the same `InputsSource`.
-2. Classify: the log's events whose `cause` is an `inputCauseId` of a stored input are decisions of that input. Other events are carried (money, payouts, disputes, and the family service's commands). The log has no env (`docs/log-and-r2.md`): serve each env from its own database and shipper, as the docs recommend, or the other env's events are carried as if they were the family service's.
+2. Classify: the log's events whose `cause` is an `inputCauseId` of a stored input are decisions of that input. Other events are carried (the family service's commands: spends, holds, lapses, gift-code redemptions). The money lines an input made (payment, refund, payout, dispute and `dispute.closed`, `money.skipped`) name that input as `cause`, so they are its decisions and the baseline compares them; a dispute's opening line made by two inputs belongs to the first applied (row 18). The log has no env (`docs/log-and-r2.md`): serve each env from its own database and shipper, as the docs recommend, or the other env's events are carried as if they were the family service's.
 3. **Baseline.** Replay every replayable holder's timeline with each input's own recorded context. The decision events must equal the log's, by `idem` and canonical body. The result is `baseline: { identical, inputs, differing: [...] }`. Not identical is exit 2 (the replay cannot be trusted as a basis for a what-if) unless `--allow-baseline-drift`, which keeps going and reports the drift next to the diff. This is the owner's decision.
 4. **Candidate.** Replay again with the candidate menu and policy replacing the recorded context, from `--effective-from` (default: from the beginning). No candidate flags at all is the identity: exit 0 if the baseline holds.
 5. **Diff**, three views:
@@ -389,12 +414,13 @@ Always printed, text and `--json` (`notReplayable`):
 ```
 inputs: 412 stored for school sch_x (live), 2026-11-12 to 2026-12-03; 87 holders replayed.
 not replayable: 1,340 decisions of 203 holders predate the stored inputs and were carried over unchanged. A
-what-if on the grant rules covers only history after 2026-11-12 (the first delivery handled by atm 0.7.0).
+what-if on the grant rules covers only history after 2026-11-12 (the first delivery handled by atm 0.9.0).
 ```
 
 ### Out of scope
 
-- What Stripe charged: payments, refunds, payouts, disputes and fees are carried over unchanged; no USD total moves, only credit units and the postings that follow from them (as in 0.6.0).
+- What Stripe charged: payments, refunds, payouts, disputes and fees are replayed from the same facts and come out the same; no USD total moves, only credit units and the postings that follow from them (as in 0.6.0).
+- Bookings paid in money (their checkout events are not stored in phase 1) and holders with credit holds (`booking_writes`).
 - Events whose inputs were not stored before this change, and events of erased holders: `not_replayable`, counted, carried over.
 - A different mapping (a later change to `schema/mapping/` cannot be replayed from facts).
 - `lowCreditThreshold` alerts and the cron's expiries beyond what `simulate()` already does (README, "What it cannot", items 3 to 5).
@@ -405,7 +431,7 @@ what-if on the grant rules covers only history after 2026-11-12 (the first deliv
 A database that predates the storage has no `atm_event_inputs` table and no stored input. The feature is unavailable for its earlier history, and the CLI says so:
 
 - `inputsStatus` returns `{ available: false, reason: "no_table" }` (the table does not exist yet: the handler of this version creates it on start) or `reason: "empty"` (the table exists and holds nothing for the school and env).
-- `atm simulate --inputs` on such a database exits 2 with: `this database holds no stored inputs for school <id> (live): the handler stores them from atm 0.7.0, so a what-if on the grant rules covers only the history after that; run atm simulate without --inputs for the command-level what-if on the whole log`. On a folder: `no inputs under <folder>/schools/<id>/inputs/live: run atm inputs ship, or point --inputs at the handler's database`.
+- `atm simulate --inputs` on such a database exits 2 with: `this database holds no stored inputs for school <id> (live): the handler stores them from atm 0.9.0, so a what-if on the grant rules covers only the history after that; run atm simulate without --inputs for the command-level what-if on the whole log`. On a folder: `no inputs under <folder>/schools/<id>/inputs/live: run atm inputs ship, or point --inputs at the handler's database`.
 - After the upgrade, every delivery is stored, and each holder that already had rows gets a seed at its first stored input, so its later history is replayable without the history before it. Earlier decisions of that holder are carried over unchanged and counted.
 - Nothing is backfilled: the raw events are not in the database and re-fetching them from Stripe is out of scope.
 - A database from before #69 is rebuilt by `migrateHandlerSchema` as before; the order of the two does not matter (`HANDLER_DDL` creates the new tables whether or not the four older ones are current).
@@ -421,7 +447,7 @@ Shared by A (storage), C (ship) and B (simulate). Names are the contract; fields
 
 export const REPLAY_METADATA_KEYS = ["b4u_school", "family_id"] as const;
 
-/** A BillingFact without what the rules never read: its source, the invoice number and the bearer links. */
+/** A BillingFact without what the rules never read: its source, the invoice number and the bearer links. A `CheckoutSessionFact` (a booking's payment) is not in the union: see "What changed in 0.8.0". */
 export type ReplayFact =
   | Omit<BillingInvoice, "source" | "number" | "hostedInvoiceUrl" | "invoicePdf">
   | Omit<BillingRefund, "source">
@@ -451,7 +477,7 @@ export const contextHashOf = (context: Pick<WebhookContext, "menu" | "policy" | 
 ```
 
 ```ts
-// src/billing/handle.ts (A, small refactor of lines 598-611; no behaviour change)
+// src/billing/handle.ts (A, small refactor of lines 614-626, plus the one read at line 347; no behaviour change)
 
 export type NormalizedStripeEvent =
   | { ok: true; target: MappingTarget; mappingLabel: string; apiVersion: string; type: string; fact: BillingFact }
@@ -464,6 +490,7 @@ export type StripeFactInput = Omit<StripeEventInput, "event"> & {
   /** The stored replay fact, with `source` rebuilt by the caller. */
   fact: ReplayFact;
   target: MappingTarget;
+  /** The event type. The dispute rule (`handle.ts:347`) reads it to tell `charge.dispute.closed` from `.created`; it must not read `input.event`, which does not exist here. */
   type: string;
   apiVersion: string;
   mapping: string; // `stripe/invoice.paid@v1`
@@ -698,7 +725,7 @@ export type InputsBaselineMismatch = {
 
 export type NotReplayable = {
   subjectKey: string | null;
-  reason: "inputs_not_stored" | "non_input_writes" | "erased" | "context_missing";
+  reason: "inputs_not_stored" | "non_input_writes" | "booking_writes" | "erased" | "context_missing";
   decisions: number;                      // recorded decisions carried over unchanged
   firstDecisionAt: string | null;
 };
@@ -790,6 +817,8 @@ Decided items show the owner's answer. Open items have a recommendation.
 | 15 | R2 flags and credentials on the CLI in the first release | OPEN | Recommend flags for the non-secret values, credentials only from the environment, no configuration file, and a line in the PR that it has not been run against R2 (as for `atm ship`). Alternative: the library only for R2. |
 | 16 | Ship tombstones | OPEN | Recommend yes: they carry no personal data and keep `applied_order` gapless, so a replay can say "n inputs of an erased holder". |
 | 17 | Ship cadence | OPEN | Recommend hourly (at most 24 objects a day per env) and inputs before events; a `day.jsonl`-style combine for inputs waits for the events combine. |
+| 18 | Store booking checkout events (`checkout.session.*`, the refund of a booking's charge) | OPEN | Recommend no in phase 1: the reference handler ignores them, their decision has no event and reads no menu or policy, and the refund needs the family service's `bookingIds`. The cost is that a holder with a paid or refunded booking is `non_input_writes` from that revision on. Alternative: export `recordInput`, add `CheckoutSessionFact` to `ReplayFact` and a `booking_refs` column; the family service's endpoint then stores them in its own transaction. |
+| 19 | Holders with credit holds | OPEN | Recommend `not_replayable` with reason `booking_writes` in phase 1 (conservative; section 4), narrowed later to the holders whose invoice refund meets an open hold. Alternative: replay the booking commands against the grants row too, which needs their inputs (`cost`, `startsAt`, `expiresAt`, `resetsAt`) to be recoverable from the log's events; not checked. |
 
 ## 10. Test plan
 
@@ -804,6 +833,7 @@ Decided items show the owner's answer. Open items have a recommendation.
 - Erasure: after `eraseStoredInputs` no fact, subject, ref, hash or seed of the holder remains; the other holders' rows are untouched; calling it twice is a no-op; `inputsStatus` counts the tombstones; queue rows are made for exactly the shipped batches and seed that held the holder.
 - DDL: `db.exec(HANDLER_DDL)` twice is a no-op; a database from before #69 migrated by `migrateHandlerSchema` and then `HANDLER_DDL` gains the new tables without losing rows (either order); the new DDL has no `STRICT`, no generated column, no trigger, no `RAISE`.
 - `handleStripeEvent` is unchanged by the `normalizeStripeEvent` / `handleStripeFact` split: the existing tests stay green and a new test feeds each recorded fixture through both entry points and compares results.
+- Disputes: every dispute fixture and the `dispute-won` and `dispute-lost` scenarios through both entry points give equal results, `closed` included (a `handleStripeFact` that reads the type from a missing `input.event` fails here); a `charge.dispute.closed` delivered before its `created` makes the opening line once, owned by the first applied, in the handler and in the replay.
 - `replayFactOf`: keeps every field the grant rules read (a property test: for random facts from `tests/billing-properties.test.ts` generators, `handleStripeFact` on the trimmed fact equals `handleStripeEvent` on the raw event).
 
 ### Shipping (C)
@@ -826,6 +856,8 @@ Decided items show the owner's answer. Open items have a recommendation.
 - **Order.** Shuffle the delivery order with retries 100 times (a seeded generator): the baseline is identical every time because the replay follows `applied_order`.
 - **Seeds.** Start the handler on a database that already has rows for a holder, deliver inputs, baseline identical from the seed.
 - **Menu change mid-history.** Change the menu between two deliveries: the baseline uses each input's context and is identical; without the context rows it is not.
+
+- **Holds.** A holder with a `holdBooking` and an invoice refund while it is open (the `owed` case) is reported `not_replayable` with `booking_writes`, not replayed into a wrong refund; a holder with a paid booking session leaves a revision gap and is `non_input_writes`; the other holders of the same database are replayed and identical.
 
 ### What-if goldens (B)
 
@@ -851,7 +883,9 @@ Each golden pins the per-delivery kinds, the per-holder balance change and the p
 - let the writer store the raw event (fails the no-personal-data test);
 - ship a fact of an erased row, or delete the old batch before the new one is put (fails the erasure and fault tests);
 - let the reader prefer the unerased line (fails the rewrite-window test);
-- skip the `idem` dedupe (fails a duplicate-delivery history);
+- skip the `idem` dedupe (fails a duplicate-delivery history and the dispute that two events make);
+- read the event type from the raw event in the dispute rule (fails the dispute fixtures through `handleStripeFact`);
+- replay a holder with an open hold as if its commands were engine-only (fails the refund-with-a-hold case);
 - a CLI that exits 0 on a baseline mismatch (fails the exit-code test).
 
 ### CLI (B)
@@ -864,7 +898,7 @@ Throwaway scripts, kept in `/tmp`, not committed (they import the package's own 
 
 1. **Bytes.** For each JSON event of the handler's types under `fixtures/billing/stripe/recorded/` (not `booking/`): `JSON.stringify` length of the raw event, of `redactPersonal(raw, mapping)`, of `normalize(raw, mapping)`, and of that fact without `source`, `number`, `hostedInvoiceUrl`, `invoicePdf` and with metadata cut to the two keys (the metadata cut changes nothing on these fixtures, which carry only those two).
 2. **Personal fields.** A walk of every path of every raw event matching name, email, address, phone, card, receipt, link and description patterns, counting non-null values per event type.
-3. **Replay equality.** The real handler over the 8 `delivered/` scenarios; the order of the 200 answers; a replay driver (in-memory rows, `applyRowChanges`, its own two index maps, dedupe by `idem`) over those inputs, whole and cut to the mapped paths; comparison of the sorted canonical event bodies; repeated under four `TZ` values; re-run after merging `dev` with #69.
+3. **Replay equality.** The real handler over the 8 `delivered/` scenarios; the order of the 200 answers; a replay driver (in-memory rows, `applyRowChanges`, its own two index maps, dedupe by `idem`) over those inputs, whole and cut to the mapped paths; comparison of the sorted canonical event bodies; repeated under four `TZ` values; re-run after merging `dev` with #69, and again on the 0.8.0 tree.
 4. **Identifiers.** A walk of every string of the 64 trimmed facts, counting `family_id` values and Stripe ids by prefix (`evt_`, `in_`, `sub_`, `cus_`, `pi_`, `ch_`, `price_`) and their bytes.
 5. **Line size.** One canonicalized shipped line built for an `invoice.paid` with every column filled with a realistic value.
 6. **Hash cost.** 2,000 runs of `sha256(canonicalize({ menu, policy, priceIds }))` for the recorded menu.
@@ -872,7 +906,7 @@ Throwaway scripts, kept in `/tmp`, not committed (they import the package's own 
 Not verified, or only read:
 
 - Everything is on scrubbed sandbox fixtures (test mode, one API version). Real live events carry more personal fields than the counts show, and a larger variety of invoices.
-- No fixture has a payout, a family-service spend, a caller-row import or a seed; the interleave and the seed are designed from the code, not run. The first test of B on `fixtures/vibes-year` is where they get proven.
+- No fixture has a payout, a family-service spend or hold, a gift code, a paid booking, a closed dispute delivered before its created, a caller-row import or a seed; the interleave and the seed are designed from the code, not run. The first test of B on `fixtures/vibes-year` is where they get proven.
 - The shipper, the erasure rewrite and both readers are designed from `ship.ts`, `store.ts` and `files.ts`, not run. Nothing in this design has been run against R2 or SeaweedFS; `R2Store` delete is "read the sha, then delete" (`docs/log-and-r2.md`), not conditional.
 - The ICU time zone database (row 6 of the fidelity table) is not controlled.
 - That Stripe lists events for 30 days, and that Stripe retries a non-2xx for three days (the latter is the handler's own comment), were not checked against Stripe.
