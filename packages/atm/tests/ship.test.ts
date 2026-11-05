@@ -454,6 +454,87 @@ describe("shipOutbox", () => {
 		await cleanup();
 	});
 
+	test("a day that already holds a day.jsonl is a conflict: a batch there would be shipped and never read", async () => {
+		const { db } = newDatabase();
+		const { root, store, cleanup } = await setup();
+		const dayKey = `schools/${SCHOOL}/events/date=2026-01-01/day.jsonl`;
+		await store.putIfAbsent(dayKey, utf8('{"id":"00","idem":"idem-00"}\n'));
+		insertRow(db, { id: "01", date: "2026-01-01" });
+		insertRow(db, { id: "02", date: "2026-01-02" });
+
+		const result = await ship(db, store);
+		expect(result.conflicts).toHaveLength(1);
+		expect(result.conflicts[0]).toMatchObject({
+			date: "2026-01-01",
+			ids: ["01"],
+		});
+		expect(result.conflicts[0]?.message).toContain("day.jsonl");
+		expect(result.shipped).toBe(1);
+		expect(
+			outboxOf(db).map((record) => [record.id, record.shipped_at]),
+		).toEqual([
+			["01", null],
+			["02", SHIPPED_AT],
+		]);
+		expect(await listEventFiles(root, SCHOOL)).toEqual([
+			"events/date=2026-01-01/day.jsonl",
+			expect.stringContaining("events/date=2026-01-02/batch-02-"),
+		]);
+		await cleanup();
+	});
+
+	test("a row the handler inserts between the plan and the mark stays unshipped and ships next run", async () => {
+		const { db } = newDatabase();
+		const { root, store, cleanup } = await setup();
+		insertRow(db, { id: "01", date: "2026-01-01" });
+		const racing = Object.create(store) as FolderStore;
+		racing.putIfAbsent = async (key, body) => {
+			const result = await store.putIfAbsent(key, body);
+			insertRow(db, { id: "02", date: "2026-01-01" });
+			return result;
+		};
+		const first = await ship(db, racing);
+		expect(first.shipped).toBe(1);
+		expect(
+			outboxOf(db).map((record) => [record.id, record.shipped_at]),
+		).toEqual([
+			["01", SHIPPED_AT],
+			["02", null],
+		]);
+		const second = await ship(db, store);
+		expect(second.shipped).toBe(1);
+		expect(second.batches[0]?.key).not.toBe(first.batches[0]?.key);
+		expect(await listEventFiles(root, SCHOOL)).toHaveLength(2);
+		await cleanup();
+	});
+
+	test("a crash between the put and the mark, then a new row for that day: the rerun writes a second batch and the reader still has each event once", async () => {
+		const { db } = newDatabase();
+		const { root, store, cleanup } = await setup();
+		const body = (id: string) => `{"id":"${id}","idem":"idem-${id}"}`;
+		insertRow(db, { id: "01", date: "2026-01-01", body: body("01") });
+		insertRow(db, { id: "02", date: "2026-01-01", body: body("02") });
+		const crashing: SqlDatabase = {
+			...db,
+			exec: (sql) => db.exec(sql),
+			all: (sql, params) => db.all(sql, params),
+			run: (sql, params) => db.run(sql, params),
+			transaction: () => {
+				throw new Error("crash before the mark");
+			},
+		};
+		await expect(ship(crashing, store)).rejects.toThrow("crash before");
+		insertRow(db, { id: "03", date: "2026-01-01", body: body("03") });
+
+		const result = await ship(db, store);
+		expect(result.shipped).toBe(3);
+		const files = await listEventFiles(root, SCHOOL);
+		expect(files).toHaveLength(2);
+		const { events } = await readEvents(root, SCHOOL);
+		expect(events.map((event) => event.id)).toEqual(["01", "02", "03"]);
+		await cleanup();
+	});
+
 	test("an error other than a conflict propagates and leaves the rows unshipped", async () => {
 		const { db } = newDatabase();
 		const { root, store, cleanup } = await setup();

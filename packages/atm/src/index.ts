@@ -660,8 +660,10 @@ export const planOutbox = (input: {
 /**
  * The shipper, for any `Store`: puts the school's unshipped `ledger_outbox` rows as `schools/<school>/events/date=<day>/
  * batch-*.jsonl` (create-only; an equal object already there counts as shipped, different bytes is reported in
- * `conflicts` and the rows stay unshipped), then marks the rows shipped. Run it after the handler, as often as you like:
- * a rerun, a crash between put and mark, and a second shipper all end the same. It does not combine batches into
+ * `conflicts` and the rows stay unshipped; so is a day that already has a `day.jsonl`, which the reader would not read
+ * a batch beside), then marks the rows shipped. Run it after the handler, as often as you like: a rerun, a crash between
+ * put and mark, and a second shipper all end the same, unless new rows for that day arrived in between (then a second,
+ * overlapping batch is put and the reader drops the repeated events by `idem`). It does not combine batches into
  * `day.jsonl`, write a manifest or know R2: those are not built. See the README.
  */
 export const shipOutbox = (input: ShipOutboxInput): Promise<ShipOutboxResult> =>

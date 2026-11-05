@@ -1557,7 +1557,7 @@ export type ShippedBatch = {
 	status: "created" | "existing";
 };
 
-/** A batch whose key already holds different bytes. Nothing was written and its rows stay unshipped. */
+/** A batch whose key already holds different bytes, or whose day already has a `day.jsonl`. Nothing was written and its rows stay unshipped. */
 export type ShipConflict = {
 	key: string;
 	date: string;

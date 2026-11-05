@@ -1,4 +1,10 @@
-import { Conflict, putOnce, sha256Hex, utf8 } from "../store/store.js";
+import {
+	Conflict,
+	NotFound,
+	putOnce,
+	sha256Hex,
+	utf8,
+} from "../store/store.js";
 import type {
 	OutboxBatch,
 	OutboxRow,
@@ -6,10 +12,13 @@ import type {
 	ShipOutboxInput,
 	ShipOutboxResult,
 	ShippedBatch,
+	Store,
 } from "../types.js";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const KEY_HASH_LENGTH = 16;
+
+const COMBINED_DAY_NAME = "day.jsonl";
 
 const byId = (a: OutboxRow, b: OutboxRow) =>
 	a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
@@ -61,12 +70,34 @@ export const planOutbox = ({
 };
 
 /**
+ * The key of the day's `day.jsonl` when the store holds one, else null. The reader keeps only `late-*` beside a
+ * `day.jsonl`, so a `batch-*` put into such a day would be marked shipped and never read.
+ */
+const combinedDayKey = async (
+	store: Store,
+	batchKey: string,
+): Promise<string | null> => {
+	const key = `${batchKey.slice(0, batchKey.lastIndexOf("/") + 1)}${COMBINED_DAY_NAME}`;
+	try {
+		await store.head(key);
+		return key;
+	} catch (error) {
+		if (error instanceof NotFound) return null;
+		throw error;
+	}
+};
+
+/**
  * Ship: plan the school's unshipped outbox rows, put each batch create-only (`putOnce`: an equal object already there
  * is an earlier try that landed, so success; different bytes is a `ShipConflict`, nothing written and the rows left
  * unshipped for an alert), then mark the batch's rows (`batch_key`, `shipped_at`) in one transaction. The mark only
- * touches rows still unshipped. A crash between put and mark is repaired by running it again: same rows, same key,
- * same bytes, so the put finds its object and the mark runs. A store error other than a conflict propagates; batches
- * already marked stay marked.
+ * touches rows still unshipped, by id, so a row the handler inserts after the plan is not marked and ships next time.
+ * A day that already holds a `day.jsonl` is a `ShipConflict` too (nothing put, rows unshipped): the reader keeps only
+ * `late-*` beside it, so a `batch-*` there would be marked shipped and never read. A crash between put and mark is
+ * repaired by running it again when no row arrived for that day in between (same rows, same key, same bytes, so the
+ * put finds its object and the mark runs); if one did, the rerun puts a second, overlapping batch under another key
+ * and the first stays as a file whose events the reader drops by `idem`. A store error other than a conflict
+ * propagates; batches already marked stay marked.
  */
 export const shipOutbox = async ({
 	db,
@@ -82,6 +113,16 @@ export const shipOutbox = async ({
 	const conflicts: ShipConflict[] = [];
 	let shipped = 0;
 	for (const batch of planOutbox({ school, rows })) {
+		const combined = await combinedDayKey(store, batch.key);
+		if (combined !== null) {
+			conflicts.push({
+				key: batch.key,
+				date: batch.date,
+				ids: batch.ids,
+				message: `${combined} exists: the reader keeps only late-* batches beside a day.jsonl, so this batch would be marked shipped and never read`,
+			});
+			continue;
+		}
 		let status: ShippedBatch["status"];
 		try {
 			status = await putOnce(store, batch.key, utf8(batch.text));
