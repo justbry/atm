@@ -62,6 +62,7 @@ The critical path. Simulation, corrections, the Parquet export, decoupling and t
 
 ### Simulation or what-if
 - [ ] `atm billing simulate --menu <file> --policy <file> --events <dir>`: replay the log against a candidate menu or policy and diff journals and per-holder balances against the current ones. No writes. A replay re-decides credits only; it cannot change what Stripe already charged. Orb runs up to five scenarios against historical events.
+- [ ] Stored inputs and `atm simulate --inputs`: keep the Stripe events the grant rules read, and replay them against a candidate menu or policy. Design in PR #65 (`docs/simulate-from-inputs.md`, not merged); not built, and its open decisions are listed there.
 
 ### Bitemporal, small
 - [ ] A `correction` event that names the event it supersedes (`supersedes: <id>`); never delete.
