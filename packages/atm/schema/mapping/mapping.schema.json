@@ -25,7 +25,8 @@
 				"BillingDispute",
 				"SubscriptionFact",
 				"InvoicePaymentFact",
-				"StripePayout"
+				"StripePayout",
+				"CheckoutSessionFact"
 			]
 		},
 		"stripeApiVersion": {

@@ -1,0 +1,80 @@
+{
+	"v": 1,
+	"source": "stripe",
+	"event": "checkout.session.completed",
+	"target": "CheckoutSessionFact",
+	"stripeApiVersion": "2025-10-29.clover",
+	"fields": {
+		"id": {
+			"path": "$.id",
+			"type": "string"
+		},
+		"sessionId": {
+			"path": "$.data.object.id",
+			"type": "string"
+		},
+		"mode": {
+			"path": "$.data.object.mode",
+			"type": "string",
+			"values": {
+				"payment": "payment",
+				"subscription": "subscription",
+				"setup": "setup"
+			},
+			"fallback": "other"
+		},
+		"status": {
+			"path": "$.data.object.status",
+			"type": "string",
+			"values": {
+				"open": "open",
+				"complete": "complete",
+				"expired": "expired"
+			},
+			"fallback": "open"
+		},
+		"paymentStatus": {
+			"path": "$.data.object.payment_status",
+			"type": "string",
+			"values": {
+				"paid": "paid",
+				"unpaid": "unpaid",
+				"no_payment_required": "no_payment_required"
+			},
+			"fallback": "other"
+		},
+		"paymentIntentId": {
+			"path": "$.data.object.payment_intent",
+			"type": "string",
+			"optional": true,
+			"default": null
+		},
+		"amountTotal": {
+			"path": "$.data.object.amount_total",
+			"type": "int",
+			"optional": true,
+			"default": null
+		},
+		"currency": {
+			"path": "$.data.object.currency",
+			"type": "string",
+			"optional": true,
+			"default": null
+		},
+		"metadata": {
+			"path": "$.data.object.metadata",
+			"type": "map",
+			"optional": true,
+			"default": {}
+		},
+		"at": {
+			"path": "$.created",
+			"type": "seconds"
+		}
+	},
+	"personal": [
+		"$.data.object.customer_details",
+		"$.data.object.customer_email",
+		"$.data.object.collected_information"
+	]
+}

@@ -28,6 +28,7 @@ export type {
 	CheckoutParamsWithPrices,
 	CheckoutRefusal,
 	CheckoutResult,
+	CheckoutSessionFact,
 	CreateSessionGiftCodeInput,
 	CreateSessionGiftCodeResult,
 	DollarGiftInput,
