@@ -874,12 +874,16 @@ export const planChangedEvent = ({
 	tz,
 	cause,
 	labels,
+	source,
+	ingestTime,
 	complete,
 }: {
 	mutation: SubjectStateMutation;
 	tz: string;
 	cause?: string;
 	labels?: Record<string, string>;
+	source?: string;
+	ingestTime?: string | number;
 	complete: boolean;
 }): AtmEvent => {
 	const { command, ...decided } = mutation as unknown as Record<
@@ -891,6 +895,8 @@ export const planChangedEvent = ({
 		school: mutation.identity.orgId,
 		tz,
 		eventTime: command.occurredAt,
+		ingestTime,
+		source,
 		key: mutation.identity.customerId,
 		idem: `plan:${mutation.id}`,
 		cause,

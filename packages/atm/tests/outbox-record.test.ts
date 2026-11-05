@@ -213,6 +213,80 @@ const lockOf = (mutation: unknown) =>
 	).changes.find((change) => change.table === "locks" && change.op === "insert")
 		?.row;
 
+/** The stored rows of any subject of the school (the single-subject helpers above are the first family's). */
+const rowsOfHolder = (db: SqlDatabase, holder: string) => {
+	const key = `${SCHOOL}|live|${holder}`;
+	const [subject] = db.all<{ revision: number }>(
+		`SELECT revision FROM atm_subjects WHERE subject_key = ?`,
+		[key],
+	);
+	const rows = db
+		.all<{ table_name: string; row_id: string; data: string }>(
+			`SELECT table_name, row_id, data FROM atm_rows WHERE subject_key = ? ORDER BY table_name, row_id`,
+			[key],
+		)
+		.map((row) => ({
+			table: row.table_name,
+			id: row.row_id,
+			data: JSON.parse(row.data),
+		})) as BillingRow[];
+	return { key, rows, revision: subject?.revision ?? 0 };
+};
+
+/** A visit taken by hand for any family of the school, under a command id the caller picks. */
+const spendFor = ({
+	db,
+	holder,
+	commandId,
+	at,
+}: {
+	db: SqlDatabase;
+	holder: string;
+	commandId: string;
+	at: number;
+}): RecordedEvents =>
+	db.transaction(() => {
+		const subject = { ...identity, customerId: holder };
+		const { key, rows, revision } = rowsOfHolder(db, holder);
+		const before = stateFromRows({ identity: subject, rows, revision });
+		const { mutation } = runOnState({
+			state: before,
+			catalog,
+			command: {
+				schemaVersion: 1,
+				type: "updateBalance",
+				org,
+				commandId,
+				requestId: commandId,
+				identity: subject,
+				occurredAt: at,
+				featureId: "visit",
+				internalFeatureId: "feat_visit",
+				addToBalance: -1,
+			},
+		});
+		const changes = rowChangesFromMutation({
+			mutation: mutation as never,
+			rows,
+			revision,
+		});
+		db.run(
+			`UPDATE atm_subjects SET revision = ? WHERE subject_key = ? AND revision = ?`,
+			[changes.nextRevision, key, changes.expectedRevision],
+		);
+		for (const upsert of changes.upserts)
+			db.run(
+				`INSERT INTO atm_rows (subject_key, table_name, row_id, data) VALUES (?, ?, ?, ?) ON CONFLICT (subject_key, table_name, row_id) DO UPDATE SET data = excluded.data`,
+				[key, upsert.table, upsert.id, JSON.stringify(upsert.data)],
+			);
+		return recordEngineCommand({
+			db,
+			mutation: mutation as never,
+			before: before as never,
+			context: { tz: menu.timeZone, feature: "visit", reason: "visit taken" },
+		});
+	});
+
 type Commanded = {
 	mutation: ReturnType<typeof runOnState>["mutation"];
 	recorded: RecordedEvents;
@@ -466,26 +540,6 @@ describe("recordEngineCommand", () => {
 		});
 		expect(again.events.length).toBe(1);
 		expect(again.inserted).toBe(0);
-
-		// and the request retried after the rows moved on: the engine decides it again at the new revision (so another
-		// event id) under the same command id, so the same idem
-		const rerun = runOnState({
-			state: stateOf(db),
-			catalog,
-			command: spent.mutation?.command as never,
-		});
-		expect(rerun.mutation?.revision.before).not.toBe(
-			spent.mutation?.revision.before,
-		);
-		const retried = recordEngineCommand({
-			db,
-			mutation: rerun.mutation as never,
-			before: null,
-			context,
-		});
-		expect(retried.events[0]?.idem).toBe(spent.recorded.events[0]?.idem);
-		expect(retried.events[0]?.id).not.toBe(spent.recorded.events[0]?.id);
-		expect(retried.inserted).toBe(0);
 		expect(outboxEvents(db).length).toBe(before);
 	});
 
@@ -681,6 +735,158 @@ describe("recordEngineCommand", () => {
 			expect(held.recorded.inserted).toBe(1);
 			expectReplayMatchesRows(db, outboxEvents(db));
 		}
+	});
+});
+
+describe("recordEngineCommand refuses what it cannot record once", () => {
+	test("a command id another subject of the school already used is refused, not dropped", () => {
+		const school = withCreate();
+		const { db } = school;
+		const otherFamily = "family:fam_two";
+		const invoice = monthlyInvoice({
+			invoiceId: "in_two",
+			reason: "subscription_create",
+			start: T0,
+			end: T1,
+		});
+		(invoice.data.object.metadata as Record<string, string>).family_id =
+			"fam_two";
+		school.deliver(invoice, T0);
+
+		const first = spendFor({
+			db,
+			holder: HOLDER,
+			commandId: "req-1",
+			at: T0 + DAY,
+		});
+		expect(first.inserted).toBe(1);
+		const events = outboxEvents(db).length;
+		const revision = rowsOfHolder(db, otherFamily).revision;
+		// the second family's spend would be one more event under the same idem, which the outbox drops while the rows move
+		expect(() =>
+			spendFor({ db, holder: otherFamily, commandId: "req-1", at: T0 + DAY }),
+		).toThrow(/req-1/);
+		// the transaction rolled back: no event, and the rows did not move either
+		expect(outboxEvents(db).length).toBe(events);
+		expect(rowsOfHolder(db, otherFamily).revision).toBe(revision);
+		// a command id of its own books
+		expect(
+			spendFor({ db, holder: otherFamily, commandId: "req-2", at: T0 + DAY })
+				.inserted,
+		).toBe(1);
+	});
+
+	test("a command id reused for a second command of the subject is refused, and the log still replays", () => {
+		const { db } = withCreate();
+		const service = familyService(db);
+		const held = service.run({
+			type: "track",
+			at: T0 + DAY,
+			commandId: "bk_1",
+			fields: {
+				featureId: "visit",
+				internalFeatureId: "feat_visit",
+				value: 1,
+				overageBehavior: "reject",
+				properties: null,
+				usageEvent: null,
+				lock: {
+					id: "lock_bk_1",
+					lockId: "bk_1",
+					expiresAt: T0 + 3 * DAY,
+					expiryAction: "confirm",
+				},
+			},
+			context: {},
+		});
+		// the booking's id names the finalize too: two commands under one id, which a replay cannot tell apart
+		expect(() =>
+			service.run({
+				type: "finalize",
+				at: T0 + 2 * DAY,
+				commandId: "bk_1",
+				fields: {
+					featureId: "visit",
+					internalFeatureId: "feat_visit",
+					lock: lockOf(held.mutation),
+					finalValue: null,
+					properties: null,
+				},
+				context: {},
+			}),
+		).toThrow(/bk_1/);
+		expectReplayMatchesRows(db, outboxEvents(db));
+	});
+
+	test("a retry that ran the engine again on rows that moved on is refused: its rows would change and its event would not", () => {
+		const { db } = withCreate();
+		const service = familyService(db);
+		const spent = service.spend(1, T0 + DAY);
+		const before = outboxEvents(db).length;
+		const rerun = runOnState({
+			state: stateOf(db),
+			catalog,
+			command: spent.mutation?.command as never,
+		});
+		expect(() =>
+			recordEngineCommand({
+				db,
+				mutation: rerun.mutation as never,
+				before: null,
+				context: {
+					tz: menu.timeZone,
+					feature: "visit",
+					reason: "visit taken",
+				},
+			}),
+		).toThrow(/already/);
+		expect(outboxEvents(db).length).toBe(before);
+	});
+
+	test("a reset, which moves several features, is refused", () => {
+		const { db } = withCreate();
+		const service = familyService(db);
+		service.spend(2, T0 + DAY);
+		const before = outboxEvents(db).length;
+		// every row is due: the visits and the retreat refill together, and the retreat's credit would be booked as visits
+		expect(() =>
+			service.run({
+				type: "reset",
+				at: T0 + 400 * DAY,
+				fields: {},
+				context: { plan: "sparkle-4" },
+			}),
+		).toThrow(/reset/);
+		expect(outboxEvents(db).length).toBe(before);
+	});
+
+	test("a command that moves no credits carries the source and ingest time the caller gave, as the credit events do", () => {
+		const { db } = withCreate();
+		const service = familyService(db);
+		const ingestTime = "2026-01-17T18:00:00Z";
+		const empty = service.run({
+			type: "track",
+			at: T0 + DAY,
+			fields: {
+				featureId: "visit",
+				internalFeatureId: "feat_visit",
+				value: 0,
+				overageBehavior: "reject",
+				properties: null,
+				usageEvent: null,
+				lock: {
+					id: "lock_bk_zero",
+					lockId: "bk_zero",
+					expiresAt: T0 + 3 * DAY,
+					expiryAction: "confirm",
+				},
+			},
+			context: { source: "queue", ingestTime },
+		});
+		const [event] = empty.recorded.events;
+		expect(event?.event_type).toBe("plan.changed");
+		expect(event?.source).toBe("queue");
+		expect(event?.ingest_time).toBe(ingestTime);
 	});
 });
 

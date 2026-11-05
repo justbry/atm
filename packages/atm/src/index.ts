@@ -688,7 +688,7 @@ export const shipOutbox = (input: ShipOutboxInput): Promise<ShipOutboxResult> =>
 /**
  * Appends the events of one engine command the family service ran (a hold, a finalize, a spend, a refund) to
  * `ledger_outbox`, as the handler books its own: the whole mutation on every event, a `plan.changed` when it moves no
- * credits, `idem` by command id (a retry inserts nothing). Call it inside the transaction that writes the subject's rows,
+ * credits, `idem` by command id (the same mutation recorded again inserts nothing; a command id already used by another command throws). Call it inside the transaction that writes the subject's rows,
  * after the revision check: it opens none. Nothing is written for a null or rejected result. `logsEveryCommand` writes
  * `payload.complete`; leave it off unless the caller records every command (see the README).
  */

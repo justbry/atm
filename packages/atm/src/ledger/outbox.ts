@@ -41,11 +41,49 @@ const decidedNothing = (mutation: SubjectStateMutation | null): boolean =>
 	mutation === null ||
 	(mutation.result as { status?: string } | undefined)?.status === "rejected";
 
+/** Commands that move rows of several features at once (and make rollover rows): the events are cut by feature and plan, which only the handler does. */
+const HANDLER_ONLY_COMMANDS = new Set(["reset", "applyBillingPlan"]);
+
+/**
+ * `idem` is by command id for the whole school, and an event the outbox already holds under it is left as it was. So a
+ * command id that names a second command (another family's, or this subject's next step) would have its events dropped
+ * while its rows were written, and a log that lost them no longer replays to the rows. Only the same command at the same
+ * revision may find its events held (a second record of one command); anything else is refused, and the caller's
+ * transaction rolls back the rows with it.
+ */
+const refuseReusedCommandId = (
+	db: SqlDatabase,
+	mutation: SubjectStateMutation,
+): void => {
+	const { id: commandId, revision } = mutation;
+	const { orgId, customerId } = mutation.identity;
+	const held = db.all<{ body: string }>(
+		`SELECT body FROM ledger_outbox WHERE school_id = ? AND ((idem >= ? AND idem < ?) OR idem = ?)`,
+		[
+			orgId,
+			`engine:${commandId}:`,
+			`engine:${commandId};`,
+			`plan:${commandId}`,
+		],
+	);
+	for (const { body } of held) {
+		const event = JSON.parse(body) as AtmEvent;
+		const recorded = event.payload.mutation as
+			| { id?: string; revision?: { after?: number } }
+			| undefined;
+		if (recorded?.id !== commandId) continue;
+		if (event.key !== customerId || recorded.revision?.after !== revision.after)
+			throw new Error(
+				`recordEngineCommand: command id ${commandId} is already in the outbox for ${event.key} at revision ${String(recorded.revision?.after)}; this command is for ${customerId} at revision ${revision.after}. A command id names one command: use a new one for each command, and do not run the engine again for a request that already committed`,
+			);
+	}
+};
+
 /**
  * The events of one engine command the family service ran, as the handler would book it, appended to the outbox. The
  * whole mutation is on every event; a command that moves no credits is a `plan.changed`. `idem` is
- * `engine:<commandId>:<suffix>` (`plan:<commandId>` for the `plan.changed`), so the same command recorded twice, or run
- * again on a retried request, is one event. Nothing is written for a command the engine decided nothing for (null) or
+ * `engine:<commandId>:<suffix>` (`plan:<commandId>` for the `plan.changed`), so the same command recorded twice is one
+ * event, and a command id another command already used throws (`refuseReusedCommandId`). Nothing is written for a command the engine decided nothing for (null) or
  * rejected, which change no rows either.
  *
  * This takes the caller's `db` and opens no transaction of its own: call it inside the transaction that writes the
@@ -61,6 +99,12 @@ export const recordEngineCommand = ({
 	const decided = mutation as unknown as SubjectStateMutation | null;
 	if (decided === null || decidedNothing(decided))
 		return { events: [], inserted: 0 };
+	const type = (decided.command as { type: string }).type;
+	if (HANDLER_ONLY_COMMANDS.has(type))
+		throw new Error(
+			`recordEngineCommand: a ${type} moves several features and is the handler's to record, not the family service's`,
+		);
+	refuseReusedCommandId(db, decided);
 	const credits = mutationToEvents({
 		mutation: decided,
 		context: {
@@ -79,6 +123,8 @@ export const recordEngineCommand = ({
 						tz: context.tz,
 						cause: context.cause,
 						labels: context.labels,
+						source: context.source,
+						ingestTime: context.ingestTime,
 						complete: logsEveryCommand,
 					}),
 				];
