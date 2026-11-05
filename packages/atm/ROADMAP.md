@@ -10,14 +10,14 @@ The critical path. Simulation, corrections, the Parquet export, decoupling and t
 
 ### In atm
 - [x] The billing layer, the reference webhook handler, the real-payload fixes, refund and dispute linkage, `credit.low` and `credit.depleted`, and the deduction order (details under Done).
-- [ ] Review each slice, then push the branches, open the PRs (`gh --repo justbry/atm`; base chain, first base `dev`), and merge bottom-up with merge commits (not squash, which would orphan the child PRs), retargeting each child to `dev` after its parent merges. Review has started with slice 1; slices 2 to 8 are not reviewed yet.
+- [ ] Review each slice, then push the branches, open the PRs (`gh --repo justbry/atm`; base chain, first base `dev`), and merge bottom-up with merge commits (not squash, which would orphan the child PRs), retargeting each child to `dev` after its parent merges. All eight slices have been reviewed (see Review below); the findings are fixed in each slice.
 - [ ] **Tier quantities.** Vibes of Light sells three tiers at 1, 2 or 4 sessions a month; as separate tiers that is 9, past `MAX_TIERS = 4`. A tier gets `quantities` with its price and grants per unit. It goes on top of the stack, not on `dev`, because it edits the code the real-payload slice fixed.
   - [ ] Capture real quantity payloads from the sandbox first (quantity 2 subscription, raise to 4 with `always_invoice`, lower it, renew at 4), as was done for the renewal bug.
   - [ ] Decide: carry Stripe's quantity as is and never fall back to 1 (the range check belongs to checkout); keep `quantity` (what credits reflect) apart from `membership.quantity` (what Stripe says); scale rollover `max` with the quantity; forbid a tier change and a quantity change in one update; a decrease grants nothing and applies at the next cycle.
   - [ ] Align with the family service's stopgap, justbry/buzz-school#1285.
 - [ ] **Release 0.3.0**: bump `package.json` (0.2.0 on `dev`; no 0.2.0 tag or release exists), `just release-dry`, then `just release` from a clean, pushed `HEAD`; hand the tarball URL and sha512 to `buzz-school`'s `bun.lock`. `release.ts` has no draft mode.
 - [ ] Verify webhook delivery at the pinned version: create a sandbox webhook endpoint with `api_version: "2025-10-29.clover"` that reaches a URL we control (the CLI's `listen` offers only the account default or the newest version), subscribed to the eight events in `UPGRADING.md`.
-- [ ] An atm test workflow in `.github/workflows` (only knip and build run on PRs today).
+- [ ] An atm test workflow in `.github/workflows`. Today no workflow runs atm's tests on a PR: `knip.yml` runs on PRs to main, staging and dev; `build.yml` runs on pushes to main, staging and dev (it type-checks, and builds the server image only on main or a manual dispatch); `release-atm.yml` runs on an `atm-v*` tag push and calls `release --ci`, which builds the package and runs `tests/dist.test.ts` against the built output.
 - [ ] The contract suite under Node (only Bun has run) and against staging R2 (never run).
 
 ### In `buzz-school` (not atm; listed because atm's release waits on it)
@@ -26,6 +26,17 @@ The critical path. Simulation, corrections, the Parquet export, decoupling and t
 - [ ] The light-bed resource and the back-to-back add-on.
 - [ ] Create each school's webhook endpoint with `api_version` `2025-10-29.clover`, subscribe it to `invoice_payment.paid` and the rest, and send the same `Stripe-Version` on every call.
 - [ ] Deliver "N visits left" and "pack used up" notices from `credit.low` and `credit.depleted`.
+
+## Review
+
+All eight slices were reviewed by sub-agents and the findings fixed slice by slice (see the PRs for each fix). Decisions that came out of it:
+
+- **Handler `schoolId` binding.** The webhook handler's deps carry a required `schoolId`, the school an endpoint and its secret belong to. An event naming another school is refused (422 `school_mismatch`); an event with no `b4u_school` at all is answered 200 `ignored`; half-filled metadata stays 422 `missing_metadata`; an unmapped event type answers 200 `ignored`; a payment linked to more than one invoice answers 422 `ambiguous_payment`.
+- **Alerts only for `track` and `finalize` draws.** `credit.low` and `credit.depleted` follow customer activity (holds and spends), not refund or dispute clawbacks or admin edits. They are judged on availability including holds. atm does not remember it already alerted, so the family service dedupes per holder, feature and grant or cycle.
+- **`FolderStore` reserved names are case-insensitive**, and both object stores validate keys and ranges more strictly.
+- **Equal-second membership ordering.** Membership events that carry the same second now have a defined order (see the PR for the rule).
+- **`deterministicUlid` is exported** so a caller can derive `eventId` as the handler does.
+- **Replay of multi-feature commands.** See the PR for slice 3's fix; the open item under the log path stays until it is confirmed there.
 
 ## Done
 
