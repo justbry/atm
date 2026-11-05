@@ -4,8 +4,8 @@
  * balances, against the totals the fixture's own generator recorded (`expected.json`) and against committed CSV.
  * `UPDATE_GOLDEN=1` rewrites the CSV.
  */
-import { describe, expect, test } from "bun:test";
-import { cp, mkdir, writeFile } from "node:fs/promises";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { cp, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { journalMonth, readEvents } from "../src/ledger/files.js";
 import { decimalToUnits } from "../src/ledger/util.js";
@@ -29,7 +29,8 @@ const total = (account: string, commodity: string): bigint => {
 	return decimalToUnits(text, commodity === "USD" ? CENTS : 0);
 };
 
-const build = async (): Promise<string> => {
+/** A copy of the fixture with every month journaled: `root` is the copy (to delete), `books` the school's directory hledger reads. */
+const build = async (): Promise<{ root: string; books: string }> => {
 	const root = await tmp("hledger-reports");
 	await cp(FIXTURE, root, { recursive: true });
 	const { events } = await readEvents(root, SCHOOL);
@@ -38,7 +39,7 @@ const build = async (): Promise<string> => {
 	].sort();
 	for (const month of months)
 		await journalMonth({ root, school: SCHOOL, month });
-	return join(root, "schools", SCHOOL);
+	return { root, books: join(root, "schools", SCHOOL) };
 };
 
 const hledger = (cwd: string, args: string[]): string => {
@@ -78,6 +79,41 @@ const column = (csv: string): Map<string, string> => {
 	return rows;
 };
 
+const recordedAccounts = new Set(
+	Object.keys(expected.postingTotals).map((key) => key.split(" ")[0]),
+);
+
+/**
+ * Each account `rows` lists is a recorded one, and every recorded account under a prefix of `signs` has its recorded total times
+ * the prefix's sign (hledger shows income negated). hledger drops an account whose balance is zero from a report,
+ * so a missing row is zero: a recorded total that is not zero cannot hide, and neither can an account the generator never recorded.
+ */
+const expectRecorded = (
+	rows: Map<string, string>,
+	signs: Record<string, bigint>,
+): void => {
+	const prefixes = Object.keys(signs);
+	for (const label of rows.keys()) {
+		// the section headings have no colon, and "Total:" and "Net:" end in one: what is left is an account
+		if (!label.includes(":") || label.endsWith(":")) continue;
+		expect(
+			prefixes.some((prefix) => label.startsWith(prefix)) &&
+				recordedAccounts.has(label),
+			`${label} is in the report but is not a recorded account`,
+		).toBe(true);
+	}
+	for (const key of Object.keys(expected.postingTotals)) {
+		const [account, commodity] = key.split(" ") as [string, string];
+		const prefix = prefixes.find((candidate) => account.startsWith(candidate));
+		if (prefix === undefined) continue;
+		const shown = rows.get(account);
+		expect(
+			shown === undefined ? 0n : units(shown, commodity),
+			`${account} ${commodity}`,
+		).toBe((signs[prefix] as bigint) * total(account, commodity));
+	}
+};
+
 const golden = async (name: string, csv: string) => {
 	const path = join(GOLDEN, name);
 	if (process.env.UPDATE_GOLDEN) {
@@ -88,21 +124,20 @@ const golden = async (name: string, csv: string) => {
 };
 
 describe.skipIf(!hasHledger)("hledger reports on the golden year", () => {
+	let root = "";
+	let books = "";
+	// the reports only read the journals: build them once and delete the copy
+	beforeAll(async () => {
+		({ root, books } = await build());
+	});
+	afterAll(async () => {
+		await rm(root, { recursive: true, force: true });
+	});
+
 	test("the income statement lines are the fixture's recorded totals, with the sign hledger gives each", async () => {
-		const books = await build();
 		const rows = column(hledger(books, ["is", "-O", "csv"]));
 		// revenue accounts are credits (negative postings) that hledger shows as positive; a refund is a debit, shown negative
-		for (const account of [
-			"income:billing:membership:sparkle-1",
-			"income:billing:membership:sparkle-2",
-			"income:billing:refunds",
-		])
-			expect(units(rows.get(account) as string, "USD")).toBe(
-				-total(account, "USD"),
-			);
-		expect(
-			units(rows.get("expenses:billing:stripe-fees") as string, "USD"),
-		).toBe(total("expenses:billing:stripe-fees", "USD"));
+		expectRecorded(rows, { "income:": -1n, "expenses:": 1n });
 		const revenue =
 			-total("income:billing:membership:sparkle-1", "USD") -
 			total("income:billing:membership:sparkle-2", "USD") -
@@ -113,12 +148,10 @@ describe.skipIf(!hasHledger)("hledger reports on the golden year", () => {
 	});
 
 	test("the balance sheet's cash is the income statement's net, and nothing is owed in dollars", async () => {
-		const books = await build();
 		const sheet = column(hledger(books, ["bs", "-O", "csv"]));
 		const statement = column(hledger(books, ["is", "-O", "csv"]));
-		expect(
-			units(sheet.get("assets:clearing:stripe-payouts") as string, "USD"),
-		).toBe(total("assets:clearing:stripe-payouts", "USD"));
+		// no liability is recorded, so none may be listed
+		expectRecorded(sheet, { "assets:": 1n, "liabilities:": 1n });
 		expect(sheet.get("assets:clearing:stripe-payouts")).toBe(
 			statement.get("Net:"),
 		);
@@ -126,25 +159,15 @@ describe.skipIf(!hasHledger)("hledger reports on the golden year", () => {
 	});
 
 	test("credit balances are the recorded totals and the credit accounts sum to nothing", async () => {
-		const books = await build();
 		const rows = column(
 			hledger(books, ["bal", "credits:", "--flat", "-O", "csv"]),
 		);
-		for (const [key, text] of Object.entries(expected.postingTotals)) {
-			if (!key.startsWith("credits:")) continue;
-			const [account, commodity] = key.split(" ") as [string, string];
-			const want = decimalToUnits(text, 0);
-			// hledger drops an account whose balance is zero from the report
-			expect(
-				rows.has(account) ? units(rows.get(account) as string, commodity) : 0n,
-			).toBe(want);
-		}
+		expectRecorded(rows, { "credits:": 1n });
 		// every credit that was issued is available, held, spent, expired, forfeited or adjusted away: nothing is made or lost
 		expect(rows.get("Total:")).toBe("0");
 	});
 
 	test("the monthly income statement, the balance sheet and the credit balances match the committed CSV", async () => {
-		const books = await build();
 		await golden(
 			"income-statement-monthly.csv",
 			hledger(books, ["is", "-M", "-O", "csv"]),
