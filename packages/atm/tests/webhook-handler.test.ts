@@ -1103,6 +1103,28 @@ describe("refunds and disputes find their invoice through invoice_payment.paid",
 		expect(availOf(h, T0 + 1)).toBe(0);
 	});
 
+	test("an invoice.paid of an older API version is 422 with the version and the fix, not ignored", () => {
+		const h = harness();
+		const event = create();
+		// What an endpoint on 2024-06-20 sends: the subscription and its metadata sit on the invoice itself.
+		const { subscription_details: details } = event.data.object.parent;
+		event.api_version = "2024-06-20";
+		event.data.object.subscription = details.subscription;
+		event.data.object.subscription_details = { metadata: details.metadata };
+		event.data.object.parent = undefined;
+		const response = h.deliver(event);
+		expect(response.status).toBe(422);
+		expect(response.body).toMatchObject({
+			outcome: "refused",
+			reason: "unknown_mapping",
+		});
+		expect(response.body.message).toContain("2024-06-20");
+		expect(response.body.message).toContain(
+			"recreate the endpoint with api_version 2025-10-29.clover",
+		);
+		expect(h.claim("evt_create")).toBeNull();
+	});
+
 	test("an invoice_payment.paid of another API version is 422 and keeps no claim", () => {
 		const h = harness();
 		h.deliver(create());

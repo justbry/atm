@@ -278,10 +278,22 @@ const holderMetadata = (event: StripeEvent): JsonObject => {
 		const { metadata } = normalized.value as BillingInvoice;
 		return isObject(metadata) ? metadata : {};
 	}
+	// The subscription's metadata sits under `parent` from clover on, and on the invoice's `subscription_details` before
+	// it: an endpoint left on an older version must still be located, so that it is refused with the version and the fix
+	// rather than ignored as another product's invoice.
 	const parent = event.object.parent;
-	const details = isObject(parent) ? parent.subscription_details : undefined;
-	const inherited = isObject(details) ? details.metadata : undefined;
+	const parentDetails = isObject(parent)
+		? parent.subscription_details
+		: undefined;
+	const inherited = isObject(parentDetails)
+		? parentDetails.metadata
+		: undefined;
+	const olderDetails = event.object.subscription_details;
+	const olderInherited = isObject(olderDetails)
+		? olderDetails.metadata
+		: undefined;
 	return {
+		...(isObject(olderInherited) ? olderInherited : {}),
 		...(isObject(inherited) ? inherited : {}),
 		...(isObject(event.object.metadata) ? event.object.metadata : {}),
 	};

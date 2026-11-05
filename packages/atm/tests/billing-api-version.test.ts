@@ -133,6 +133,16 @@ describe("an event from an API version atm does not read", () => {
 		expect(result.refused?.message).toContain("no mapping for the event type");
 	});
 
+	test("an event with no api_version is said to have none, not to be at a blank version", () => {
+		const result = mappingFor("invoice.paid", "");
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		const message = describeNormalizeError(result.error);
+		expect(message).toContain("no api_version");
+		expect(message).toContain(CLOVER);
+		expect(message).not.toContain("version , ");
+	});
+
 	test("a pre-clover body relabelled as clover (Stripe never sends one) grants nothing: its lines match no menu price", () => {
 		const event = preClover("invoice.paid.subscription_cycle.json");
 		event.api_version = CLOVER;
