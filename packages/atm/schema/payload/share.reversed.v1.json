@@ -1,0 +1,41 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://b4uni.com/_schema/payload/share.reversed.v1.json",
+	"title": "share.reversed payload v1",
+	"description": "The part of a payment's revenue share that a refund takes back. The share left after the charge's total refunded so far is share - round(share x refunded_total / collected), from the running total so that rounding never drifts and a full refund leaves 0.",
+	"type": "object",
+	"required": [
+		"payment_id",
+		"refunded_total",
+		"share_before",
+		"share_after",
+		"reversed"
+	],
+	"properties": {
+		"payment_id": {
+			"description": "The id of the payment.succeeded whose share this reverses (as in share.accrued).",
+			"type": "string",
+			"minLength": 1
+		},
+		"refunded_total": {
+			"description": "The charge's total refunded so far (cents), after this refund.",
+			"type": "integer",
+			"minimum": 1
+		},
+		"share_before": {
+			"description": "The share standing before this reversal: accrued less what was reversed already (cents).",
+			"type": "integer",
+			"minimum": 1
+		},
+		"share_after": {
+			"description": "The share standing after this reversal (cents).",
+			"type": "integer",
+			"minimum": 0
+		},
+		"reversed": {
+			"description": "What this event takes back: share_before less share_after (cents), at least 1.",
+			"type": "integer",
+			"minimum": 1
+		}
+	}
+}

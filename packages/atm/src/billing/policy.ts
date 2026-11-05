@@ -17,6 +17,7 @@ export const DEFAULT_POLICY: BillingPolicy = {
 	cancelCutoffHours: 24,
 	noShow: "spend",
 	lateCancel: "spend",
+	revenueShare: null,
 };
 
 /**
@@ -43,9 +44,12 @@ let validate: ReturnType<Ajv2020["compile"]> | null = null;
 export const resolvePolicy = (overrides: unknown): BillingPolicy => {
 	if (overrides === null || overrides === undefined)
 		return structuredClone(DEFAULT_POLICY);
-	validate ??= new Ajv2020({ allErrors: true, strict: false }).compile(
-		policySchema,
-	);
+	validate ??= new Ajv2020({
+		allErrors: true,
+		strict: false,
+		// `multipleOf: 0.01` in floating point: 0.07 / 0.01 is 7.000000000000001, which is a whole number of hundredths
+		multipleOfPrecision: 6,
+	}).compile(policySchema);
 	if (!validate(overrides)) {
 		const why = (validate.errors ?? [])
 			.map((e) => {

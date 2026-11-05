@@ -41,6 +41,10 @@ import {
 
 import { runOnState as runOnStateImpl, toCatalog } from "./ledger/run.js";
 import {
+	formatShareStatement as formatShareStatementImpl,
+	shareStatement as shareStatementImpl,
+} from "./ledger/share-statement.js";
+import {
 	planOutbox as planOutboxImpl,
 	shipOutbox as shipOutboxImpl,
 } from "./ledger/ship.js";
@@ -137,6 +141,7 @@ import type {
 	RowChanges,
 	RowTable,
 	SettleBookingInput,
+	ShareStatement,
 	ShipOutboxInput,
 	ShipOutboxResult,
 	SignatureVerdict,
@@ -315,6 +320,26 @@ export const buildJournal = (input: {
  */
 export const reconcile = (input: ReconcileInput): ReconcileResult =>
 	reconcileImpl(input);
+
+/**
+ * What a school owes B4 Uni for one month, from its events alone: a row per payment that accrued a revenue share
+ * (`share.accrued`) or had part of it reversed by a refund (`share.reversed`) in the month, the totals (accrued, reversed,
+ * settled by `share.settled`, and what the month adds to what is owed) and the balance `liabilities:b4uni` holds at the
+ * month's end. A month is chosen by each event's date in the school's time zone (`tz` re-dates them in another zone), and a
+ * second event with an `idem` already seen is dropped, so a log read twice gives the same statement. Pure: it reads no
+ * clock and no store. B4 Uni invoices from it outside atm; record the payment with a `share.settled` event. See
+ * `docs/financial-reports.md`, "Revenue share".
+ */
+export const shareStatement = (input: {
+	events: readonly AtmEvent[];
+	school: string;
+	month: string;
+	tz?: string;
+}): ShareStatement => shareStatementImpl(input);
+
+/** A `shareStatement` as CSV-style text: a header and a row per payment, then the totals as `name,amount` lines. Amounts are dollars. */
+export const formatShareStatement = (statement: ShareStatement): string =>
+	formatShareStatementImpl(statement);
 
 // ---- Billing: pure rules for the school's menu, Stripe facts, credit grants and storage rows ----
 

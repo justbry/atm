@@ -117,6 +117,14 @@ export type AtmEventType =
 	| "referral.rewarded"
 	| "catalog.published"
 	| "policy.published"
+	/**
+	 * B4 Uni's revenue share on a school's collected payments, in the school's books: `share.accrued` (a payment's share),
+	 * `share.reversed` (the part of it a refund takes back) and `share.settled` (the school paid B4 Uni). A log that holds
+	 * one is rejected by a reader built before they existed.
+	 */
+	| "share.accrued"
+	| "share.reversed"
+	| "share.settled"
 	/** A Stripe money fact the books did not take (a payment, refund, payout or dispute in a currency other than USD): no postings, a count. */
 	| "money.skipped";
 
@@ -407,6 +415,46 @@ export type AtmJournalBuild = {
 	inputsHash: string;
 };
 
+/**
+ * One payment's line on a school's revenue-share statement. Amounts are whole cents (USD). `accrued` and `reversed` are
+ * what was booked in the statement's month: a payment accrued in an earlier month and refunded in this one has `accrued`
+ * 0, and `date`, `collected` and `percent` are those of its accrual (null when the log holds no accrual for it).
+ */
+export type ShareStatementRow = {
+	/** The payment's id: an invoice id, or a booking's payment intent id. */
+	paymentId: string;
+	kind: "invoice" | "booking" | null;
+	/** The payment's date in the school's time zone (`YYYY-MM-DD`); the first reversal's when there is no accrual. */
+	date: string;
+	collected: number | null;
+	/** The rate in force when the payment was booked. */
+	percent: number | null;
+	accrued: number;
+	reversed: number;
+};
+
+/** What a school owes B4 Uni for one month, from its events alone (`shareStatement`). */
+export type ShareStatement = {
+	school: string;
+	/** `YYYY-MM`, by each event's date in the school's time zone. */
+	month: string;
+	rows: ShareStatementRow[];
+	/** `share.settled` payments dated in the month. */
+	settlements: { date: string; amount: number; reference: string | null }[];
+	totals: {
+		accrued: number;
+		reversed: number;
+		settled: number;
+		/** `accrued - reversed - settled`, all in the month: what the month adds to what is owed. */
+		owed: number;
+	};
+	/**
+	 * What `liabilities:b4uni` holds at the end of the month, over every event dated up to it (also a `share.charged`):
+	 * what the school owes B4 Uni in all, whichever month it accrued in. 0 when everything is paid.
+	 */
+	balanceOwed: number;
+};
+
 /** A grant or rollover row past its expiry that still holds a balance: the engine drops it by the clock, the cron books `credit.expired`. */
 export type AtmLapsedRow = {
 	table: "customerEntitlements" | "rollovers";
@@ -547,6 +595,13 @@ export type BillingPolicy = {
 	noShow: "spend" | "release";
 	/** What a cancel after the cutoff costs: `spend` keeps the held credits spent, `release` gives them back. */
 	lateCancel: "spend" | "release";
+	/**
+	 * B4 Uni's revenue share, negotiated per school: a percentage (0 to 100, at most two decimals) of each payment the
+	 * handler books, taken on the amount collected before Stripe's fee. `null` is no share (the default), and so is 0. A
+	 * policy stored before 0.9.0 has none: read it with `?? null`. A change applies to payments booked after it; a share
+	 * already accrued stays as it was.
+	 */
+	revenueShare: { percent: number } | null;
 };
 
 /**
@@ -939,6 +994,13 @@ export type InvoiceRecord = {
 	 * it to take back from.
 	 */
 	paid?: number;
+	/**
+	 * The revenue share accrued on this payment (`share.accrued`) and the part of it a refund has taken back
+	 * (`share.reversed`), in cents. Absent when no share was accrued (the school had no rate when the payment was booked,
+	 * the share was 0, or the payment is not in USD), so a state with no share is written as before; a refund of such a
+	 * payment reverses nothing. The rate in force at payment is not kept here: the event's payload has it.
+	 */
+	share?: { accrued: number; reversed: number };
 	/**
 	 * Units of this invoice that an open booking held when a refund or a lost dispute removed it, by credit row id: they were
 	 * not in the balance, so the removal could not take them back. The release that frees them takes them back instead (a
@@ -1376,6 +1438,11 @@ export type BookingRecord = {
 		 * not a payment). A refund of such a payment makes no `payment.refunded`: there is no payment for it to take back from.
 		 */
 		booked?: boolean;
+		/**
+		 * The revenue share accrued on this payment and the part a refund has taken back, as `InvoiceRecord.share` says for an
+		 * invoice. Absent when none was accrued, so a state with no share is written as before.
+		 */
+		share?: { accrued: number; reversed: number };
 	};
 };
 

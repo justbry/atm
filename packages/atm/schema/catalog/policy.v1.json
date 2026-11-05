@@ -22,6 +22,25 @@
 		"cancelCutoffHours": { "type": "integer", "minimum": 0, "maximum": 720 },
 		"noShow": { "enum": ["spend", "release"] },
 		"lateCancel": { "enum": ["spend", "release"] },
+		"revenueShare": {
+			"description": "B4 Uni's revenue share, negotiated per school: null (the default) for none, or a percentage of each payment collected, before Stripe's fee. 0 is no share.",
+			"oneOf": [
+				{ "type": "null" },
+				{
+					"type": "object",
+					"additionalProperties": false,
+					"required": ["percent"],
+					"properties": {
+						"percent": {
+							"type": "number",
+							"minimum": 0,
+							"maximum": 100,
+							"multipleOf": 0.01
+						}
+					}
+				}
+			]
+		},
 		"memberCode": {
 			"oneOf": [
 				{ "type": "null" },

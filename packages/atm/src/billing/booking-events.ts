@@ -20,6 +20,10 @@
  * invoice), has none and its refund books no `payment.refunded`. `reconcile` pairs the payment with Stripe's payment
  * intents (`paymentIntents`) and the refund with Stripe's refunds, by payment intent.
  *
+ * The revenue share (`./share.ts`): when the policy has a rate, a paid booking also makes a `share.accrued` after its
+ * `payment.succeeded`, and a refund of a payment that accrued one makes a `share.reversed` after its `payment.refunded`;
+ * the record keeps what was accrued and reversed (`payment.share`), absent when there was none.
+ *
  * Pure: no clock, no network. Decided once: the replay of a paid session finds its record and decides nothing, so the
  * caller must write the rows and act on the outcome in one transaction (as for an invoice).
  */
@@ -44,6 +48,7 @@ import {
 	skippedRefundEvents,
 } from "./money.js";
 import { grantsRow, subjectKey } from "./rows.js";
+import { accrueShare, reverseShare } from "./share.js";
 
 const FAMILY_PREFIX = "family:";
 
@@ -199,7 +204,9 @@ export const decideCheckoutSession = ({
 		orgId: schoolId,
 		customerId: `${FAMILY_PREFIX}${familyId}`,
 	};
-	const money = bookingPaymentEvents({
+	const booker = bookerOf(input, holder);
+	const labels = labelsOf(input, fact.source.mapping, bookingId);
+	const payment = bookingPaymentEvents({
 		payment: {
 			bookingId,
 			sessionId: fact.sessionId,
@@ -209,10 +216,22 @@ export const decideCheckoutSession = ({
 			at: fact.at,
 		},
 		fee: input.fee,
-		labels: labelsOf(input, fact.source.mapping, bookingId),
-		booker: bookerOf(input, holder),
+		labels,
+		booker,
 		holder,
 	});
+	// The school's revenue share on what the session collected, booked right after the payment.
+	const share = accrueShare({
+		policy: input.policy,
+		kind: "booking",
+		collected: amount,
+		money: payment,
+		paymentId: fact.paymentIntentId ?? fact.sessionId,
+		labels,
+		booker,
+		holder,
+	});
+	const money = [...payment, ...share.events];
 	const record: BookingRecord = {
 		state: "paid",
 		cost: { kind: "price", amount, currency: fact.currency },
@@ -225,8 +244,12 @@ export const decideCheckoutSession = ({
 			currency: fact.currency,
 			refunded: 0,
 			// Only a payment line is a payment the books took: the `money.skipped` marker of a non-USD booking is not one.
-			...(money.some((event) => event.event_type === "payment.succeeded")
+			...(payment.some((event) => event.event_type === "payment.succeeded")
 				? { booked: true }
+				: {}),
+			// What the share accrued on it, which a refund reverses in proportion; absent when the school has no rate.
+			...(share.accrued > 0
+				? { share: { accrued: share.accrued, reversed: 0 } }
 				: {}),
 		},
 	};
@@ -314,17 +337,38 @@ export const decideBookingRefund = ({
 		currency: fact.currency ?? payment.currency,
 	};
 	// Only a refund of a payment the books hold is a `payment.refunded`; a non-USD one leaves the marker either way.
-	const money = (payment.booked ? refundEvents : skippedRefundEvents)({
+	const booker = bookerOf(input, holder);
+	const labels = labelsOf(input, fact.source.mapping, bookingId);
+	const refunded = (payment.booked ? refundEvents : skippedRefundEvents)({
 		refund,
-		labels: labelsOf(input, fact.source.mapping, bookingId),
-		booker: bookerOf(input, holder),
+		labels,
+		booker,
 		holder,
 		...(payment.booked ? { bookingId } : {}),
 	});
+	const refundedTotal = Math.max(total, payment.refunded);
+	// The part of the payment's share this refund takes back, from the record's own running total.
+	const share = reverseShare({
+		record: payment.share,
+		collected: payment.amount,
+		refundedTotal,
+		refundId: fact.id,
+		refundAt: fact.at,
+		money: refunded,
+		paymentId: payment.paymentIntentId ?? payment.sessionId,
+		labels,
+		booker,
+		holder,
+	});
+	const money = [...refunded, ...share.events];
 	const next: BookingRecord = {
 		...record,
 		state: full ? "refunded" : record.state,
-		payment: { ...payment, refunded: Math.max(total, payment.refunded) },
+		payment: {
+			...payment,
+			refunded: refundedTotal,
+			...(share.share ? { share: share.share } : {}),
+		},
 	};
 	return writeGrants(
 		input,
