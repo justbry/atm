@@ -36,8 +36,8 @@ import type { RowChanges } from "../src/types.js";
  * `payment.succeeded`, and the invoice is never indexed.
  *
  * When this is fixed (the reset books the forgiven overage, or the row is kept, or the boundary refuses overage rows),
- * the tests marked KNOWN GAP below must change to expect the renewal to apply; the control tests and the recovery test
- * stay as they are. Design options: docs/usage-metering.md, "A reset forgives overage".
+ * the tests marked KNOWN GAP below fail, with a message saying so, and must change to expect the renewal to apply; the
+ * control tests stay as they are, and the recovery test loses its first step (the refusal). Design options: docs/usage-metering.md, "A reset forgives overage".
  *
  * Real events: the recorded sandbox deliveries of `schedule-decrease` (create, subscription events, then a
  * `subscription_cycle` renewal invoice that lowers 4 to 2), through the reference handler on an in-memory database.
@@ -165,6 +165,11 @@ const write = (db: SqlDatabase, changes: RowChanges): void => {
 		db.run(
 			"INSERT INTO atm_rows (subject_key, table_name, row_id, data) VALUES (?, ?, ?, ?) ON CONFLICT (subject_key, table_name, row_id) DO UPDATE SET data = excluded.data",
 			[subject, upsert.table, upsert.id, JSON.stringify(upsert.data)],
+		);
+	for (const removed of changes.deletes)
+		db.run(
+			"DELETE FROM atm_rows WHERE subject_key = ? AND table_name = ? AND row_id = ?",
+			[subject, removed.table, removed.id],
 		);
 };
 
@@ -319,32 +324,94 @@ const addPackAndRollover = (db: SqlDatabase): void => {
 
 const REFILLS_CAP_MESSAGE = "a reset cannot add more than it refills";
 
-/** A renewal that is refused: 422, the cause, and the same answer however often Stripe retries. */
-const expectRefusedEveryTime = (
-	db: SqlDatabase,
-	deliver: (event: Recorded) => WebhookResponse,
-	overdrawnBy: number,
-) => {
+/**
+ * Wraps the assertions that hold only while the gap is open. When one fails, the gap may have been closed: say so, and
+ * say what to change, with the original failure kept beside it.
+ */
+const whileGapOpen = (what: string, check: () => void): void => {
+	try {
+		check();
+	} catch (error) {
+		const original = error instanceof Error ? error.message : String(error);
+		throw new Error(
+			`KNOWN GAP may be closed (${what}). If a renewal for a holder in overage now applies, change this test to expect that and update the roadmap line, the variants table in docs/usage-metering.md and the spike 3 note (see the header of this file). Original failure: ${original}`,
+		);
+	}
+};
+
+/**
+ * A renewal that is refused: 422, the cause, and the same answer however often Stripe retries. Then its payment can
+ * never be linked: the invoice is not indexed.
+ */
+const expectRefusedEveryTime = ({
+	db,
+	deliver,
+	overdrawnBy,
+	invoice = renewalInvoice,
+	payment = renewalPayment,
+}: {
+	db: SqlDatabase;
+	deliver: (event: Recorded) => WebhookResponse;
+	overdrawnBy: number;
+	invoice?: Recorded;
+	payment?: Recorded;
+}) => {
 	const before = snapshot(db);
-	for (let attempt = 0; attempt < 3; attempt += 1) {
-		const response = deliver(renewalInvoice);
-		expect(response.status).toBe(422);
-		expect(response.body).toMatchObject({
-			outcome: "refused",
-			reason: "rejected",
-			message: `${REFILLS_CAP_MESSAGE} (-${overdrawnBy})`,
-		});
+	for (let attempt = 1; attempt <= 3; attempt += 1) {
+		const response = deliver(invoice);
+		whileGapOpen(
+			`attempt ${attempt} of the renewal answered ${JSON.stringify({ status: response.status, body: response.body })}`,
+			() => {
+				expect(response.status).toBe(422);
+				expect(response.body).toMatchObject({
+					outcome: "refused",
+					reason: "rejected",
+					message: `${REFILLS_CAP_MESSAGE} (-${overdrawnBy})`,
+				});
+			},
+		);
 		// nothing written, and the claim is released, so the next delivery runs the handler again (it is not `duplicate`)
 		expect(snapshot(db)).toEqual(before);
 	}
-	// its payment can never be linked: the invoice is not indexed
-	const payment = deliver(renewalPayment);
-	expect(payment.status).toBe(409);
-	expect(payment.body.outcome).toBe("unmatched_invoice");
+	const unmatched = deliver(payment);
+	expect(unmatched.status).toBe(409);
+	expect(unmatched.body.outcome).toBe("unmatched_invoice");
+};
+
+const RENEWAL_PERIOD_SECONDS = 30 * 24 * 60 * 60;
+const PAID_AFTER_SECONDS = 3600;
+
+/** The same renewal one period later: a new event, invoice and line, with the period moved on. */
+const nextRenewalOf = (invoice: Recorded, suffix: string): Recorded => {
+	const next = structuredClone(invoice);
+	const object = next.data.object;
+	const [line] = object.lines.data;
+	const start: number = line.period.end;
+	next.id = `evt_${suffix}`;
+	object.id = `in_${suffix}`;
+	line.id = `il_${suffix}`;
+	line.invoice = object.id;
+	object.lines.url = `/v1/invoices/${object.id}/lines`;
+	object.number = suffix;
+	object.period_start = line.period.start;
+	object.period_end = start;
+	line.period = { start, end: start + RENEWAL_PERIOD_SECONDS };
+	object.created = start;
+	next.created = start;
+	object.effective_at = start + PAID_AFTER_SECONDS;
+	object.status_transitions.finalized_at = start + PAID_AFTER_SECONDS;
+	object.status_transitions.paid_at = start + PAID_AFTER_SECONDS;
+	object.webhooks_delivered_at = start;
+	return next;
 };
 
 describe("a renewal for a holder in overage", () => {
-	test("control: with overage allowed, a balance at zero or above renews (4 becomes the lower grant 2)", () => {
+	test("control: the row only goes negative because overage is allowed; a balance at zero or above renews (4 becomes the lower grant 2)", () => {
+		// without `overage_allowed` the same spend is rejected and the row stays at 4: the setup below is what lets it go negative
+		const plain = holderBeforeRenewal();
+		expect(track(plain.db, 34).status).toBe("rejected");
+		expect(balances(plain.db)).toEqual({ [TIER_ROW]: 4 });
+
 		const atZero = holderBeforeRenewal();
 		allowOverage(atZero.db);
 		expect(track(atZero.db, 4).status).toBe("applied");
@@ -353,14 +420,19 @@ describe("a renewal for a holder in overage", () => {
 		expect(renewed.status).toBe(200);
 		expect(renewed.body.outcome).toBe("applied");
 		expect(balances(atZero.db)).toEqual({ [TIER_ROW]: 2 });
+		// nothing was left to expire at zero
+		expect(snapshot(atZero.db).outbox).not.toContain("credit.expired");
 		expect(atZero.deliver(renewalInvoice).body.outcome).toBe("duplicate");
 		expect(atZero.deliver(renewalPayment).body.outcome).toBe("applied");
 
 		const positive = holderBeforeRenewal();
 		allowOverage(positive.db);
 		expect(track(positive.db, 1).status).toBe("applied");
+		expect(balances(positive.db)).toEqual({ [TIER_ROW]: 3 });
 		expect(positive.deliver(renewalInvoice).body.outcome).toBe("applied");
 		expect(balances(positive.db)).toEqual({ [TIER_ROW]: 2 });
+		// a positive leftover is what `credit.expired` books
+		expect(snapshot(positive.db).outbox).toContain("credit.expired");
 	});
 
 	test("KNOWN GAP: overage allowed, no spend limit, balance -30: the renewal is refused 422 on every retry and nothing changes", () => {
@@ -371,7 +443,7 @@ describe("a renewal for a holder in overage", () => {
 		const before = snapshot(db);
 		expect(before.cycleEnd).toBe(1_796_472_126_000);
 		expect(before.invoices).toBe(1);
-		expectRefusedEveryTime(db, deliver, 30);
+		expectRefusedEveryTime({ db, deliver, overdrawnBy: 30 });
 		// still the old cycle, no credits, no new invoice record, no payment.succeeded or credit events
 		expect(balances(db)).toEqual({ [TIER_ROW]: -30 });
 		expect(grantsOf(db).cycleEnd).toBe(1_796_472_126_000);
@@ -387,7 +459,7 @@ describe("a renewal for a holder in overage", () => {
 		expect(track(db, 30).status).toBe("rejected");
 		expect(track(db, 24).status).toBe("applied");
 		expect(balances(db)).toEqual({ [TIER_ROW]: -20 });
-		expectRefusedEveryTime(db, deliver, 20);
+		expectRefusedEveryTime({ db, deliver, overdrawnBy: 20 });
 	});
 
 	test("overage lands on the tier row only (a rollover and a pack lot are drained first); a positive pack or rollover does not offset it", () => {
@@ -404,7 +476,11 @@ describe("a renewal for a holder in overage", () => {
 		expect(track(drawn.db, 20).status).toBe("applied");
 		expect(balances(drawn.db)).toEqual({ ce_pack: 0, [TIER_ROW]: -8 });
 		expect(rolloverBalances(drawn.db)).toEqual([0]);
-		expectRefusedEveryTime(drawn.db, drawn.deliver, 8);
+		expectRefusedEveryTime({
+			db: drawn.db,
+			deliver: drawn.deliver,
+			overdrawnBy: 8,
+		});
 
 		// a pack lot or rollover that arrives after the overage sits beside the negative tier row, and changes nothing
 		const later = holderBeforeRenewal();
@@ -412,7 +488,11 @@ describe("a renewal for a holder in overage", () => {
 		expect(track(later.db, 12).status).toBe("applied");
 		addPackAndRollover(later.db);
 		expect(balances(later.db)).toEqual({ ce_pack: 5, [TIER_ROW]: -8 });
-		expectRefusedEveryTime(later.db, later.deliver, 8);
+		expectRefusedEveryTime({
+			db: later.db,
+			deliver: later.deliver,
+			overdrawnBy: 8,
+		});
 	});
 
 	test("persist_free_overage is not reachable from the handler, and on it the reset still cannot be booked", () => {
@@ -421,11 +501,14 @@ describe("a renewal for a holder in overage", () => {
 		track(db, 34);
 		const { rows, revision } = load(db);
 		const before = stateFromRows({ identity, revision, rows });
-		const resetWith = (persist: boolean) => {
-			const config = {
-				...commandOrg(DEFAULT_POLICY).config,
-				persist_free_overage: persist,
-			};
+		// the config the handler's own commands carry: `persist_free_overage` is not in it, so the engine's default (off) applies
+		const handlerConfig = commandOrg(DEFAULT_POLICY).config;
+		expect(Object.keys(handlerConfig)).not.toContain("persist_free_overage");
+		const resetWith = (persist: boolean | "unset") => {
+			const config =
+				persist === "unset"
+					? handlerConfig
+					: { ...handlerConfig, persist_free_overage: persist };
 			const mutation = runEngineCommand({
 				subject: subjectFromRows({ identity, revision, rows, catalog }),
 				command: engineCommand("reset", {
@@ -444,32 +527,50 @@ describe("a renewal for a holder in overage", () => {
 			};
 		};
 		for (const [persist, balance] of [
+			["unset", 4],
 			[false, 4],
 			[true, -26],
 		] as const) {
 			const reset = resetWith(persist);
 			expect(reset.balance).toBe(balance);
-			expect(() =>
-				mutationToEvents({
-					mutation: reset.mutation,
-					context: {
-						school: SCHOOL,
-						tz: "UTC",
-						feature: FEATURE,
-						plan: "shine@v1",
-						before: before as never,
-					},
-				}),
-			).toThrow(`${REFILLS_CAP_MESSAGE} (-30)`);
+			whileGapOpen(
+				`booking a reset of a negative row, persist ${persist}`,
+				() =>
+					expect(() =>
+						mutationToEvents({
+							mutation: reset.mutation,
+							context: {
+								school: SCHOOL,
+								tz: "UTC",
+								feature: FEATURE,
+								plan: "shine@v1",
+								before: before as never,
+							},
+						}),
+					).toThrow(`${REFILLS_CAP_MESSAGE} (-30)`),
+			);
 		}
-		// the renewal's own reset command carries `ORG` in grants.ts, which sets no `persist_free_overage`, and
+		// the renewal's own reset command carries `ORG` in grants.ts, which sets no `persist_free_overage` either, and
 		// `BillingPolicy` has no such field: the flag is off on the handler path (balance 4 above, never -26)
 		expect(Object.keys(DEFAULT_POLICY)).not.toContain("persist_free_overage");
 	});
 
-	test("a row past its expiry while negative is not lapsed: no credit.expired, nothing closes it", () => {
+	test("KNOWN GAP: a row past its expiry while negative is not lapsed, so no credit.expired is booked for it", () => {
 		const { db } = holderBeforeRenewal();
 		addPackAndRollover(db);
+		const lapsedIds = (): string[] => {
+			const { rows, revision } = load(db);
+			return lapsedRows({
+				state: stateFromRows({ identity, revision, rows }) as never,
+				featureOf: (internalFeatureId) =>
+					internalFeatureId === INTERNAL_FEATURE ? FEATURE : undefined,
+				feature: FEATURE,
+				atMs: EXPIRED_AFTER_PACK,
+			}).map((row) => row.id);
+		};
+		// control: the pack lot, past its expiry, still holding 5, lapses with the rollover
+		expect(lapsedIds().sort()).toEqual(["ce_pack", "roll_1"]);
+
 		const pack = load(db).rows.find(
 			(row) => row.id === "ce_pack",
 		) as BillingRow;
@@ -480,23 +581,22 @@ describe("a renewal for a holder in overage", () => {
 				data: { ...pack.data, balance: -3 },
 			},
 		]);
-		const { rows, revision } = load(db);
-		const lapsed = lapsedRows({
-			state: stateFromRows({ identity, revision, rows }) as never,
-			featureOf: (internalFeatureId) =>
-				internalFeatureId === INTERNAL_FEATURE ? FEATURE : undefined,
-			feature: FEATURE,
-			atMs: EXPIRED_AFTER_PACK,
-		});
-		// the positive rollover lapses; the pack lot at -3 is skipped (`lapsedRows` takes balance > 0 only)
-		expect(lapsed.map((row) => row.id)).toEqual(["roll_1"]);
+		// the same lot at -3 is skipped (`lapsedRows` takes balance > 0 only); the positive rollover still lapses
+		whileGapOpen("lapsedRows on a negative row past its expiry", () =>
+			expect(lapsedIds()).toEqual(["roll_1"]),
+		);
 	});
 
 	test("recovery without a code change: zero the row with an updateBalance (booked credit.adjusted), then re-send the renewal", () => {
 		const { db, deliver } = holderBeforeRenewal();
 		allowOverage(db);
 		track(db, 34);
-		expect(deliver(renewalInvoice).status).toBe(422);
+		expect(balances(db)).toEqual({ [TIER_ROW]: -30 });
+		// the renewal is refused first (while the gap is open); the zeroing below is what lets it through
+		whileGapOpen("the renewal before the owner zeroes the row", () =>
+			expect(deliver(renewalInvoice).status).toBe(422),
+		);
+		const cycleEndBefore = grantsOf(db).cycleEnd;
 		const { rows, revision } = load(db);
 		const mutation = runEngineCommand({
 			subject: subjectFromRows({ identity, revision, rows, catalog }),
@@ -528,6 +628,56 @@ describe("a renewal for a holder in overage", () => {
 		expect(renewed.status).toBe(200);
 		expect(renewed.body.outcome).toBe("applied");
 		expect(balances(db)).toEqual({ [TIER_ROW]: 2 });
+		// the cycle moved, the invoice is recorded and indexed, and its payment now links
+		expect(grantsOf(db).cycleEnd).toBeGreaterThan(cycleEndBefore);
+		expect(Object.keys(grantsOf(db).invoices)).toHaveLength(2);
 		expect(deliver(renewalPayment).body.outcome).toBe("applied");
+		expect(snapshot(db).outbox).toContain("credit.adjusted");
+		expect(snapshot(db).outbox).toContain("payment.succeeded");
+
+		// and the next month's renewal applies too
+		const nextInvoice = nextRenewalOf(renewalInvoice, "recovered_next_month");
+		const next = deliver(nextInvoice);
+		expect(next.status).toBe(200);
+		expect(next.body.outcome).toBe("applied");
+		expect(Object.keys(grantsOf(db).invoices)).toHaveLength(3);
+		expect(balances(db)).toEqual({ [TIER_ROW]: 2 });
+		expect(grantsOf(db).cycleStart).toBe(
+			nextInvoice.data.object.lines.data[0].period.start * SECOND,
+		);
+	});
+
+	test("KNOWN GAP: a member who keeps spending after a refused renewal is refused again next month, and subscription events still apply", () => {
+		const { db, deliver } = holderBeforeRenewal();
+		allowOverage(db);
+		track(db, 34);
+		expectRefusedEveryTime({ db, deliver, overdrawnBy: 30 });
+
+		// the balance keeps falling while overage is allowed
+		expect(track(db, 5).status).toBe("applied");
+		expect(balances(db)).toEqual({ [TIER_ROW]: -35 });
+
+		// the renewal of the month after is refused for the new amount, every time
+		const nextInvoice = nextRenewalOf(renewalInvoice, "refused_next_month");
+		expectRefusedEveryTime({
+			db,
+			deliver,
+			overdrawnBy: 35,
+			invoice: nextInvoice,
+			payment: renewalPayment,
+		});
+		// the first renewal is still refused, now for the larger amount
+		expectRefusedEveryTime({ db, deliver, overdrawnBy: 35 });
+
+		// a subscription event is a separate event: it is not refused by the negative row
+		const subscriptionEvent = structuredClone(
+			read("schedule-decrease/05-customer.subscription.updated.json"),
+		);
+		subscriptionEvent.id = "evt_overage_subscription_after_refusal";
+		subscriptionEvent.created += 1;
+		const answered = deliver(subscriptionEvent);
+		expect(answered.status).toBe(200);
+		expect(answered.body.outcome).toBe("applied");
+		expect(balances(db)).toEqual({ [TIER_ROW]: -35 });
 	});
 });
