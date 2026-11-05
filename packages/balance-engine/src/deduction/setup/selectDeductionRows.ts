@@ -1,4 +1,7 @@
 // Modified by justbry/atm: opt-in expiry-first draw order (org.config.deduction_order).
+// Expiry wins over reverse: with `deduction_order: "expiry"` and `reverse_deduction_order` both set, the re-rank
+// inside each run ignores `selection.reverseOrder`, so the reversed tiers inside a run are lost (the reverse
+// still decides which run comes first). atm's commandOrg always sends reverse false.
 import {
 	AllowanceType,
 	CusProductStatus,
@@ -123,10 +126,16 @@ const rankByExpiry = ({
 	return ranked;
 };
 
-/** Soonest-expiring first; rollovers without an expiry drain last. */
-const byExpiresAt = (left: WorkerRollover, right: WorkerRollover): number =>
-	(left.expires_at ?? Number.POSITIVE_INFINITY) -
-	(right.expires_at ?? Number.POSITIVE_INFINITY);
+/** Soonest-expiring first; rollovers without an expiry drain last. Ties fall to the rollover id, so the order never depends on the order of the parent rows (which the expiry re-rank changes). */
+const byExpiresAt = (left: WorkerRollover, right: WorkerRollover): number => {
+	const leftExpiresAt = left.expires_at ?? Number.POSITIVE_INFINITY;
+	const rightExpiresAt = right.expires_at ?? Number.POSITIVE_INFINITY;
+	if (leftExpiresAt !== rightExpiresAt) {
+		return leftExpiresAt < rightExpiresAt ? -1 : 1;
+	}
+	if (left.id === right.id) return 0;
+	return left.id < right.id ? -1 : 1;
+};
 
 /** `getCheckSubject`: a past-due product stops funding when the selection blocks overdue usage, or when it bills by threshold. */
 const isOverdueBlocked = ({

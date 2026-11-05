@@ -28,8 +28,11 @@ export const commandOrgSchema = openSchema({
 				persist_free_overage: true,
 			})
 			.extend({
-				/** "expiry": among peer included rows, soonest-lapsing first. Absent and "engine" keep the engine's order. */
-				deduction_order: z.enum(["expiry", "engine"]).optional(),
+				/**
+				 * "expiry": among peer included rows, soonest-lapsing first. Absent, null and "engine" keep the engine's order.
+				 * Expiry wins over `reverse_deduction_order`: set together, the reversed tiers inside each run are lost (atm always sends reverse false).
+				 */
+				deduction_order: z.enum(["expiry", "engine"]).nullish(),
 			})
 			.loose(),
 		/** The Svix apps the org's webhooks deliver through, one per env; absent where none is set up. */
