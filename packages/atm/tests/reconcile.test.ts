@@ -3,6 +3,7 @@
  * reconciles clean, and each concrete mutation is reported as the one difference it is.
  */
 import { beforeAll, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { readEvents } from "../src/ledger/files.js";
 import { ledgerEvent } from "../src/ledger/postings.js";
@@ -112,6 +113,58 @@ describe("a log that matches Stripe", () => {
 			});
 			expect(result.differences).toEqual([]);
 		}
+	});
+});
+
+describe("Stripe's own recorded shapes", () => {
+	// A real invoice object (test mode, API 2025-10-29.clover), not one built from the events: its fields are Stripe's.
+	const recorded = JSON.parse(
+		readFileSync(
+			join(
+				import.meta.dir,
+				"../fixtures/billing/stripe/recorded/invoice.paid.subscription_create.json",
+			),
+			"utf8",
+		),
+	).data.object;
+
+	test("a recorded paid invoice reconciles clean against the event the family service books for it", () => {
+		const instant = new Date(
+			recorded.status_transitions.paid_at * 1000,
+		).toISOString();
+		const log = [
+			payment({
+				id: recorded.id,
+				instant,
+				amount: recorded.amount_paid,
+			}),
+		];
+		const result = reconcile({
+			events: log,
+			stripe: { invoices: [recorded] },
+			period: { month: log[0]?.date.slice(0, 7) as string },
+			timeZone: TZ,
+			mode: "test",
+		});
+		expect(result.differences).toEqual([]);
+		expect(result.counts.invoice).toEqual({ stripe: 1, log: 1 });
+	});
+
+	test("the same invoice with a wrong amount in the log is amount_differs", () => {
+		const instant = new Date(
+			recorded.status_transitions.paid_at * 1000,
+		).toISOString();
+		const log = [
+			payment({ id: recorded.id, instant, amount: recorded.amount_paid + 1 }),
+		];
+		const result = reconcile({
+			events: log,
+			stripe: { invoices: [recorded] },
+			period: { month: log[0]?.date.slice(0, 7) as string },
+			timeZone: TZ,
+			mode: "test",
+		});
+		expect(kinds(result.differences)).toEqual(["amount_differs invoice"]);
 	});
 });
 
