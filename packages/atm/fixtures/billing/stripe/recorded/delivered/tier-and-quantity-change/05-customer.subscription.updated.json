@@ -1,0 +1,294 @@
+{
+	"id": "evt_1UYPLsScrubTest00gyqO0MY",
+	"object": "event",
+	"api_version": "2025-10-29.clover",
+	"created": 1793880067,
+	"data": {
+		"object": {
+			"id": "sub_1UYPLgScrubTest0kkZWmx6I",
+			"object": "subscription",
+			"application": null,
+			"application_fee_percent": null,
+			"automatic_tax": {
+				"disabled_reason": null,
+				"enabled": false,
+				"liability": null
+			},
+			"billing_cycle_anchor": 1793880052,
+			"billing_cycle_anchor_config": null,
+			"billing_mode": {
+				"flexible": {
+					"proration_discounts": "included"
+				},
+				"type": "flexible",
+				"updated_at": 1793880052
+			},
+			"billing_thresholds": null,
+			"cancel_at": null,
+			"cancel_at_period_end": false,
+			"canceled_at": null,
+			"cancellation_details": {
+				"comment": null,
+				"feedback": null,
+				"feedback_option": null,
+				"reason": null
+			},
+			"collection_method": "charge_automatically",
+			"created": 1793880052,
+			"currency": "usd",
+			"customer": "cus_VZYSuDfEPvYlXU",
+			"customer_account": null,
+			"days_until_due": null,
+			"default_payment_method": null,
+			"default_source": null,
+			"default_tax_rates": [],
+			"description": null,
+			"discounts": [],
+			"ended_at": null,
+			"invoice_settings": {
+				"account_tax_ids": null,
+				"custom_fields": null,
+				"description": null,
+				"footer": null,
+				"issuer": {
+					"type": "self"
+				}
+			},
+			"items": {
+				"object": "list",
+				"data": [
+					{
+						"id": "si_VZYS1RZueXzGjo",
+						"object": "subscription_item",
+						"billing_thresholds": null,
+						"created": 1793880052,
+						"current_period_end": 1796472052,
+						"current_period_start": 1793880052,
+						"current_trial": null,
+						"discounts": [],
+						"metadata": {},
+						"plan": {
+							"id": "price_1UYPJyScrubTest0IpPYbAa2",
+							"object": "plan",
+							"active": true,
+							"amount": 18000,
+							"amount_decimal": "18000",
+							"billing_scheme": "per_unit",
+							"created": 1793879950,
+							"currency": "usd",
+							"interval": "month",
+							"interval_count": 1,
+							"livemode": false,
+							"metadata": {
+								"b4u_school": "spike-school",
+								"b4u_key": "t:shine:month"
+							},
+							"meter": null,
+							"nickname": null,
+							"product": "prod_VZYQZErBWqlctn",
+							"tiers_mode": null,
+							"transform_usage": null,
+							"trial_period_days": null,
+							"usage_type": "licensed"
+						},
+						"price": {
+							"id": "price_1UYPJyScrubTest0IpPYbAa2",
+							"object": "price",
+							"active": true,
+							"billing_scheme": "per_unit",
+							"created": 1793879950,
+							"currency": "usd",
+							"custom_unit_amount": null,
+							"livemode": false,
+							"lookup_key": "scrubbed-lookup-key-shine-month",
+							"metadata": {
+								"b4u_school": "spike-school",
+								"b4u_key": "t:shine:month"
+							},
+							"nickname": null,
+							"product": "prod_VZYQZErBWqlctn",
+							"recurring": {
+								"interval": "month",
+								"interval_count": 1,
+								"meter": null,
+								"trial_period_days": null,
+								"usage_type": "licensed"
+							},
+							"tax_behavior": "unspecified",
+							"tiers_mode": null,
+							"transform_quantity": null,
+							"type": "recurring",
+							"unit_amount": 18000,
+							"unit_amount_decimal": "18000"
+						},
+						"quantity": 4,
+						"subscription": "sub_1UYPLgScrubTest0kkZWmx6I",
+						"tax_rates": []
+					}
+				],
+				"has_more": false,
+				"total_count": 1,
+				"url": "/v1/subscription_items?subscription=sub_1UYPLgScrubTest0kkZWmx6I"
+			},
+			"latest_invoice": "in_1UYPLpScrubTest02QoEc3K3",
+			"livemode": false,
+			"managed_payments": {
+				"enabled": false
+			},
+			"metadata": {
+				"family_id": "fam_B",
+				"tier_id": "shine",
+				"quantity": "4",
+				"interval": "month",
+				"b4u_school": "spike-school",
+				"menu_version": "1"
+			},
+			"next_pending_invoice_item_invoice": null,
+			"on_behalf_of": null,
+			"pause_collection": null,
+			"payment_settings": {
+				"payment_method_options": null,
+				"payment_method_types": null,
+				"save_default_payment_method": "off"
+			},
+			"pending_invoice_item_interval": null,
+			"pending_setup_intent": null,
+			"pending_update": null,
+			"plan": {
+				"id": "price_1UYPJyScrubTest0IpPYbAa2",
+				"object": "plan",
+				"active": true,
+				"amount": 18000,
+				"amount_decimal": "18000",
+				"billing_scheme": "per_unit",
+				"created": 1793879950,
+				"currency": "usd",
+				"interval": "month",
+				"interval_count": 1,
+				"livemode": false,
+				"metadata": {
+					"b4u_school": "spike-school",
+					"b4u_key": "t:shine:month"
+				},
+				"meter": null,
+				"nickname": null,
+				"product": "prod_VZYQZErBWqlctn",
+				"tiers_mode": null,
+				"transform_usage": null,
+				"trial_period_days": null,
+				"usage_type": "licensed"
+			},
+			"quantity": 4,
+			"schedule": null,
+			"start_date": 1793880052,
+			"status": "active",
+			"test_clock": "clock_1UYPLdScrubTest0AJiZnJ7c",
+			"transfer_data": null,
+			"trial_end": null,
+			"trial_settings": {
+				"end_behavior": {
+					"billing_cycle_anchor": "now",
+					"missing_payment_method": "create_invoice"
+				}
+			},
+			"trial_start": null
+		},
+		"previous_attributes": {
+			"items": {
+				"data": [
+					{
+						"id": "si_VZYS1RZueXzGjo",
+						"object": "subscription_item",
+						"billing_thresholds": null,
+						"created": 1793880052,
+						"current_period_end": 1796472052,
+						"current_period_start": 1793880052,
+						"current_trial": null,
+						"discounts": [],
+						"metadata": {},
+						"plan": {
+							"id": "price_1UYPJxScrubTest0EYBVBJbo",
+							"object": "plan",
+							"active": true,
+							"amount": 13000,
+							"amount_decimal": "13000",
+							"billing_scheme": "per_unit",
+							"created": 1793879949,
+							"currency": "usd",
+							"interval": "month",
+							"interval_count": 1,
+							"livemode": false,
+							"metadata": {
+								"b4u_school": "spike-school",
+								"b4u_key": "t:sparkle:month"
+							},
+							"meter": null,
+							"nickname": null,
+							"product": "prod_VZYQqWbC539BDN",
+							"tiers_mode": null,
+							"transform_usage": null,
+							"trial_period_days": null,
+							"usage_type": "licensed"
+						},
+						"price": {
+							"id": "price_1UYPJxScrubTest0EYBVBJbo",
+							"object": "price",
+							"active": true,
+							"billing_scheme": "per_unit",
+							"created": 1793879949,
+							"currency": "usd",
+							"custom_unit_amount": null,
+							"livemode": false,
+							"lookup_key": "scrubbed-lookup-key-sparkle-month",
+							"metadata": {
+								"b4u_school": "spike-school",
+								"b4u_key": "t:sparkle:month"
+							},
+							"nickname": null,
+							"product": "prod_VZYQqWbC539BDN",
+							"recurring": {
+								"interval": "month",
+								"interval_count": 1,
+								"meter": null,
+								"trial_period_days": null,
+								"usage_type": "licensed"
+							},
+							"tax_behavior": "unspecified",
+							"tiers_mode": null,
+							"transform_quantity": null,
+							"type": "recurring",
+							"unit_amount": 13000,
+							"unit_amount_decimal": "13000"
+						},
+						"quantity": 2,
+						"subscription": "sub_1UYPLgScrubTest0kkZWmx6I",
+						"tax_rates": []
+					}
+				]
+			},
+			"latest_invoice": "in_1UYPLgScrubTest0fW56L0m3",
+			"metadata": {
+				"tier_id": "sparkle",
+				"quantity": "2"
+			},
+			"plan": {
+				"id": "price_1UYPJxScrubTest0EYBVBJbo",
+				"amount": 13000,
+				"amount_decimal": "13000",
+				"created": 1793879949,
+				"metadata": {
+					"b4u_key": "t:sparkle:month"
+				},
+				"product": "prod_VZYQqWbC539BDN"
+			},
+			"quantity": 2
+		}
+	},
+	"livemode": false,
+	"pending_webhooks": 8,
+	"request": {
+		"id": "req_4khZUmwRD6coqh",
+		"idempotency_key": "scrubbed-idempotency-key"
+	},
+	"type": "customer.subscription.updated"
+}

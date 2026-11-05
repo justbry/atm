@@ -1,0 +1,153 @@
+{
+	"currency": "usd",
+	"timeZone": "America/Denver",
+	"features": [
+		{
+			"id": "visit",
+			"name": "Visit",
+			"unit": {
+				"one": "visit",
+				"other": "visits"
+			}
+		}
+	],
+	"tiers": [
+		{
+			"id": "sparkle",
+			"name": "Sparkle",
+			"blurb": "90-minute deep tissue massage, per session a month",
+			"public": true,
+			"prices": [
+				{
+					"interval": "month",
+					"amount": 13000
+				},
+				{
+					"interval": "year",
+					"amount": 144000
+				}
+			],
+			"grants": [
+				{
+					"featureId": "visit",
+					"amount": 1,
+					"every": "month",
+					"rollover": {
+						"max": 1,
+						"months": 1
+					}
+				}
+			],
+			"quantities": [1, 2, 4]
+		},
+		{
+			"id": "shine",
+			"name": "Shine",
+			"blurb": "Massage, light therapy and energy work, per session a month",
+			"public": true,
+			"prices": [
+				{
+					"interval": "month",
+					"amount": 18000
+				},
+				{
+					"interval": "year",
+					"amount": 204000
+				}
+			],
+			"grants": [
+				{
+					"featureId": "visit",
+					"amount": 1,
+					"every": "month"
+				}
+			],
+			"quantities": [1, 2, 4]
+		},
+		{
+			"id": "radiate",
+			"name": "Radiate",
+			"blurb": "2-hour massage, light therapy and energy work, per session a month",
+			"public": true,
+			"prices": [
+				{
+					"interval": "month",
+					"amount": 26000
+				},
+				{
+					"interval": "year",
+					"amount": 288000
+				}
+			],
+			"grants": [
+				{
+					"featureId": "visit",
+					"amount": 1,
+					"every": "month"
+				}
+			],
+			"quantities": [1, 2, 4]
+		}
+	],
+	"addons": [
+		{
+			"id": "pack",
+			"name": "Pack",
+			"price": {
+				"amount": 9000,
+				"every": "once"
+			},
+			"grants": [
+				{
+					"featureId": "visit",
+					"amount": 1,
+					"every": "month",
+					"rollover": {
+						"months": 3
+					}
+				}
+			]
+		},
+		{
+			"id": "glow",
+			"name": "Glow",
+			"price": {
+				"amount": 5000,
+				"every": "month"
+			},
+			"grants": [
+				{
+					"featureId": "visit",
+					"amount": 1,
+					"every": "month"
+				}
+			]
+		},
+		{
+			"id": "gift-visit",
+			"name": "Gift visit",
+			"price": {
+				"amount": 13000,
+				"every": "once"
+			},
+			"grants": [
+				{
+					"featureId": "visit",
+					"amount": 1,
+					"every": "month"
+				}
+			],
+			"gift": "sessions"
+		},
+		{
+			"id": "gift-dollars",
+			"name": "Gift card",
+			"price": {
+				"amount": 5000,
+				"every": "once"
+			},
+			"grants": [],
+			"gift": "dollars"
+		}
+	]
+}
