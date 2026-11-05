@@ -1,0 +1,12 @@
+{
+	"source": {
+		"eventId": "evt_dp_1_won",
+		"mapping": "stripe-2026-10-28@1",
+		"stripeApiVersion": "2026-10-28"
+	},
+	"id": "dp_1",
+	"invoiceId": "in_1",
+	"chargeId": "ch_1",
+	"status": "won",
+	"at": 1769076000000
+}

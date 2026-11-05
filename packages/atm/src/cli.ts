@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import type { WorkerFullSubject } from "@autumn/balance-engine";
 import { Command } from "commander";
 import { engineCommandTypes, runEngineCommand } from "./engine.js";
+import { journalMonth } from "./ledger/files.js";
 
 const readJson = async (path: string) =>
 	JSON.parse(
@@ -28,4 +29,25 @@ program
 		const command = await readJson(opts.command);
 		const result = runEngineCommand({ fullSubject, command });
 		process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+	});
+
+program
+	.command("journal")
+	.description(
+		"build a school's hledger journal for one month from its event files: ledger/b4u/YYYY-MM.journal, ledger/accounts.journal, main.journal and ledger/build.json (a file is rewritten only when its bytes change)",
+	)
+	.requiredOption("--root <folder>", "the folder that holds schools/<id>/")
+	.requiredOption("--school <id>", "school id, as in schools/<id>/")
+	.requiredOption(
+		"--month <YYYY-MM>",
+		"month, by the events' school-local date",
+	)
+	.action(async (opts: { root: string; school: string; month: string }) => {
+		const run = await journalMonth(opts);
+		const note = run.unchanged
+			? "unchanged"
+			: `wrote ${run.written.join(", ")}`;
+		process.stdout.write(
+			`${opts.month}: ${run.build.transactions} transactions; ${note}\n`,
+		);
 	});

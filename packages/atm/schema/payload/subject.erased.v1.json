@@ -1,0 +1,17 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://b4uni.com/_schema/payload/subject.erased.v1.json",
+	"title": "subject.erased payload v1",
+	"description": "Objects rewritten by an erasure; ids only. No postings.",
+	"type": "object",
+	"required": ["objects"],
+	"properties": {
+		"objects": {
+			"type": "array",
+			"items": {
+				"type": "string",
+				"minLength": 1
+			}
+		}
+	}
+}

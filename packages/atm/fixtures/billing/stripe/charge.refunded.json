@@ -1,0 +1,51 @@
+{
+	"id": "evt_SYNTH_0003",
+	"object": "event",
+	"api_version": "2025-10-29.clover",
+	"created": 1793495100,
+	"type": "charge.refunded",
+	"livemode": false,
+	"data": {
+		"object": {
+			"object": "charge",
+			"id": "ch_SYNTH_0001",
+			"amount": 26000,
+			"amount_captured": 26000,
+			"amount_refunded": 26000,
+			"currency": "usd",
+			"customer": "cus_SYNTH_0001",
+			"invoice": "in_SYNTH_0001",
+			"refunded": true,
+			"status": "succeeded",
+			"billing_details": {
+				"email": "synthetic.parent@example.test",
+				"name": "Synthetic Parent",
+				"address": {
+					"line1": "1 Example Street",
+					"city": "Testville",
+					"country": "US",
+					"postal_code": "00000"
+				},
+				"phone": null
+			},
+			"receipt_email": "synthetic.parent@example.test",
+			"shipping": null,
+			"refunds": {
+				"object": "list",
+				"has_more": false,
+				"data": [
+					{
+						"object": "refund",
+						"id": "re_SYNTH_0001",
+						"amount": 26000,
+						"currency": "usd",
+						"charge": "ch_SYNTH_0001",
+						"status": "succeeded",
+						"created": 1793495090
+					}
+				]
+			},
+			"metadata": {}
+		}
+	}
+}

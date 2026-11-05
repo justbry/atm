@@ -1,0 +1,22 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://b4uni.com/_schema/payload/fundraise.received.v1.json",
+	"title": "fundraise.received payload v1",
+	"description": "A Zeffy donation. Zeffy covers card fees, so the gross is what the group receives.",
+	"type": "object",
+	"required": ["id", "amount", "campaign"],
+	"properties": {
+		"id": {
+			"type": "string",
+			"minLength": 1
+		},
+		"amount": {
+			"type": "integer",
+			"minimum": 1
+		},
+		"campaign": {
+			"type": "string",
+			"minLength": 1
+		}
+	}
+}

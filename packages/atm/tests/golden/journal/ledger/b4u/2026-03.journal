@@ -1,0 +1,40 @@
+2026-03-12 * (01KKHKQT000000JM2CKFT9PHXD) credit.granted | granted 1 visit on gift  ; at:2026-03-12T18:08:00Z, family:fam_th6z, expires_at:2026-09-12T18:08:00Z, feature:visit, gift:gc_1, plan:gift
+    credits:avail:family:fam_th6z:visit  1 VISIT
+    credits:issued:gift                  -1 VISIT
+
+2026-03-17 * (01KKY8JGS0000019S7ETV2A2ED) payment.succeeded | membership payment 260 USD for sparkle-2  ; at:2026-03-17T16:03:00Z, family:fam_th6z, plan:sparkle-2@v1
+    assets:stripe                        252.16 USD
+    expenses:billing:stripe-fees         7.84 USD
+    income:billing:membership:sparkle-2  -260.00 USD
+
+2026-03-17 * (01KKY8JSJ80000M0CMTYQGFKP6) credit.granted | granted 2 visit on sparkle-2@v1, 1 rolled over  ; at:2026-03-17T16:03:09Z, family:fam_th6z, expires_at:2026-04-17T16:03:00Z, feature:visit, plan:sparkle-2@v1, rolled_over:1
+    credits:avail:family:fam_th6z:visit  2 VISIT
+    credits:issued:sparkle-2@v1          -2 VISIT
+
+2026-03-19 * (01KM3YH8X00000PYJS1FH7FY57) credit.held | held 1 visit for bk_1klyta  ; at:2026-03-19T21:03:00Z, family:fam_th6z, booking:bk_1klyta, feature:visit, plan:sparkle-2@v1, service:massage-90
+    credits:avail:family:fam_th6z:visit  -1 VISIT
+    credits:held:family:fam_th6z:visit   1 VISIT
+
+2026-03-20 * (01KM66MD100000S40T41MPTAH4) credit.granted | granted 1 visit on gift  ; at:2026-03-20T18:03:00Z, family:fam_th6z, expires_at:2026-09-20T18:03:00Z, feature:visit, gift:gc_2, plan:gift
+    credits:avail:family:fam_th6z:visit  1 VISIT
+    credits:issued:gift                  -1 VISIT
+
+2026-03-20 * (01KM6A28N000000V41QFDJ9X6S) payout.paid | payout 252.16 USD  ; at:2026-03-20T19:03:00Z, family:fam_th6z
+    assets:stripe                   -252.16 USD
+    assets:clearing:stripe-payouts  252.16 USD
+
+2026-03-22 * (01KMCDRF900000V18WAJFZHY36) credit.spent | spent 1 visit on massage-90  ; at:2026-03-23T04:03:00Z, family:fam_th6z, booking:bk_1klyta, feature:visit, plan:sparkle-2@v1, service:massage-90
+    credits:held:family:fam_th6z:visit  -1 VISIT
+    credits:spent:massage-90            1 VISIT
+
+2026-03-25 * (01KMK2M0100000X0G58JMCDXGW) credit.held | held 1 visit for bk_ygdzpj  ; at:2026-03-25T18:03:00Z, family:fam_th6z, booking:bk_ygdzpj, feature:visit, plan:sparkle-2@v1, service:energy-45
+    credits:avail:family:fam_th6z:visit  -1 VISIT
+    credits:held:family:fam_th6z:visit   1 VISIT
+
+2026-03-28 * (01KMV0NW900000Z9HM6E1A3A7H) credit.spent | spent 1 visit on energy-45  ; at:2026-03-28T20:03:00Z, family:fam_th6z, booking:bk_ygdzpj, feature:visit, plan:sparkle-2@v1, service:energy-45
+    credits:held:family:fam_th6z:visit  -1 VISIT
+    credits:spent:energy-45             1 VISIT
+
+2026-03-29 * (01KMXXC65000010CC28YD0C8ZK) credit.held | held 1 visit for bk_t2sn3b  ; at:2026-03-29T23:03:00Z, family:fam_th6z, booking:bk_t2sn3b, feature:visit, plan:sparkle-2@v1, service:energy-45
+    credits:avail:family:fam_th6z:visit  -1 VISIT
+    credits:held:family:fam_th6z:visit   1 VISIT

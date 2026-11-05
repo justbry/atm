@@ -1,0 +1,47 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://b4uni.com/_schema/payload/credit.held.v1.json",
+	"title": "credit.held payload v1",
+	"description": "The engine command and the mutation it decided (without the command).",
+	"type": "object",
+	"required": ["command", "mutation"],
+	"properties": {
+		"command": {
+			"type": "object",
+			"required": ["type", "commandId", "occurredAt"],
+			"properties": {
+				"type": {
+					"type": "string",
+					"minLength": 1
+				},
+				"commandId": {
+					"type": "string",
+					"minLength": 1
+				},
+				"occurredAt": {
+					"type": "integer"
+				}
+			}
+		},
+		"mutation": {
+			"type": "object",
+			"required": ["id", "revision", "changes", "result"],
+			"properties": {
+				"id": {
+					"type": "string",
+					"minLength": 1
+				},
+				"revision": {
+					"type": "object",
+					"required": ["before", "after"]
+				},
+				"changes": {
+					"type": "array"
+				},
+				"result": {
+					"type": "object"
+				}
+			}
+		}
+	}
+}

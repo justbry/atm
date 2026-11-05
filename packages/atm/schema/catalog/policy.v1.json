@@ -1,0 +1,40 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://b4uni.com/_schema/catalog/policy.v1.json",
+	"title": "School billing policy v1",
+	"description": "A school's billing choices (catalog/policy.json). Every key is optional: a key left out keeps the default from the tiers spec (\"Default billing rules\"). Unknown keys are refused.",
+	"type": "object",
+	"additionalProperties": false,
+	"properties": {
+		"v": { "const": 1 },
+		"upgradeGrant": { "enum": ["prorated", "full", "none"] },
+		"removeOnFullRefund": { "type": "boolean" },
+		"removeOnLostDispute": { "type": "boolean" },
+		"cycleFromPeriodStart": { "type": "boolean" },
+		"giftSessionMonths": { "type": "integer", "minimum": 1, "maximum": 120 },
+		"giftDollarMinimum": {
+			"type": "integer",
+			"minimum": 50,
+			"maximum": 10000000
+		},
+		"giftDollarMonths": { "type": "integer", "minimum": 1, "maximum": 120 },
+		"memberCode": {
+			"oneOf": [
+				{ "type": "null" },
+				{
+					"type": "object",
+					"additionalProperties": false,
+					"required": ["code", "percentOff"],
+					"properties": {
+						"code": { "type": "string", "pattern": "^[A-Za-z0-9_-]{2,40}$" },
+						"percentOff": {
+							"type": "number",
+							"exclusiveMinimum": 0,
+							"maximum": 100
+						}
+					}
+				}
+			]
+		}
+	}
+}

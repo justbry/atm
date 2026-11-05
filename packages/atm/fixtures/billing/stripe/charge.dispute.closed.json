@@ -1,0 +1,36 @@
+{
+	"id": "evt_SYNTH_0005",
+	"object": "event",
+	"api_version": "2025-10-29.clover",
+	"created": 1795000000,
+	"type": "charge.dispute.closed",
+	"livemode": false,
+	"data": {
+		"object": {
+			"object": "dispute",
+			"id": "dp_SYNTH_0001",
+			"amount": 26000,
+			"currency": "usd",
+			"charge": "ch_SYNTH_0002",
+			"payment_intent": "pi_SYNTH_0002",
+			"reason": "fraudulent",
+			"status": "won",
+			"created": 1795000000,
+			"evidence": {
+				"customer_email_address": "synthetic.parent@example.test",
+				"customer_name": "Synthetic Parent",
+				"customer_purchase_ip": "192.0.2.10"
+			},
+			"evidence_details": {
+				"due_by": 1794200000,
+				"has_evidence": false,
+				"submission_count": 0
+			},
+			"payment_method_details": {
+				"type": "card",
+				"card": { "brand": "visa", "last4": "4242" }
+			},
+			"metadata": {}
+		}
+	}
+}

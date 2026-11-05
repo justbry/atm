@@ -1,0 +1,17 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://b4uni.com/_schema/payload/referral.rewarded.v1.json",
+	"title": "referral.rewarded payload v1",
+	"description": "A referral rewarded; the reward is a credit.granted with cause. No postings.",
+	"type": "object",
+	"required": ["referral"],
+	"properties": {
+		"referral": {
+			"type": "string",
+			"minLength": 1
+		},
+		"reward_event": {
+			"type": "string"
+		}
+	}
+}

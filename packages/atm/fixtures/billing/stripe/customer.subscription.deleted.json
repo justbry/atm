@@ -1,0 +1,50 @@
+{
+	"id": "evt_SYNTH_0008",
+	"object": "event",
+	"api_version": "2025-10-29.clover",
+	"created": 1796083300,
+	"type": "customer.subscription.deleted",
+	"livemode": false,
+	"data": {
+		"object": {
+			"object": "subscription",
+			"id": "sub_SYNTH_0001",
+			"customer": "cus_SYNTH_0001",
+			"status": "canceled",
+			"cancel_at_period_end": false,
+			"cancel_at": null,
+			"canceled_at": 1796083200,
+			"ended_at": 1796083200,
+			"metadata": {
+				"b4u_school": "school_synth",
+				"family_id": "fam_SYNTH_0001",
+				"profile_id": "prof_SYNTH_0001",
+				"tier_id": "sparkle",
+				"interval": "month",
+				"menu_version": "1",
+				"addon_ids": "human_design"
+			},
+			"items": {
+				"object": "list",
+				"has_more": false,
+				"data": [
+					{
+						"object": "subscription_item",
+						"id": "si_SYNTH_0001",
+						"quantity": 1,
+						"current_period_start": 1793491200,
+						"current_period_end": 1796083200,
+						"price": {
+							"id": "price_SYNTH_sparkle_2s_month",
+							"object": "price",
+							"lookup_key": "vol_sparkle_2s_month",
+							"currency": "usd",
+							"unit_amount": 26000,
+							"recurring": { "interval": "month", "interval_count": 1 }
+						}
+					}
+				]
+			}
+		}
+	}
+}

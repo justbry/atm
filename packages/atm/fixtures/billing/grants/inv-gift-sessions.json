@@ -1,0 +1,31 @@
+{
+	"source": {
+		"eventId": "evt_in_gift",
+		"mapping": "stripe-2026-10-28@1",
+		"stripeApiVersion": "2026-10-28"
+	},
+	"id": "in_gift",
+	"customerId": "cus_1",
+	"subscriptionId": null,
+	"reason": "manual",
+	"currency": "usd",
+	"amountPaid": 13000,
+	"paidAt": 1773340200000,
+	"periodStart": 1773340200000,
+	"periodEnd": 1773340200000,
+	"lines": [
+		{
+			"kind": "unknown",
+			"interval": null,
+			"quantity": 1,
+			"proration": false,
+			"amount": 13000
+		}
+	],
+	"metadata": {
+		"b4u_school": "sch_vol",
+		"family_id": "fam_8k2",
+		"gift": "sessions",
+		"gift_feature": "visit"
+	}
+}

@@ -1,0 +1,114 @@
+{
+	"id": "evt_SYNTH_0001",
+	"object": "event",
+	"api_version": "2025-10-29.clover",
+	"created": 1793491310,
+	"type": "invoice.paid",
+	"livemode": false,
+	"data": {
+		"object": {
+			"object": "invoice",
+			"id": "in_SYNTH_0001",
+			"customer": "cus_SYNTH_0001",
+			"customer_email": "synthetic.parent@example.test",
+			"customer_name": "Synthetic Parent",
+			"customer_address": {
+				"line1": "1 Example Street",
+				"city": "Testville",
+				"country": "US",
+				"postal_code": "00000"
+			},
+			"customer_phone": null,
+			"currency": "usd",
+			"amount_due": 30000,
+			"amount_paid": 30000,
+			"amount_remaining": 0,
+			"billing_reason": "subscription_create",
+			"period_start": 1793491200,
+			"period_end": 1796083200,
+			"status": "paid",
+			"status_transitions": {
+				"finalized_at": 1793491250,
+				"paid_at": 1793491300
+			},
+			"parent": {
+				"type": "subscription_details",
+				"quote_details": null,
+				"subscription_details": {
+					"subscription": "sub_SYNTH_0001",
+					"metadata": {}
+				}
+			},
+			"metadata": {
+				"b4u_school": "school_synth",
+				"family_id": "fam_SYNTH_0001",
+				"profile_id": "prof_SYNTH_0001",
+				"tier_id": "sparkle",
+				"interval": "month",
+				"menu_version": "1"
+			},
+			"lines": {
+				"object": "list",
+				"has_more": false,
+				"data": [
+					{
+						"object": "line_item",
+						"id": "il_SYNTH_0001",
+						"amount": 26000,
+						"currency": "usd",
+						"description": "Sparkle, 2 sessions a month",
+						"proration": false,
+						"quantity": 1,
+						"period": { "start": 1793491200, "end": 1796083200 },
+						"price": {
+							"id": "price_SYNTH_sparkle_2s_month",
+							"object": "price",
+							"active": true,
+							"currency": "usd",
+							"lookup_key": "vol_sparkle_2s_month",
+							"recurring": { "interval": "month", "interval_count": 1 },
+							"unit_amount": 26000,
+							"type": "recurring"
+						},
+						"pricing": {
+							"type": "price_details",
+							"price_details": {
+								"price": "price_SYNTH_sparkle_2s_month",
+								"product": "prod_SYNTH_sparkle"
+							},
+							"unit_amount_decimal": "26000"
+						}
+					},
+					{
+						"object": "line_item",
+						"id": "il_SYNTH_0002",
+						"amount": 4000,
+						"currency": "usd",
+						"description": "Human Design reading, monthly",
+						"proration": false,
+						"quantity": 1,
+						"period": { "start": 1793491200, "end": 1796083200 },
+						"price": {
+							"id": "price_SYNTH_addon_hd_month",
+							"object": "price",
+							"active": true,
+							"currency": "usd",
+							"lookup_key": "vol_addon_human_design_month",
+							"recurring": { "interval": "month", "interval_count": 1 },
+							"unit_amount": 4000,
+							"type": "recurring"
+						},
+						"pricing": {
+							"type": "price_details",
+							"price_details": {
+								"price": "price_SYNTH_addon_hd_month",
+								"product": "prod_SYNTH_addon_hd"
+							},
+							"unit_amount_decimal": "4000"
+						}
+					}
+				]
+			}
+		}
+	}
+}

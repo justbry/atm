@@ -3,11 +3,16 @@ import type {
 	CheckCommand,
 	CheckResult,
 	DeleteBalanceCommand,
+	SubjectState,
 	SubjectStateMutation,
 	TrackCommand,
 	UpdateBalanceCommand,
 	WorkerFullSubject,
 } from "@autumn/balance-engine";
+import {
+	type ROW_TABLES,
+	StaleRevision as StaleRevisionImpl,
+} from "../src/billing/rows.js";
 import { engineCommandTypes } from "../src/engine.js";
 import { commandTypes } from "../src/index.js";
 import type {
@@ -17,6 +22,9 @@ import type {
 	AtmMutation,
 	AtmResultFor,
 	AtmSubject,
+	AtmSubjectState,
+	RowTable,
+	StaleRevisionConstructor,
 } from "../src/types.js";
 
 /* Compile-time drift checks, run by `bun run ts`: each line stops compiling if the engine's type stops fitting atm's. */
@@ -37,6 +45,26 @@ const mutationFits = (m: SubjectStateMutation): AtmMutation => m;
 const commandTypesMatch = (
 	t: (typeof engineCommandTypes)[number],
 ): AtmCommandType => t;
+
+const stateFits = (s: SubjectState): AtmSubjectState => s;
+const stateFitsBack = (s: AtmSubjectState): SubjectState =>
+	s as unknown as SubjectState;
+const rowTablesFit = (t: (typeof ROW_TABLES)[number]): RowTable => t;
+const rowTablesFitBack = (t: RowTable): (typeof ROW_TABLES)[number] => t;
+const staleRevisionFits = (
+	c: typeof StaleRevisionImpl,
+): StaleRevisionConstructor => c;
+
+test("billing row types are the engine's", () => {
+	expect([
+		stateFits,
+		stateFitsBack,
+		rowTablesFit,
+		rowTablesFitBack,
+		staleRevisionFits,
+	]).toHaveLength(5);
+	expect(new StaleRevisionImpl(1, 2)).toBeInstanceOf(Error);
+});
 
 test("atm's command types are the engine's", () => {
 	expect([...commandTypes].sort()).toEqual([...engineCommandTypes].sort());

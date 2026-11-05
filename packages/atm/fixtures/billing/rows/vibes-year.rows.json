@@ -1,0 +1,130 @@
+{
+	"identity": {
+		"customerId": "family:fam_th6z",
+		"entityId": null,
+		"env": "live",
+		"orgId": "sch_vol"
+	},
+	"revision": 54,
+	"rows": [
+		{
+			"table": "customer",
+			"id": "cus_fam_th6z",
+			"data": {
+				"id": "family:fam_th6z",
+				"internal_id": "cus_fam_th6z",
+				"processor": null,
+				"spend_limits": null,
+				"usage_limits": null,
+				"usage_alerts": null,
+				"overage_allowed": null,
+				"config": null
+			}
+		},
+		{
+			"table": "customerProducts",
+			"id": "cp_1",
+			"data": {
+				"id": "cp_1",
+				"internal_product_id": "prod_sparkle-1",
+				"internal_customer_id": "cus_fam_th6z",
+				"internal_entity_id": null,
+				"created_at": 1768665781000,
+				"status": "active",
+				"starts_at": 1768665781000,
+				"access_starts_at": null,
+				"ended_at": null,
+				"options": [],
+				"quantity": 1,
+				"customer_license_link_id": null
+			}
+		},
+		{
+			"table": "customerEntitlements",
+			"id": "ce_1",
+			"data": {
+				"id": "ce_1",
+				"internal_customer_id": "cus_fam_th6z",
+				"internal_entity_id": null,
+				"internal_feature_id": "feat_visit",
+				"customer_product_id": "cp_1",
+				"entitlement_id": "ent_s1",
+				"created_at": 1768665781000,
+				"unlimited": false,
+				"balance": 0,
+				"additional_balance": 0,
+				"usage_allowed": false,
+				"reset_cycle_anchor": null,
+				"next_reset_at": 1800201780000,
+				"adjustment": 0,
+				"expires_at": null,
+				"external_id": null,
+				"usage_attribution": {}
+			}
+		},
+		{
+			"table": "customerEntitlements",
+			"id": "ce_gift_1",
+			"data": {
+				"id": "ce_gift_1",
+				"internal_customer_id": "cus_fam_th6z",
+				"internal_entity_id": null,
+				"internal_feature_id": "feat_visit",
+				"customer_product_id": null,
+				"entitlement_id": "ent_gift",
+				"created_at": 1773338880000,
+				"unlimited": false,
+				"balance": 0,
+				"additional_balance": 0,
+				"usage_allowed": false,
+				"reset_cycle_anchor": null,
+				"next_reset_at": null,
+				"adjustment": 0,
+				"expires_at": 1789236480000,
+				"external_id": null
+			}
+		},
+		{
+			"table": "customerEntitlements",
+			"id": "ce_gift_2",
+			"data": {
+				"id": "ce_gift_2",
+				"internal_customer_id": "cus_fam_th6z",
+				"internal_entity_id": null,
+				"internal_feature_id": "feat_visit",
+				"customer_product_id": null,
+				"entitlement_id": "ent_gift",
+				"created_at": 1774029780000,
+				"unlimited": false,
+				"balance": 1,
+				"additional_balance": 0,
+				"usage_allowed": false,
+				"reset_cycle_anchor": null,
+				"next_reset_at": null,
+				"adjustment": 0,
+				"expires_at": 1789927380000,
+				"external_id": null
+			}
+		},
+		{
+			"table": "rollovers",
+			"id": "roll_cmd_051_1",
+			"data": {
+				"id": "roll_cmd_051_1",
+				"cus_ent_id": "ce_1",
+				"balance": 0,
+				"usage": 1,
+				"expires_at": 1800201780000,
+				"entities": {}
+			}
+		},
+		{
+			"table": "openLocks",
+			"id": "lock_bk_gs7sv7",
+			"data": {
+				"id": "lock_bk_gs7sv7",
+				"lock_id": "bk_gs7sv7"
+			}
+		}
+	]
+}

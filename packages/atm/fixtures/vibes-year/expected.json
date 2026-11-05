@@ -1,0 +1,35 @@
+{
+  "seed": 1,
+  "school": "sch_vol",
+  "holder": "family:fam_th6z",
+  "asOf": "2026-12-28T17:00:00Z",
+  "lastEventId": "01MAYSGEM00003CH74DKFN8ZEP",
+  "eventCount": 81,
+  "balances": [
+    {
+      "holder": "family:fam_th6z",
+      "feature": "visit",
+      "avail": 0,
+      "held": 1
+    }
+  ],
+  "postingTotals": {
+    "assets:clearing:stripe-payouts USD": "2138.54",
+    "assets:stripe USD": "0.00",
+    "credits:adjust VISIT": "1",
+    "credits:avail:family:fam_th6z:visit VISIT": "0",
+    "credits:expired VISIT": "2",
+    "credits:forfeited VISIT": "1",
+    "credits:held:family:fam_th6z:visit VISIT": "1",
+    "credits:issued:gift VISIT": "-2",
+    "credits:issued:sparkle-1@v1 VISIT": "-6",
+    "credits:issued:sparkle-2@v1 VISIT": "-12",
+    "credits:spent:energy-45 VISIT": "8",
+    "credits:spent:light-60 VISIT": "3",
+    "credits:spent:massage-90 VISIT": "4",
+    "expenses:billing:stripe-fees USD": "71.46",
+    "income:billing:membership:sparkle-1 USD": "-780.00",
+    "income:billing:membership:sparkle-2 USD": "-1560.00",
+    "income:billing:refunds USD": "130.00"
+  }
+}

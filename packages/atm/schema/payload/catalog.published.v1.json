@@ -1,0 +1,17 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://b4uni.com/_schema/payload/catalog.published.v1.json",
+	"title": "catalog.published payload v1",
+	"description": "Plan versions published. No postings.",
+	"type": "object",
+	"required": ["plans"],
+	"properties": {
+		"plans": {
+			"type": "array",
+			"items": {
+				"type": "string",
+				"minLength": 1
+			}
+		}
+	}
+}
