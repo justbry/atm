@@ -238,7 +238,7 @@ export function resolveLines(
 		const known = {
 			...rest,
 			lookupKey: line.lookupKey ?? item.lookupKey ?? null,
-			interval: line.interval ?? item.interval ?? null,
+			interval: line.interval ?? item.interval,
 			...(item.kind === "addon" && item.gift
 				? { gift: line.gift ?? item.gift }
 				: {}),
