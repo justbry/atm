@@ -55,7 +55,7 @@ Decided: each gateway worker writes usage events to a LOCAL APPEND-ONLY FILE, no
 
 **The rule**
 - Append each event as one JSONL line to the worker's open file. The gateway acknowledges the call once the line is appended and fsynced (group commit: fsync after each appended batch of events, for example every 100 events or every 50 ms, whichever comes first; the exact interval is open, see below).
-- Close the file and upload it when it holds about 1,000 to 5,000 events or when it is about 60 seconds old, whichever comes first.
+- Close the file and upload it when it holds about 1,000 to 5,000 events or when it is about 30 seconds old, whichever comes first.
 - Upload with a create-only PUT (`If-None-Match: *`) to an object name made from the writer id, a sequence number and a hash of the file's first `idem`, so a retried upload of the same file is a harmless no-op. Delete the local file only after the PUT succeeded.
 - On start, upload any file left on disk, oldest first, before accepting new events. Files are never edited after they are closed.
 - The daily job reads the small objects, dedupes by `idem` (see "Dedupe on read" below), writes the day's Parquet with typed columns and the manifest, and may then delete the small objects (`docs/spikes/usage/02-pipeline-spike.md`, "Recommended layout and daily job").
@@ -65,16 +65,24 @@ Decided: each gateway worker writes usage events to a LOCAL APPEND-ONLY FILE, no
 | Failure | Loses |
 |---|---|
 | The gateway process crashes or restarts | nothing that was fsynced; the leftover file is uploaded on start |
-| The host or its disk dies | the events in files not yet uploaded: up to about 60 seconds of that worker's events (the open file plus any file waiting for R2) |
+| The host or its disk dies | the events in files not yet uploaded: up to about 30 seconds of that worker's events (the open file plus any file waiting for R2) |
 | R2 or the network is unavailable | nothing, while the disk has room: files queue locally and drain later; set a disk and age alarm |
 | The upload succeeds but the delete is lost | a duplicate object on the next start; the read-time dedupe removes it |
 
-A 60 second window on a host loss is the price of the long flush interval. Shorten it, or add a replicated queue in front, if a minute of lost usage is too much; the provider reconciliation below is how a loss is found.
+A 30 second window on a host loss is the price of the flush interval (it was 60 seconds in the first draft of this decision; 30 seconds doubles the upload cost, see below). Shorten it, or add a replicated queue in front, if half a minute of lost usage is too much; the provider reconciliation below is how a loss is found.
 
-**Cost at 60 seconds** (R2 list prices from `docs/spikes/usage/02-pipeline-spike.md`'s sources: Class A writes $4.50 per million, 1M free a month; the arithmetic is mine, not measured)
-- Uploads a month = workers x 1,440 x 30 when the time trigger fires: 10 workers about 432k (inside the free tier), 100 workers about 4.3M (about $19 at list price, $15 after the free tier), 1,000 workers about 43M (about $194).
-- The event trigger only matters for a busy worker: 1,000 events in 60 seconds is about 17 events a second per worker. At 10M events a day (about 116 a second) spread over 10 workers, every file closes on the 60 second timer with about 700 events.
-- Objects are small: about 0.3 to 2.3 MB raw (456 bytes a line), about 45 to 320 KB zstd-compressed. Compaction into daily Parquet is what keeps reads fast.
+**Cost at 30 seconds** (R2 list prices from `docs/spikes/usage/02-pipeline-spike.md`'s sources: Class A writes $4.50 per million, reads $0.36 per million with 10M free a month, 1M free writes a month; the arithmetic is mine, not measured)
+- Uploads a month = workers x 2,880 x 30 when the time trigger fires, which is 86,400 per worker. The cost is exactly twice the 60 second cost.
+
+| Workers | Uploads a month | Write cost, list | After the free tier | At 60 s, for comparison |
+|---|---|---|---|---|
+| 10 | 864k | $3.89 | $0 | $0 |
+| 100 | 8.64M | $38.88 | $34.38 | $14.94 |
+| 1,000 | 86.4M | $388.80 | $384 | about $190 |
+
+- Compaction reads each small object once (Class B): 10 and 100 workers stay inside the 10M free reads; 1,000 workers add about $27 a month.
+- The event trigger only matters for a busy worker: 1,000 events in 30 seconds is about 33 events a second per worker. At 10M events a day (about 116 a second) spread over 10 workers, every file closes on the 30 second timer with about 350 events.
+- Objects are small: about 0.16 to 2.3 MB raw (456 bytes a line), about 22 to 320 KB zstd-compressed. Compaction into daily Parquet is what keeps reads fast.
 - Storage after compaction is as in spike 2: about 14 GB a month of Parquet for 300M events, about $0.20 for each month retained.
 - Many small workers make time-triggered uploads the cost driver; if the worker count grows, have workers hand their files to one uploader (or lengthen the timer) rather than each calling R2.
 
