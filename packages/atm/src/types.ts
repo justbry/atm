@@ -517,12 +517,18 @@ export type GrantLabels = {
 	mapping: string;
 };
 
-/** What one invoice put into one credit row. `epoch` says which refill of the row it went into. */
+/**
+ * What one invoice put into one credit row. `epoch` says which refill of the row it went into. `rolloverExpiresAt`
+ * is when the engine's rollover of that refill's leftovers lapses (null: the row has no rollover), so a later reset's
+ * carried-over leftovers can be found again and traced to this invoice.
+ */
 export type GrantedRow = {
+	invoiceId: string;
 	rowId: string;
 	feature: string;
 	units: number;
 	epoch: number;
+	rolloverExpiresAt: number | null;
 };
 
 export type InvoiceRecord = {
@@ -547,6 +553,8 @@ export type GrantsState = {
 	cycleEnd: number | null;
 	/** Recurring add-ons now on the subscription. */
 	addonIds: string[];
+	/** When the subscription ended (ms), or null while it runs. Its credit rows then lapse on their own and nothing refills. */
+	endedAt: number | null;
 	/** Credit rows of the tier and recurring add-ons, with how many times each has been refilled. */
 	rows: Record<string, number>;
 	/** Every invoice seen, by id: a replayed invoice finds its record and decides nothing. */
@@ -574,13 +582,26 @@ export type InvoiceGrantInput = {
 	now: number;
 } & GrantVersions;
 
+/**
+ * `subject` is the engine subject as it stands (`subjectFromRows`), or null when it has no rows: the rules read each
+ * credit row's balance, reset date and rollovers from it, so a removal never takes more than a row holds.
+ */
 export type GrantRemovalInput = {
 	menu?: Menu;
 	policy: BillingPolicy;
 	state: GrantsState;
+	subject: AtmSubject | null;
 	now: number;
-	/** What each credit row holds now (`rowId` -> balance). A row missing from it is taken as untouched. */
-	available?: Record<string, number>;
+} & GrantVersions;
+
+export type SubscriptionEndInput = {
+	/** A `canceled` subscription fact (`customer.subscription.deleted`). Any other status gives no commands. */
+	subscription: SubscriptionFact;
+	menu: Menu;
+	policy: BillingPolicy;
+	state: GrantsState;
+	subject: AtmSubject | null;
+	now: number;
 } & GrantVersions;
 
 // ---- Stripe menu and checkout ----

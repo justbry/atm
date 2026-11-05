@@ -62,6 +62,7 @@ import type {
 	StaleRevisionConstructor,
 	StripeOp,
 	SubjectRows,
+	SubscriptionEndInput,
 	SubscriptionFact,
 	SubscriptionStatus,
 } from "./types.js";
@@ -206,6 +207,14 @@ export const refundToCommands = (
 export const disputeToCommands = (
 	input: GrantRemovalInput & { dispute: BillingDispute },
 ): GrantResult => grants.disputeToCommands(input);
+
+/**
+ * A canceled subscription: the tier and add-on rows stop refilling and the last cycle's unused credits lapse at their
+ * own expiry (cycle end plus rollover months), not at once. Any other fact, or a second end, gives none.
+ */
+export const subscriptionEndedToCommands = (
+	input: SubscriptionEndInput,
+): GrantResult => grants.subscriptionEndedToCommands(input);
 
 export const MAX_TIERS: number = menu.MAX_TIERS;
 export const MAX_ADDONS: number = menu.MAX_ADDONS;
