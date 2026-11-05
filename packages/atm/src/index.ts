@@ -63,6 +63,7 @@ import type {
 	LineItem,
 	Mapping,
 	Menu,
+	MenuTier,
 	MenuToStripeInput,
 	MenuValidation,
 	NormalizeContext,
@@ -278,6 +279,13 @@ export const subscriptionToCommands = (
 export const MAX_TIERS: number = menu.MAX_TIERS;
 export const MAX_ADDONS: number = menu.MAX_ADDONS;
 export const MAX_FEATURES: number = menu.MAX_FEATURES;
+/** Most counts a tier can list in `quantities`, and the largest count. */
+export const MAX_QUANTITIES: number = menu.MAX_QUANTITIES;
+export const MAX_QUANTITY: number = menu.MAX_QUANTITY;
+
+/** The counts a tier is sold in: its `quantities`, or [1] when it lists none. */
+export const quantitiesOf = (tier: MenuTier): readonly number[] =>
+	menu.quantitiesOf(tier);
 
 /** Checks an unknown value against the menu schema and the cross-field rules; the menu comes back with trimmed text. */
 export const validateMenu = (input: unknown): MenuValidation =>
@@ -355,7 +363,7 @@ export const resolveInvoice = (
 	itemByKey: ReadonlyMap<string, LineItem>,
 ): BillingInvoice => normalizer.resolveInvoice(invoice, itemByKey);
 
-/** The tier and interval the menu names for a subscription's items, or null when none is a tier. */
+/** The tier, interval and quantity the menu names for a subscription's items, or null when none is a tier. */
 export const resolveSubscriptionPlan = (
 	items: readonly SubscriptionItem[],
 	itemByKey: ReadonlyMap<string, LineItem>,

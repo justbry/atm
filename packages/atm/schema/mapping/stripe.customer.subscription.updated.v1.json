@@ -71,6 +71,14 @@
 					"year": "year"
 				},
 				"fallback": null
+			},
+			"quantity": {
+				"path": "$.quantity",
+				"type": "int",
+				"optional": true,
+				"default": 1,
+				"min": 0,
+				"max": 99999999
 			}
 		}
 	},

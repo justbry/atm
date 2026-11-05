@@ -74,7 +74,9 @@
 				"path": "$.quantity",
 				"type": "int",
 				"optional": true,
-				"default": 1
+				"default": 1,
+				"min": 0,
+				"max": 99999999
 			},
 			"proration": {
 				"path": "$.parent.subscription_item_details.proration",

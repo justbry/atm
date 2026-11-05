@@ -87,8 +87,19 @@ function convert(
 			if ("fallback" in spec) return ok(spec.fallback);
 			return fail({ kind: "bad_value", field, path: spec.path });
 		}
-		case "int":
+		case "int": {
+			// With a `min` or `max`, a number outside the range is refused as a bad value for a human to see, never coerced.
+			if (spec.min !== undefined || spec.max !== undefined) {
+				const inRange =
+					Number.isInteger(raw) &&
+					(raw as number) >= (spec.min ?? Number.NEGATIVE_INFINITY) &&
+					(raw as number) <= (spec.max ?? Number.POSITIVE_INFINITY);
+				return inRange
+					? ok(raw)
+					: fail({ kind: "bad_value", field, path: spec.path });
+			}
 			return Number.isInteger(raw) ? ok(raw) : bad("int");
+		}
 		case "seconds":
 			// Stripe sends Unix seconds; the facts are Unix milliseconds.
 			return Number.isInteger(raw)
@@ -222,6 +233,7 @@ export function normalize(
 				items.push({
 					lookupKey: null,
 					interval: null,
+					quantity: 1,
 					...line.value,
 				} as SubscriptionItem);
 				continue;
@@ -271,12 +283,12 @@ export function resolveLines(
 
 /**
  * The tier a subscription is on, by its items: the first item the menu names as a tier (by lookup key, else price id),
- * with that price's interval. Null when no item is a menu tier.
+ * with that price's interval and that item's quantity. Null when no item is a menu tier.
  */
 export function resolveSubscriptionPlan(
 	items: readonly SubscriptionItem[],
 	itemByKey: ReadonlyMap<string, LineItem>,
-): { tierId: string; interval: Interval | null } | null {
+): { tierId: string; interval: Interval | null; quantity: number } | null {
 	for (const item of items) {
 		const found =
 			(item.lookupKey ? itemByKey.get(item.lookupKey) : undefined) ??
@@ -285,6 +297,7 @@ export function resolveSubscriptionPlan(
 			return {
 				tierId: found.tierId,
 				interval: item.interval ?? found.interval ?? null,
+				quantity: item.quantity,
 			};
 	}
 	return null;

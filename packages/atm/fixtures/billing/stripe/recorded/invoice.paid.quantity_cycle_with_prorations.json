@@ -1,0 +1,290 @@
+{
+	"api_version": "2025-10-29.clover",
+	"created": 1796463784,
+	"data": {
+		"object": {
+			"account_country": "US",
+			"account_name": "Example Account",
+			"account_tax_ids": null,
+			"amount_due": 1300,
+			"amount_overpaid": 0,
+			"amount_paid": 1300,
+			"amount_remaining": 0,
+			"amount_shipping": 0,
+			"application": null,
+			"attempt_count": 1,
+			"attempted": true,
+			"auto_advance": false,
+			"automatic_tax": {
+				"disabled_reason": null,
+				"enabled": false,
+				"liability": null,
+				"provider": null,
+				"status": null
+			},
+			"automatically_finalizes_at": null,
+			"billing_reason": "subscription_cycle",
+			"collection_method": "charge_automatically",
+			"created": 1796463784,
+			"currency": "usd",
+			"custom_fields": null,
+			"customer": "cus_VZWEfLvlayJuiK",
+			"customer_account": null,
+			"customer_address": null,
+			"customer_email": null,
+			"customer_name": "Example Customer",
+			"customer_phone": null,
+			"customer_shipping": null,
+			"customer_tax_exempt": "none",
+			"customer_tax_ids": [],
+			"default_payment_method": null,
+			"default_source": null,
+			"default_tax_rates": [],
+			"description": null,
+			"discounts": [],
+			"due_date": null,
+			"effective_at": 1796467384,
+			"ending_balance": 0,
+			"footer": null,
+			"from_invoice": null,
+			"hosted_invoice_url": "https://invoice.example.test/i/scrubbed",
+			"id": "in_1UYNDNScrubTest0i06lMYEX",
+			"invoice_pdf": "https://pay.example.test/invoice/scrubbed.pdf",
+			"issuer": {
+				"type": "self"
+			},
+			"last_finalization_error": null,
+			"latest_revision": null,
+			"lines": {
+				"data": [
+					{
+						"amount": -3400,
+						"currency": "usd",
+						"description": "Unused time on 4 × atm quantity probe after 18 Nov 2026",
+						"discount_amounts": [],
+						"discountable": false,
+						"discounts": [],
+						"id": "il_1UjFUiScrubTest0wWsHIA4Z",
+						"invoice": "in_1UYNDNScrubTest0i06lMYEX",
+						"livemode": false,
+						"metadata": {},
+						"object": "line_item",
+						"parent": {
+							"invoice_item_details": null,
+							"license_fee_subscription_details": null,
+							"subscription_item_details": {
+								"invoice_item": "ii_1UYND9ScrubTest03Yf3mmrK",
+								"proration": true,
+								"proration_details": {
+									"credited_items": {
+										"invoice": "in_1UYNCqScrubTest030nevNK5",
+										"invoice_line_items": ["il_1UbzxlScrubTest0GGbzkrL8"]
+									}
+								},
+								"subscription": "sub_1UYNCNScrubTest0xEdo4vly",
+								"subscription_item": "si_VZWE0SIJsNb0Ne"
+							},
+							"type": "subscription_item_details"
+						},
+						"period": {
+							"end": 1796463784,
+							"start": 1794994984
+						},
+						"pretax_credit_amounts": [],
+						"pricing": {
+							"price_details": {
+								"price": "price_1UYNCHScrubTest0gv4BuhRc",
+								"product": "prod_VZWEhPGodoFlyL"
+							},
+							"type": "price_details",
+							"unit_amount_decimal": null
+						},
+						"quantity": 4,
+						"quantity_decimal": "4",
+						"subtotal": -3400,
+						"taxes": []
+					},
+					{
+						"amount": 1700,
+						"currency": "usd",
+						"description": "Remaining time on 2 × atm quantity probe after 18 Nov 2026",
+						"discount_amounts": [],
+						"discountable": false,
+						"discounts": [],
+						"id": "il_1UjFUjScrubTest0OvoTO3pZ",
+						"invoice": "in_1UYNDNScrubTest0i06lMYEX",
+						"livemode": false,
+						"metadata": {},
+						"object": "line_item",
+						"parent": {
+							"invoice_item_details": null,
+							"license_fee_subscription_details": null,
+							"subscription_item_details": {
+								"invoice_item": "ii_1UYND9ScrubTest0QSSj3iCA",
+								"proration": true,
+								"proration_details": {
+									"credited_items": null
+								},
+								"subscription": "sub_1UYNCNScrubTest0xEdo4vly",
+								"subscription_item": "si_VZWE0SIJsNb0Ne"
+							},
+							"type": "subscription_item_details"
+						},
+						"period": {
+							"end": 1796463784,
+							"start": 1794994984
+						},
+						"pretax_credit_amounts": [],
+						"pricing": {
+							"price_details": {
+								"price": "price_1UYNCHScrubTest0gv4BuhRc",
+								"product": "prod_VZWEhPGodoFlyL"
+							},
+							"type": "price_details",
+							"unit_amount_decimal": null
+						},
+						"quantity": 2,
+						"quantity_decimal": "2",
+						"subtotal": 1700,
+						"taxes": []
+					},
+					{
+						"amount": 3000,
+						"currency": "usd",
+						"description": "2 × atm quantity probe (at $15.00 / month)",
+						"discount_amounts": [],
+						"discountable": true,
+						"discounts": [],
+						"id": "il_1UjFUkScrubTest0G4wAgKHG",
+						"invoice": "in_1UYNDNScrubTest0i06lMYEX",
+						"livemode": false,
+						"metadata": {
+							"b4u_school": "sch_probe",
+							"family_id": "fam_probe"
+						},
+						"object": "line_item",
+						"parent": {
+							"invoice_item_details": null,
+							"license_fee_subscription_details": null,
+							"subscription_item_details": {
+								"invoice_item": null,
+								"proration": false,
+								"proration_details": {
+									"credited_items": null
+								},
+								"subscription": "sub_1UYNCNScrubTest0xEdo4vly",
+								"subscription_item": "si_VZWE0SIJsNb0Ne"
+							},
+							"type": "subscription_item_details"
+						},
+						"period": {
+							"end": 1799142184,
+							"start": 1796463784
+						},
+						"pretax_credit_amounts": [],
+						"pricing": {
+							"price_details": {
+								"price": "price_1UYNCHScrubTest0gv4BuhRc",
+								"product": "prod_VZWEhPGodoFlyL"
+							},
+							"type": "price_details",
+							"unit_amount_decimal": "1500"
+						},
+						"quantity": 2,
+						"quantity_decimal": "2",
+						"subtotal": 3000,
+						"taxes": []
+					}
+				],
+				"has_more": false,
+				"object": "list",
+				"total_count": 3,
+				"url": "/v1/invoices/in_1UYNDNScrubTest0i06lMYEX/lines"
+			},
+			"livemode": false,
+			"metadata": {},
+			"next_payment_attempt": null,
+			"number": "HB66BVRD-0003",
+			"object": "invoice",
+			"on_behalf_of": null,
+			"parent": {
+				"quote_details": null,
+				"subscription_details": {
+					"metadata": {
+						"b4u_school": "sch_probe",
+						"family_id": "fam_probe"
+					},
+					"subscription": "sub_1UYNCNScrubTest0xEdo4vly"
+				},
+				"type": "subscription_details"
+			},
+			"payment_settings": {
+				"default_mandate": null,
+				"payment_method_options": null,
+				"payment_method_types": null
+			},
+			"payments": {
+				"data": [
+					{
+						"amount_paid": 1300,
+						"amount_requested": 1300,
+						"created": 1796467384,
+						"currency": "usd",
+						"id": "inpay_1UYNDhScrubTest0cm1hMQqd",
+						"invoice": "in_1UYNDNScrubTest0i06lMYEX",
+						"is_default": true,
+						"livemode": false,
+						"object": "invoice_payment",
+						"payment": {
+							"payment_intent": "pi_3UYNDgScrubTest01nVYI5pi",
+							"type": "payment_intent"
+						},
+						"status": "paid",
+						"status_transitions": {
+							"canceled_at": null,
+							"paid_at": 1796467384
+						}
+					}
+				],
+				"has_more": false,
+				"object": "list",
+				"url": "/v1/invoices/payments"
+			},
+			"period_end": 1796463784,
+			"period_start": 1793871784,
+			"post_payment_credit_notes_amount": 0,
+			"pre_payment_credit_notes_amount": 0,
+			"receipt_number": null,
+			"rendering": null,
+			"shipping_cost": null,
+			"shipping_details": null,
+			"starting_balance": 0,
+			"statement_descriptor": null,
+			"status": "paid",
+			"status_transitions": {
+				"finalized_at": 1796467384,
+				"marked_uncollectible_at": null,
+				"paid_at": 1796467384,
+				"voided_at": null
+			},
+			"subtotal": 1300,
+			"subtotal_excluding_tax": 1300,
+			"test_clock": "clock_1UYNCGScrubTest0jHzHgDfn",
+			"total": 1300,
+			"total_discount_amounts": [],
+			"total_excluding_tax": 1300,
+			"total_pretax_credit_amounts": [],
+			"total_taxes": [],
+			"webhooks_delivered_at": 1796463784
+		}
+	},
+	"id": "evt_1UYNCcScrubTest00qcZr8kT3w",
+	"livemode": false,
+	"object": "event",
+	"pending_webhooks": 0,
+	"request": {
+		"id": null,
+		"idempotency_key": null
+	},
+	"type": "invoice.paid"
+}

@@ -192,8 +192,14 @@ describe("recorded Stripe payloads (2025-10-29.clover)", () => {
 				item.current_period_end * 1000,
 			);
 			expect(subscription.items).toEqual([
-				{ lookupKey: null, interval: "month", priceId: item.price.id },
+				{
+					lookupKey: null,
+					interval: "month",
+					priceId: item.price.id,
+					quantity: 1,
+				},
 			]);
+			expect(item.quantity).toBe(1);
 		}
 	});
 

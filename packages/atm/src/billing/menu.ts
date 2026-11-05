@@ -9,11 +9,23 @@ import {
 	type ValidateFunction,
 } from "ajv/dist/2020.js";
 import menuSchema from "../../schema/catalog/menu.v1.json";
-import type { Menu, MenuValidation } from "./types.js";
+import type { Menu, MenuTier, MenuValidation } from "./types.js";
 
 export const MAX_TIERS = 4;
 export const MAX_ADDONS = 6;
 export const MAX_FEATURES = 12;
+/** A tier sold in quantities offers at most this many counts, each from 1 to `MAX_QUANTITY`. */
+export const MAX_QUANTITIES = 6;
+export const MAX_QUANTITY = 50;
+/**
+ * Stripe refuses an amount above 99,999,999 (in the currency's smallest unit). A tier's price is per unit, so the largest
+ * count it is sold in has to keep the line's total under it, or the checkout is refused at Stripe, not here.
+ */
+export const MAX_LINE_TOTAL = 99_999_999;
+
+/** The counts a tier is sold in: its `quantities`, else one at a time. */
+export const quantitiesOf = (tier: MenuTier): readonly number[] =>
+	tier.quantities ?? [1];
 
 let compiled: ValidateFunction | null = null;
 const validator = (): ValidateFunction => {
@@ -112,6 +124,15 @@ function crossProblems(m: Menu): string[] {
 	m.tiers.forEach((t, i) => {
 		if (dup(t.prices.map((p) => p.interval))) bad.push(`tiers.${i}.prices`);
 		grants(`tiers.${i}.grants`, t.grants);
+		// The schema has each count unique and in range; the order is for the buyer's picker and stable diffs.
+		const counts = t.quantities ?? [];
+		if (counts.some((q, j) => j > 0 && q <= (counts[j - 1] ?? 0)))
+			bad.push(`tiers.${i}.quantities`);
+		const largest = Math.max(1, ...counts);
+		t.prices.forEach((p, j) => {
+			if (typeof p.amount === "number" && p.amount * largest > MAX_LINE_TOTAL)
+				bad.push(`tiers.${i}.prices.${j}.amount`);
+		});
 	});
 	m.addons.forEach((a, i) => {
 		grants(`addons.${i}.grants`, a.grants);

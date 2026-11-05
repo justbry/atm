@@ -37,3 +37,31 @@ Every id of this account ended in an account-specific tail; the tail, the accoun
 `tests/stripe-recorded.test.ts` normalizes each file and checks the key facts.
 
 Scrubbed too: each event's `request.idempotency_key` (a random request id, replaced by `scrubbed-idempotency-key` so a secret scanner does not mistake it for a key).
+
+## Quantity payloads (added 2026-11-05)
+
+Six more files about quantity: a subscription created with two units, raised to four mid-cycle, a renewal that carries leftover proration lines, and a subscription with two items.
+
+### Provenance
+
+- Same Stripe sandbox (test mode, API `2025-10-29.clover`), captured on 2026-11-05 with a script (`capture.py`) that creates a test clock, a monthly 1500 USD per-unit price (and a 500 USD add-on price) and subscriptions on it, then advances the clock: the raise 2 to 4 ten days into the period (`proration_behavior=always_invoice`), a decrease 4 to 2 three days later (`create_prorations`), and a renewal one day after the period ended.
+- The prices are per unit, so the tier line's `amount` is `quantity x 1500`. Money below is in cents.
+
+### Which fields are real and which are reconstructed
+
+- **Real:** every `data.object` (the invoice or subscription, read from the API at `2025-10-29.clover`), including all ids, timestamps, amounts, quantities, line periods and the `payments` list on the invoices.
+- **Reconstructed:** the event envelope. These are API objects, not webhook deliveries. `id` is invented (`evt_...`, fresh, same scrubbed look as the others), `api_version` is set to `2025-10-29.clover`, `created` is the object's own `created` (for the subscription update, the time of the raise), `livemode` is `false`, `pending_webhooks` is `0` and `request` is `{id: null, idempotency_key: null}`.
+- **Scrubbed** like the files above: the account-specific tail of every id became `ScrubTest0`, the hosted invoice and PDF links became `example.test` links, `account_name` became `Example Account`, and `customer_name` (a probe name) became `Example Customer`. Customer email, address and phone were already null; there was no card fingerprint in these objects.
+
+### What each file shows
+
+| File | Shows |
+|---|---|
+| `invoice.paid.quantity_create.json` | `subscription_create` for a subscription of **2** units: one line, quantity 2, amount 3000, `proration: false`, period one month. Invoice `period_start` = `period_end` = the creation time. |
+| `invoice.paid.quantity_raise.json` | The raise 2 to 4, `always_invoice`: a `subscription_update` invoice, paid at once (2000), with **two proration lines on the same price**: quantity **2**, amount **-2000** (the old quantity credited, `proration_details.credited_items` names the create invoice and its line) and quantity **4**, amount **+4000** (the new *total*, not the delta of 2). Both lines' periods run from the time of the change to the cycle end; the invoice's own period is the part already elapsed (cycle start to the change), so the lines start later than the invoice. |
+| `invoice.paid.quantity_cycle_with_prorations.json` | The renewal after a decrease 4 to 2 with `create_prorations`: a `subscription_cycle` invoice (own period = the old cycle) with the **tier line** (quantity 2, 3000, `proration: false`, new cycle) plus two **proration lines** left over from the decrease (quantity 4, -3400; quantity 2, +1700; period = the tail of the old cycle). Total 1300. So a cycle invoice can hold proration lines. |
+| `customer.subscription.updated.quantity_raise.json` | The subscription after the raise: one item with quantity **4**, item period unchanged, `latest_invoice` = the raise invoice, metadata kept. No `previous_attributes` (the object was re-read, see above). |
+| `customer.subscription.created.two_items.json` | A subscription with two items, in creation order: the tier price (quantity **3**) then the add-on price (quantity **1**), metadata `b4u_school` / `family_id`. |
+| `invoice.paid.two_items_create.json` | Its create invoice: two lines in the same order (3 x 1500 = 4500, 1 x 500 = 500, total 5000). The invoice's own `metadata` is `{}`; `b4u_school` / `family_id` sit at `parent.subscription_details.metadata`. |
+
+`tests/stripe-recorded-quantity.test.ts` normalizes each file, checks these facts, and runs the no-leak and OpenAPI shape checks on them (the files are listed by name there).
