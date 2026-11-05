@@ -22,6 +22,7 @@ import {
 	REPORT_CHOICES,
 	REPORT_FORMATS,
 	reportMonth,
+	skippedNote,
 } from "./ledger/report.js";
 import { shipOutbox } from "./ledger/ship.js";
 import { simulate } from "./ledger/simulate.js";
@@ -201,6 +202,8 @@ const reportCommand = program
 				process.stdout.write(
 					run.reports.map((output) => output.text).join("\n"),
 				);
+				const note = skippedNote({ ...run, month: opts.month });
+				if (note !== null) process.stderr.write(note);
 			}),
 	);
 exitTwoOnUsageError(reportCommand);

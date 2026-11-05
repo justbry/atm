@@ -9,7 +9,7 @@ import {
 	type ValidateFunction,
 } from "ajv/dist/2020.js";
 import menuSchema from "../../schema/catalog/menu.v1.json";
-import { commodityOf } from "../ledger/postings.js";
+import { commodityOf, MONEY_COMMODITY } from "../ledger/postings.js";
 import type { Menu, MenuTier, MenuValidation } from "./types.js";
 
 export const MAX_TIERS = 4;
@@ -100,7 +100,8 @@ export type CommodityProblem = { path: string; message: string };
 /**
  * A credit's hledger commodity is its feature id in capitals with every non-letter dropped (`commodityOf`), so `light-60` and
  * `light-90` are both `LIGHT`, and an id with no letter has no commodity at all. Two features on one commodity would add up
- * into one balance in the books, and an id with none throws when the first credit is journaled. The menu is where it is refused.
+ * into one balance in the books, and an id with none throws when the first credit is journaled. A feature whose commodity is the
+ * money commodity (`usd`, `u-s-d`, `usd-2`: every id whose letters spell USD) would add its credits up with the dollars. The menu is where it is refused.
  * `commodityOf` is not changed: renaming a commodity would rewrite the journals already built.
  */
 export const commodityProblems = (
@@ -117,6 +118,14 @@ export const commodityProblems = (
 			problems.push({
 				path,
 				message: `feature id ${JSON.stringify(feature.id)} has no letter: a credit commodity is the feature id in capitals with letters only, so it has none`,
+			});
+			return;
+		}
+		// The books count dollars in USD with two places; a credit in USD would add up with them (and has none).
+		if (commodity === MONEY_COMMODITY) {
+			problems.push({
+				path,
+				message: `feature id ${JSON.stringify(feature.id)} becomes the credit commodity ${commodity}, which is the money commodity (dollars): give it an id whose letters do not spell ${MONEY_COMMODITY}`,
 			});
 			return;
 		}
@@ -180,6 +189,18 @@ function crossProblems(m: Menu): { bad: string[]; messages: string[] } {
 			if (typeof p.amount === "number" && p.amount * largest > MAX_LINE_TOTAL)
 				bad.push(`tiers.${i}.prices.${j}.amount`);
 		});
+	});
+	const codes = m.codes ?? [];
+	if (dup(codes.map((c) => c.id))) bad.push("codes");
+	const tierIds = new Set(m.tiers.map((t) => t.id));
+	const seenCodes = new Set<string>();
+	codes.forEach((c, i) => {
+		// Stripe compares a code without case, so two that differ only in case are one code.
+		const folded = c.code.toLowerCase();
+		if (seenCodes.has(folded)) bad.push(`codes.${i}.code`);
+		seenCodes.add(folded);
+		if (c.tierIds?.some((id) => !tierIds.has(id)))
+			bad.push(`codes.${i}.tierIds`);
 	});
 	m.addons.forEach((a, i) => {
 		grants(`addons.${i}.grants`, a.grants);

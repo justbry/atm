@@ -3,7 +3,9 @@
  * the net that reaches `assets:stripe`), a refund is a `payment.refunded`, a payout is a `payout.paid`, and a dispute that
  * moved money is a `payment.disputed` (the amount withdrawn and Stripe's dispute fee) and, when it closes, a `dispute.closed`. The postings
  * and their signs are `moneyPostings` in `../ledger/postings.ts`; this only says which event to make from a fact.
- * USD only, as the postings are: a fact in another currency makes no money line.
+ * USD only, as the postings are: a fact in another currency makes no money line, but it does make a `money.skipped` event
+ * (no postings; a count), so that the skip is in the log and not only in the absence of a line. The decision (keep the
+ * credits, answer 200 `non_usd`) is in `docs/financial-reports.md`, "Non-USD".
  *
  * Pure. Each event's idem is the Stripe object's id (`stripe:in_...`, `stripe:evt_...`, `stripe:po_...`), so the same
  * fact decided twice makes the same event, which the outbox's (school, idem) key drops.
@@ -28,6 +30,42 @@ type Booker = {
 	/** The ULID of the stored input event, which is every decision event's `cause`. */
 	cause: string;
 };
+
+/**
+ * The marker a skipped money line leaves: `money.skipped`, with no postings. Its idem is the Stripe object's id with
+ * `:non_usd`, so a re-send under another event id leaves one marker, as it leaves one money line.
+ */
+const skippedNonUsd = ({
+	kind,
+	id,
+	amount,
+	currency,
+	at,
+	key,
+	labels,
+	booker,
+}: {
+	kind: "invoice" | "refund" | "payout";
+	id: string;
+	amount: number;
+	currency: string;
+	at: number;
+	key: string;
+	labels: Record<string, string>;
+	booker: Booker;
+}): AtmEvent =>
+	ledgerEvent({
+		type: "money.skipped",
+		school: booker.school,
+		tz: booker.tz,
+		eventTime: at,
+		key,
+		idem: `stripe:${id}:non_usd`,
+		cause: booker.cause,
+		labels,
+		text: `${kind} ${id} ${amount} ${currency} not booked: not USD`,
+		payload: { id, kind, reason: "non_usd", currency, amount },
+	});
 
 /** Why a fee cannot be booked, or null when it can: a whole number of cents, from 0 to what the invoice paid. */
 export const feeProblem = (
@@ -61,7 +99,8 @@ const incomeKindOf = (invoice: BillingInvoice): string => {
 
 /**
  * A paid invoice: `payment.succeeded` for what it paid, with `fee` taken out of the cash and booked as an expense. No
- * event for an invoice that paid nothing (a free trial, a fully credited invoice) or paid in another currency.
+ * event for an invoice that paid nothing (a free trial, a fully credited invoice); one that paid in another currency makes
+ * a `money.skipped` and no payment.
  */
 export const paymentEvents = ({
 	invoice,
@@ -76,7 +115,20 @@ export const paymentEvents = ({
 	booker: Booker;
 	holder: { customerId: string };
 }): AtmEvent[] => {
-	if (invoice.amountPaid <= 0 || invoice.currency !== USD) return [];
+	if (invoice.amountPaid <= 0) return [];
+	if (invoice.currency !== USD)
+		return [
+			skippedNonUsd({
+				kind: "invoice",
+				id: invoice.id,
+				amount: invoice.amountPaid,
+				currency: invoice.currency,
+				at: invoice.paidAt,
+				key: holder.customerId,
+				labels,
+				booker,
+			}),
+		];
 	const taken = fee ?? 0;
 	const dollars = invoice.amountPaid / CENTS_PER_DOLLAR;
 	return [
@@ -107,6 +159,38 @@ export const paymentEvents = ({
 };
 
 /**
+ * A refund in another currency, which the books do not take: its marker, or nothing for a refund that moved no money or
+ * is in USD. Asked for a refund of a payment the books do not hold too (a non-USD invoice was never booked, so its refund
+ * is not a `payment.refunded` either), which is why `refundEvents` is not the only caller.
+ */
+export const skippedRefundEvents = ({
+	refund,
+	labels,
+	booker,
+	holder,
+}: {
+	refund: BillingRefund;
+	labels: GrantLabels;
+	booker: Booker;
+	holder: { customerId: string };
+}): AtmEvent[] => {
+	const refunded = refund.amount - (refund.previousAmount ?? 0);
+	if (refunded <= 0 || (refund.currency ?? USD) === USD) return [];
+	return [
+		skippedNonUsd({
+			kind: "refund",
+			id: refund.id,
+			amount: refunded,
+			currency: refund.currency ?? USD,
+			at: refund.at,
+			key: holder.customerId,
+			labels,
+			booker,
+		}),
+	];
+};
+
+/**
  * A refund: `payment.refunded` for what this event refunded. A `charge.refunded` carries the charge's total refunded so
  * far, so the amount is that total less what it was before the event (`previousAmount`). Stripe keeps its fee on a
  * refund, so nothing is booked back from `expenses:billing:stripe-fees`.
@@ -123,7 +207,9 @@ export const refundEvents = ({
 	holder: { customerId: string };
 }): AtmEvent[] => {
 	const refunded = refund.amount - (refund.previousAmount ?? 0);
-	if (refunded <= 0 || (refund.currency ?? USD) !== USD) return [];
+	if (refunded <= 0) return [];
+	if ((refund.currency ?? USD) !== USD)
+		return skippedRefundEvents({ refund, labels, booker, holder });
 	return [
 		ledgerEvent({
 			type: "payment.refunded",
@@ -153,7 +239,7 @@ export const refundEvents = ({
 	];
 };
 
-/** A payout: `payout.paid` moves the cash from `assets:stripe` to `assets:clearing:stripe-payouts`. Another currency makes none. */
+/** A payout: `payout.paid` moves the cash from `assets:stripe` to `assets:clearing:stripe-payouts`. Another currency makes a `money.skipped` and no payout line. */
 export const payoutEvents = ({
 	payout,
 	booker,
@@ -181,7 +267,18 @@ export const payoutEvents = ({
 					},
 				}),
 			]
-		: [];
+		: [
+				skippedNonUsd({
+					kind: "payout",
+					id: payout.id,
+					amount: payout.amount,
+					currency: payout.currency,
+					at: payout.at,
+					key: PAYOUT_KEY,
+					labels: { mapping: payout.source.mapping },
+					booker,
+				}),
+			];
 
 /**
  * A dispute that moved money: `payment.disputed` for what Stripe withdrew when it opened (the disputed amount, and the

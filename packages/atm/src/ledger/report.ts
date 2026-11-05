@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { type JournalRun, journalMonth } from "./files.js";
+import { type JournalRun, journalMonth, readEvents } from "./files.js";
 
 export const REPORT_NAMES = [
 	"income-statement",
@@ -25,10 +25,27 @@ export class HledgerError extends Error {}
 
 export type ReportOutput = { report: ReportName; text: string };
 
+/** The `money.skipped` events (a non-USD invoice, refund or payout the handler applied but did not book), counted. */
+export type SkippedNonUsd = { inMonth: number; total: number };
+
 export type ReportRun = {
 	journal: JournalRun;
 	reports: ReportOutput[];
+	/** Money the reports leave out because it is not in USD: in the month built, and in all the school's events. */
+	skippedNonUsd: SkippedNonUsd;
 };
+
+/** One line for stderr when the reports leave non-USD money out; null when nothing was skipped. */
+export const skippedNote = ({
+	skippedNonUsd,
+	month,
+}: {
+	skippedNonUsd: SkippedNonUsd;
+	month: string;
+}): string | null =>
+	skippedNonUsd.total === 0
+		? null
+		: `atm report: ${skippedNonUsd.inMonth} non-USD money line(s) skipped in ${month} (${skippedNonUsd.total} in all events); the reports are USD only and leave them out\n`;
 
 const oneLine = (text: string): string =>
 	text.trim().split("\n")[0] || "no message";
@@ -96,11 +113,21 @@ export const reportMonth = async ({
 	const journal = await journalMonth({ root, school, month });
 	const books = join(root, "schools", school);
 	const names = report === "all" ? REPORT_NAMES : [report];
+	const skipped = (await readEvents(root, school)).events.filter(
+		(event) =>
+			event.event_type === "money.skipped" &&
+			event.payload.reason === "non_usd",
+	);
 	return {
 		journal,
 		reports: names.map((name) => ({
 			report: name,
 			text: runHledger({ books, report: name, format }),
 		})),
+		skippedNonUsd: {
+			inMonth: skipped.filter((event) => event.date.startsWith(`${month}-`))
+				.length,
+			total: skipped.length,
+		},
 	};
 };

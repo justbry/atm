@@ -1,0 +1,31 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://b4uni.com/_schema/payload/money.skipped.v1.json",
+	"title": "money.skipped payload v1",
+	"description": "A Stripe payment, refund or payout the handler applied but did not book, because it is not in USD (the postings are USD only). No postings: this event is the count. Credits for an invoice were granted as usual.",
+	"type": "object",
+	"required": ["id", "kind", "reason", "currency", "amount"],
+	"properties": {
+		"id": {
+			"description": "Stripe's id of the object: the invoice, the payout, or (for a refund) the event that delivered it.",
+			"type": "string",
+			"minLength": 1
+		},
+		"kind": {
+			"enum": ["invoice", "refund", "payout"]
+		},
+		"reason": {
+			"enum": ["non_usd"]
+		},
+		"currency": {
+			"description": "As Stripe sends it, lowercase.",
+			"type": "string",
+			"minLength": 1
+		},
+		"amount": {
+			"description": "In the currency's minor units: what the invoice paid, the refund moved, or the payout sent.",
+			"type": "integer",
+			"minimum": 0
+		}
+	}
+}
