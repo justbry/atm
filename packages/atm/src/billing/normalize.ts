@@ -117,6 +117,21 @@ function convert(
 			if (!Number.isInteger(raw) || !Number.isInteger(other)) return bad("int");
 			return ok(raw === other);
 		}
+		case "sum": {
+			// A list of objects added up on one whole-number field (`each`); a total of 0 leaves the key out, so a fact with no
+			// discount reads as it did before discounts were mapped.
+			const tokens = spec.each ? tryParse(spec.each) : null;
+			if (!tokens)
+				return fail({ kind: "bad_path", field, path: spec.each ?? spec.path });
+			if (!Array.isArray(raw)) return bad("sum");
+			let total = 0;
+			for (const element of raw) {
+				const part = getPath(element, tokens);
+				if (!Number.isInteger(part)) return bad("sum");
+				total += part as number;
+			}
+			return ok(total === 0 ? undefined : total);
+		}
 		case "map": {
 			if (typeof raw !== "object" || raw === null || Array.isArray(raw))
 				return bad("map");

@@ -460,10 +460,15 @@ export const oneTimeCheckoutParams = (
 	input: OneTimeCheckoutInput,
 ): OneTimeCheckoutResult => stripeMenu.oneTimeCheckoutParams(input);
 
-/** `params` (a membership's or a one-time checkout's) with each line's lookup key swapped for its Stripe price id; null when a price is not published yet. */
+/**
+ * `params` (a membership's or a one-time checkout's) with each line's lookup key swapped for its Stripe price id; null when a
+ * price is not published yet. A membership checkout made with a `code` carries `discounts` by the code's text: pass
+ * `promotionCodeIds` (Stripe's `promo_...` id by code text, compared without case) to swap it for the id; null when it is missing.
+ */
 export function withPriceIds(
 	params: CheckoutParams,
 	priceIds: Readonly<Record<string, string>>,
+	promotionCodeIds?: Readonly<Record<string, string>>,
 ): CheckoutParamsWithPrices | null;
 export function withPriceIds(
 	params: OneTimeCheckoutParams,
@@ -472,10 +477,11 @@ export function withPriceIds(
 export function withPriceIds(
 	params: CheckoutParams | OneTimeCheckoutParams,
 	priceIds: Readonly<Record<string, string>>,
+	promotionCodeIds?: Readonly<Record<string, string>>,
 ): CheckoutParamsWithPrices | OneTimeCheckoutParamsWithPrices | null {
 	return params.mode === "payment"
 		? stripeMenu.withPriceIds(params, priceIds)
-		: stripeMenu.withPriceIds(params, priceIds);
+		: stripeMenu.withPriceIds(params, priceIds, promotionCodeIds);
 }
 
 /** Flattens nested params to Stripe's form encoding (`line_items[0][price]`). */

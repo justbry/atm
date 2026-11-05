@@ -61,7 +61,7 @@
 			"additionalProperties": false,
 			"properties": {
 				"path": { "$ref": "#/$defs/path" },
-				"type": { "enum": ["string", "int", "seconds", "bool", "map"] },
+				"type": { "enum": ["string", "int", "seconds", "bool", "map", "sum"] },
 				"optional": { "type": "boolean" },
 				"default": {},
 				"values": {
@@ -70,6 +70,7 @@
 				},
 				"fallback": { "type": ["string", "null"] },
 				"equalsPath": { "$ref": "#/$defs/path" },
+				"each": { "$ref": "#/$defs/path" },
 				"min": { "type": "integer" },
 				"max": { "type": "integer" }
 			}
