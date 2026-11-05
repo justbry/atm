@@ -444,7 +444,10 @@ export type BillingRefund = {
 	 * has no refund list. The rules use only `full`.
 	 */
 	amount: number;
-	/** The charge is refunded in full (`amount_refunded` equals the charge's `amount`); a partial refund is false. */
+	/**
+	 * The charge is refunded in full: Stripe's own `refunded` flag. Not a comparison of amounts: on a partly captured
+	 * charge `amount_refunded` may or may not count the released remainder, and the flag is right either way.
+	 */
 	full: boolean;
 	at: number;
 };

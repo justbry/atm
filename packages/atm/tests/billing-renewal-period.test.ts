@@ -7,7 +7,11 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { addUtcMonths } from "../src/billing/grants.js";
 import { grantsFromRows } from "../src/billing/rows.js";
-import { lookupKeyOf, tierPriceKey } from "../src/billing/stripe-menu.js";
+import {
+	addonPriceKey,
+	lookupKeyOf,
+	tierPriceKey,
+} from "../src/billing/stripe-menu.js";
 import type { Menu } from "../src/billing/types.js";
 import { createStore, type Store } from "./billing-store.js";
 import { invoicePaid } from "./stripe-events.js";
@@ -333,5 +337,99 @@ describe("an invoice whose lines carry no period", () => {
 		expect(state.cycleStart).toBe(start);
 		expect(state.cycleEnd).toBe(end);
 		expect(visitRow(s)?.next_reset_at).toBe(end);
+	});
+});
+
+describe("a tier line with a start but no end", () => {
+	test("takes neither: start and end both come from the invoice, never a zero-length cycle", () => {
+		const s = newStore();
+		realCreate(s);
+		const raw = invoicePaid({
+			eventId: "evt_half",
+			invoiceId: "in_half",
+			at: CYCLE_2_PAID,
+			paidAt: CYCLE_2_PAID,
+			subscriptionId: "sub_1",
+			reason: "subscription_cycle",
+			periodStart: FIRST.start,
+			periodEnd: FIRST.end,
+			lines: [
+				{
+					...tierLine("sparkle-2", "month"),
+					periodStart: SECOND_PERIOD.start,
+					periodEnd: SECOND_PERIOD.end,
+				},
+			],
+			metadata,
+		});
+		// The line's start is the new period's, which is the invoice's end: paired with it, the cycle would be empty.
+		for (const line of raw.data.object.lines.data) line.period.end = undefined;
+		const r = s.handle(raw, CYCLE_2_PAID);
+		expect(r.refused).toBeUndefined();
+		const state = grantsFromRows(s.rows);
+		expect(state.cycleStart).toBe(FIRST.start);
+		expect(state.cycleEnd).toBe(FIRST.end);
+	});
+});
+
+describe("an off-cycle add-on bought mid-cycle", () => {
+	// A monthly add-on whose visits are granted once a year: its row is seeded and refilled by the engine's reset.
+	const shineMenu: Menu = {
+		...menu,
+		addons: [
+			...menu.addons,
+			{
+				id: "shine",
+				name: "Shine",
+				price: { amount: 4000, every: "month" },
+				grants: [{ featureId: "visit", amount: 6, every: "year" }],
+			},
+		],
+	};
+	const shineKey = lookupKeyOf(
+		SCHOOL,
+		addonPriceKey("shine", "month"),
+		4000,
+		menu.currency,
+	);
+
+	test("is filled when the update invoice's period starts before the purchase", () => {
+		const s = createStore({ menu: shineMenu, school: SCHOOL, family: FAMILY });
+		realCreate(s);
+		const boughtAt = CREATE_START + 10 * DAY;
+		const before = s.avail(boughtAt);
+		const r = s.handle(
+			invoicePaid({
+				eventId: "evt_shine",
+				invoiceId: "in_shine",
+				at: boughtAt,
+				subscriptionId: "sub_1",
+				reason: "subscription_update",
+				// Pending items since the last invoice: the invoice's period opens at the cycle start, before the purchase.
+				periodStart: CREATE_START,
+				periodEnd: boughtAt,
+				lines: [
+					{
+						lookupKey: shineKey,
+						amount: 2800,
+						interval: "month",
+						proration: true,
+						periodStart: boughtAt,
+						periodEnd: CYCLE_2_START,
+					},
+				],
+				metadata,
+			}),
+			boughtAt,
+		);
+		expect(r.refused).toBeUndefined();
+		const granted = grantsFromRows(s.rows).invoices.in_shine?.granted ?? [];
+		expect(granted.map((g) => g.units)).toEqual([6]);
+		const row = s.rows.find(
+			(x) => x.table === "customerEntitlements" && x.id === granted[0]?.rowId,
+		)?.data as { balance: number; next_reset_at: number | null } | undefined;
+		expect(row?.balance).toBe(6);
+		expect(row?.next_reset_at).toBe(addUtcMonths(boughtAt, 12));
+		expect(s.avail(boughtAt + SECOND)).toBe(before + 6);
 	});
 });

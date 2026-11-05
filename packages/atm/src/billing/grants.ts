@@ -719,13 +719,19 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 	// The service period this invoice pays for. Stripe's own period fields disagree by invoice: a renewal's invoice period
 	// is the PREVIOUS one while its tier line carries the new one, and a first invoice's period is a single instant while
 	// its line carries the real one. So the tier line's period wins; the invoice's is the fallback (manual and gift
-	// invoices, add-on-only invoices, lines without a period).
-	const periodSource = tierLine ?? upLine;
-	const periodStart = periodSource?.periodStart ?? invoice.periodStart;
-	const periodEnd = periodSource?.periodEnd ?? invoice.periodEnd;
+	// invoices, add-on-only invoices, lines without a period). Start and end come from one source: a line with only one of
+	// them would pair, say, the new start with the invoice's end (the previous period's end, the same instant).
+	const periodLine = tierLine ?? upLine;
+	const { periodStart, periodEnd } =
+		periodLine?.periodStart !== undefined && periodLine.periodEnd !== undefined
+			? { periodStart: periodLine.periodStart, periodEnd: periodLine.periodEnd }
+			: invoice;
 	// The cycle always anchors on the period start (not the payment time: a late renewal resets from the start). The engine
 	// refills rows whose reset is strictly before the command's time, so the reset runs 1 ms after the anchor.
 	const anchorAt = periodStart + 1;
+	// A row seeded later than the anchor (an off-cycle add-on bought mid-cycle, seeded at its line's start) is refilled only
+	// by a reset after its seed, so the reset runs at the later of the two.
+	let resetAt = anchorAt;
 	const ops: Op[] = [];
 	let needReset = false;
 	let created = false;
@@ -772,6 +778,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 			if (balance > 0) grantRow(s, balance, cycleEnd);
 		} else {
 			needReset = true;
+			resetAt = Math.max(resetAt, seedAt + 1);
 			// An off-cycle row (a yearly grant on a monthly plan) is refilled by the engine a full interval after its seed date.
 			grantRow(s, full, addUtcMonths(seedAt, s.interval === "year" ? 12 : 1));
 		}
@@ -1065,7 +1072,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 	}
 
 	b.plan(now, ops);
-	if (needReset) b.reset(anchorAt);
+	if (needReset) b.reset(resetAt);
 	if (cycleRows) {
 		// The engine steps a row's next reset a month on from the last one, so after a month-end it drifts from Stripe's
 		// periods (Jan 31, Feb 28, then Mar 28, not Mar 31). Put each refilled row's next reset on Stripe's cycle end, so

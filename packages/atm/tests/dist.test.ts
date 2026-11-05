@@ -9,6 +9,7 @@ import {
 	createState,
 	createSubjectFor,
 } from "../../balance-engine/tests/unit/engineFixtures.js";
+import { deterministicUlid } from "../src/index.js";
 
 /**
  * Builds dist into an empty directory and uses it the way a consumer outside this workspace would. With `ATM_DIST`
@@ -75,7 +76,9 @@ describe("built library", () => {
 				"const checked: AtmValidation = validateEvent(events[0]);",
 				'const files = buildJournal({ events, month: "2026-01" }).files;',
 				"const balances = replayEvents({ events, catalog: [] }).balances;",
-				"export { decision, mutation, checked, files, balances };",
+				'import { deterministicUlid } from "./dist/index.js";',
+				'const eventId: string = deterministicUlid({ timeMs: 0, revision: 0, seed: "sch_vol|evt_1" });',
+				"export { decision, mutation, checked, files, balances, eventId };",
 			].join("\n"),
 		);
 		await writeFile(
@@ -124,16 +127,25 @@ describe("built library", () => {
 			join(dir, "ledger.mjs"),
 			[
 				'import { readFileSync } from "node:fs";',
-				'import { validateEvent, buildJournal } from "./dist/index.js";',
+				'import { validateEvent, buildJournal, deterministicUlid } from "./dist/index.js";',
 				'const events = readFileSync("events.jsonl", "utf8").trim().split("\\n").map((l) => JSON.parse(l));',
 				"const ok = events.every((e) => validateEvent(e).ok);",
 				'const j = buildJournal({ events, month: "2026-01" });',
-				"console.log(JSON.stringify({ ok, n: events.length, tx: j.transactions }));",
+				'const eventId = deterministicUlid({ timeMs: 1792339440000, revision: 3, seed: "sch_vol|evt_1" });',
+				"console.log(JSON.stringify({ ok, n: events.length, tx: j.transactions, eventId }));",
 			].join("\n"),
 		);
 		const out = JSON.parse(run(["node", "ledger.mjs"]));
 		expect(out.ok).toBe(true);
 		expect(out.n).toBeGreaterThan(0);
+		// The stored input event id a caller derives from the bundle is the one atm derives itself.
+		expect(out.eventId).toBe(
+			deterministicUlid({
+				timeMs: 1792339440000,
+				revision: 3,
+				seed: "sch_vol|evt_1",
+			}),
+		);
 	});
 
 	test("runs under Node", () => {

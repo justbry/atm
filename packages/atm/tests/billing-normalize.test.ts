@@ -494,9 +494,10 @@ describe("values", () => {
 		expect(inv.reason).toBe("other");
 	});
 
-	test("a full refund is amount_refunded equal to amount; a partial one is not", () => {
+	test("a full refund is the charge's `refunded`; a partial one is not", () => {
 		const raw = load("charge.refunded.json");
 		raw.data.object.amount_refunded = 10000;
+		raw.data.object.refunded = false;
 		const r = expectOk(
 			normalize(raw, mapping("charge.refunded"), { eventId: raw.id }),
 		) as BillingRefund;

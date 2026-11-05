@@ -85,9 +85,23 @@ describe("recorded Stripe payloads (2025-10-29.clover)", () => {
 	test("charge.refunded: a partial refund of the same real charge is not full", () => {
 		const event = load("charge.refunded.json");
 		event.data.object.amount_refunded = 40;
+		event.data.object.refunded = false;
 		const refund = normalized(event) as BillingRefund;
 		expect(refund.full).toBe(false);
 		expect(refund.amount).toBe(40);
+	});
+
+	test("charge.refunded: a partly captured charge refunded in full is full, whether or not the uncaptured part counts as refunded", () => {
+		// The captured part alone refunded.
+		const capturedOnly = load("charge.refunded.json");
+		capturedOnly.data.object.amount_captured = 60;
+		capturedOnly.data.object.amount_refunded = 60;
+		expect((normalized(capturedOnly) as BillingRefund).full).toBe(true);
+		// The released remainder counted in amount_refunded too.
+		const withRemainder = load("charge.refunded.json");
+		withRemainder.data.object.amount_captured = 60;
+		withRemainder.data.object.amount_refunded = 100;
+		expect((normalized(withRemainder) as BillingRefund).full).toBe(true);
 	});
 
 	test("invoice.paid, subscription_create: reason, subscription, price and the line's period", () => {
