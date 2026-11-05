@@ -593,7 +593,11 @@ const runSimulateFromInputs = async (opts: SimulateOptions): Promise<void> => {
 		throw new InputError(
 			`no events under ${opts.root}/schools/${opts.school}/events`,
 		);
-	const stored = await readStoredInputs(opts.inputs as string, env, opts.school);
+	const stored = await readStoredInputs(
+		opts.inputs as string,
+		env,
+		opts.school,
+	);
 	let result: ReturnType<typeof simulateFromInputs>;
 	try {
 		result = simulateFromInputs({
@@ -688,7 +692,7 @@ const runSimulate = async (opts: SimulateOptions): Promise<void> => {
 const simulateCommand = program
 	.command("simulate")
 	.description(
-		"a what-if: replay a school's event log against a candidate menu or policy and diff balances, posting totals (by month and account) and the commands' decisions against the log; writes nothing. It re-decides credits only: it cannot change what Stripe charged, and the grant rules (upgrade grants, amounts from invoices) are not in the log's commands. Needs the menu or catalog rows the log was written under. Exits 0 with no differences, 1 with differences, 2 for input it cannot use (one line on stderr)",
+		"a what-if: replay a school's event log against a candidate menu or policy and diff balances, posting totals (by month and account) and the commands' decisions against the log; writes nothing. It re-decides credits only: it cannot change what Stripe charged, and the grant rules (upgrade grants, amounts from invoices) are not in the log's commands. Needs the menu or catalog rows the log was written under. Exits 0 with no differences, 1 with differences, 2 for input it cannot use (one line on stderr). With --inputs (the handler's stored Stripe inputs) it is a what-if on the grant rules instead: see the options below",
 	)
 	.requiredOption("--root <folder>", "the folder that holds schools/<id>/")
 	.requiredOption("--school <id>", "school id, as in schools/<id>/")

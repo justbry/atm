@@ -385,7 +385,6 @@ export const deriveEvents = (
 	return [...exact.values(), ...extra.values()];
 };
 
-
 /** Tracks the open holds a command's events open and close. */
 export const settleHold = (
 	holds: Record<string, AtmHold>,
@@ -421,7 +420,6 @@ export const settleHold = (
 		}
 	}
 };
-
 
 /**
  * The log's commands run again under a candidate catalog and policy, and the result set against the log. See
@@ -537,8 +535,11 @@ export const simulate = (input: AtmSimulateInput): AtmSimulation => {
 	};
 
 	const derive = deriveEvents;
-	const settle = (command: CommandShape, group: AtmEvent[], mutation: Mutation) =>
-		settleHold(holds, command, group, mutation);
+	const settle = (
+		command: CommandShape,
+		group: AtmEvent[],
+		mutation: Mutation,
+	) => settleHold(holds, command, group, mutation);
 
 	const groups = new Map<string, AtmEvent[]>();
 	for (const e of ordered) {

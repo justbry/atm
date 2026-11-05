@@ -62,6 +62,11 @@ import {
 	shipOutbox as shipOutboxImpl,
 } from "./ledger/ship.js";
 import { simulate as simulateImpl } from "./ledger/simulate.js";
+import {
+	InputsSimulateError as InputsSimulateErrorImpl,
+	replayInputs as replayInputsImpl,
+	simulateFromInputs as simulateFromInputsImpl,
+} from "./ledger/simulate-inputs.js";
 import { outboxStatus as outboxStatusImpl } from "./ledger/status.js";
 import {
 	canonicalize as canonicalizeImpl,
@@ -127,6 +132,9 @@ import type {
 	HledgerErrorConstructor,
 	HoldBookingInput,
 	InputsRead,
+	InputsSimulateErrorConstructor,
+	InputsSimulateInput,
+	InputsSimulation,
 	InputsSource,
 	InputsStatus,
 	InvoiceGrantInput,
@@ -166,6 +174,8 @@ import type {
 	RedeemSessionGiftCodeResult,
 	ReplayErrorConstructor,
 	ReplayGapErrorConstructor,
+	ReplayInputsOptions,
+	ReplayInputsResult,
 	ReportChoice,
 	ReportFormat,
 	ReportName,
@@ -329,6 +339,29 @@ export const replayEvents = (input: {
  */
 export const simulate = (input: AtmSimulateInput): AtmSimulation =>
 	simulateImpl(input);
+
+/**
+ * A what-if on the grant rules, from the Stripe inputs the handler stored: they are decided again through the same rules with
+ * the menu and policy each was handled under (the baseline, which must equal the log) and then with a candidate, and set against
+ * the log: per delivery, per holder balance, and posting totals by month. `inputs` is the result of any `InputsSource.read`
+ * (`sqliteInputsSource`). What is not stored (history before the inputs were, an erased holder, a holder whose rows moved by a
+ * write nothing records, a refund after a credit hold) is carried over unchanged and counted in `notReplayable`. Credits only: it
+ * cannot change what Stripe charged. Writes nothing. Throws `InputsSimulateError` for input it cannot use, among them a baseline
+ * that does not reproduce the log (unless `allowBaselineDrift`).
+ */
+export const simulateFromInputs = (
+	input: InputsSimulateInput,
+): InputsSimulation => simulateFromInputsImpl(input);
+
+/** The replay `simulateFromInputs` is made of, for a caller that wants the decisions themselves: the inputs in applied order, the log's other commands between them. */
+export const replayInputs = (
+	options: ReplayInputsOptions,
+): ReplayInputsResult => replayInputsImpl(options);
+
+/** Thrown by `simulateFromInputs` for input it cannot use. */
+export const InputsSimulateError: InputsSimulateErrorConstructor =
+	InputsSimulateErrorImpl;
+export type InputsSimulateError = InstanceType<InputsSimulateErrorConstructor>;
 
 /** Thrown by `replayEvents` where the engine disagrees with the log; `eventId` names the event. */
 export const ReplayError: ReplayErrorConstructor = ReplayErrorImpl;

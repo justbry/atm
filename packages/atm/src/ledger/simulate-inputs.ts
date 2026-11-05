@@ -38,17 +38,29 @@ import type {
 	InputsBaselineMismatch,
 	InputsDeliveryChange,
 	InputsRead,
-	InputsSimulateErrorConstructor,
 	InputsSimulateInput,
 	InputsSimulation,
 	Menu,
 	NotReplayable,
+	ReplayContext,
+	ReplayedInput,
 	ReplayFact,
+	ReplayHalt,
+	ReplayInputsOptions,
+	ReplayInputsResult,
 	StoredContext,
 	StoredInput,
-	StripeEventRefusal,
 	StripeEventResult,
 } from "../types.js";
+import {
+	balancesOf,
+	compareChanges,
+	HANDLER_COMMAND,
+	type RecordedMutation,
+	recordedMutations,
+	replayEvents,
+} from "./replay.js";
+import { runOnState, toCatalog } from "./run.js";
 import {
 	balanceChangesOf,
 	byId,
@@ -62,15 +74,6 @@ import {
 	transactionsOf,
 	withPolicy,
 } from "./simulate.js";
-import {
-	balancesOf,
-	compareChanges,
-	HANDLER_COMMAND,
-	type RecordedMutation,
-	recordedMutations,
-	replayEvents,
-} from "./replay.js";
-import { runOnState, toCatalog } from "./run.js";
 import { canonicalize } from "./util.js";
 
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -100,70 +103,7 @@ export class InputsSimulateError extends Error {
 		this.name = "InputsSimulateError";
 	}
 }
-/** The constructor's type, for the package's public surface. */
-export const InputsSimulateErrorType: InputsSimulateErrorConstructor =
-	InputsSimulateError;
-
 const isoOf = (ms: number): string => new Date(ms).toISOString();
-
-type Context = {
-	menu: Menu;
-	menuVersion: string | number;
-	policy: BillingPolicy;
-	policyVersion: string | number;
-	priceIds: Record<string, string>;
-};
-
-export type ReplayInputsOptions = {
-	events: readonly AtmEvent[];
-	inputs: InputsRead;
-	env: AtmEnv;
-	school: string;
-	/** Which menu and policy to decide with, per input: the recorded context or a replacement. */
-	contextFor: (input: StoredInput, recorded: StoredContext | undefined) => Context;
-	/** The draw order to run the carried commands under, by instant; undefined keeps the command as recorded. */
-	carriedPolicy?: (atMs: number) => BillingPolicy | undefined;
-	/** The baseline run. Given, this run is a candidate: it stops where the baseline stopped and compares with its states. */
-	against?: ReplayInputsResult;
-};
-
-type Halt = { token: string; reason: NotReplayable["reason"] };
-
-export type InputOutcome = {
-	appliedOrder: number;
-	subjectKey: string;
-	events: AtmEvent[];
-	refused: StripeEventRefusal | null;
-	rowsDigest: string;
-	booking: DecisionSummary["booking"];
-	/** The invoices the refund or dispute was linked to (payment ref to invoice). */
-	invoiceIds: Record<string, string>;
-};
-
-export type ReplayInputsResult = {
-	/** Decision events and carried events, deduped by idem (first wins), in id order. */
-	events: AtmEvent[];
-	/** By Stripe event id, for every input that ran. */
-	byInput: Map<string, InputOutcome>;
-	/** The rows and revision of every holder that ran, as the replay leaves them. */
-	rows: Map<string, { rows: BillingRow[]; revision: number }>;
-	notReplayable: NotReplayable[];
-	/** Commands the engine refused (a candidate only). */
-	refused: AtmSimulateRefusal[];
-	/** Where a holder stopped being replayed, by subject key. */
-	halts: Map<string, Halt>;
-	/** The baseline's mismatches with the log (empty for a candidate). */
-	mismatches: InputsBaselineMismatch[];
-	/** The state each carried command ran on, for the candidate to compare with, by command key. */
-	preStates: Map<string, string>;
-	/** Holders that ran at least one input, by subject key. */
-	holders: Set<string>;
-	/** The log events a replayed input or command replaced. */
-	replaced: Set<AtmEvent>;
-	carriedCommands: number;
-	/** The open holds the carried commands left, by lock id. */
-	holds: Record<string, AtmHold>;
-};
 
 type Carried = {
 	key: string;
@@ -183,14 +123,11 @@ type Holder = {
 	/** Started from nothing (no seed): a refusal before its first applied input can run. */
 	fresh: boolean;
 	applied: boolean;
-	halted: Halt | null;
-	context: Context | null;
+	halted: ReplayHalt | null;
+	context: ReplayContext | null;
 	sawBooking: boolean;
 	queue: Carried[];
 };
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
 
 /** A decision the handler made: it names a ULID as its cause and is a handler command or a money line. */
 const isHandlerDecision = (e: AtmEvent): boolean => {
@@ -229,7 +166,11 @@ const removesInvoice = (
 	fact: ReplayFact,
 	invoiceIds: Record<string, string>,
 ): boolean => {
-	const named = fact as { full?: unknown; status?: unknown; bookingId?: unknown };
+	const named = fact as {
+		full?: unknown;
+		status?: unknown;
+		bookingId?: unknown;
+	};
 	if (named.status === "lost") return true;
 	return (
 		named.full === true &&
@@ -305,9 +246,7 @@ export const replayInputs = (
 		list.sort(
 			(a, b) =>
 				a.recorded.revision.before - b.recorded.revision.before ||
-				(a.group[0] as AtmEvent).id.localeCompare(
-					(b.group[0] as AtmEvent).id,
-				),
+				(a.group[0] as AtmEvent).id.localeCompare((b.group[0] as AtmEvent).id),
 		);
 
 	// ---- State of the run ----
@@ -315,15 +254,16 @@ export const replayInputs = (
 	const invoiceIndex = new Map<string, string>();
 	const paymentIndex = new Map<string, string>();
 	const seen = new Set<string>();
-	const byInput = new Map<string, InputOutcome>();
+	const byInput = new Map<string, ReplayedInput>();
 	const produced: AtmEvent[] = [];
 	const replaced = new Set<AtmEvent>();
-	const halts = new Map<string, Halt>(against?.halts ?? []);
+	const halts = new Map<string, ReplayHalt>(against?.halts ?? []);
 	const mismatches: InputsBaselineMismatch[] = [];
 	const preStates = new Map<string, string>();
 	const refused: AtmSimulateRefusal[] = [];
 	const holds: Record<string, AtmHold> = {};
 	const executedHolders = new Set<string>();
+	const carriedPayments = new Set<string>();
 	const catalogs = new WeakMap<Menu, ReturnType<typeof menuCatalogRows>>();
 	const engineCatalogs = new WeakMap<Menu, ReturnType<typeof toCatalog>>();
 	let carriedCommands = 0;
@@ -357,7 +297,7 @@ export const replayInputs = (
 		return kept;
 	};
 
-	const contextOfInput = (input: StoredInput): Context | null => {
+	const contextOfInput = (input: StoredInput): ReplayContext | null => {
 		if (input.contextHash === null) return null;
 		const recorded = inputs.contexts.get(input.contextHash);
 		return recorded ? contextFor(input, recorded) : null;
@@ -398,15 +338,17 @@ export const replayInputs = (
 		const missing = (unstored.get(holder.customerId) ?? []).some((e) => {
 			const after = mutationOf(e)?.revision.after;
 			return (
-				after !== undefined &&
-				after > holder.revision &&
-				after <= reachedBy
+				after !== undefined && after > holder.revision && after <= reachedBy
 			);
 		});
 		return missing ? "inputs_not_stored" : "non_input_writes";
 	};
 
-	const halt = (holder: Holder, token: string, reason: Halt["reason"]) => {
+	const halt = (
+		holder: Holder,
+		token: string,
+		reason: ReplayHalt["reason"],
+	) => {
 		holder.halted = { token, reason };
 		if (mode === "baseline") halts.set(holder.key, { token, reason });
 	};
@@ -528,7 +470,9 @@ export const replayInputs = (
 		}
 		const { command: _decidedCommand, ...decided } =
 			run.mutation as unknown as Record<string, unknown>;
-		const result = decided.result as { status?: string; reason?: string | null } | undefined;
+		const result = decided.result as
+			| { status?: string; reason?: string | null }
+			| undefined;
 		if (result?.status === "rejected") {
 			refuse(`the engine rejected it: ${result.reason ?? "no reason given"}`);
 			return;
@@ -556,7 +500,6 @@ export const replayInputs = (
 					return;
 				}
 			}
-			settleHold(holds, carried.command, outcome, run.mutation);
 		} else if (!same) {
 			mismatch(
 				carried.command.commandId,
@@ -576,6 +519,7 @@ export const replayInputs = (
 			revision: holder.revision,
 			changes,
 		}));
+		settleHold(holds, carried.command, outcome, run.mutation);
 		for (const e of carried.group) replaced.add(e);
 		fresh(outcome);
 		carriedCommands += 1;
@@ -601,9 +545,8 @@ export const replayInputs = (
 		if (erasedHolders.has(customerId) || holder.halted) return;
 		if (!isApplied && !holder.fresh && !holder.applied) return;
 		const token = `in:${input.appliedOrder}`;
-		if (haltedHere(holder, token)) return;
 		if (input.revisionBefore !== null) flush(holder, input.revisionBefore);
-		if (holder.halted) return;
+		if (holder.halted || haltedHere(holder, token)) return;
 		const logged = logDecisions.get(input.inputId) ?? [];
 
 		// invoice_payment.paid: teaches the payment index, decides nothing
@@ -747,7 +690,25 @@ export const replayInputs = (
 				for (const ref of input.paymentRefs ?? [])
 					if (!paymentIndex.has(ref)) paymentIndex.set(ref, invoiceId);
 		}
-		const made = fresh(result.events);
+		// An invoice refused (422) before it was applied has already booked its payment line, under the menu and policy of the
+		// refusal, and the outbox keeps that first line. The refused row is gone once the input is applied, so that context is
+		// not stored: the line is carried as the log has it. It is money, which a what-if does not change.
+		const earlierAttempt = isApplied && input.attempts > 1;
+		const made = fresh(
+			earlierAttempt
+				? result.events.map((e) => {
+						if (
+							e.event_type !== "payment.succeeded" &&
+							e.event_type !== "money.skipped"
+						)
+							return e;
+						const first = logged.find((l) => l.idem === e.idem);
+						if (first && canonicalize(first) !== canonicalize(e))
+							carriedPayments.add(input.eventId);
+						return first ?? e;
+					})
+				: result.events,
+		);
 		byInput.set(input.eventId, {
 			appliedOrder: input.appliedOrder,
 			subjectKey: input.subjectKey,
@@ -834,6 +795,7 @@ export const replayInputs = (
 		replaced,
 		carriedCommands,
 		holds,
+		carriedPayments: [...carriedPayments],
 	};
 };
 
@@ -860,7 +822,7 @@ const accountNotReplayable = ({
 	erasedHolders: Set<string>;
 	allInputs: StoredInput[];
 	customerSubject: (customerId: string) => string;
-	byInput: Map<string, InputOutcome>;
+	byInput: Map<string, ReplayedInput>;
 }): NotReplayable[] => {
 	const items = new Map<string, NotReplayable>();
 	const add = (
@@ -947,7 +909,7 @@ const creditsOf = (events: readonly AtmEvent[]) => {
 
 const summaryOfDecision = (
 	events: readonly AtmEvent[],
-	outcome: Pick<InputOutcome, "refused" | "rowsDigest" | "booking">,
+	outcome: Pick<ReplayedInput, "refused" | "rowsDigest" | "booking">,
 ): DecisionSummary => ({
 	refused: outcome.refused ? { reason: outcome.refused.reason } : null,
 	events: events.length,
@@ -1005,18 +967,19 @@ export const candidatePriceIds = ({
 	const out: Record<string, string> = { ...fromIds };
 	for (const [key, item] of was) {
 		const priceId = fromIds[key];
-		const next = toKey.get(identityOf(item as unknown as Record<string, unknown>));
+		const next = toKey.get(
+			identityOf(item as unknown as Record<string, unknown>),
+		);
 		if (priceId && next) out[next] = priceId;
 	}
 	return out;
 };
 
-const fieldsDiffering = (
-	a: BillingPolicy,
-	b: BillingPolicy,
-): string[] =>
+const fieldsDiffering = (a: BillingPolicy, b: BillingPolicy): string[] =>
 	(
-		[...new Set([...Object.keys(a), ...Object.keys(b)])] as (keyof BillingPolicy)[]
+		[
+			...new Set([...Object.keys(a), ...Object.keys(b)]),
+		] as (keyof BillingPolicy)[]
 	)
 		.filter((field) => canonicalize(a[field]) !== canonicalize(b[field]))
 		.sort();
@@ -1060,13 +1023,14 @@ export const simulateFromInputs = (
 			`no stored inputs for school ${school} (${env}) in ${inputs.origin}`,
 		);
 	const effectiveFrom = input.effectiveFrom ?? Number.NEGATIVE_INFINITY;
-	const hasCandidate = candidate.menu !== undefined || candidate.policy !== undefined;
+	const hasCandidate =
+		candidate.menu !== undefined || candidate.policy !== undefined;
 
 	// The context hash leaves out the two version labels: they are read from the input's own row.
 	const recordedOf = (
 		stored: StoredInput,
 		recorded: StoredContext,
-	): Context => ({
+	): ReplayContext => ({
 		menu: current?.menu ?? recorded.menu,
 		menuVersion: stored.menuVersion ?? recorded.menuVersion,
 		policy: current?.policy ?? recorded.policy,
@@ -1080,7 +1044,10 @@ export const simulateFromInputs = (
 				})
 			: { ...recorded.priceIds },
 	});
-	const candidateOf = (stored: StoredInput, recorded: StoredContext): Context => {
+	const candidateOf = (
+		stored: StoredInput,
+		recorded: StoredContext,
+	): ReplayContext => {
 		const base = recordedOf(stored, recorded);
 		if (!hasCandidate || stored.stripeCreated * MS_PER_SECOND < effectiveFrom)
 			return base;
@@ -1088,14 +1055,17 @@ export const simulateFromInputs = (
 			...base,
 			menu: candidate.menu ?? base.menu,
 			policy: candidate.policy ?? base.policy,
-			priceIds: candidate.menu
-				? candidatePriceIds({
-						school,
-						from: base.menu,
-						fromIds: base.priceIds,
-						to: candidate.menu,
-					})
-				: base.priceIds,
+			priceIds: {
+				...(candidate.menu
+					? candidatePriceIds({
+							school,
+							from: base.menu,
+							fromIds: base.priceIds,
+							to: candidate.menu,
+						})
+					: base.priceIds),
+				...(candidate.priceIds ?? {}),
+			},
 		};
 	};
 
@@ -1152,9 +1122,9 @@ export const simulateFromInputs = (
 	}
 
 	// ---- The recorded side ----
-	const lastContext = [...inputs.contexts.values()].sort(
-		(a, b) => a.firstUsedAt - b.firstUsedAt,
-	).at(-1);
+	const lastContext = [...inputs.contexts.values()]
+		.sort((a, b) => a.firstUsedAt - b.firstUsedAt)
+		.at(-1);
 	const recordedMenu = current?.menu ?? lastContext?.menu;
 	if (!recordedMenu)
 		throw new InputsSimulateError(
@@ -1179,39 +1149,48 @@ export const simulateFromInputs = (
 		menuCatalogRows({ menu: candidateMenu, school, env }),
 	);
 
-	// ---- The candidate's balances ----
-	const states: Record<string, AtmSubjectState> = clone(
-		recorded.snapshot.states,
-	);
-	const holds: Record<string, AtmHold> = {};
-	const replayedHolders = new Set<string>();
-	for (const [subject, rows] of trial.rows) {
-		const customerId = subject.split("|")[2] as string;
-		replayedHolders.add(customerId);
-		const state = stateFromRows({
-			identity: { orgId: school, env, customerId, entityId: null },
-			revision: rows.revision,
-			rows: rows.rows,
-		});
-		if (state) states[customerId] = state as unknown as AtmSubjectState;
-		else delete states[customerId];
-	}
-	for (const [lock, hold] of Object.entries(recorded.snapshot.holds))
-		if (!replayedHolders.has(hold.holder)) holds[lock] = hold;
-	for (const customerId of replayedHolders) {
-		const open = (states[customerId] as unknown as SubjectState | undefined)
-			?.openLocks;
-		for (const lock of (open ?? []) as { id: string }[]) {
-			const made = trial.holds[lock.id] ?? recorded.snapshot.holds[lock.id];
-			if (made) holds[lock.id] = made;
+	// ---- Balances: the log's, with the holders the run replayed taken from the run ----
+	const balancesOfRun = (
+		run: ReplayInputsResult,
+		catalog: ReturnType<typeof toCatalog>,
+	): AtmBalance[] => {
+		const states: Record<string, AtmSubjectState> = clone(
+			recorded.snapshot.states,
+		);
+		const holds: Record<string, AtmHold> = {};
+		const replayedHolders = new Set<string>();
+		for (const [subject, rows] of run.rows) {
+			// A holder replayed only up to a point has the rest of its history as the log has it: its balance is the log's.
+			if (run.halts.has(subject)) continue;
+			const customerId = subject.split("|")[2] as string;
+			replayedHolders.add(customerId);
+			const state = stateFromRows({
+				identity: { orgId: school, env, customerId, entityId: null },
+				revision: rows.revision,
+				rows: rows.rows,
+			});
+			if (state) states[customerId] = state as unknown as AtmSubjectState;
+			else delete states[customerId];
 		}
-	}
-	const candidateBalances: AtmBalance[] = balancesOf({
-		states,
-		holds,
-		catalog: candidateCatalog,
-		asOfMs,
-	});
+		for (const [lock, hold] of Object.entries(recorded.snapshot.holds))
+			if (!replayedHolders.has(hold.holder)) holds[lock] = hold;
+		for (const customerId of replayedHolders) {
+			const open = (states[customerId] as unknown as SubjectState | undefined)
+				?.openLocks;
+			for (const lock of (open ?? []) as { id: string }[]) {
+				const made = run.holds[lock.id] ?? recorded.snapshot.holds[lock.id];
+				if (made) holds[lock.id] = made;
+			}
+		}
+		return balancesOf({ states, holds, catalog, asOfMs });
+	};
+	const candidateBalances = balancesOfRun(trial, candidateCatalog);
+	// The recorded side is the log; with a drift (allowed) it is the baseline replay, so a drift is reported and never counted.
+	const drifted = baseline.mismatches.length > 0;
+	const recordedBalances = drifted
+		? balancesOfRun(baseline, toCatalog(currentRows))
+		: recorded.balances;
+	const recordedEvents = drifted ? baseline.events : events;
 
 	// ---- The diff ----
 	const month = input.month;
@@ -1229,7 +1208,8 @@ export const simulateFromInputs = (
 		const stored = byEventId.get(eventId) as StoredInput;
 		const now = trial.byInput.get(eventId);
 		if (!now) continue;
-		const logged = stored.outcome === "applied" ? (loggedBy.get(stored.inputId) ?? []) : [];
+		const logged =
+			stored.outcome === "applied" ? (loggedBy.get(stored.inputId) ?? []) : [];
 		const before = summaryOfDecision(
 			stored.outcome === "refused" ? was.events : logged,
 			{
@@ -1272,15 +1252,14 @@ export const simulateFromInputs = (
 			candidate: after,
 		});
 	}
-	deliveries.sort(
-		(a, b) => (a.appliedOrder ?? 0) - (b.appliedOrder ?? 0),
-	);
+	deliveries.sort((a, b) => (a.appliedOrder ?? 0) - (b.appliedOrder ?? 0));
 
 	const candidateEvents = trial.events;
-	const postingChanges = postingChangesOf(events, candidateEvents).filter(
-		(p) => month === undefined || p.month === month,
-	);
-	const balanceChanges = balanceChangesOf(recorded.balances, candidateBalances);
+	const postingChanges = postingChangesOf(
+		recordedEvents,
+		candidateEvents,
+	).filter((p) => month === undefined || p.month === month);
+	const balanceChanges = balanceChangesOf(recordedBalances, candidateBalances);
 	const refused = trial.refused.filter((r) =>
 		inMonth((r as AtmSimulateRefusal & { date?: string }).at.slice(0, 10)),
 	);
@@ -1305,15 +1284,16 @@ export const simulateFromInputs = (
 	};
 	const result: InputsSimulation = {
 		events: candidateEvents,
-		balances: { current: recorded.balances, candidate: candidateBalances },
+		balances: { current: recordedBalances, candidate: candidateBalances },
 		balanceChanges,
 		postingChanges,
-		transactions: transactionsOf(events, candidateEvents, month),
+		transactions: transactionsOf(recordedEvents, candidateEvents, month),
 		asOf: recorded.asOf,
 		unaffected,
 		baseline: {
 			identical: baseline.mismatches.length === 0,
 			inputs: baselineInputs,
+			carriedPayments: baseline.carriedPayments.length,
 			mismatches: baseline.mismatches,
 		},
 		deliveries,

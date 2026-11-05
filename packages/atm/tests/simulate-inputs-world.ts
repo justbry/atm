@@ -7,7 +7,11 @@ import { join } from "node:path";
 import { sqliteInputsSource } from "../src/handler/inputs.js";
 import { replayInputs } from "../src/ledger/simulate-inputs.js";
 import type { AtmEnv, AtmEvent, InputsRead } from "../src/types.js";
-import { RECORDED_SCHOOL, recordedMenu, recordedPriceIds } from "./e2e-recorded.js";
+import {
+	RECORDED_SCHOOL,
+	recordedMenu,
+	recordedPriceIds,
+} from "./e2e-recorded.js";
 import { harness } from "./handler-harness.js";
 import type { RawEvent } from "./stripe-events.js";
 
