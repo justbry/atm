@@ -2,7 +2,7 @@
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
 	"$id": "https://b4uni.com/_schema/payload/credit.low.v1.json",
 	"title": "credit.low payload v1",
-	"description": "A draw took the holder's available balance of a feature from above the policy's low-credit threshold to at most it, and not to zero (\"N visits left\"). Made once per crossing, not on every draw below it. No postings: the draw's own event carries the balance move.",
+	"description": "A draw took the holder's available balance of a feature from above the policy's low-credit threshold to at most it, and not to zero (\"N visits left\"). Made once per crossing, not on every draw below it. No postings: the draw's own event carries the balance move. Only a draw by the family's own activity makes it: a `track` (a booking's hold) or a `finalize`; never a refund or lost-dispute clawback (`applyBillingPlan`), an edit by hand, or a reset. Judged on the balance after holds: a cancel (`credit.released`) returns the credits with no event and booking again makes it again. atm does not remember that it already alerted: dedupe the notices per holder, feature and grant or cycle. Labelled with `feature`, not `plan`: the balance is the feature's total over every plan.",
 	"type": "object",
 	"required": [
 		"command",

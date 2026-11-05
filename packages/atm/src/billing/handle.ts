@@ -45,7 +45,6 @@ import {
 	resolveInvoice,
 	resolveSubscriptionPlan,
 } from "./normalize.js";
-import { DEFAULT_POLICY } from "./policy.js";
 import {
 	applyRowChanges,
 	diffRows,
@@ -424,16 +423,9 @@ const eventsOf = ({
 					cause: input.eventId,
 					labels,
 					idemPrefix,
+					// No `lowCreditThreshold`: a Stripe event only grants, refills and takes back by the rules, never a draw by
+					// the family, so it makes no `credit.low` or `credit.depleted`.
 					before: before as never,
-					// A policy stored before the field existed has none: the default. The feature's whole balance move goes to
-					// the first call of the feature, the others judge nothing, so a feature with several plans is judged once.
-					lowCreditThreshold:
-						input.policy.lowCreditThreshold ??
-						DEFAULT_POLICY.lowCreditThreshold,
-					featureChanges:
-						groups.findIndex((g) => g.feature === group.feature) === index
-							? mutation.changes.filter((c) => featureOf(c) === group.feature)
-							: [],
 				},
 			}),
 		);

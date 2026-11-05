@@ -159,10 +159,10 @@ type BookkeepingOnly =
 	| "credit.expiration_changed"
 	| "credit.low"
 	| "credit.depleted";
+const isAlert = (type: string): type is "credit.low" | "credit.depleted" =>
+	type === "credit.low" || type === "credit.depleted";
 const isBookkeepingOnly = (type: string): type is BookkeepingOnly =>
-	type === "credit.expiration_changed" ||
-	type === "credit.low" ||
-	type === "credit.depleted";
+	type === "credit.expiration_changed" || isAlert(type);
 
 const creditPostings = (
 	type: CreditType,
@@ -442,27 +442,24 @@ type AvailableAround = { before: number; after: number };
 
 /**
  * The feature's available balance before and after a draw, summed over all its credit rows as `balancesOf` counts it
- * (balance rows and rollovers not yet past their expiry at the time of the command). `changes` are the changes of the
- * one feature; `before` is the state they were computed against. Null when nothing is drawn (the balance does not go
- * down), when no state is given, or when the changes touch no balance row.
+ * (balance rows and rollovers not yet past their expiry at the time of the command); holds already came off the rows.
+ * `given` are the changes the caller says make up the feature's move; without them, the mutation's changes to the rows
+ * of `drawnFeature` (the internal feature the command draws), so a multi-feature mutation never sums features.
+ * `before` is the state they were computed against. Null when nothing is drawn (the balance does not go down), when no
+ * state is given, or when the changes touch no balance row.
  */
 const availableAround = (
 	m: SubjectStateMutation,
-	changes: SubjectStateMutation["changes"],
+	given: SubjectStateMutation["changes"] | null,
+	drawnFeature: string | undefined,
 	before: SubjectState | null | undefined,
 	atMs: number,
 ): AvailableAround | null => {
 	if (!before) return null;
-	const { delta } = balanceMoves(
-		{ ...m, changes } as SubjectStateMutation,
-		before,
-		atMs,
-	);
-	if (delta >= 0) return null;
 	const internalOf = new Map<string, string>();
 	for (const r of before.customerEntitlements)
 		internalOf.set(r.id, r.internal_feature_id);
-	for (const c of changes)
+	for (const c of given ?? m.changes)
 		if (c.table === "customerEntitlements" && c.op === "insert")
 			internalOf.set(
 				(c.row as Row).id as string,
@@ -470,20 +467,35 @@ const availableAround = (
 			);
 	const owners = new Map<string, string>();
 	for (const r of before.rollovers) owners.set(r.id, r.cus_ent_id);
+	const featureOfChange = (
+		c: SubjectStateMutation["changes"][number],
+	): string | undefined => {
+		if (c.table === "customerEntitlements")
+			return internalOf.get(
+				c.op === "insert" ? ((c.row as Row).id as string) : c.id,
+			);
+		if (c.table !== "rollovers") return undefined;
+		const owner =
+			c.op === "insert"
+				? ((c.row as Row).cus_ent_id as string)
+				: owners.get(c.id);
+		return owner ? internalOf.get(owner) : undefined;
+	};
+	const changes =
+		given ??
+		(drawnFeature === undefined
+			? m.changes
+			: m.changes.filter((c) => featureOfChange(c) === drawnFeature));
+	const { delta } = balanceMoves(
+		{ ...m, changes } as SubjectStateMutation,
+		before,
+		atMs,
+	);
+	if (delta >= 0) return null;
 	const features = new Set<string>();
 	for (const c of changes) {
-		if (c.table === "customerEntitlements") {
-			const id = c.op === "insert" ? ((c.row as Row).id as string) : c.id;
-			const internal = internalOf.get(id);
-			if (internal) features.add(internal);
-		} else if (c.table === "rollovers") {
-			const owner =
-				c.op === "insert"
-					? ((c.row as Row).cus_ent_id as string)
-					: owners.get(c.id);
-			const internal = owner ? internalOf.get(owner) : undefined;
-			if (internal) features.add(internal);
-		}
+		const internal = featureOfChange(c);
+		if (internal) features.add(internal);
 	}
 	if (features.size === 0) return null;
 	const rowIds = new Set<string>();
@@ -563,6 +575,9 @@ export const mutationToEvents = ({
 			plan: context.plan,
 			service: context.service,
 		};
+		const labels = { ...baseLabels, ...(extra.labels ?? {}) };
+		// An alert judges the feature's total over every plan, so no one plan names it.
+		if (isAlert(type)) delete labels.plan;
 		made.push(
 			buildEvent({
 				type,
@@ -573,7 +588,7 @@ export const mutationToEvents = ({
 					context.ingestTime === undefined ? atMs : asMs(context.ingestTime),
 				tz: context.tz,
 				key: mutation.identity.customerId,
-				labels: { ...baseLabels, ...(extra.labels ?? {}) },
+				labels,
 				idem: `${context.idemPrefix ?? "engine"}:${mutationId}:${suffix}`,
 				cause: context.cause,
 				text,
@@ -790,17 +805,20 @@ export const mutationToEvents = ({
 			},
 		);
 	}
-	// A reset that lowers the balance only lets the last cycle's leftovers go as the new cycle fills: not a draw.
-	// The alerts are opt-in: a caller that gives no `lowCreditThreshold` gets the events it always got.
+	// Alerts are for draws by the family's own activity only: a booking's hold (`track`) or its settling (`finalize`).
+	// The rules' own take-backs (a refund or lost dispute is an `applyBillingPlan`), edits by hand and resets make none,
+	// so a refund never sends "pack used up". The alerts are opt-in: without `lowCreditThreshold`, the events it always got.
 	const threshold = context.lowCreditThreshold;
+	const isDraw = command.type === "track" || command.type === "finalize";
 	const around =
-		command.type === "reset" || threshold === undefined
+		!isDraw || threshold === undefined
 			? null
 			: availableAround(
 					mutation,
 					(context.featureChanges as unknown as
 						| SubjectStateMutation["changes"]
-						| undefined) ?? mutation.changes,
+						| undefined) ?? null,
+					command.internalFeatureId as string | undefined,
 					context.before as unknown as SubjectState | null | undefined,
 					atMs,
 				);

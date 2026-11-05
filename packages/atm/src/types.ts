@@ -182,16 +182,17 @@ export type AtmEventContext = {
 	/** Prefix of `idem` (default `engine`). */
 	idemPrefix?: string;
 	/**
-	 * Turns on `credit.low` and `credit.depleted`; without it neither is made. Units of the feature at or under which a
-	 * draw makes `credit.low`: the balance goes from above this to at most this (and above 0); 0 makes only
-	 * `credit.depleted`. Written into `credit.low`'s payload, so a replay reads it back. Both events need `before`: without
-	 * the state, the balance before the mutation is not known.
+	 * Turns on `credit.low` and `credit.depleted` for a `track` or `finalize` (a draw by the family); without it neither is
+	 * made, and no other command makes them. Units of the feature at or under which a draw makes `credit.low`: the balance
+	 * goes from above this to at most this (and above 0); 0 makes only `credit.depleted`. Written into `credit.low`'s
+	 * payload, so a replay reads it back. Both events need `before`: without the state, the balance before is not known.
 	 */
 	lowCreditThreshold?: number;
 	/**
 	 * The changes that make up the feature's balance movement, when the caller cuts one mutation into several calls (a
 	 * feature with credits from several plans): give the whole feature's changes to ONE call and `[]` to the others, so
-	 * the low and depleted events judge the feature's total once. Default: the mutation's own changes.
+	 * the low and depleted events judge the feature's total once. Default: the mutation's changes to the rows of the
+	 * feature the command draws (its `internalFeatureId`).
 	 */
 	featureChanges?: AtmMutation["changes"];
 };
@@ -382,9 +383,10 @@ export type BillingPolicy = {
 	 */
 	deductionOrder: "expiry" | "engine";
 	/**
-	 * A draw that takes a family's balance of a feature from above this many credits to this many or fewer (and not to
-	 * zero) makes a `credit.low` event, for the family service's "N visits left" notice. Whole credits; 0 turns the event
-	 * off. Reaching zero is always `credit.depleted`, whatever this is.
+	 * A draw (a `track` or `finalize`) that takes a family's balance of a feature from above this many credits to this
+	 * many or fewer (and not to zero) makes a `credit.low` event, for the family service's "N visits left" notice. The
+	 * caller passes it as `lowCreditThreshold` in the context of its `track` and `finalize` events. Whole credits; 0 turns
+	 * the event off. Reaching zero is always `credit.depleted`, whatever this is.
 	 */
 	lowCreditThreshold: number;
 };

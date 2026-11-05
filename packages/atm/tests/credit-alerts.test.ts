@@ -57,8 +57,71 @@ const command = (type: string, at: number, extra: Record<string, unknown>) => {
 	};
 };
 
-/** One family with one balance row per feature, and the log of every event written for it. */
-const family = (balances: Record<string, number>) => {
+/** A second balance row of a feature on the family's product: a pack, a gift, a row from another plan. */
+const extraRow = (
+	id: string,
+	feature: string,
+	balance: number,
+	expiresAt: number | null = null,
+) => ({
+	id,
+	customer_product_id: "cp_1",
+	entitlement_id: entitlementOf(feature).id,
+	internal_customer_id: "cus_alerts",
+	internal_entity_id: null,
+	internal_feature_id: `feat_${feature}`,
+	balance,
+	adjustment: 0,
+	additional_balance: 0,
+	unlimited: false,
+	usage_allowed: false,
+	next_reset_at: null,
+	reset_cycle_anchor: null,
+	expires_at: expiresAt,
+	external_id: null,
+	created_at: T,
+});
+
+/** A rollover of `ce_<feature>`, the leftovers of a past cycle. */
+const rolloverRow = (
+	id: string,
+	feature: string,
+	balance: number,
+	expiresAt: number,
+) => ({
+	id,
+	cus_ent_id: `ce_${feature}`,
+	balance,
+	usage: 0,
+	expires_at: expiresAt,
+	entities: {},
+});
+
+/** The fields of a `track` that books `units` and keeps them on a lock. */
+const trackFields = (units: number, at: number) => ({
+	value: units,
+	overageBehavior: "reject",
+	properties: null,
+	usageEvent: null,
+	lock: {
+		id: `lock_${commandCount + 1}`,
+		lockId: `bk_${commandCount + 1}`,
+		expiresAt: at + 2 * DAY,
+		expiryAction: "confirm",
+	},
+});
+
+/**
+ * One family with one balance row per feature (and any `extra` rows and rollovers, written by the same plan), and the
+ * log of every event written for it.
+ */
+const family = (
+	balances: Record<string, number>,
+	extra: {
+		rows?: ReturnType<typeof extraRow>[];
+		rollovers?: ReturnType<typeof rolloverRow>[];
+	} = {},
+) => {
 	const featureIds = Object.keys(balances);
 	const productId = entitlementOf(featureIds[0] as string).internal_product_id;
 	const run = runOnState({
@@ -122,6 +185,16 @@ const family = (balances: Record<string, number>) => {
 						created_at: T,
 					},
 				})),
+				...(extra.rows ?? []).map((row) => ({
+					op: "insert",
+					table: "customerEntitlements",
+					row,
+				})),
+				...(extra.rollovers ?? []).map((row) => ({
+					op: "insert",
+					table: "rollovers",
+					row,
+				})),
 			],
 		}),
 	});
@@ -180,21 +253,20 @@ const family = (balances: Record<string, number>) => {
 			feature: string,
 			units: number,
 			eventContext: Partial<AtmEventContext> = { lowCreditThreshold: 2 },
+		) => apply("track", feature, trackFields(units, clock), eventContext),
+		/** The booking `held` made is canceled: its lock is settled at 0 and the credits come back. */
+		cancel: (
+			feature: string,
+			held: { mutation: unknown },
+			eventContext: Partial<AtmEventContext> = { lowCreditThreshold: 2 },
 		) =>
 			apply(
-				"track",
+				"finalize",
 				feature,
 				{
-					value: units,
-					overageBehavior: "reject",
+					lock: lockOf(held.mutation),
+					finalValue: 0,
 					properties: null,
-					usageEvent: null,
-					lock: {
-						id: `lock_${commandCount + 1}`,
-						lockId: `bk_${commandCount + 1}`,
-						expiresAt: clock + 2 * DAY,
-						expiryAction: "confirm",
-					},
 				},
 				eventContext,
 			),
@@ -213,6 +285,11 @@ const family = (balances: Record<string, number>) => {
 			}).find((b) => b.feature === feature)?.avail ?? 0,
 	};
 };
+
+const lockOf = (mutation: unknown) =>
+	(
+		mutation as { changes: { table: string; op: string; row?: unknown }[] }
+	).changes.find((c) => c.table === "locks" && c.op === "insert")?.row;
 
 /** Replay starts from the subject as the plan left it: attaching the plan is not an event of this log. */
 const startOf = (subject: { initial: SubjectState }) => ({
@@ -290,15 +367,63 @@ describe("credit.low and credit.depleted", () => {
 		expect(visits.available("visit")).toBe(6);
 	});
 
-	test("a take-back by hand crosses the same way as a draw", () => {
+	test("a take-back by hand is not a draw by the family: it crosses both lines and makes no alert", () => {
 		const visits = family({ visit: 3 });
 		expect(typesOf(visits.adjust("visit", -1).events)).toEqual([
 			"credit.adjusted",
-			"credit.low",
 		]);
 		expect(typesOf(visits.adjust("visit", -2).events)).toEqual([
 			"credit.adjusted",
-			"credit.depleted",
+		]);
+		expect(visits.available("visit")).toBe(0);
+	});
+
+	test("a clawback by the rules (a refund or lost dispute, an applyBillingPlan) that takes the last visits makes no alert", () => {
+		const visits = family({ visit: 2 });
+		const before = visits.state;
+		const clawback = runOnState({
+			state: before,
+			catalog,
+			command: command("applyBillingPlan", T + DAY, {
+				entityIds: [],
+				expiringPooledBalanceIds: [],
+				ops: [
+					{
+						op: "increment",
+						table: "customerEntitlements",
+						id: "ce_visit",
+						add: { balance: -2 },
+					},
+				],
+			}),
+		});
+		const events = mutationToEvents({
+			mutation: clawback.mutation as never,
+			context: {
+				school: SCHOOL,
+				tz: "America/Denver",
+				feature: "visit",
+				reason: "refund",
+				before: before as never,
+				lowCreditThreshold: 2,
+			},
+		});
+		expect(typesOf(events)).toEqual(["credit.adjusted"]);
+		expect(events[0]?.payload).toMatchObject({ reason: "refund" });
+	});
+
+	test("alerts are judged on the balance after holds: a cancel gives the credits back with no event, booking again alerts again", () => {
+		const visits = family({ visit: 3 });
+		const booking = visits.draw("visit", 2);
+		expect(typesOf(booking.events)).toEqual(["credit.held", "credit.low"]);
+		expect(typesOf(visits.cancel("visit", booking).events)).toEqual([
+			"credit.released",
+		]);
+		expect(visits.available("visit")).toBe(3);
+		// atm does not remember the first alert: the family service dedupes its notices.
+		expect(typesOf(visits.draw("visit", 2).events)).toEqual([
+			"credit.held",
+			"credit.low",
 		]);
 	});
 
@@ -323,59 +448,224 @@ describe("credit.low and credit.depleted", () => {
 	});
 
 	test("a balance row of the feature that is not touched counts: the draw is judged on the feature's total", () => {
-		const visits = family({ visit: 2 });
 		// A pack the family bought on top of the tier: a second row of the same feature.
-		const pack = runOnState({
-			state: visits.state,
-			catalog,
-			command: command("applyBillingPlan", T + DAY / 2, {
-				entityIds: [],
-				expiringPooledBalanceIds: [],
-				ops: [
-					{
-						op: "insert",
-						table: "customerEntitlements",
-						row: {
-							...(visits.state.customerEntitlements[0] as object),
-							id: "ce_pack",
-							balance: 10,
-							next_reset_at: null,
-						},
-					},
-				],
-			}),
-		});
-		const rows = pack.state as SubjectState;
-		expect(rows.customerEntitlements.map((r) => r.balance).sort()).toEqual([
-			10, 2,
+		const visits = family(
+			{ visit: 2 },
+			{ rows: [extraRow("ce_pack", "visit", 10)] },
+		);
+		const draw = visits.draw("visit", 2);
+		// The family still has 10: nothing ran out; without the pack it would have.
+		expect(typesOf(draw.events)).toEqual(["credit.held"]);
+		expect(visits.available("visit")).toBe(10);
+		expect(typesOf(family({ visit: 2 }).draw("visit", 2).events)).toEqual([
+			"credit.held",
+			"credit.depleted",
 		]);
-		const draw = runOnState({
-			state: rows,
+	});
+
+	test("a tier row and a pack row of one feature from two plans: one draw across both is one alert, for the feature and no plan", () => {
+		const visits = family(
+			{ visit: 2 },
+			{ rows: [extraRow("ce_pack", "visit", 2)] },
+		);
+		const draw = visits.draw("visit", 3);
+		const drawn = (
+			draw.mutation as { changes: { table: string; id?: string }[] }
+		).changes
+			.filter((c) => c.table === "customerEntitlements")
+			.map((c) => c.id)
+			.sort();
+		expect(drawn).toEqual(["ce_pack", "ce_visit"]);
+		expect(typesOf(draw.events)).toEqual(["credit.held", "credit.low"]);
+		const [held, low] = draw.events as [AtmEvent, AtmEvent];
+		expect(low.payload).toMatchObject({
+			feature: "visit",
+			available: 1,
+			previous_available: 4,
+			threshold: 2,
+		});
+		expect(low.labels.feature).toBe("visit");
+		// The plan of the call is on the hold, not on the alert: the alert is about the feature's total over both plans.
+		expect(held.labels.plan).toBe("sparkle-4@v1");
+		expect(low.labels).not.toHaveProperty("plan");
+	});
+
+	test("a mutation cut into one call per plan: the call given the feature's changes alerts, the calls given [] do not", () => {
+		const visits = family(
+			{ visit: 1 },
+			{ rows: [extraRow("ce_pack", "visit", 3)] },
+		);
+		const before = visits.state;
+		const run = runOnState({
+			state: before,
 			catalog,
-			command: command("updateBalance", T + DAY, {
+			command: command("track", T + DAY, {
 				featureId: "visit",
 				internalFeatureId: "feat_visit",
-				customerEntitlementId: "ce_visit",
-				addToBalance: -2,
+				...trackFields(3, T + DAY),
 			}),
 		});
+		const mutation = run.mutation as unknown as {
+			changes: { table: string; id?: string }[];
+		};
+		const onRow = (rowId: string) =>
+			mutation.changes.filter(
+				(c) => c.table !== "customerEntitlements" || c.id === rowId,
+			);
+		const call = (rowId: string, plan: string, featureChanges: unknown[]) =>
+			mutationToEvents({
+				mutation: { ...mutation, changes: onRow(rowId) } as never,
+				context: {
+					school: SCHOOL,
+					tz: "America/Denver",
+					feature: "visit",
+					plan,
+					idemPrefix: `engine.visit.${plan}`,
+					before: before as never,
+					lowCreditThreshold: 2,
+					featureChanges: featureChanges as never,
+				},
+			});
+		// The draw takes 1 from the tier and 2 from the pack: the pack's slice alone (4 to 2) would also cross the line.
+		expect(
+			mutation.changes
+				.filter((c) => c.table === "customerEntitlements")
+				.map((c) => [c.id, (c as { add?: { balance?: number } }).add?.balance])
+				.sort(),
+		).toEqual([
+			["ce_pack", -2],
+			["ce_visit", -1],
+		]);
+		const first = call("ce_visit", "sparkle-4@v1", mutation.changes);
+		const second = call("ce_pack", "pack@v1", []);
+		expect(
+			alerts(first).map((e) => [
+				e.event_type,
+				e.payload.available,
+				e.payload.previous_available,
+			]),
+		).toEqual([["credit.low", 1, 4]]);
+		expect(alerts(first)[0]?.idem).toBe(
+			`engine.visit.sparkle-4@v1:${(run.mutation as { id: string }).id}:low:visit`,
+		);
+		expect(alerts(second)).toEqual([]);
+		expect(alerts([...first, ...second])).toHaveLength(1);
+	});
+
+	test("rollovers count and an expired row does not", () => {
+		// At the first draw (a day after the plan) the old pack and the old rollover are past their expiry.
+		const visits = family(
+			{ visit: 1 },
+			{
+				rows: [extraRow("ce_old_pack", "visit", 10, T + DAY / 2)],
+				rollovers: [
+					rolloverRow("roll_live", "visit", 2, T + 60 * DAY),
+					rolloverRow("roll_old", "visit", 5, T + DAY / 2),
+				],
+			},
+		);
+		const low = visits.draw("visit", 1);
+		expect(typesOf(low.events)).toEqual(["credit.held", "credit.low"]);
+		expect(visits.available("visit")).toBe(2);
+		expect(low.events[1]?.payload).toMatchObject({
+			available: 2,
+			previous_available: 3,
+		});
+		const out = visits.draw("visit", 2);
+		expect(typesOf(out.events)).toEqual(["credit.held", "credit.depleted"]);
+		expect(out.events[1]?.payload).toMatchObject({
+			available: 0,
+			previous_available: 2,
+		});
+		expect(visits.available("visit")).toBe(0);
+	});
+
+	test("a mutation that both draws and grants is judged on its net move", () => {
+		const visits = family({ visit: 5 });
+		const before = visits.state;
+		const withGrant = (units: number, granted: number) => {
+			const run = runOnState({
+				state: before,
+				catalog,
+				command: command("track", T + DAY, {
+					featureId: "visit",
+					internalFeatureId: "feat_visit",
+					...trackFields(units, T + DAY),
+				}),
+			});
+			const mutation = run.mutation as unknown as { changes: unknown[] };
+			const bonus = {
+				op: "insert",
+				table: "customerEntitlements",
+				row: extraRow("ce_bonus", "visit", granted),
+			};
+			return mutationToEvents({
+				mutation: {
+					...mutation,
+					changes:
+						granted > 0 ? [...mutation.changes, bonus] : mutation.changes,
+				} as never,
+				context: {
+					school: SCHOOL,
+					tz: "America/Denver",
+					feature: "visit",
+					before: before as never,
+					lowCreditThreshold: 2,
+				},
+			});
+		};
+		// 5, less 3, plus 2 is 4: above the line. Without the grant it is 2: low.
+		expect(alerts(withGrant(3, 2))).toEqual([]);
+		expect(typesOf(alerts(withGrant(3, 0)))).toEqual(["credit.low"]);
+		// 5, less 5, plus 1 is 1: low, not depleted.
+		const net = alerts(withGrant(5, 1));
+		expect(typesOf(net)).toEqual(["credit.low"]);
+		expect(net[0]?.payload).toMatchObject({
+			available: 1,
+			previous_available: 5,
+		});
+	});
+
+	test("by default only the drawn feature's rows are judged: another feature's rows in the same mutation are not summed in", () => {
+		const both = family({ visit: 3, retreat: 1 });
+		const before = both.state;
+		const run = runOnState({
+			state: before,
+			catalog,
+			command: command("track", T + DAY, {
+				featureId: "visit",
+				internalFeatureId: "feat_visit",
+				...trackFields(1, T + DAY),
+			}),
+		});
+		const mutation = run.mutation as unknown as { changes: unknown[] };
+		const retreatGrant = {
+			op: "increment",
+			table: "customerEntitlements",
+			id: "ce_retreat",
+			add: { balance: 5 },
+		};
 		const events = mutationToEvents({
-			mutation: draw.mutation as never,
+			mutation: {
+				...mutation,
+				changes: [...mutation.changes, retreatGrant],
+			} as never,
 			context: {
 				school: SCHOOL,
 				tz: "America/Denver",
 				feature: "visit",
-				reason: "test",
-				before: rows as never,
+				before: before as never,
 				lowCreditThreshold: 2,
 			},
 		});
-		// The tier row is at 0, the family still has 10: nothing ran out; without the pack it would have.
-		expect(typesOf(events)).toEqual(["credit.adjusted"]);
-		expect(typesOf(family({ visit: 2 }).adjust("visit", -2).events)).toEqual([
-			"credit.adjusted",
-			"credit.depleted",
-		]);
+		// Visits go from 3 to 2: low. Summed with the retreats (4 to 8) nothing would have crossed.
+		expect(
+			alerts(events).map((e) => [
+				e.event_type,
+				e.payload.available,
+				e.payload.previous_available,
+			]),
+		).toEqual([["credit.low", 2, 3]]);
 	});
 
 	test("two features are each their own: the low one and the depleted one", () => {
@@ -425,13 +715,17 @@ describe("credit.low and credit.depleted", () => {
 		expect(typesOf(out.events)).toEqual(["credit.held"]);
 	});
 
-	test("a feature's changes can be given to one call and an empty list to the others", () => {
+	test("a call given an empty list of the feature's changes judges nothing, though the same draw alerts without it", () => {
 		const visits = family({ visit: 3 });
 		const none = visits.draw("visit", 3, {
 			lowCreditThreshold: 2,
 			featureChanges: [],
 		});
 		expect(typesOf(none.events)).toEqual(["credit.held"]);
+		expect(typesOf(family({ visit: 3 }).draw("visit", 3).events)).toEqual([
+			"credit.held",
+			"credit.depleted",
+		]);
 	});
 });
 
