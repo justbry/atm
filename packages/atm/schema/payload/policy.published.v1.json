@@ -1,0 +1,16 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://b4uni.com/_schema/payload/policy.published.v1.json",
+	"title": "policy.published payload v1",
+	"description": "The school's full billing policy (see policy.v1.json) and its version. No postings. The grant rules read the policy.",
+	"type": "object",
+	"required": ["policy", "version"],
+	"properties": {
+		"policy": {
+			"type": "object"
+		},
+		"version": {
+			"type": ["integer", "string"]
+		}
+	}
+}

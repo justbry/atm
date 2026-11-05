@@ -63,7 +63,8 @@
 				"share.charged",
 				"referral.qualified",
 				"referral.rewarded",
-				"catalog.published"
+				"catalog.published",
+				"policy.published"
 			]
 		},
 		"event_time": {

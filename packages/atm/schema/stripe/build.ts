@@ -30,7 +30,8 @@ const isObject = (v: unknown): v is Json =>
 const REF = "#/components/schemas/";
 
 export function trimSpec(spec: Json): Json {
-	const schemas = (spec.components as { schemas: Record<string, Json> }).schemas;
+	const schemas = (spec.components as { schemas: Record<string, Json> })
+		.schemas;
 	// A top-level API resource (it has `x-resourceId`) that is not a root is a reference the event may expand: any value.
 	const cut = (name: string) =>
 		schemas[name]?.["x-resourceId"] !== undefined &&
@@ -51,12 +52,14 @@ export function trimSpec(spec: Json): Json {
 		const { nullable, ...rest } = node;
 		const out: Json = {};
 		for (const [key, value] of Object.entries(rest)) {
-			if (key === "description" || key === "example" || key === "title") continue;
+			if (key === "description" || key === "example" || key === "title")
+				continue;
 			if (key.startsWith("x-")) continue;
 			if (key === "$ref" && typeof value === "string") {
 				const name = value.slice(REF.length);
 				visit(name);
-				if (cut(name) || !schemas[name]) return nullable ? { anyOf: [{}, { type: "null" }] } : {};
+				if (cut(name) || !schemas[name])
+					return nullable ? { anyOf: [{}, { type: "null" }] } : {};
 				out.$ref = `#/$defs/${name}`;
 				continue;
 			}
@@ -71,7 +74,13 @@ export function trimSpec(spec: Json): Json {
 		}
 		return nullable ? { anyOf: [out, { type: "null" }] } : out;
 	};
-	for (const name of [...Object.values(ROOTS), "line_item", "subscription_item", "price", "refund"])
+	for (const name of [
+		...Object.values(ROOTS),
+		"line_item",
+		"subscription_item",
+		"price",
+		"refund",
+	])
 		visit(name);
 	const defs = Object.fromEntries(
 		[...kept.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),

@@ -2,7 +2,7 @@
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
 	"$id": "https://b4uni.com/_schema/payload/catalog.published.v1.json",
 	"title": "catalog.published payload v1",
-	"description": "Plan versions published. No postings.",
+	"description": "Plan versions published, with the full menu they came from and its version. No postings. The grant rules read the menu.",
 	"type": "object",
 	"required": ["plans"],
 	"properties": {
@@ -12,6 +12,12 @@
 				"type": "string",
 				"minLength": 1
 			}
+		},
+		"version": {
+			"type": ["integer", "string"]
+		},
+		"menu": {
+			"type": "object"
 		}
 	}
 }

@@ -237,6 +237,7 @@ export const moneyPostings = (i: AtmLedgerEventInput): AtmPosting[] => {
 		case "referral.qualified":
 		case "referral.rewarded":
 		case "catalog.published":
+		case "policy.published":
 			return [];
 		default:
 			throw new Error(`${i.type} is an engine event: use mutationToEvents`);
