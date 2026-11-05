@@ -37,6 +37,10 @@
  * - The revision is read and checked inside the write transaction (`BEGIN IMMEDIATE` in `bunSqlite`), so a conflict
  *   cannot happen on one SQLite file; the check and the 3 attempts are for drivers whose transactions are not
  *   exclusive. After 3 stale attempts the claim is released and the answer is 409.
+ * - Env is in every key. `atm_event_claims`, `atm_invoice_index` and `atm_payment_index` are keyed `(env, id)` and
+ *   `ledger_outbox` `(school_id, env, id)`, `env` being `deps.env`, so one Stripe id delivered under both envs is claimed,
+ *   indexed and booked once in each, and a refund's payment-to-invoice join stays inside its env. A database made before
+ *   env was a key needs `migrateHandlerSchema(db)` once; without it the handler throws before touching anything.
  * - The Stripe event id is deduplicated here; `handleStripeEvent` gets a ULID derived from the school and that id
  *   and the event's `created`, so the same delivery always decides the same way.
  * - A refund or dispute names its charge and payment intent, never the invoice, and the webhook's invoice names no
@@ -136,6 +140,7 @@ import type {
 	RowChanges,
 	StripeEventRefusal,
 } from "../types.js";
+import { assertCurrentSchema as assertCurrentTables } from "./schema.js";
 import { verifyStripeSignature } from "./stripe-signature.js";
 import type {
 	SqlDatabase,
@@ -169,6 +174,9 @@ const RETRYABLE_REFUSALS: ReadonlySet<StripeEventRefusal["reason"]> = new Set([
 ]);
 
 type JsonObject = Record<string, unknown>;
+
+/** The env this handler serves; every claim, index and outbox row it writes or reads carries it. Throws on a bad value. */
+const envOf = (deps: WebhookDeps): AtmEnv => resolveEnv(deps.env);
 
 type StripeEvent = {
 	id: string;
@@ -385,8 +393,8 @@ const locateSubject = (
 					invoice_id: string;
 					subject_key: string;
 				}>(
-					`SELECT payment.payment_ref, payment.invoice_id, invoice.subject_key FROM atm_payment_index AS payment JOIN atm_invoice_index AS invoice ON invoice.invoice_id = payment.invoice_id WHERE payment.payment_ref IN (${refs.map(() => "?").join(", ")})`,
-					refs,
+					`SELECT payment.payment_ref, payment.invoice_id, invoice.subject_key FROM atm_payment_index AS payment JOIN atm_invoice_index AS invoice ON invoice.env = payment.env AND invoice.invoice_id = payment.invoice_id WHERE payment.env = ? AND payment.payment_ref IN (${refs.map(() => "?").join(", ")})`,
+					[env, ...refs],
 				);
 	const first = hits[0];
 	if (!first)
@@ -417,6 +425,7 @@ type ClaimResult =
 /** Takes the Stripe event id: a new claim, or a compare-and-set takeover of a stale one. */
 const claimEvent = (deps: WebhookDeps, stripeEventId: string): ClaimResult => {
 	const { db } = deps;
+	const env = envOf(deps);
 	const staleAfter = deps.claimStaleAfterMs ?? DEFAULT_CLAIM_STALE_AFTER_MS;
 	// A claim can vanish between our insert and our read (released by its worker): look again.
 	for (let round = 0; round < MAX_ATTEMPTS; round++) {
@@ -424,21 +433,21 @@ const claimEvent = (deps: WebhookDeps, stripeEventId: string): ClaimResult => {
 		const inserted = db.transaction(
 			() =>
 				db.run(
-					`INSERT INTO atm_event_claims (event_id, state, claimed_at, claimed_by) VALUES (?, 'claimed', ?, ?) ON CONFLICT (event_id) DO NOTHING`,
-					[stripeEventId, now, deps.workerId],
+					`INSERT INTO atm_event_claims (env, event_id, state, claimed_at, claimed_by) VALUES (?, ?, 'claimed', ?, ?) ON CONFLICT (env, event_id) DO NOTHING`,
+					[env, stripeEventId, now, deps.workerId],
 				).changes,
 		);
 		if (inserted === 1) return { kind: "owned", claim: { claimedAt: now } };
 		const [existing] = db.all<{ state: string; claimed_at: number }>(
-			`SELECT state, claimed_at FROM atm_event_claims WHERE event_id = ?`,
-			[stripeEventId],
+			`SELECT state, claimed_at FROM atm_event_claims WHERE env = ? AND event_id = ?`,
+			[env, stripeEventId],
 		);
 		if (!existing) continue;
 		if (existing.state === "done") return { kind: "duplicate" };
 		if (now - existing.claimed_at < staleAfter) return { kind: "busy" };
 		const taken = db.run(
-			`UPDATE atm_event_claims SET claimed_at = ?, claimed_by = ? WHERE event_id = ? AND state = 'claimed' AND claimed_at = ?`,
-			[now, deps.workerId, stripeEventId, existing.claimed_at],
+			`UPDATE atm_event_claims SET claimed_at = ?, claimed_by = ? WHERE env = ? AND event_id = ? AND state = 'claimed' AND claimed_at = ?`,
+			[now, deps.workerId, env, stripeEventId, existing.claimed_at],
 		).changes;
 		return taken === 1
 			? { kind: "owned", claim: { claimedAt: now } }
@@ -453,8 +462,8 @@ const releaseClaim = (
 	claim: Claim,
 ): void => {
 	deps.db.run(
-		`DELETE FROM atm_event_claims WHERE event_id = ? AND state = 'claimed' AND claimed_by = ? AND claimed_at = ?`,
-		[stripeEventId, deps.workerId, claim.claimedAt],
+		`DELETE FROM atm_event_claims WHERE env = ? AND event_id = ? AND state = 'claimed' AND claimed_by = ? AND claimed_at = ?`,
+		[envOf(deps), stripeEventId, deps.workerId, claim.claimedAt],
 	);
 };
 
@@ -464,8 +473,8 @@ const finishClaim = (
 	claim: Claim,
 ): void => {
 	const { changes } = deps.db.run(
-		`UPDATE atm_event_claims SET state = 'done', done_at = ?, outcome = 'applied' WHERE event_id = ? AND state = 'claimed' AND claimed_by = ? AND claimed_at = ?`,
-		[deps.nowMs(), stripeEventId, deps.workerId, claim.claimedAt],
+		`UPDATE atm_event_claims SET state = 'done', done_at = ?, outcome = 'applied' WHERE env = ? AND event_id = ? AND state = 'claimed' AND claimed_by = ? AND claimed_at = ?`,
+		[deps.nowMs(), envOf(deps), stripeEventId, deps.workerId, claim.claimedAt],
 	);
 	if (changes !== 1) throw new ClaimLost(`claim on ${stripeEventId} was lost`);
 };
@@ -480,8 +489,8 @@ const assertClaimIsOurs = (
 		claimed_by: string;
 		claimed_at: number;
 	}>(
-		`SELECT state, claimed_by, claimed_at FROM atm_event_claims WHERE event_id = ?`,
-		[stripeEventId],
+		`SELECT state, claimed_by, claimed_at FROM atm_event_claims WHERE env = ? AND event_id = ?`,
+		[envOf(deps), stripeEventId],
 	);
 	if (
 		row?.state !== "claimed" ||
@@ -610,18 +619,18 @@ const applyOnce = ({
 			);
 		writeRows(db, result.rowChanges);
 	}
-	appendToOutbox(db, result.events);
+	appendToOutbox(db, result.events, env);
 	if (event.type === "invoice.paid") {
 		const invoiceId = stringAt(event.object, "id");
 		if (invoiceId) {
 			db.run(
-				`INSERT INTO atm_invoice_index (invoice_id, subject_key) VALUES (?, ?) ON CONFLICT (invoice_id) DO NOTHING`,
-				[invoiceId, located.subjectKey],
+				`INSERT INTO atm_invoice_index (env, invoice_id, subject_key) VALUES (?, ?, ?) ON CONFLICT (env, invoice_id) DO NOTHING`,
+				[env, invoiceId, located.subjectKey],
 			);
 			for (const ref of invoiceRefsOf(deps, event))
 				db.run(
-					`INSERT INTO atm_payment_index (payment_ref, invoice_id) VALUES (?, ?) ON CONFLICT (payment_ref) DO NOTHING`,
-					[ref, invoiceId],
+					`INSERT INTO atm_payment_index (env, payment_ref, invoice_id) VALUES (?, ?, ?) ON CONFLICT (env, payment_ref) DO NOTHING`,
+					[env, ref, invoiceId],
 				);
 		}
 	}
@@ -718,8 +727,8 @@ const recordPaymentOnce = (
 	}
 	const fact = normalized.value as InvoicePaymentFact;
 	const [known] = db.all<{ subject_key: string }>(
-		`SELECT subject_key FROM atm_invoice_index WHERE invoice_id = ?`,
-		[fact.invoiceId],
+		`SELECT subject_key FROM atm_invoice_index WHERE env = ? AND invoice_id = ?`,
+		[envOf(deps), fact.invoiceId],
 	);
 	if (!known) {
 		releaseClaim(deps, event.id, claim);
@@ -733,8 +742,8 @@ const recordPaymentOnce = (
 	const refs = paymentRefsOfFact(fact);
 	for (const ref of refs)
 		db.run(
-			`INSERT INTO atm_payment_index (payment_ref, invoice_id) VALUES (?, ?) ON CONFLICT (payment_ref) DO NOTHING`,
-			[ref, fact.invoiceId],
+			`INSERT INTO atm_payment_index (env, payment_ref, invoice_id) VALUES (?, ?, ?) ON CONFLICT (env, payment_ref) DO NOTHING`,
+			[envOf(deps), ref, fact.invoiceId],
 		);
 	finishClaim(deps, event.id, claim);
 	return { kind: "recorded", refs: refs.length };
@@ -774,8 +783,8 @@ const afterLostClaim = (
 	stripeEventId: string,
 ): WebhookResponse => {
 	const [row] = deps.db.all<{ state: string }>(
-		`SELECT state FROM atm_event_claims WHERE event_id = ?`,
-		[stripeEventId],
+		`SELECT state FROM atm_event_claims WHERE env = ? AND event_id = ?`,
+		[envOf(deps), stripeEventId],
 	);
 	return row?.state === "done"
 		? reply(200, "duplicate", { stripeEventId })
@@ -824,12 +833,26 @@ const ignoreForeign = (
 ): WebhookResponse => {
 	const now = deps.nowMs();
 	const { changes } = deps.db.run(
-		`INSERT INTO atm_event_claims (event_id, state, claimed_at, claimed_by, done_at, outcome) VALUES (?, 'done', ?, ?, ?, 'ignored') ON CONFLICT (event_id) DO NOTHING`,
-		[event.id, now, deps.workerId, now],
+		`INSERT INTO atm_event_claims (env, event_id, state, claimed_at, claimed_by, done_at, outcome) VALUES (?, ?, 'done', ?, ?, ?, 'ignored') ON CONFLICT (env, event_id) DO NOTHING`,
+		[envOf(deps), event.id, now, deps.workerId, now],
 	);
 	return changes === 1
 		? reply(200, "ignored", { stripeEventId: event.id })
 		: afterLostClaim(deps, event.id);
+};
+
+/** Databases already checked, so that a long-lived handler asks SQLite for the shape of its tables once. */
+const currentSchemas = new WeakSet<SqlDatabase>();
+
+/**
+ * Throws, before anything is read or written, when the handler's tables are from a release that had no `env` key. The
+ * statements below would fail on the missing column anyway; this says what to do. Not a response: the caller's code is
+ * wrong (it did not migrate), every delivery would meet it, and a 5xx makes Stripe retry until it is fixed.
+ */
+const assertCurrentSchema = (db: SqlDatabase): void => {
+	if (currentSchemas.has(db)) return;
+	assertCurrentTables(db);
+	currentSchemas.add(db);
 };
 
 /** Handles one Stripe webhook delivery. Synchronous: the database is. Throws on an error it cannot answer for (see above). */
@@ -839,6 +862,7 @@ export const handleStripeWebhook = (
 ): WebhookResponse => {
 	// Before anything is verified or claimed: a bad env is the caller's code, and every delivery would hit it.
 	const env = resolveEnv(deps.env);
+	assertCurrentSchema(deps.db);
 	const verdict = verifyStripeSignature({
 		payload: request.payload,
 		header: request.signatureHeader,

@@ -2086,6 +2086,11 @@ export interface SqlDatabase {
 	transaction<T>(fn: () => T): T;
 }
 
+/** What `migrateHandlerSchema` did: the tables it rebuilt with an `env` key (none when the database was current). */
+export type HandlerMigrationResult = {
+	rebuilt: string[];
+};
+
 export type SignatureFailure = "malformed" | "stale_timestamp" | "no_match";
 
 export type SignatureVerdict =

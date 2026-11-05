@@ -96,7 +96,7 @@ What exists (#41 to #49, on `dev`, not released) is in `CHANGELOG.md` (Unrelease
 
 ### Decouple, the cheap parts
 - [ ] A metadata prefix in the policy instead of the hardcoded `b4u_`; menu limits (4 tiers, 6 add-ons, 12 features) in the policy; a generic `holderId` instead of `family_id`.
-- [ ] The handler's `atm_event_claims`, `atm_invoice_index`, `atm_payment_index` and `ledger_outbox` keys carry no env: the same Stripe id delivered under both envs would be claimed once. Closing it changes the DDL, so it waits for a schema version. (detail: docs/log-and-r2.md#env-on-the-handlers-tables)
+- [ ] The handler's `atm_event_claims`, `atm_invoice_index`, `atm_payment_index` and `ledger_outbox` keys now carry env (`migrateHandlerSchema` rebuilds a database made before). Open: the shipper and the log do not separate envs (a school's test and live events share `schools/<id>/events/`, and the reader drops a repeated `idem`); owner decision whether `atm ship` ships only one env or the log gets an env in its path. (detail: docs/log-and-r2.md#env-on-the-handlers-tables)
 - Separate task: tree-shaking the ~1,200 `@autumn/shared` files the engine pulls in.
 
 ### Kept from the quantities and adoption work
