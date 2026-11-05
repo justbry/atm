@@ -261,6 +261,10 @@ export const settingsOf = (
 		policy: BillingPolicy;
 		version: number;
 	};
+	if (!catalog?.menu || catalog.version === undefined)
+		throw new Error("no catalog.published event with a menu and its version");
+	if (!policy?.policy || policy.version === undefined)
+		throw new Error("no policy.published event with a policy and its version");
 	return {
 		menu: catalog.menu,
 		menuVersion: catalog.version,

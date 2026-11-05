@@ -110,6 +110,8 @@ export const play = ({
 	let sub = null as Sub | null;
 	let serial = 0;
 	const invoices: Paid[] = [];
+	/** Refunded so far per invoice (cents). */
+	const refunded = new Map<string, number>();
 	const send = (event: unknown, at: number) => {
 		sent.push({ event, at });
 		const result = store.handle(event, at);
@@ -240,23 +242,29 @@ export const play = ({
 			};
 		} else if (op === "refund" && invoices.length > 0) {
 			const paid = rng.pick(invoices);
-			serial += 1;
-			const full = rng.next() < 0.6;
-			const amount = full
-				? paid.amount
-				: Math.max(1, Math.floor(paid.amount / 2));
-			send(
-				chargeRefunded({
-					eventId: `evt_re_${serial}`,
-					refundId: `re_${serial}`,
-					chargeId: `ch_${paid.id}`,
-					invoiceId: paid.id,
-					amount,
-					chargeAmount: paid.amount,
-					at: t,
-				}),
-				t,
-			);
+			// A charge's refunds add up: Stripe's amount_refunded is the total so far, and the refund that brings it to the
+			// charge's amount is the full one.
+			const left = paid.amount - (refunded.get(paid.id) ?? 0);
+			if (left > 0) {
+				serial += 1;
+				const amount =
+					rng.next() < 0.6 ? left : Math.max(1, Math.floor(left / 2));
+				const total = (refunded.get(paid.id) ?? 0) + amount;
+				refunded.set(paid.id, total);
+				send(
+					chargeRefunded({
+						eventId: `evt_re_${serial}`,
+						refundId: `re_${serial}`,
+						chargeId: `ch_${paid.id}`,
+						invoiceId: paid.id,
+						amount,
+						chargeAmount: paid.amount,
+						refundedTotal: total,
+						at: t,
+					}),
+					t,
+				);
+			}
 		} else if (op === "dispute" && invoices.length > 0) {
 			const paid = rng.pick(invoices);
 			serial += 1;
@@ -367,8 +375,11 @@ describe("random histories of one family", () => {
 			});
 			for (const { event, at } of [...sent].reverse()) {
 				const again = store.handle(event, at);
-				expect(again.rowChanges).toBeNull();
-				expect(again.events).toEqual([]);
+				const id = (event as { id: string }).id;
+				// a refusal has the same empty shape, so say it was not one
+				expect([id, again.refused]).toEqual([id, undefined]);
+				expect([id, again.rowChanges]).toEqual([id, null]);
+				expect([id, again.events]).toEqual([id, []]);
 			}
 			expect(
 				JSON.stringify({

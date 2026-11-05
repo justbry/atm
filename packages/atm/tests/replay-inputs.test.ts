@@ -65,6 +65,24 @@ describe("the fixture year, replayed from its inputs", () => {
 		expect(s.policyVersion).toBe(1);
 	});
 
+	test("a settings event without its menu or policy and version is not valid, and settingsOf will not read it", () => {
+		const [catalog, policy] = inputs.settings as [AtmEvent, AtmEvent];
+		const without = (e: AtmEvent, key: string): AtmEvent => {
+			const payload = { ...e.payload };
+			delete payload[key];
+			return { ...e, payload };
+		};
+		expect(validateEvent(without(catalog, "menu")).ok).toBe(false);
+		expect(validateEvent(without(catalog, "version")).ok).toBe(false);
+		expect(validateEvent(without(policy, "policy")).ok).toBe(false);
+		expect(() => settingsOf([without(catalog, "menu"), policy])).toThrow(
+			/catalog.published/,
+		);
+		expect(() => settingsOf([catalog, without(policy, "policy")])).toThrow(
+			/policy.published/,
+		);
+	});
+
 	test("the decision events are valid events, each naming the input that caused it", () => {
 		const fromStripe = replay.decisions.filter((e) => e.source !== "cron");
 		expect(fromStripe.length).toBeGreaterThanOrEqual(15); // a grant or reset for each of 12 payments, 2 gifts, the refund

@@ -4,7 +4,7 @@
 	"title": "catalog.published payload v1",
 	"description": "Plan versions published, with the full menu they came from and its version. No postings. The grant rules read the menu.",
 	"type": "object",
-	"required": ["plans"],
+	"required": ["plans", "menu", "version"],
 	"properties": {
 		"plans": {
 			"type": "array",

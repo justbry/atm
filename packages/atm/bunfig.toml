@@ -1,0 +1,4 @@
+[test]
+# The engine reads the process time zone (a rollover expires by local-time month arithmetic). Bun does not reliably
+# keep switching it at run time, so every test run starts in UTC, as the family service does.
+preload = ["./tests/setup.ts"]
