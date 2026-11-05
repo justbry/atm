@@ -88,7 +88,11 @@ export const createStore = ({
 		events,
 		results,
 		/** One raw Stripe event at `at`; the stored input event's id is a ULID decided by the event. */
-		handle(event: unknown, at: number) {
+		handle(
+			event: unknown,
+			at: number,
+			extra: { fee?: number; school?: string } = {},
+		) {
 			const raw = event as {
 				id: string;
 				type: string;
@@ -113,6 +117,7 @@ export const createStore = ({
 				now: at,
 				priceIds,
 				invoiceIds,
+				...extra,
 			});
 			results.push(result);
 			if (result.rowChanges)
@@ -121,7 +126,10 @@ export const createStore = ({
 					revision,
 					changes: result.rowChanges,
 				}));
-			events.push(...result.events);
+			// The outbox's key is (school, idem): an event the log already holds is not written again (a refund's money line
+			// comes back with the same idem when the refund is handled twice).
+			const known = new Set(events.map((e) => e.idem));
+			events.push(...result.events.filter((e) => !known.has(e.idem)));
 			return result;
 		},
 		/** The family service takes `n` visits out (a booking, short of the hold and finalize steps). */

@@ -207,6 +207,24 @@ export const subscriptionEvent = (e: {
 	return event;
 };
 
+/** A `payout.paid` event: `amount` is what reaches the bank, net of Stripe's fees. */
+export const payoutPaid = (e: {
+	eventId: string;
+	payoutId: string;
+	amount: number;
+	currency?: string;
+	/** Event time (ms): the event's `created`. */
+	at: number;
+}): RawEvent => {
+	const event = template("payout.paid.json");
+	event.id = e.eventId;
+	event.created = seconds(e.at);
+	event.data.object.id = e.payoutId;
+	event.data.object.amount = e.amount;
+	event.data.object.currency = e.currency ?? "usd";
+	return event;
+};
+
 export const subscriptionDeleted = (e: {
 	eventId: string;
 	subscriptionId: string;

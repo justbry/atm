@@ -24,7 +24,8 @@
 				"BillingRefund",
 				"BillingDispute",
 				"SubscriptionFact",
-				"InvoicePaymentFact"
+				"InvoicePaymentFact",
+				"StripePayout"
 			]
 		},
 		"stripeApiVersion": {

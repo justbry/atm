@@ -117,7 +117,9 @@ describe("replaying the log the write path made", () => {
 			T0 + 10_000,
 		);
 		const order = replayOrder(store.events);
-		const commands = order.map(
+		// the payment's money line (`payment.succeeded`) has no command and keeps its own time
+		const commanded = order.filter((e) => e.payload.command !== undefined);
+		const commands = commanded.map(
 			(e) => (e.payload.command as { type: string }).type,
 		);
 		expect(commands[0]).toBe("applyBillingPlan");
@@ -126,13 +128,13 @@ describe("replaying the log the write path made", () => {
 		expect([...ids].sort()).not.toEqual(order.map((e) => e.id));
 
 		const whole = replayEvents({ events: store.events, catalog: catalogRows });
-		const firstEvent = order[0] as AtmEvent;
+		const firstEvent = commanded[0] as AtmEvent;
 		const part = replayEvents({
 			events: store.events,
 			catalog: catalogRows,
 			lastEventId: firstEvent.id,
 		});
-		expect(part.applied).toBe(1);
+		expect(part.applied).toBe(order.indexOf(firstEvent) + 1);
 		const rest = replayEvents({
 			events: store.events,
 			catalog: catalogRows,
@@ -195,9 +197,9 @@ describe("replaying the log the write path made", () => {
 		const [first, second] = stores;
 		const ids = (store: (typeof stores)[number]) =>
 			new Set(
-				store.events.map(
-					(e) => (e.payload.command as { commandId: string }).commandId,
-				),
+				store.events
+					.filter((e) => e.payload.command !== undefined)
+					.map((e) => (e.payload.command as { commandId: string }).commandId),
 			);
 		expect([...ids(first)].some((id) => ids(second).has(id))).toBe(true);
 		const replayed = replayEvents({
