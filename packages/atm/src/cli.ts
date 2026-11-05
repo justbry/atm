@@ -24,6 +24,10 @@ import {
 	reportMonth,
 	skippedNote,
 } from "./ledger/report.js";
+import {
+	formatShareStatement,
+	shareStatement,
+} from "./ledger/share-statement.js";
 import { shipOutbox } from "./ledger/ship.js";
 import { simulate } from "./ledger/simulate.js";
 import { outboxStatus } from "./ledger/status.js";
@@ -207,6 +211,51 @@ const reportCommand = program
 			}),
 	);
 exitTwoOnUsageError(reportCommand);
+
+const shareCommand = program
+	.command("share")
+	.description(
+		"print a school's revenue-share statement for one month from its event files: a row per payment that accrued or reversed a share, the totals and the balance owed B4 Uni at the month's end, as CSV-style text or --json; reads only, writes nothing; an error is one line on stderr and exit 2",
+	)
+	.requiredOption("--root <folder>", "the folder that holds schools/<id>/")
+	.requiredOption("--school <id>", "school id, as in schools/<id>/")
+	.requiredOption(
+		"--month <YYYY-MM>",
+		"month, by the events' school-local date",
+	)
+	.option(
+		"--time-zone <iana>",
+		"date the events in this zone instead of each event's own date",
+	)
+	.option(
+		"--json",
+		"print the statement as one JSON line ({ok, school, month, rows, settlements, totals, balanceOwed})",
+	)
+	.action(
+		async (opts: {
+			root: string;
+			school: string;
+			month: string;
+			timeZone?: string;
+			json?: boolean;
+		}) =>
+			unattended("share", opts.json === true, async () => {
+				const { events } = await readEvents(opts.root, opts.school);
+				if (events.length === 0)
+					throw new InputError(
+						`no events under ${opts.root}/schools/${opts.school}/events`,
+					);
+				const statement = shareStatement({
+					events,
+					school: opts.school,
+					month: opts.month,
+					...(opts.timeZone ? { tz: opts.timeZone } : {}),
+				});
+				if (opts.json) writeJson({ ok: true, ...statement });
+				else process.stdout.write(formatShareStatement(statement));
+			}),
+	);
+exitTwoOnUsageError(shareCommand);
 
 type ShipOptions = {
 	db: string;

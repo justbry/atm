@@ -30,6 +30,7 @@ const POLICY: BillingPolicy = {
 	cancelCutoffHours: 24,
 	noShow: "spend",
 	lateCancel: "spend",
+	revenueShare: null,
 };
 const MEMBER: BillingPolicy = {
 	...POLICY,

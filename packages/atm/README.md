@@ -157,6 +157,10 @@ atm prices what a booking or an event costs and spends the credits for it; the c
 
 What the caller has to store and handle, with the order of calls and every refusal: `UPGRADING.md`, "Moving to 0.8.0 from 0.6.0". The design and what is not built: `ROADMAP.md`.
 
+### Revenue share (0.9.0)
+
+A school that pays B4 Uni a share of what it collects sets `revenueShare: { "percent": 2.5 }` in its `catalog/policy.json` (`null`, the default, is none). `handleStripeEvent` then books a `share.accrued` after each payment it books (an invoice's or a paid booking's, on the amount collected before Stripe's fee) and a `share.reversed` after each refund, in the school's ledger (`expenses:billing:b4uni-share`, `liabilities:b4uni`); the caller records a payment to B4 Uni as a `share.settled` event. `shareStatement({ events, school, month })`, or `atm share --root <folder> --school <id> --month YYYY-MM`, is the month's statement (rows per payment, totals, what is owed), which B4 Uni invoices from outside atm. A school with no rate makes none of it. Detail: `docs/financial-reports.md`, "Revenue share".
+
 ## Build
 
 ```bash
