@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import type { WorkerFullSubject } from "@autumn/balance-engine";
 import { Command } from "commander";
+import packageJson from "../package.json";
 import { engineCommandTypes, runEngineCommand } from "./engine.js";
 import { journalMonth } from "./ledger/files.js";
 
@@ -12,7 +13,7 @@ const readJson = async (path: string) =>
 export const program = new Command()
 	.name("atm")
 	.description("Autumn's balance engine as a local CLI")
-	.version("0.0.1");
+	.version(packageJson.version);
 
 program
 	.command("run")

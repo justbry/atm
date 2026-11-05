@@ -1,6 +1,6 @@
 # atm roadmap
 
-`- [x]` is built, tested and committed on `claude/atm-hardening-on-cli` (not pushed). `- [ ]` is not. What is built is described in `README.md`. Competitor behaviour comes from the vendors' public docs as read on 2026-11-04, not from running their products.
+`- [x]` is built and tested in the PR stack that lands on `dev` (or already merged). `- [ ]` is not. What is built is described in `README.md`. Competitor behaviour comes from the vendors' public docs as read on 2026-11-04, not from running their products.
 
 ## Done
 
@@ -92,6 +92,10 @@
 ## Deferred by trigger (ledger storage spec)
 - DuckLake, a copy in a school's own bucket, and a Durable Object per school: each waits for its trigger in the spec.
 
-## Housekeeping
-- [ ] Where the branch lives: reset `claude/atm-billing-hardening` to it (force-push), push it under its own name with a PR against `dev`, or keep it local. Not pushed so far.
-- [ ] Run `/code-review high` on the branch. Started once and interrupted.
+## Release 0.3.0
+- [x] Upgrade note from 0.1.0: `UPGRADING.md`.
+- [x] `atm --version` reads `package.json` (it was hardcoded `0.0.1`).
+- [ ] Tier quantities (`quantities` on a tier, per-unit price and grants, same-tier upgrades): capture real quantity-change invoices from the sandbox first, then build.
+- [ ] Bump `package.json` to 0.3.0 once quantities have landed; `just release-dry`, then `just release` from a clean, pushed `HEAD`. `release.ts` has no draft mode.
+- [ ] An atm test workflow in `.github/workflows` (none runs atm's tests today; only knip and build do).
+- [ ] The contract suite under Node (only Bun has run).
