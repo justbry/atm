@@ -3,6 +3,7 @@ import type { SubjectState } from "@autumn/balance-engine";
 import { catalogRows, generateYear } from "../fixtures/vibes.js";
 import { ulidTime } from "../src/ledger/ids.js";
 import {
+	lapseAlertEvents,
 	lapsedRows,
 	lapseEvent,
 	ledgerEvent,
@@ -427,6 +428,138 @@ describe("one rule per event type", () => {
 		expect(e.event_time).toBe(
 			new Date(T + DAY).toISOString().replace(".000", ""),
 		);
+	});
+	describe("credit.depleted by the clock (lapseAlertEvents)", () => {
+		const featureOf = (i: string) => catalog.features[i]?.id;
+		const lapseState = (balance: number) => {
+			const a = attach(balance, "ent_s2", T + 30 * DAY);
+			const state = JSON.parse(JSON.stringify(a.state)) as SubjectState;
+			Object.assign(state.customerEntitlements[0] as object, {
+				expires_at: T + DAY,
+				balance,
+			});
+			return state;
+		};
+		/** Another row of the same feature: a pack with its own balance and expiry. */
+		const addRow = (
+			state: SubjectState,
+			id: string,
+			balance: number,
+			expiresAt: number | null,
+		) => {
+			state.customerEntitlements.push({
+				...JSON.parse(JSON.stringify(state.customerEntitlements[0])),
+				id,
+				balance,
+				expires_at: expiresAt,
+			});
+		};
+		const alerts = (state: SubjectState, atMs = T + 2 * DAY) =>
+			lapseAlertEvents({
+				state,
+				featureOf,
+				feature: "visit",
+				atMs,
+				key: identity.customerId,
+				school: SCHOOL,
+				tz: "America/Denver",
+				revision: 3,
+			});
+
+		test("a pack that lapses unused and was the only credits makes one credit.depleted, at the instant it lapsed", () => {
+			const out = alerts(lapseState(2));
+			expect(out).toHaveLength(1);
+			const [e] = out as [AtmEvent];
+			expect(e.event_type).toBe("credit.depleted");
+			expect(e.source).toBe("cron");
+			expect(e.postings).toEqual([]);
+			expect(e.event_time).toBe(
+				new Date(T + DAY).toISOString().replace(".000", ""),
+			);
+			expect(e.labels).toEqual({ feature: "visit" });
+			expect(e.payload).toEqual({
+				feature: "visit",
+				available: 0,
+				threshold: null,
+				previous_available: 2,
+				cause: "expired",
+			});
+			expect(validateEvent(e)).toEqual({ ok: true, errors: [] });
+		});
+		test("without cause the payload still needs its command and mutation, as before", () => {
+			const [e] = alerts(lapseState(2)) as [AtmEvent];
+			const { cause: _cause, ...draw } = e.payload;
+			expect(validateEvent({ ...e, payload: draw }).ok).toBe(false);
+		});
+		test("a lapse that leaves other credits for the feature makes none", () => {
+			const state = lapseState(2);
+			addRow(state, "ce_pack", 3, T + 30 * DAY);
+			expect(alerts(state)).toEqual([]);
+			const forever = lapseState(2);
+			addRow(forever, "ce_kept", 1, null);
+			expect(alerts(forever)).toEqual([]);
+		});
+		test("two rows that lapse at the same instant make one, and a rollover with its grant too", () => {
+			const state = lapseState(2);
+			addRow(state, "ce_pack", 3, T + DAY);
+			state.rollovers.push({
+				id: "ro_1",
+				cus_ent_id: "ce_1",
+				balance: 1,
+				expires_at: T + DAY,
+			} as SubjectState["rollovers"][number]);
+			expect(
+				lapsedRows({ state, featureOf, feature: "visit", atMs: T + 2 * DAY }),
+			).toHaveLength(3);
+			const out = alerts(state);
+			expect(out).toHaveLength(1);
+			expect(out[0]?.payload).toMatchObject({
+				available: 0,
+				previous_available: 6,
+			});
+		});
+		test("rows that lapse at different instants: one event, at the instant the last credits go", () => {
+			const state = lapseState(2);
+			addRow(state, "ce_pack", 3, T + 2 * DAY);
+			const out = alerts(state, T + 3 * DAY);
+			expect(out).toHaveLength(1);
+			expect(out[0]?.event_time).toBe(
+				new Date(T + 2 * DAY).toISOString().replace(".000", ""),
+			);
+			expect(out[0]?.payload).toMatchObject({ previous_available: 3 });
+		});
+		test("nothing has lapsed yet, or the lapsed row held nothing: none", () => {
+			expect(alerts(lapseState(2), T + DAY - 1)).toEqual([]);
+			expect(alerts(lapseState(0))).toEqual([]);
+		});
+		test("the same call twice has the same idem and id, and lapseEvent is unchanged by it", () => {
+			const state = lapseState(2);
+			const first = alerts(state);
+			const second = alerts(state, T + 5 * DAY);
+			expect(first[0]?.idem).toBe(second[0]?.idem);
+			expect(first[0]?.id).toBe(second[0]?.id);
+			expect(first[0]?.idem).toBe(
+				`lapse:${identity.customerId}:depleted:visit:${T + DAY}`,
+			);
+			const [row] = lapsedRows({
+				state,
+				featureOf,
+				feature: "visit",
+				atMs: T + 2 * DAY,
+			});
+			const expired = lapseEvent({
+				row: row as never,
+				holder: identity.customerId,
+				key: identity.customerId,
+				feature: "visit",
+				school: SCHOOL,
+				tz: "America/Denver",
+				revision: 3,
+			});
+			expect(expired.event_type).toBe("credit.expired");
+			expect(expired.idem).not.toBe(first[0]?.idem);
+			expect(expired.id).not.toBe(first[0]?.id);
+		});
 	});
 	describe("credit.expiration_changed", () => {
 		const setRow = (
