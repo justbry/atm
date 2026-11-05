@@ -29,6 +29,10 @@ import {
 } from "./ledger/replay.js";
 
 import { runOnState as runOnStateImpl, toCatalog } from "./ledger/run.js";
+import {
+	planOutbox as planOutboxImpl,
+	shipOutbox as shipOutboxImpl,
+} from "./ledger/ship.js";
 import { validateEvent as validateEventImpl } from "./ledger/validate.js";
 import * as folderStore from "./store/folder-store.js";
 import * as r2Store from "./store/r2-store.js";
@@ -84,6 +88,8 @@ import type {
 	OneTimeCheckoutParams,
 	OneTimeCheckoutParamsWithPrices,
 	OneTimeCheckoutResult,
+	OutboxBatch,
+	OutboxRow,
 	PortalConfigIds,
 	ProrationLine,
 	ProrationPair,
@@ -93,6 +99,8 @@ import type {
 	ReplayGapErrorConstructor,
 	RowChanges,
 	RowTable,
+	ShipOutboxInput,
+	ShipOutboxResult,
 	SignatureVerdict,
 	StaleRevisionConstructor,
 	Store,
@@ -636,3 +644,25 @@ export const handleStripeWebhook = (
 	deps: WebhookDeps,
 	request: WebhookRequest,
 ): WebhookResponse => webhook.handleStripeWebhook(deps, request);
+
+// ---- The shipper: the outbox to the log ----
+
+/**
+ * The plan of a shipment: the unshipped rows of one school as one batch per event date, each object's key and bytes a
+ * pure function of its rows (the bodies as they are, in id order; the key holds the first id and a prefix of the text's
+ * sha256), so a retry or a second shipper plans the same object. Throws on a bad date or a body with a newline.
+ */
+export const planOutbox = (input: {
+	school: string;
+	rows: readonly OutboxRow[];
+}): OutboxBatch[] => planOutboxImpl(input);
+
+/**
+ * The shipper, for any `Store`: puts the school's unshipped `ledger_outbox` rows as `schools/<school>/events/date=<day>/
+ * batch-*.jsonl` (create-only; an equal object already there counts as shipped, different bytes is reported in
+ * `conflicts` and the rows stay unshipped), then marks the rows shipped. Run it after the handler, as often as you like:
+ * a rerun, a crash between put and mark, and a second shipper all end the same. It does not combine batches into
+ * `day.jsonl`, write a manifest or know R2: those are not built. See the README.
+ */
+export const shipOutbox = (input: ShipOutboxInput): Promise<ShipOutboxResult> =>
+	shipOutboxImpl(input);

@@ -146,6 +146,15 @@ Where atm's rules differ from the caller's, so a renewal after the import is not
   - a log of 0.3.0 events followed by current ones replays through when no command was lost between them, and stops with the same error at the boundary when one was.
 - Nothing rewrites stored events. Handler events of a subject that is carried on after the upgrade are the current shape from the first write on.
 
+### Shipping the outbox to a folder (after 0.4.0)
+
+Additive: nothing changes for a caller that does not call it. Until now the handler's events stayed in `ledger_outbox` and nothing wrote the files `atm journal` reads. New exports:
+
+- `shipOutbox({ db, store, school, nowMs })` takes the school's rows with `shipped_at IS NULL` and puts one object per event date, `schools/<school>/events/date=YYYY-MM-DD/batch-<first id>-<16 hex of the text's sha256>.jsonl` (the bodies, one per line, in id order, as the handler stored them), with `putOnce`. An equal object already there counts as shipped; different bytes under the key is a `conflicts` entry and the rows stay unshipped (it never overwrites). It then sets `batch_key` and `shipped_at` on those rows in one transaction. It returns `{ batches, conflicts, shipped }`. It works on any `Store`; only `FolderStore` is tested. `planOutbox({ school, rows })` is the pure plan it runs, with the types `OutboxRow`, `OutboxBatch`, `ShipOutboxInput` and `ShipOutboxResult`.
+- **What a family-service caller changes.** After the handler has answered (or on a timer, or from a cron), call `shipOutbox` with the same `SqlDatabase` the handler uses and a store for the log. Any number of runs, and more than one shipper, are safe: a rerun finds nothing, a crash between the put and the mark is repaired by the next run (same rows, same key, same bytes), and two shippers on the same rows write one file. Alert on a non-empty `conflicts`. Then `atm journal` (or `journalMonth`) over the folder builds the journals.
+- `atm ship --db <handler sqlite file> --root <folder> --school <id>` runs it from a shell (Bun only, as the rest of the CLI; it opens the file read-write and waits up to 5 s for the handler's lock). It exits 1 on a conflict.
+- Not built: R2 batches (the call works against `R2Store`, untested there), the `day.jsonl` combine, the signed manifest and Parquet. A batch is named `batch-*`, never `day.jsonl` or `late-*`; once the combine exists, a batch shipped to a day that already has its `day.jsonl` is not read (the reader keeps only `late-*` beside it), so the combine step has to decide that case.
+
 ### Not in this release
 
-The shipper that moves the outbox to R2, simulation, corrections, the Parquet export and webhook delivery. See `ROADMAP.md`.
+The `day.jsonl` combine, the R2 shipper and manifest, simulation, corrections, the Parquet export and webhook delivery. See `ROADMAP.md`.

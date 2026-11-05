@@ -1,9 +1,16 @@
+import { Database } from "bun:sqlite";
 import { readFile } from "node:fs/promises";
 import type { WorkerFullSubject } from "@autumn/balance-engine";
 import { Command } from "commander";
 import packageJson from "../package.json";
 import { engineCommandTypes, runEngineCommand } from "./engine.js";
+import { bunSqlite } from "./handler/bun-sqlite.js";
 import { journalMonth } from "./ledger/files.js";
+import { shipOutbox } from "./ledger/ship.js";
+import { FolderStore } from "./store/folder-store.js";
+
+/** How long `atm ship` waits for the handler's write lock on a busy database. */
+const BUSY_TIMEOUT_MS = 5000;
 
 const readJson = async (path: string) =>
 	JSON.parse(
@@ -51,4 +58,37 @@ program
 		process.stdout.write(
 			`${opts.month}: ${run.build.transactions} transactions; ${note}\n`,
 		);
+	});
+
+program
+	.command("ship")
+	.description(
+		"ship a school's unshipped ledger_outbox rows from the handler's SQLite file to <root>/schools/<id>/events/date=YYYY-MM-DD/batch-*.jsonl, create-only, safe to rerun; exits 1 when a batch's key already holds different bytes",
+	)
+	.requiredOption("--db <file>", "the SQLite file the webhook handler writes")
+	.requiredOption("--root <folder>", "the folder that holds schools/<id>/")
+	.requiredOption("--school <id>", "school id, as in schools/<id>/")
+	.action(async (opts: { db: string; root: string; school: string }) => {
+		const database = new Database(opts.db, { readwrite: true });
+		try {
+			database.exec(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS}`);
+			const result = await shipOutbox({
+				db: bunSqlite(database),
+				store: new FolderStore({ root: opts.root }),
+				school: opts.school,
+				nowMs: Date.now,
+			});
+			for (const batch of result.batches)
+				process.stdout.write(
+					`${batch.status} ${batch.key}: ${batch.events} events\n`,
+				);
+			for (const conflict of result.conflicts)
+				process.stderr.write(`conflict ${conflict.key}: ${conflict.message}\n`);
+			process.stdout.write(
+				`${result.shipped} events shipped in ${result.batches.length} batches; ${result.conflicts.length} conflicts\n`,
+			);
+			if (result.conflicts.length > 0) process.exitCode = 1;
+		} finally {
+			database.close();
+		}
 	});
