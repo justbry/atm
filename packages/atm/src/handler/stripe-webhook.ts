@@ -12,6 +12,14 @@
  *
  * Decisions
  *
+ * - One endpoint, one school. `deps.secret` proves only which Stripe account sent the event; the `b4u_school` in its
+ *   metadata is that account's claim, and `deps.context` answers for every school the service serves. So the handler
+ *   takes the school the endpoint and its secret belong to (`deps.schoolId`) and refuses, with 422 `school_mismatch`
+ *   before any claim (or releasing it, for `invoice_payment.paid`) and writing nothing, any event whose school is
+ *   another: from the metadata of an `invoice.paid` or `customer.subscription.*`, or from the subject the invoice
+ *   index names for a refund, a dispute or an `invoice_payment.paid`. Serve each school from its own endpoint.
+ * - The handler sets no limit on the body's size. The caller must cap the raw body (say 1 MiB; Stripe's events are
+ *   far smaller) before it is read into memory and HMACed here.
  * - The claim is its own short transaction, so a second delivery sees it at once. Its `done` state is written only in
  *   the transaction that wrote the rows. A crash before commit leaves rows and outbox as they were and the claim
  *   `claimed`; a later delivery takes it over once it is older than `claimStaleAfterMs`, with a compare-and-set
@@ -22,7 +30,10 @@
  *   exactly as for a crash. The caller answers 500 and Stripe retries.
  * - Live balances stay in the caller's SQLite (`atm_rows`). Decision events go to `ledger_outbox` in the same
  *   transaction; `body` is the event's canonical line, fixed at insert, and the insert is ON CONFLICT
- *   (school_id, idem) DO NOTHING.
+ *   (school_id, idem) DO NOTHING. The table's primary key (school_id, id) is not that target, and SQLite aborts on
+ *   it; that is deliberate. An event's id is `deterministicUlid` of its instant, its revision and a 56-bit hash of
+ *   (school, idem), so the same id under another idem takes a hash collision at the same millisecond and revision.
+ *   Were it to happen, a throw (500, retry) is right; `INSERT OR IGNORE` would silently drop a distinct decision.
  * - The revision is read and checked inside the write transaction (`BEGIN IMMEDIATE` in `bunSqlite`), so a conflict
  *   cannot happen on one SQLite file; the check and the 3 attempts are for drivers whose transactions are not
  *   exclusive. After 3 stale attempts the claim is released and the answer is 409.
@@ -35,7 +46,8 @@
  *     atm_invoice_index  invoice id -> subject   when an `invoice.paid` is applied (it carries the family's metadata)
  *     atm_payment_index  payment intent / charge id -> invoice id   when an `invoice_payment.paid` is handled
  *   A refund or dispute joins the two: payment ref -> invoice -> subject, and passes `invoiceIds` to
- *   `handleStripeEvent`, which checks the invoice is one this holder was paid.
+ *   `handleStripeEvent`, which checks the invoice is one this holder was paid. When its payment intent and its charge
+ *   lead to different subjects, nothing says which is right: 422 `ambiguous_payment`, before any claim.
  * - `invoice_payment.paid` and `invoice.paid` can arrive in either order (Stripe does not promise one). The two orders
  *   and the refund's, where each waits for what it needs (a wait is a 409 and no claim, so Stripe retries):
  *
@@ -46,17 +58,26 @@
  *     refund / dispute             -                 yes               decided as `handleStripeEvent` says
  *     refund / dispute             -                 no                409 `unmatched_payment`; retry after the link
  *
- *   An `invoice_payment.paid` for an invoice we never apply (a payment on this Stripe account that is not a family's
- *   subscription) therefore answers 409 until Stripe gives up; so does a refund of such a charge.
+ * - Another product on the same Stripe account. An `invoice.paid` or `customer.subscription.*` with neither
+ *   `b4u_school` nor `family_id` in its metadata is not a family's: 200 `ignored`, recorded done (its metadata cannot
+ *   change, so a retry could never decide otherwise). Half of them (one key, or an empty value) is a broken checkout:
+ *   422 `missing_metadata`. But an `invoice_payment.paid`, refund or dispute names no family, and the invoice it
+ *   leads to is never indexed when its `invoice.paid` was ignored, so it keeps the retryable 409 (`unmatched_invoice`,
+ *   `unmatched_payment`): it cannot tell "not ours" from "ours, not linked yet", and a 200 there would lose a real
+ *   family's refund that came early. Stripe retries a non-2xx in live mode with backoff for up to three days, emails
+ *   the account about a failing endpoint and may disable it. So the deployer should give this endpoint only the
+ *   event types above (Stripe's "enabled events"), and a Stripe account whose other products have many payments,
+ *   refunds or disputes should keep the families on their own account.
  * - `deps.paymentRefs` is optional now: refs it names for an `invoice.paid` are written to `atm_payment_index` with the
  *   invoice's rows, so callers that already know the payment (an expanded invoice, their own records) keep working.
- *   `invoice.payments` is read too when the event came expanded.
+ *   Only its non-empty strings are used. `invoice.payments` is read too when the event came expanded.
  *
  * Answers (Stripe retries every non-2xx for up to three days)
  *
  *   200 applied            rows, outbox and claim done committed (also when the event changes nothing)
  *   200 duplicate          the Stripe event id is already done; nothing else is touched
- *   200 ignored            an event type we do not map; recorded as done
+ *   200 ignored            an event type we do not map, with no claim recorded (a later version that maps it takes the
+ *                          owner's re-send); or an invoice / subscription event with no family metadata, recorded done
  *   400 bad_request        the body is not a Stripe event
  *   401 bad_signature      nothing is touched
  *   409 busy               another worker holds a fresh claim (or took it over); Stripe will retry
@@ -67,12 +88,14 @@
  *   409 refused            `unmatched_invoice`, `unknown_subscription`: the cause may arrive on its own, retry
  *   422 refused            `unmatched_line`, `missing_metadata`, `unknown_mapping`, `bad_event`, `rejected`;
  *                          and 422 `unknown_school` when `context` returns null: a human has to fix something
+ *   422 school_mismatch    the event's school is not `deps.schoolId`
+ *   422 ambiguous_payment  a refund or dispute whose payment intent and charge lead to different subjects
  *
  * A refused event never keeps its claim, and nothing is written for it. What decides a refusal (the menu, the code's
  * mappings, the school's configuration) changes by a human's hand, and the owner then re-sends the same Stripe event
  * from the dashboard; a `done` claim would answer that with `duplicate` and the credits would never be granted. The
- * price is that Stripe keeps retrying a 422 until it gives up, which is the nudge we want. Only `ignored` and
- * `applied` are `done`.
+ * price is that Stripe keeps retrying a 422 until it gives up, which is the nudge we want. Only `applied` and a
+ * family-less `ignored` are `done`.
  *
  * Not here, on purpose: no R2 writes, no shipper from the outbox to R2 batches, no compare-and-swap per subject on
  * R2, no Worker version (the ledger's schema validation uses ajv, which compiles with `new Function`, and Workers
@@ -80,7 +103,7 @@
  *
  * For the owner to review: the 422 versus 409 split above; releasing the claim on every refusal; 409 for a refund of
  * an unknown payment (a charge that is not ours retries until Stripe gives up), and the same for an
- * `invoice_payment.paid` of an unknown invoice; one attempt
+ * `invoice_payment.paid` of an unknown invoice (see "Another product" above); one attempt
  * budget (3) for stale revisions; `now` for the engine is the event's `created`, in whole seconds.
  */
 import { handleStripeEvent } from "../billing/handle.js";
@@ -142,7 +165,10 @@ class ClaimLost extends Error {
 
 type Located =
 	| { kind: "subject"; subjectKey: string; invoiceIds: Record<string, string> }
+	| { kind: "ignored" }
 	| { kind: "missing_metadata"; message: string }
+	| { kind: "school_mismatch"; school: string }
+	| { kind: "ambiguous_payment"; message: string }
 	| { kind: "unmatched_payment"; message: string };
 
 type Applied =
@@ -188,6 +214,8 @@ const parseEvent = (payload: string): StripeEvent | null => {
 
 // ---- Finding the subject ----
 
+const schoolOf = (key: string): string => key.split("|")[0] ?? key;
+
 /** The payment intent and charge ids an event names. A refund's object is the charge; a dispute names its charge. */
 const paymentRefsOf = (event: StripeEvent): string[] => {
 	const refs = [
@@ -199,9 +227,17 @@ const paymentRefsOf = (event: StripeEvent): string[] => {
 	return refs.filter((ref): ref is string => ref !== null);
 };
 
-/** What `invoice.paid` paid with, from the caller's optional `paymentRefs` and from `invoice.payments` when the event came expanded. */
+/**
+ * What `invoice.paid` paid with, from the caller's optional `paymentRefs` and from `invoice.payments` when the event
+ * came expanded. The hook's answer is not trusted to be typed: only its non-empty strings are kept, since anything else
+ * would fail the bind and leave the claim `claimed` until the stale window passes.
+ */
 const invoiceRefsOf = (deps: WebhookDeps, event: StripeEvent): string[] => {
-	const refs = new Set(deps.paymentRefs?.(event.raw) ?? []);
+	const fromHook: unknown = deps.paymentRefs?.(event.raw);
+	const refs = new Set<string>();
+	if (Array.isArray(fromHook))
+		for (const ref of fromHook as unknown[])
+			if (typeof ref === "string" && ref !== "") refs.add(ref);
 	const payments = event.object.payments;
 	const listed =
 		isObject(payments) && Array.isArray(payments.data) ? payments.data : [];
@@ -220,53 +256,69 @@ const invoiceRefsOf = (deps: WebhookDeps, event: StripeEvent): string[] => {
  * The metadata that names the holder. An invoice's checkout metadata sits at `parent.subscription_details.metadata`
  * (its own top-level `metadata` is empty for a subscription invoice), so `invoice.paid` is read through its mapping,
  * which merges the two with the invoice's own keys winning, the same metadata `handleStripeEvent` will see. A
- * subscription event carries its metadata at the top. An invoice that does not normalize falls back to the top level;
- * `handleStripeEvent` then refuses it with the real reason.
+ * subscription event carries its metadata at the top. An invoice that does not normalize falls back to the same merge
+ * read from the raw object; `handleStripeEvent` then refuses it with the real reason.
  */
-const holderMetadata = (event: StripeEvent): unknown => {
-	if (event.type !== "invoice.paid") return event.object.metadata;
+const holderMetadata = (event: StripeEvent): JsonObject => {
+	if (event.type !== "invoice.paid")
+		return isObject(event.object.metadata) ? event.object.metadata : {};
 	const apiVersion = isObject(event.raw) ? event.raw.api_version : undefined;
 	const mapping = mappingFor(
 		event.type,
 		typeof apiVersion === "string" ? apiVersion : "",
 	);
-	if (!mapping.ok) return event.object.metadata;
-	const normalized = normalize(event.raw, mapping.value, { eventId: event.id });
-	return normalized.ok
-		? (normalized.value as BillingInvoice).metadata
-		: event.object.metadata;
+	const normalized = mapping.ok
+		? normalize(event.raw, mapping.value, { eventId: event.id })
+		: mapping;
+	if (normalized.ok) {
+		const { metadata } = normalized.value as BillingInvoice;
+		return isObject(metadata) ? metadata : {};
+	}
+	const parent = event.object.parent;
+	const details = isObject(parent) ? parent.subscription_details : undefined;
+	const inherited = isObject(details) ? details.metadata : undefined;
+	return {
+		...(isObject(inherited) ? inherited : {}),
+		...(isObject(event.object.metadata) ? event.object.metadata : {}),
+	};
 };
 
-const holderKey = (event: StripeEvent): string | null => {
+const HOLDER_KEYS = ["b4u_school", "family_id"] as const;
+
+const locateHolder = (deps: WebhookDeps, event: StripeEvent): Located => {
 	const metadata = holderMetadata(event);
-	const school = isObject(metadata) ? stringAt(metadata, "b4u_school") : null;
-	const family = isObject(metadata) ? stringAt(metadata, "family_id") : null;
-	if (!school || !family) return null;
-	try {
-		return subjectKey({
-			orgId: school,
-			env: "live",
-			customerId: `family:${family}`,
-			entityId: null,
-		});
-	} catch {
-		return null;
-	}
+	// Not a family's product at all: nothing of ours to decide, and nothing a retry could change.
+	if (!HOLDER_KEYS.some((key) => key in metadata)) return { kind: "ignored" };
+	const school = stringAt(metadata, "b4u_school");
+	const family = stringAt(metadata, "family_id");
+	if (school !== null && school !== deps.schoolId)
+		return { kind: "school_mismatch", school };
+	let key: string | null = null;
+	if (school && family)
+		try {
+			key = subjectKey({
+				orgId: school,
+				env: "live",
+				customerId: `family:${family}`,
+				entityId: null,
+			});
+		} catch {
+			key = null;
+		}
+	if (key === null)
+		return {
+			kind: "missing_metadata",
+			message: `${event.id} has no usable b4u_school/family_id metadata to name the holder`,
+		};
+	return { kind: "subject", subjectKey: key, invoiceIds: {} };
 };
 
 const locateSubject = (deps: WebhookDeps, event: StripeEvent): Located => {
 	if (
 		event.type === "invoice.paid" ||
 		event.type.startsWith(SUBSCRIPTION_EVENT_PREFIX)
-	) {
-		const key = holderKey(event);
-		if (key === null)
-			return {
-				kind: "missing_metadata",
-				message: `${event.id} has no usable b4u_school/family_id metadata to name the holder`,
-			};
-		return { kind: "subject", subjectKey: key, invoiceIds: {} };
-	}
+	)
+		return locateHolder(deps, event);
 	const refs = paymentRefsOf(event);
 	// payment ref -> invoice (written by invoice_payment.paid) -> subject (written by invoice.paid)
 	const hits =
@@ -286,10 +338,16 @@ const locateSubject = (deps: WebhookDeps, event: StripeEvent): Located => {
 			kind: "unmatched_payment",
 			message: `${event.id}: no handled invoice is linked to ${refs.join(", ") || "any payment"}; retry once its invoice and its invoice_payment.paid are handled`,
 		};
+	const subjects = new Set(hits.map((hit) => hit.subject_key));
+	if (subjects.size > 1)
+		return {
+			kind: "ambiguous_payment",
+			message: `${event.id}: ${hits.map((hit) => `${hit.payment_ref} -> ${hit.invoice_id}`).join(", ")} name more than one subject`,
+		};
+	const school = schoolOf(first.subject_key);
+	if (school !== deps.schoolId) return { kind: "school_mismatch", school };
 	const invoiceIds: Record<string, string> = {};
-	for (const hit of hits)
-		if (hit.subject_key === first.subject_key)
-			invoiceIds[hit.payment_ref] = hit.invoice_id;
+	for (const hit of hits) invoiceIds[hit.payment_ref] = hit.invoice_id;
 	return { kind: "subject", subjectKey: first.subject_key, invoiceIds };
 };
 
@@ -434,8 +492,6 @@ const writeRows = (db: SqlDatabase, changes: RowChanges): void => {
 
 // ---- One attempt ----
 
-const schoolOf = (key: string): string => key.split("|")[0] ?? key;
-
 const applyOnce = ({
 	deps,
 	event,
@@ -565,6 +621,7 @@ const settle = (
 type Recorded =
 	| { kind: "recorded"; refs: number }
 	| { kind: "unmatched_invoice"; invoiceId: string }
+	| { kind: "school_mismatch"; school: string }
 	| { kind: "refused"; refusal: StripeEventRefusal };
 
 /** The payment intent and the charge an invoice payment names, in the order they are indexed. */
@@ -608,6 +665,11 @@ const recordPaymentOnce = (
 		releaseClaim(deps, event.id, claim);
 		return { kind: "unmatched_invoice", invoiceId: fact.invoiceId };
 	}
+	const school = schoolOf(known.subject_key);
+	if (school !== deps.schoolId) {
+		releaseClaim(deps, event.id, claim);
+		return { kind: "school_mismatch", school };
+	}
 	const refs = paymentRefsOfFact(fact);
 	for (const ref of refs)
 		db.run(
@@ -641,6 +703,8 @@ const settlePayment = (
 			stripeEventId: event.id,
 			message: `${event.id}: invoice ${recorded.invoiceId} is not indexed; retry once its invoice.paid is handled`,
 		});
+	if (recorded.kind === "school_mismatch")
+		return schoolMismatch(deps, event.id, recorded.school);
 	return answerForRefusal(event.id, recorded.refusal);
 };
 
@@ -658,13 +722,36 @@ const afterLostClaim = (
 		: reply(409, "busy", { stripeEventId });
 };
 
-const ignore = (deps: WebhookDeps, event: StripeEvent): WebhookResponse => {
+const schoolMismatch = (
+	deps: WebhookDeps,
+	stripeEventId: string,
+	school: string,
+): WebhookResponse =>
+	reply(422, "school_mismatch", {
+		stripeEventId,
+		message: `${stripeEventId} is for school ${school}, and this endpoint serves ${deps.schoolId}`,
+	});
+
+/**
+ * A type we do not map: answered and not recorded, so that once a later version maps it, the owner's re-send from the
+ * dashboard is handled instead of answered `duplicate`.
+ */
+const ignoreUnmapped = (event: StripeEvent): WebhookResponse =>
+	reply(200, "ignored", { stripeEventId: event.id });
+
+/** A mapped type that names no family at all (another product on the account): its metadata cannot change, so done. */
+const ignoreForeign = (
+	deps: WebhookDeps,
+	event: StripeEvent,
+): WebhookResponse => {
 	const now = deps.nowMs();
-	deps.db.run(
+	const { changes } = deps.db.run(
 		`INSERT INTO atm_event_claims (event_id, state, claimed_at, claimed_by, done_at, outcome) VALUES (?, 'done', ?, ?, ?, 'ignored') ON CONFLICT (event_id) DO NOTHING`,
 		[event.id, now, deps.workerId, now],
 	);
-	return reply(200, "ignored", { stripeEventId: event.id });
+	return changes === 1
+		? reply(200, "ignored", { stripeEventId: event.id })
+		: afterLostClaim(deps, event.id);
 };
 
 /** Handles one Stripe webhook delivery. Synchronous: the database is. Throws on an error it cannot answer for (see above). */
@@ -687,7 +774,7 @@ export const handleStripeWebhook = (
 			message:
 				"the body is not a Stripe event (id, type, created, data.object)",
 		});
-	if (!HANDLED_TYPES.has(event.type)) return ignore(deps, event);
+	if (!HANDLED_TYPES.has(event.type)) return ignoreUnmapped(event);
 
 	if (event.type === INVOICE_PAYMENT_EVENT) {
 		const claimed = claimEvent(deps, event.id);
@@ -699,6 +786,14 @@ export const handleStripeWebhook = (
 	}
 
 	const located = locateSubject(deps, event);
+	if (located.kind === "ignored") return ignoreForeign(deps, event);
+	if (located.kind === "school_mismatch")
+		return schoolMismatch(deps, event.id, located.school);
+	if (located.kind === "ambiguous_payment")
+		return reply(422, "ambiguous_payment", {
+			stripeEventId: event.id,
+			message: located.message,
+		});
 	if (located.kind === "missing_metadata")
 		return reply(422, "refused", {
 			stripeEventId: event.id,

@@ -1139,6 +1139,14 @@ export type WebhookDeps = {
 	db: SqlDatabase;
 	/** The endpoint's signing secret. */
 	secret: string;
+	/**
+	 * The school this endpoint and its `secret` belong to. A valid signature proves only that the event came from the
+	 * Stripe account behind the endpoint, not which school it is for; the event's `b4u_school` metadata is the sender's
+	 * claim. So an event whose school (from its metadata, or from the subject its invoice or payment was indexed under)
+	 * is not this one is refused with 422 `school_mismatch` and nothing is written. Serve each school from its own
+	 * endpoint and secret.
+	 */
+	schoolId: string;
 	nowMs: () => number;
 	/** Names this worker in `atm_event_claims.claimed_by`. */
 	workerId: string;
@@ -1156,7 +1164,7 @@ export type WebhookDeps = {
 	 * An extra source for the same link: the payment intent and charge ids an `invoice.paid` event paid with, recorded
 	 * when the invoice is applied (use it when the caller can read them elsewhere, say from the expanded invoice or its
 	 * own records). Without `invoice_payment.paid` and without this, a refund or dispute answers 409
-	 * `unmatched_payment` until Stripe gives up.
+	 * `unmatched_payment` until Stripe gives up. Only the non-empty strings it returns are used.
 	 */
 	paymentRefs?: (event: unknown) => readonly string[];
 };
@@ -1168,6 +1176,11 @@ export type WebhookRequest = {
 	signatureHeader: string;
 };
 
+/**
+ * What the handler did with a delivery; `handleStripeWebhook`'s header lists the status for each. Among them:
+ * `school_mismatch` (422) is an event for a school other than `WebhookDeps.schoolId`; `ambiguous_payment` (422) is a
+ * refund or dispute whose payment intent and charge were indexed under different subjects.
+ */
 export type WebhookOutcome =
 	| "applied"
 	| "duplicate"
@@ -1178,6 +1191,8 @@ export type WebhookOutcome =
 	| "unmatched_payment"
 	| "unmatched_invoice"
 	| "unknown_school"
+	| "school_mismatch"
+	| "ambiguous_payment"
 	| "stale_revision"
 	| "refused";
 

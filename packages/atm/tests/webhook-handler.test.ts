@@ -208,6 +208,7 @@ const harness = (
 	const deps: WebhookDeps = {
 		db,
 		secret: SECRET,
+		schoolId: SCHOOL,
 		nowMs: () => clock.now,
 		workerId: options.workerId ?? "worker-a",
 		claimStaleAfterMs: options.claimStaleAfterMs,
@@ -781,18 +782,51 @@ describe("handleStripeWebhook", () => {
 		expect(h.revision()).toBe(1);
 	});
 
-	test("an invoice without the family in its metadata is 422 missing_metadata, before any claim", () => {
+	test("an invoice with half of the family's metadata is 422 missing_metadata, before any claim", () => {
 		const h = harness();
-		const event = create();
-		event.data.object.metadata = {};
-		event.data.object.parent.subscription_details.metadata = {};
-		const response = h.deliver(event);
-		expect(response.status).toBe(422);
-		expect(response.body).toMatchObject({
-			outcome: "refused",
-			reason: "missing_metadata",
-		});
+		for (const half of [{ b4u_school: SCHOOL }, { family_id: FAMILY }]) {
+			const event = create();
+			event.data.object.metadata = {};
+			event.data.object.parent.subscription_details.metadata = half;
+			const response = h.deliver(event);
+			expect(response.status).toBe(422);
+			expect(response.body).toMatchObject({
+				outcome: "refused",
+				reason: "missing_metadata",
+			});
+		}
 		expect(h.count("atm_event_claims")).toBe(0);
+		nothingWritten(h);
+	});
+
+	test("an invoice or subscription with no family metadata at all (another product) is 200 ignored, recorded done", () => {
+		const h = harness();
+		const invoice = create();
+		invoice.data.object.metadata = {};
+		invoice.data.object.parent.subscription_details.metadata = {};
+		const subscription = subscriptionEvent({
+			type: "customer.subscription.created",
+			eventId: "evt_sub_other_product",
+			subscriptionId: "sub_other_product",
+			status: "active",
+			items: [{ lookupKey: "some_other_product", interval: "month" }],
+			periodStart: T0,
+			periodEnd: T1,
+			at: T0 + 10_000,
+			metadata: null,
+		});
+		for (const event of [invoice, subscription]) {
+			expect(h.deliver(event)).toEqual({
+				status: 200,
+				body: { outcome: "ignored", stripeEventId: event.id },
+			});
+			expect(h.claim(event.id)).toMatchObject({
+				state: "done",
+				outcome: "ignored",
+			});
+			expect(h.deliver(event).body.outcome).toBe("duplicate");
+		}
+		expect(h.calls.context).toBe(0);
 		nothingWritten(h);
 	});
 
@@ -829,7 +863,7 @@ describe("handleStripeWebhook", () => {
 		expect(h.claim("evt_sub_del")).toBeNull();
 	});
 
-	test("an event type we do not map is 200 ignored, recorded once as done", () => {
+	test("an event type we do not map is 200 ignored and records no claim, so a later version that maps it can take a re-send", () => {
 		const h = harness();
 		const event = { ...create(), id: "evt_other", type: "customer.created" };
 		const response = h.deliver(event);
@@ -837,13 +871,10 @@ describe("handleStripeWebhook", () => {
 			status: 200,
 			body: { outcome: "ignored", stripeEventId: "evt_other" },
 		});
-		expect(h.claim("evt_other")).toMatchObject({
-			state: "done",
-			outcome: "ignored",
-		});
+		expect(h.claim("evt_other")).toBeNull();
 		nothingWritten(h);
 		expect(h.deliver(event).body.outcome).toBe("ignored");
-		expect(h.count("atm_event_claims")).toBe(1);
+		expect(h.count("atm_event_claims")).toBe(0);
 	});
 
 	test("the outbox keeps one row per (school, idem)", () => {
@@ -1098,6 +1129,55 @@ describe("refunds and disputes find their invoice through invoice_payment.paid",
 		expect(availOf(h, T0 + 1)).toBe(0);
 	});
 
+	test("only the non-empty strings the paymentRefs hook returns are indexed", () => {
+		const h = harness();
+		const sloppy: WebhookDeps = {
+			...h.deps,
+			paymentRefs: () =>
+				[
+					null,
+					7,
+					{},
+					"",
+					paymentIntentOf("in_1"),
+				] as unknown as readonly string[],
+		};
+		expect(h.deliver(create(), sloppy).body.outcome).toBe("applied");
+		expect(h.raw.query(`SELECT * FROM atm_payment_index`).all()).toEqual([
+			{ payment_ref: paymentIntentOf("in_1"), invoice_id: "in_1" },
+		]);
+		expect(h.claim("evt_create")?.state).toBe("done");
+	});
+
+	test("a refund whose payment intent and charge were indexed under different subjects is 422 ambiguous_payment", () => {
+		const h = harness();
+		h.deliver(create());
+		h.deliver(link("in_1"));
+		const otherSubject = `${SCHOOL}|live|family:fam_other`;
+		// The charge was indexed under another family's invoice; the payment intent under this family's.
+		h.raw.run(
+			`INSERT INTO atm_invoice_index (invoice_id, subject_key) VALUES ('in_9', ?)`,
+			[otherSubject],
+		);
+		h.raw.run(
+			`INSERT INTO atm_payment_index (payment_ref, invoice_id) VALUES ('ch_in_1', 'in_9')`,
+		);
+		const rows = h.rows();
+		const revision = h.revision();
+		const outbox = h.outbox();
+		h.clock.now = T1 + 3_600_000;
+		const response = h.deliver(refund("in_1"));
+		expect(response.status).toBe(422);
+		expect(response.body).toMatchObject({
+			outcome: "ambiguous_payment",
+			stripeEventId: "evt_re_1",
+		});
+		expect(h.claim("evt_re_1")).toBeNull();
+		expect(h.rows()).toEqual(rows);
+		expect(h.revision()).toBe(revision);
+		expect(h.outbox()).toEqual(outbox);
+	});
+
 	test("the recorded invoice_payment.paid normalises with its mapping and fits Stripe's spec", () => {
 		const event = recordedPayment();
 		expect(shapeProblems(event)).toEqual([]);
@@ -1138,5 +1218,111 @@ describe("refunds and disputes find their invoice through invoice_payment.paid",
 				invoice_id: event.data.object.invoice,
 			},
 		]);
+	});
+});
+
+describe("one endpoint, one school: an event for another school is 422 school_mismatch", () => {
+	const OTHER_SCHOOL = "sch_other";
+	const otherSubject = `${OTHER_SCHOOL}|live|${HOLDER}`;
+	const otherMetadata = { b4u_school: OTHER_SCHOOL, family_id: FAMILY };
+
+	/** Another school's invoice, indexed (as a shared database would hold it) with its payment intent and charge. */
+	const seedOtherSchoolsInvoice = (h: Harness) => {
+		h.raw.run(
+			`INSERT INTO atm_invoice_index (invoice_id, subject_key) VALUES ('in_1', ?)`,
+			[otherSubject],
+		);
+		h.raw.run(
+			`INSERT INTO atm_payment_index (payment_ref, invoice_id) VALUES (?, 'in_1'), ('ch_in_1', 'in_1')`,
+			[paymentIntentOf("in_1")],
+		);
+	};
+
+	const refusedForSchool = (h: Harness, event: RawEvent) => {
+		const response = h.deliver(event);
+		expect(response.status).toBe(422);
+		expect(response.body).toMatchObject({
+			outcome: "school_mismatch",
+			stripeEventId: event.id,
+		});
+		expect(h.claim(event.id)).toBeNull();
+		expect(h.count("atm_rows")).toBe(0);
+		expect(h.count("atm_subjects")).toBe(0);
+		expect(h.count("ledger_outbox")).toBe(0);
+		expect(h.calls.context).toBe(0);
+	};
+
+	test("an invoice.paid naming another school", () => {
+		const h = harness();
+		const event = create();
+		event.data.object.parent.subscription_details.metadata = otherMetadata;
+		refusedForSchool(h, event);
+		nothingWritten(h);
+	});
+
+	test("a customer.subscription event naming another school", () => {
+		const h = harness();
+		for (const type of [
+			"customer.subscription.created",
+			"customer.subscription.updated",
+			"customer.subscription.deleted",
+		] as const)
+			refusedForSchool(
+				h,
+				subscriptionEvent({
+					type,
+					eventId: `evt_${type}`,
+					subscriptionId: "sub_1",
+					status:
+						type === "customer.subscription.deleted" ? "canceled" : "active",
+					items: [
+						{ lookupKey: tierKey("sparkle-2", "month"), interval: "month" },
+					],
+					periodStart: T0,
+					periodEnd: T1,
+					at: T0 + 10_000,
+					metadata: otherMetadata,
+				}),
+			);
+		nothingWritten(h);
+	});
+
+	test("a refund found through the index under another school's subject", () => {
+		const h = harness();
+		seedOtherSchoolsInvoice(h);
+		h.clock.now = T1 + 3_600_000;
+		refusedForSchool(h, refund("in_1"));
+	});
+
+	test("a dispute found through the index under another school's subject", () => {
+		const h = harness();
+		seedOtherSchoolsInvoice(h);
+		h.clock.now = T1;
+		for (const type of [
+			"charge.dispute.created",
+			"charge.dispute.closed",
+		] as const)
+			refusedForSchool(
+				h,
+				disputeEvent({
+					type,
+					eventId: `evt_${type}`,
+					disputeId: "dp_1",
+					chargeId: "ch_in_1",
+					invoiceId: "in_1",
+					status: type === "charge.dispute.closed" ? "lost" : "needs_response",
+					at: T1,
+				}),
+			);
+	});
+
+	test("an invoice_payment.paid of an invoice indexed under another school's subject: claim released, no link", () => {
+		const h = harness();
+		h.raw.run(
+			`INSERT INTO atm_invoice_index (invoice_id, subject_key) VALUES ('in_1', ?)`,
+			[otherSubject],
+		);
+		refusedForSchool(h, link("in_1"));
+		expect(h.count("atm_payment_index")).toBe(0);
 	});
 });
