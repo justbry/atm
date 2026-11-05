@@ -36,23 +36,23 @@ const DETAIL_WIDTH = 60;
 const USD = "USD";
 const USD_PLACES = 2;
 
-type CommandShape = Record<string, unknown> & {
+export type CommandShape = Record<string, unknown> & {
 	type: string;
 	commandId: string;
 	identity: { customerId: string; entityId: string | null };
 	org?: { config?: Record<string, unknown> };
 };
 
-type Mutation = ReturnType<typeof runOnState>["mutation"] & object;
+export type Mutation = ReturnType<typeof runOnState>["mutation"] & object;
 
 type Decision = { mutation: Mutation; before: SubjectState | null };
 
-const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+export const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
-const oneLine = (error: unknown): string =>
+export const oneLine = (error: unknown): string =>
 	(error instanceof Error ? error.message : String(error))
 		.trim()
 		.replace(/\s*\n\s*/g, " ");
@@ -64,7 +64,7 @@ const rowIdOf = (change: Record<string, unknown>): string | null => {
 	return isRecord(row) && typeof row.id === "string" ? row.id : null;
 };
 
-const describeChange = (change: unknown): AtmSimulateChange => {
+export const describeChange = (change: unknown): AtmSimulateChange => {
 	const {
 		table,
 		op,
@@ -81,7 +81,7 @@ const describeChange = (change: unknown): AtmSimulateChange => {
 };
 
 /** What each side makes that the other does not, as a multiset: a change both make once cancels once. */
-const differingChanges = (
+export const differingChanges = (
 	recorded: readonly unknown[],
 	candidate: readonly unknown[],
 ): { removed: AtmSimulateChange[]; added: AtmSimulateChange[] } => {
@@ -145,7 +145,7 @@ const oldCutOf = (
 	return own.length < recorded.changes.length ? own : null;
 };
 
-const withPolicy = (
+export const withPolicy = (
 	command: CommandShape,
 	policy: AtmSimulateInput["candidate"]["policy"],
 ): CommandShape => {
@@ -179,7 +179,7 @@ const postingTotals = (events: readonly AtmEvent[]): Map<string, bigint> => {
 	return totals;
 };
 
-const postingChangesOf = (
+export const postingChangesOf = (
 	current: readonly AtmEvent[],
 	candidate: readonly AtmEvent[],
 ): AtmSimulatePostingChange[] => {
@@ -207,7 +207,7 @@ const postingChangesOf = (
 	return out;
 };
 
-const balanceChangesOf = (
+export const balanceChangesOf = (
 	current: readonly AtmBalance[],
 	candidate: readonly AtmBalance[],
 ): AtmSimulateBalanceChange[] => {
@@ -231,7 +231,7 @@ const balanceChangesOf = (
 const monthsOf = (events: readonly AtmEvent[]) =>
 	[...new Set(events.map((e) => e.date.slice(0, 7)))].sort();
 
-const transactionsOf = (
+export const transactionsOf = (
 	current: readonly AtmEvent[],
 	candidate: readonly AtmEvent[],
 	only: string | undefined,
@@ -246,7 +246,7 @@ const transactionsOf = (
 	}));
 };
 
-const byId = (a: AtmEvent, b: AtmEvent) =>
+export const byId = (a: AtmEvent, b: AtmEvent) =>
 	a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 
 const listed = <T>(
@@ -315,6 +315,113 @@ const summaryOf = (
 		`unaffected: ${result.unaffected.events} events no command made, carried over as they are${types ? ` (${types})` : ""}; a replay re-decides credits only and cannot change what Stripe charged`,
 	].join("\n");
 };
+
+/** The events of a command decided differently: derived again from the candidate's mutation. */
+export const deriveEvents = (
+	group: AtmEvent[],
+	decision: Decision,
+	recorded: RecordedMutation,
+): AtmEvent[] => {
+	const recordedIdems = new Set(group.map((e) => e.idem));
+	const exact = new Map<string, AtmEvent>();
+	const extra = new Map<string, AtmEvent>();
+	const { command: _command, ...decided } =
+		decision.mutation as unknown as Record<string, unknown>;
+	const candidateChanges = decision.mutation.changes as readonly unknown[];
+	// What the command was (a refund, a settling as forfeited, the reason of an adjustment, the units a lock held) is on
+	// some of its events and not on the others: read it from the group, or an event of the group would be made again as
+	// if the command were another (a release beside a forfeit would bring a spend with it).
+	const fromGroup = <T>(read: (e: AtmEvent) => T | undefined) =>
+		group.map(read).find((value) => value !== undefined);
+	const settleAs = group.some((e) => e.event_type === "credit.forfeited")
+		? "forfeited"
+		: "spent";
+	const refunded = group.some((e) => e.event_type === "credit.refunded");
+	const reason = fromGroup((e) => e.payload.reason as string | undefined);
+	const held = fromGroup((e) => e.payload.held as number | undefined);
+	for (const e of group) {
+		if (e.event_type.startsWith("plan.")) {
+			exact.set(e.idem, {
+				...e,
+				payload: {
+					...e.payload,
+					command: decision.mutation.command,
+					mutation: decided,
+				},
+			});
+			continue;
+		}
+		const cut = oldCutOf(e, recorded);
+		const slice = cut
+			? [
+					...new Set(
+						candidateChanges.flatMap((change, position) =>
+							cut.some((c) => changeKey(c) === changeKey(change))
+								? [position]
+								: [],
+						),
+					),
+				]
+			: positionsFor({ event: e, candidateChanges });
+		if (slice?.length === 0) continue;
+		const context = contextFromEvent(e, decision.before);
+		const derived = mutationToEvents({
+			mutation: decision.mutation as never,
+			context: {
+				...context,
+				settleAs,
+				as: refunded ? "refunded" : undefined,
+				reason: context.reason ?? reason,
+				held: context.held ?? held,
+				slice: slice ?? undefined,
+			},
+		});
+		const match = derived.find((d) => d.idem === e.idem);
+		if (match) exact.set(match.idem, match);
+		for (const d of derived)
+			if (!recordedIdems.has(d.idem) && !extra.has(d.idem))
+				extra.set(d.idem, d);
+	}
+	return [...exact.values(), ...extra.values()];
+};
+
+
+/** Tracks the open holds a command's events open and close. */
+export const settleHold = (
+	holds: Record<string, AtmHold>,
+	command: CommandShape,
+	group: AtmEvent[],
+	mutation: Mutation,
+) => {
+	for (const e of group) {
+		if (e.event_type === "credit.held") {
+			const lock = (
+				mutation.changes as {
+					table: string;
+					op: string;
+					row?: { id: string };
+				}[]
+			).find((c) => c.table === "locks" && c.op === "insert");
+			const units = Number(
+				e.postings.find((p) => p.account.startsWith("credits:held:"))?.amount,
+			);
+			if (lock?.row)
+				holds[lock.row.id] = {
+					holder: command.identity.customerId,
+					feature: e.labels.feature as string,
+					units,
+				};
+		} else if (
+			["credit.released", "credit.spent", "credit.forfeited"].includes(
+				e.event_type,
+			)
+		) {
+			const lock = (command as { lock?: { id: string } }).lock;
+			if (lock) delete holds[lock.id];
+		}
+	}
+};
+
 
 /**
  * The log's commands run again under a candidate catalog and policy, and the result set against the log. See
@@ -429,108 +536,9 @@ export const simulate = (input: AtmSimulateInput): AtmSimulation => {
 		});
 	};
 
-	/** The events of a command decided differently: derived again from the candidate's mutation. */
-	const derive = (
-		group: AtmEvent[],
-		decision: Decision,
-		recorded: RecordedMutation,
-	): AtmEvent[] => {
-		const recordedIdems = new Set(group.map((e) => e.idem));
-		const exact = new Map<string, AtmEvent>();
-		const extra = new Map<string, AtmEvent>();
-		const { command: _command, ...decided } =
-			decision.mutation as unknown as Record<string, unknown>;
-		const candidateChanges = decision.mutation.changes as readonly unknown[];
-		// What the command was (a refund, a settling as forfeited, the reason of an adjustment, the units a lock held) is on
-		// some of its events and not on the others: read it from the group, or an event of the group would be made again as
-		// if the command were another (a release beside a forfeit would bring a spend with it).
-		const fromGroup = <T>(read: (e: AtmEvent) => T | undefined) =>
-			group.map(read).find((value) => value !== undefined);
-		const settleAs = group.some((e) => e.event_type === "credit.forfeited")
-			? "forfeited"
-			: "spent";
-		const refunded = group.some((e) => e.event_type === "credit.refunded");
-		const reason = fromGroup((e) => e.payload.reason as string | undefined);
-		const held = fromGroup((e) => e.payload.held as number | undefined);
-		for (const e of group) {
-			if (e.event_type.startsWith("plan.")) {
-				exact.set(e.idem, {
-					...e,
-					payload: {
-						...e.payload,
-						command: decision.mutation.command,
-						mutation: decided,
-					},
-				});
-				continue;
-			}
-			const cut = oldCutOf(e, recorded);
-			const slice = cut
-				? [
-						...new Set(
-							candidateChanges.flatMap((change, position) =>
-								cut.some((c) => changeKey(c) === changeKey(change))
-									? [position]
-									: [],
-							),
-						),
-					]
-				: positionsFor({ event: e, candidateChanges });
-			if (slice?.length === 0) continue;
-			const context = contextFromEvent(e, decision.before);
-			const derived = mutationToEvents({
-				mutation: decision.mutation as never,
-				context: {
-					...context,
-					settleAs,
-					as: refunded ? "refunded" : undefined,
-					reason: context.reason ?? reason,
-					held: context.held ?? held,
-					slice: slice ?? undefined,
-				},
-			});
-			const match = derived.find((d) => d.idem === e.idem);
-			if (match) exact.set(match.idem, match);
-			for (const d of derived)
-				if (!recordedIdems.has(d.idem) && !extra.has(d.idem))
-					extra.set(d.idem, d);
-		}
-		return [...exact.values(), ...extra.values()];
-	};
-
-	const settle = (
-		command: CommandShape,
-		group: AtmEvent[],
-		mutation: Mutation,
-	) => {
-		for (const e of group) {
-			if (e.event_type === "credit.held") {
-				const lock = (
-					mutation.changes as {
-						table: string;
-						op: string;
-						row?: { id: string };
-					}[]
-				).find((c) => c.table === "locks" && c.op === "insert");
-				const units = Number(
-					e.postings.find((p) => p.account.startsWith("credits:held:"))?.amount,
-				);
-				if (lock?.row)
-					holds[lock.row.id] = {
-						holder: command.identity.customerId,
-						feature: e.labels.feature as string,
-						units,
-					};
-			} else if (
-				["credit.released", "credit.spent", "credit.forfeited"].includes(
-					e.event_type,
-				)
-			) {
-				const lock = (command as { lock?: { id: string } }).lock;
-				if (lock) delete holds[lock.id];
-			}
-		}
-	};
+	const derive = deriveEvents;
+	const settle = (command: CommandShape, group: AtmEvent[], mutation: Mutation) =>
+		settleHold(holds, command, group, mutation);
 
 	const groups = new Map<string, AtmEvent[]>();
 	for (const e of ordered) {

@@ -2147,6 +2147,155 @@ export interface InputsSource {
 	read(filter: { env: AtmEnv; school: string }): Promise<InputsRead>;
 }
 
+// ---- Simulating from stored inputs ----
+
+/**
+ * What `simulateFromInputs` is given. The log's events, the stored inputs read through any `InputsSource`, and the
+ * candidate. No candidate menu and no candidate policy is the identity.
+ */
+export type InputsSimulateInput = {
+	/** The log (as `AtmSimulateInput.events`). */
+	events: readonly AtmEvent[];
+	/** From any `InputsSource.read`; the replay does not know where it came from. */
+	inputs: InputsRead;
+	env: AtmEnv;
+	school: string;
+	/** The candidate; neither given is the identity. A `policy` is the whole candidate policy (resolve it over the defaults with `resolvePolicy`). */
+	candidate: { menu?: Menu; policy?: BillingPolicy };
+	/** The candidate applies from this instant (ms) on, by each input's Stripe `created`; default from the start. */
+	effectiveFrom?: number;
+	/** Overrides of the recorded side (the baseline's menu or policy); default the stored contexts. */
+	current?: { menu?: Menu; policy?: BillingPolicy };
+	/** `YYYY-MM`: report only this month's posting totals, deliveries and commands (balances stay as of `asOf`). */
+	month?: string;
+	/** Balances are counted at this instant on both sides; default the last event applied. */
+	asOf?: string;
+	/** Keep going when the baseline does not reproduce the log (the drift is reported); otherwise `InputsSimulateError`. */
+	allowBaselineDrift?: boolean;
+};
+
+/** What one input decided, summed up so two decisions can be compared. */
+export type DecisionSummary = {
+	/** The refusal (a 422 reason), or null when the input was applied. */
+	refused: { reason: StripeEventRefusal["reason"] } | null;
+	/** How many events the input made. */
+	events: number;
+	/** Credit units issued per feature: the positive postings to `credits:avail:*` of the input's events. */
+	granted: Record<string, number>;
+	/** Credit units taken back per feature: the negative postings to `credits:avail:*` of the input's events. */
+	removed: Record<string, number>;
+	/** `canonicalize` of the row changes (engine rows and grants row), for equality. */
+	rowsDigest: string;
+	/** What a booking's payment or refund decided, when the input is one. */
+	booking: BookingPaymentOutcome["action"] | null;
+};
+
+/** One stored input, what was decided against what the candidate decides. */
+export type InputsDeliveryChange = {
+	/** Stripe's `evt_...`. */
+	eventId: string;
+	type: string;
+	appliedOrder: number | null;
+	subjectKey: string;
+	/** The event's `created`, ISO. */
+	at: string;
+	/**
+	 * `same`; `changed` (it decides, but not the same credits, rows or events); `newly_refused` (the candidate's rules
+	 * refuse an input that was applied); `newly_applied` (a stored 422 refusal that the candidate accepts; only from a SQLite
+	 * source, which holds the refusals); `no_longer_applied` (it made rows or events and the candidate makes none).
+	 */
+	kind:
+		| "same"
+		| "changed"
+		| "newly_refused"
+		| "newly_applied"
+		| "no_longer_applied";
+	recorded: DecisionSummary;
+	candidate: DecisionSummary;
+};
+
+/** One place where the replay with the recorded context does not reproduce the log. */
+export type InputsBaselineMismatch = {
+	eventId: string;
+	subjectKey: string;
+	reason:
+		| "events_differ"
+		| "revision_gap"
+		| "refused_differently"
+		| "context_missing";
+	/** The `idem` of the events the log holds for the input (or the carried command). */
+	recordedIdems: string[];
+	/** The `idem` of the events the replay made. */
+	replayedIdems: string[];
+};
+
+/** History the replay cannot re-decide, carried over unchanged. */
+export type NotReplayable = {
+	/** The holder; null when a decision names none. */
+	subjectKey: string | null;
+	/**
+	 * In the order they are checked: `erased` (the holder's inputs are tombstones), `inputs_not_stored` (decided before the
+	 * inputs were stored, or never shipped), `context_missing` (the menu and policy an input was decided under are not in
+	 * the source), `non_input_writes` (the holder's rows moved by a write that is neither a stored input nor a logged
+	 * command), `booking_writes` (a refund or lost dispute that follows a credit hold: the booking records it reads are not
+	 * reproduced).
+	 */
+	reason:
+		| "inputs_not_stored"
+		| "non_input_writes"
+		| "booking_writes"
+		| "erased"
+		| "context_missing";
+	/** Recorded decision events carried over unchanged. */
+	decisions: number;
+	firstDecisionAt: string | null;
+};
+
+/** The result of `simulateFromInputs`. */
+export type InputsSimulation = Pick<
+	AtmSimulation,
+	| "balances"
+	| "balanceChanges"
+	| "postingChanges"
+	| "transactions"
+	| "asOf"
+	| "unaffected"
+> & {
+	/** The candidate's events (left out of the CLI's `--json`), for building its journal. */
+	events: AtmEvent[];
+	/** Whether the replay with the recorded context reproduces the log, and where it does not. */
+	baseline: {
+		identical: boolean;
+		inputs: number;
+		mismatches: InputsBaselineMismatch[];
+	};
+	/** Every replayed input; the CLI lists only the ones that are not `same`. */
+	deliveries: InputsDeliveryChange[];
+	notReplayable: {
+		decisions: number;
+		holders: number;
+		/** When the first input was stored (ISO), or null with none. */
+		firstStoredAt: string | null;
+		/** The Stripe event id of the first input stored. */
+		firstStoredEventId: string | null;
+		items: NotReplayable[];
+	};
+	replayed: { holders: number; inputs: number; carriedCommands: number };
+	/** Commands the candidate's engine refused (as `AtmSimulation.refused`). */
+	refused: AtmSimulateRefusal[];
+	/** Policy settings the candidate changes that stored inputs cannot simulate (booking calls decide them). */
+	notSimulated: string[];
+	/** The delivery changes that are not `same`, the balance and posting changes, and the refused commands. */
+	differences: number;
+	summary: string;
+};
+
+/** Thrown by `simulateFromInputs` for input it cannot use (the CLI's exit 2). */
+export interface InputsSimulateErrorConstructor {
+	new (message?: string): Error;
+	readonly prototype: Error;
+}
+
 // ---- Storage rows ----
 
 /**
