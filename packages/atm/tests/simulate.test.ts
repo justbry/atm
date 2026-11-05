@@ -295,6 +295,7 @@ describe("simulate: what-ifs on the golden year", () => {
 describe("simulate: a candidate that decides more than the log recorded", () => {
 	const ROLL_FAMILY = "fam_roll";
 	const ROLL_HOLDER = `family:${ROLL_FAMILY}`;
+	const DAY = 86_400_000;
 	/** The menu without any rollover: each reset expires what is left. */
 	const withoutRollover = () => {
 		const bare = structuredClone(menu) as Menu;
@@ -410,6 +411,74 @@ describe("simulate: a candidate that decides more than the log recorded", () => 
 			}
 		}
 		expect(unreplayable).toEqual([]);
+	});
+
+	test("a booking settled as forfeited keeps its released and forfeited events when the candidate decides it again", () => {
+		const bare = withoutRollover();
+		const store = createStore({
+			menu: bare,
+			school: SCHOOL,
+			family: ROLL_FAMILY,
+		});
+		payMonth(store, bare, 1);
+		const { start: february } = payMonth(store, bare, 2);
+		const held = store.serviceCommand({
+			type: "track",
+			at: february + 7 * DAY,
+			fields: {
+				featureId: "visit",
+				internalFeatureId: "feat_visit",
+				value: 2,
+				overageBehavior: "reject",
+				properties: null,
+				usageEvent: null,
+				lock: {
+					id: "lock_bk_1",
+					lockId: "bk_1",
+					expiresAt: february + 14 * DAY,
+					expiryAction: "confirm",
+				},
+			},
+		});
+		const lock = (
+			held.changes as { table: string; op: string; row?: unknown }[]
+		).find((c) => c.table === "locks" && c.op === "insert")?.row;
+		// one of the two credits is given back, the other is forfeited
+		store.serviceCommand({
+			type: "finalize",
+			at: february + 9 * DAY,
+			fields: {
+				featureId: "visit",
+				internalFeatureId: "feat_visit",
+				lock,
+				finalValue: 1,
+				properties: null,
+			},
+			context: { service: "massage-90", settleAs: "forfeited" },
+		});
+		const settle = (events: readonly AtmEvent[]) =>
+			events
+				.filter((e) => e.idem.startsWith("engine:finalize_"))
+				.map((e) => e.event_type)
+				.sort();
+		expect(settle(store.events)).toEqual([
+			"credit.forfeited",
+			"credit.released",
+		]);
+		const sim = simulate({
+			events: store.events,
+			menu: bare,
+			school: SCHOOL,
+			// February's reset rolls 2 over, so the booking is decided on rows the log did not have
+			candidate: { menu },
+		});
+		expect(settle(sim.events)).toEqual(["credit.forfeited", "credit.released"]);
+		const heldAccount = `credits:held:${ROLL_HOLDER}:visit`;
+		expect(sumOf(sim.events, heldAccount)).toBe(0);
+		expect(sim.balances.candidate[0]?.avail).toBe(
+			sumOf(sim.events, `credits:avail:${ROLL_HOLDER}:visit`),
+		);
+		expect(creditSums(sim.events)).toEqual({ VISIT: 0 });
 	});
 
 	test("the candidate's books agree with its engine: a rollover that lapsed unspent before a later reset removed it is booked as expired", () => {

@@ -437,6 +437,17 @@ export const simulate = (input: AtmSimulateInput): AtmSimulation => {
 		const { command: _command, ...decided } =
 			decision.mutation as unknown as Record<string, unknown>;
 		const candidateChanges = decision.mutation.changes as readonly unknown[];
+		// What the command was (a refund, a settling as forfeited, the reason of an adjustment, the units a lock held) is on
+		// some of its events and not on the others: read it from the group, or an event of the group would be made again as
+		// if the command were another (a release beside a forfeit would bring a spend with it).
+		const fromGroup = <T>(read: (e: AtmEvent) => T | undefined) =>
+			group.map(read).find((value) => value !== undefined);
+		const settleAs = group.some((e) => e.event_type === "credit.forfeited")
+			? "forfeited"
+			: "spent";
+		const refunded = group.some((e) => e.event_type === "credit.refunded");
+		const reason = fromGroup((e) => e.payload.reason as string | undefined);
+		const held = fromGroup((e) => e.payload.held as number | undefined);
 		for (const e of group) {
 			if (e.event_type.startsWith("plan.")) {
 				exact.set(e.idem, {
@@ -465,7 +476,14 @@ export const simulate = (input: AtmSimulateInput): AtmSimulation => {
 			const context = contextFromEvent(e, decision.before);
 			const derived = mutationToEvents({
 				mutation: decision.mutation as never,
-				context: { ...context, slice: slice ?? undefined },
+				context: {
+					...context,
+					settleAs,
+					as: refunded ? "refunded" : undefined,
+					reason: context.reason ?? reason,
+					held: context.held ?? held,
+					slice: slice ?? undefined,
+				},
 			});
 			const match = derived.find((d) => d.idem === e.idem);
 			if (match) exact.set(match.idem, match);
