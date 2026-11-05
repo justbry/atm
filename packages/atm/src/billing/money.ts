@@ -45,7 +45,7 @@ const skippedNonUsd = ({
 	labels,
 	booker,
 }: {
-	kind: "invoice" | "refund" | "payout";
+	kind: "invoice" | "refund" | "payout" | "dispute";
 	id: string;
 	amount: number;
 	currency: string;
@@ -289,8 +289,8 @@ export const payoutEvents = ({
  * Won, the amount comes back and the fee does not: the recorded won dispute reverses `amount` with a fee of 0 and no
  * transaction gives the dispute fee back. Lost, `dispute.closed` has no postings.
  *
- * Nothing for a dispute with no withdrawal (an inquiry, `warning_*`: Stripe takes nothing from the balance), for one with
- * no amount, or in another currency.
+ * Nothing for a dispute with no withdrawal (an inquiry, `warning_*`: Stripe takes nothing from the balance, so there is
+ * no money line to leave out) or with no amount. One in another currency that did move money makes only a `money.skipped`.
  */
 export const disputeEvents = ({
 	dispute,
@@ -312,10 +312,26 @@ export const disputeEvents = ({
 		amount <= 0 ||
 		fee === undefined ||
 		withdrawn === undefined ||
-		withdrawn >= 0 ||
-		(dispute.currency ?? USD) !== USD
+		withdrawn >= 0
 	)
 		return [];
+	// One marker for the dispute, whichever of its events comes (idem `stripe:<dispute id>:non_usd`, dated like the opening
+	// line): the closing makes it again and the outbox drops it. The closing line is not made either: a lost one has no
+	// postings and a won one would reverse an opening that was never booked.
+	const currency = dispute.currency ?? USD;
+	if (currency !== USD)
+		return [
+			skippedNonUsd({
+				kind: "dispute",
+				id: dispute.id,
+				amount,
+				currency,
+				at: dispute.withdrawnAt ?? dispute.openedAt ?? dispute.at,
+				key: holder.customerId,
+				labels,
+				booker,
+			}),
+		];
 	const opened = ledgerEvent({
 		type: "payment.disputed",
 		school: booker.school,
