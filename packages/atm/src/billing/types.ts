@@ -1,6 +1,7 @@
 /** The billing types live in ../types.js (the public declarations); modules import them from here. */
 export type {
 	AddonEvery,
+	AtmSubject,
 	BillingDispute,
 	BillingFact,
 	BillingInvoice,
@@ -47,6 +48,7 @@ export type {
 	RowTable,
 	StripeOp,
 	SubjectRows,
+	SubscriptionEndInput,
 	SubscriptionFact,
 	SubscriptionStatus,
 	TierPrice,

@@ -10,15 +10,19 @@ import {
 	invoiceToCommands,
 	menuCatalogRows,
 	refundToCommands,
+	subscriptionEndedToCommands,
 } from "../src/billing/grants.js";
 import { DEFAULT_POLICY } from "../src/billing/policy.js";
+import { rowsFromState, subjectFromRows } from "../src/billing/rows.js";
 import type {
 	BillingDispute,
 	BillingInvoice,
 	BillingPolicy,
 	BillingRefund,
 	Menu,
+	SubscriptionFact,
 } from "../src/billing/types.js";
+import { mutationToEvents } from "../src/ledger/postings.js";
 import { balancesOf } from "../src/ledger/replay.js";
 import { runOnState, toCatalog } from "../src/ledger/run.js";
 
@@ -75,7 +79,7 @@ const world = (policy: BillingPolicy = DEFAULT_POLICY) => {
 				policy,
 				state: grants,
 				now,
-				available: w.rows(),
+				subject: w.subject(),
 				...V,
 			});
 			grants = r.state;
@@ -88,7 +92,36 @@ const world = (policy: BillingPolicy = DEFAULT_POLICY) => {
 				policy,
 				state: grants,
 				now,
-				available: w.rows(),
+				subject: w.subject(),
+				...V,
+			});
+			grants = r.state;
+			run(r.commands);
+			return r;
+		},
+		/** The engine subject as the family service would build it from its stored rows. */
+		subject() {
+			if (!engine) return null;
+			return subjectFromRows({
+				identity: {
+					orgId: "sch_vol",
+					env: "live",
+					customerId: HOLDER,
+					entityId: null,
+				},
+				revision: 0,
+				rows: rowsFromState(engine),
+				catalog: menuCatalogRows({ menu, school: "sch_vol" }),
+			});
+		},
+		end(fact: SubscriptionFact, now = fact.at) {
+			const r = subscriptionEndedToCommands({
+				subscription: fact,
+				menu,
+				policy,
+				state: grants,
+				subject: w.subject(),
+				now,
 				...V,
 			});
 			grants = r.state;
@@ -211,7 +244,10 @@ describe("renewal", () => {
 		const w = world();
 		w.invoice(invoice("inv-create-s2"));
 		const r = w.invoice(invoice("inv-cycle-s2-feb"));
-		expect(r.commands.map((c) => c.type)).toEqual(["reset"]);
+		expect(r.commands.map((c) => c.type)).toEqual([
+			"reset",
+			"applyBillingPlan",
+		]);
 		expect(w.avail(T1 + 1000)).toBe(4);
 		expect(w.row(S2)?.next_reset_at).toBe(T2);
 		const roll = w.engine.rollovers;
@@ -316,7 +352,10 @@ describe("upgrade and downgrade", () => {
 		expect(r.commands.some((c) => c.type === "updateBalance")).toBe(false);
 		expect(w.avail(t)).toBe(2);
 		const feb = w.invoice(invoice("inv-cycle-s1-feb"));
-		expect(feb.commands.map((c) => c.type)).toEqual(["reset"]);
+		expect(feb.commands.map((c) => c.type)).toEqual([
+			"reset",
+			"applyBillingPlan",
+		]);
 		expect(w.row(S2)?.balance).toBe(1);
 		// the kept sessions roll over, capped by the new tier's max of 1
 		expect(w.rollovers(T1 + 1000).reduce((n, x) => n + x.balance, 0)).toBe(1);
@@ -328,6 +367,7 @@ describe("upgrade and downgrade", () => {
 		expect(r.commands.map((c) => c.type)).toEqual([
 			"applyBillingPlan",
 			"reset",
+			"applyBillingPlan",
 		]);
 		expect(r.state.tierId).toBe("sparkle-1");
 		expect(w.row(S2)?.balance).toBe(1);
@@ -392,11 +432,80 @@ describe("refunds and disputes", () => {
 		expect(w.dispute(load("dispute-lost")).commands).toEqual([]);
 	});
 
-	test("credits already carried into a later cycle are not touched by a refund of the older invoice", () => {
+	test("pay, reset with rollover, refund the first invoice: its leftovers go too", () => {
 		const w = world();
 		w.invoice(invoice("inv-create-s2"));
 		w.invoice(invoice("inv-cycle-s2-feb"));
-		expect(w.refund(refund).commands).toEqual([]);
+		// 2 refilled by the second invoice + 2 carried over from the first
+		expect(w.avail(T1 + 1000)).toBe(4);
+		const r = w.refund(refund);
+		expect(r.commands).toHaveLength(1);
+		expect(w.avail(T1 + 1000)).toBe(2);
+		expect(w.row(S2)?.balance).toBe(2);
+		expect(w.engine.rollovers.reduce((n, x) => n + x.balance, 0)).toBe(0);
+	});
+
+	test("the cut books as one balanced credit.adjusted for what was taken back", () => {
+		const w = world();
+		w.invoice(invoice("inv-create-s2"));
+		w.invoice(invoice("inv-cycle-s2-feb"));
+		const before = w.engine;
+		const r = refundToCommands({
+			refund,
+			policy: DEFAULT_POLICY,
+			state: w.grants,
+			subject: w.subject(),
+			now: refund.at,
+			...V,
+		});
+		const m = runOnState({
+			state: before,
+			catalog,
+			command: r.commands[0] as GrantCommand,
+		});
+		const events = mutationToEvents({
+			mutation: m.mutation as never,
+			context: {
+				school: "sch_vol",
+				tz: "UTC",
+				feature: "visit",
+				reason: "refund",
+				before: before as never,
+			},
+		});
+		expect(events.map((e) => e.event_type)).toEqual(["credit.adjusted"]);
+		const sum = (events[0]?.postings ?? []).reduce(
+			(n, p) => n + Number(p.amount),
+			0,
+		);
+		expect(sum).toBe(0);
+		expect(events[0]?.payload).toMatchObject({ mutation: expect.anything() });
+	});
+
+	test("a refund of the older invoice cuts only what it granted: the newer invoice's refill stays", () => {
+		const w = world();
+		w.invoice(invoice("inv-create-s2"));
+		w.invoice(invoice("inv-cycle-s2-feb"));
+		w.spend(S2, 1, T1 + 2000); // draws the carried-over visit first
+		expect(w.avail(T1 + 3000)).toBe(3);
+		w.refund(refund);
+		expect(w.avail(T1 + 3000)).toBe(2);
+		expect(w.row(S2)?.balance).toBe(2);
+	});
+
+	test("no sequence of refunds and disputes drives a balance below zero", () => {
+		const w = world();
+		w.invoice(invoice("inv-create-s2"));
+		w.invoice(invoice("inv-cycle-s2-feb"));
+		w.spend(S2, 2, T1 + 2000);
+		w.spend(S2, 2, T1 + 2001);
+		w.refund(refund);
+		w.dispute(load("dispute-lost"));
+		for (const [id, balance] of Object.entries(w.rows())) {
+			expect([id, balance >= 0]).toEqual([id, true]);
+		}
+		for (const roll of w.engine.rollovers)
+			expect(roll.balance).toBeGreaterThanOrEqual(0);
 	});
 });
 
@@ -480,6 +589,259 @@ describe("determinism", () => {
 			now: 1,
 			...V,
 		});
-		expect(r.commands.map((c) => c.type)).toEqual(["reset"]);
+		expect(r.commands.map((c) => c.type)).toEqual([
+			"reset",
+			"applyBillingPlan",
+		]);
+	});
+});
+
+describe("cancellation", () => {
+	const ended = (over: Partial<SubscriptionFact> = {}): SubscriptionFact => ({
+		source: {
+			eventId: "evt_sub_del_1",
+			mapping: "stripe-2026-10-28@1",
+			stripeApiVersion: "2026-10-28",
+		},
+		id: "sub_1",
+		customerId: "cus_1",
+		status: "canceled",
+		tierId: "sparkle-2",
+		interval: "month",
+		currentPeriodStart: D("2026-01-15T18:00:00Z"),
+		currentPeriodEnd: T1,
+		cancelAtPeriodEnd: false,
+		at: D("2026-01-20T00:00:00Z"),
+		metadata: {},
+		...over,
+	});
+
+	test("the last cycle's unused visits keep their life, then lapse with the rollover window", () => {
+		const w = world();
+		w.invoice(invoice("inv-create-s2"));
+		const r = w.end(ended());
+		expect(r.commands.map((c) => c.type)).toEqual(["applyBillingPlan"]);
+		expect(w.avail(D("2026-01-21T00:00:00Z"))).toBe(2); // not gone at the cancel
+		expect(w.avail(T1 + 1000)).toBe(2); // still usable through the cycle that was paid for
+		expect(w.row(S2)?.next_reset_at).toBeNull();
+		const lapse = addUtcMonths(T1, 1);
+		expect(w.row(S2)?.expires_at).toBe(lapse);
+		expect(w.avail(lapse - 1)).toBe(2);
+		expect(w.avail(lapse + 1)).toBe(0);
+	});
+
+	test("visits used before the cancel stay used", () => {
+		const w = world();
+		w.invoice(invoice("inv-create-s2"));
+		w.spend(S2, 1, D("2026-01-16T00:00:00Z"));
+		w.end(ended());
+		expect(w.avail(D("2026-01-21T00:00:00Z"))).toBe(1);
+		expect(w.avail(addUtcMonths(T1, 1) + 1)).toBe(0);
+	});
+
+	test("nothing refills after the cancel, and a late renewal invoice grants nothing", () => {
+		const w = world();
+		w.invoice(invoice("inv-create-s2"));
+		w.end(ended());
+		const late = w.invoice(invoice("inv-cycle-s2-feb"));
+		expect(late.commands).toEqual([]);
+		expect(w.avail(T1 + 1000)).toBe(2);
+	});
+
+	test("after a renewal the carried-over visits keep their own expiry and the refill lapses a month after its cycle", () => {
+		const w = world();
+		w.invoice(invoice("inv-create-s2"));
+		w.invoice(invoice("inv-cycle-s2-feb"));
+		w.end(ended({ at: D("2026-02-20T00:00:00Z"), currentPeriodEnd: T2 }));
+		expect(w.avail(D("2026-02-21T00:00:00Z"))).toBe(4);
+		expect(w.avail(addUtcMonths(T1, 1) + 1)).toBe(2);
+		expect(w.avail(addUtcMonths(T2, 1) + 1)).toBe(0);
+	});
+
+	test("an end replayed, for another subscription, or not a cancel decides nothing", () => {
+		const w = world();
+		w.invoice(invoice("inv-create-s2"));
+		expect(w.end(ended({ status: "active" })).commands).toEqual([]);
+		expect(w.end(ended({ id: "sub_other" })).commands).toEqual([]);
+		expect(w.end(ended()).commands).toHaveLength(1);
+		expect(w.end(ended()).commands).toEqual([]);
+	});
+
+	test("a yearly grant on a monthly plan lapses at its own reset date", () => {
+		const w = world();
+		w.invoice(invoice("inv-create-s4"));
+		w.end(ended({ tierId: "sparkle-4" }));
+		const retreatAt = D("2027-01-15T18:00:00Z");
+		expect(w.avail(retreatAt - 1, "retreat")).toBe(1);
+		expect(w.avail(addUtcMonths(retreatAt, 1) + 1, "retreat")).toBe(0);
+	});
+});
+
+describe("plan moves that outlive their rows", () => {
+	const reissue = (
+		inv: BillingInvoice,
+		id: string,
+		over: Partial<BillingInvoice> = {},
+	): BillingInvoice => ({
+		...inv,
+		id,
+		source: { ...inv.source, eventId: `evt_${id}` },
+		...over,
+	});
+
+	test("a downgrade that drops a feature and an upgrade that brings it back revive the kept row instead of inserting it twice", () => {
+		const w = world();
+		w.invoice(invoice("inv-create-s4"));
+		expect(w.avail(T1, "retreat")).toBe(1);
+		// renewal at sparkle-2, which has no retreat: the row stops refilling and keeps its session
+		w.invoice(reissue(invoice("inv-cycle-s2-feb"), "in_down"));
+		expect(w.grants.retired).toEqual({ ce_tier_retreat_year: 1 });
+		expect(w.grants.rows.ce_tier_retreat_year).toBeUndefined();
+		expect(w.avail(T1 + 1000, "retreat")).toBe(1);
+		// mid-cycle back up to sparkle-4
+		w.invoice(reissue(invoice("inv-upgrade-s2-s4-mid"), "in_up"));
+		expect(w.grants.retired).toEqual({});
+		expect(w.grants.rows.ce_tier_retreat_year).toBe(2);
+		expect(w.avail(T1 + 2000, "retreat")).toBeGreaterThanOrEqual(1);
+	});
+
+	test("the same on the renewal itself", () => {
+		const w = world();
+		w.invoice(invoice("inv-create-s4"));
+		w.invoice(reissue(invoice("inv-cycle-s2-feb"), "in_down"));
+		const base = invoice("inv-cycle-s2-feb");
+		w.invoice(
+			reissue(base, "in_back", {
+				periodStart: T2,
+				periodEnd: addUtcMonths(T2, 1),
+				lines: [
+					{
+						...(base.lines[0] as BillingInvoice["lines"][number]),
+						tierId: "sparkle-4",
+						amount: 52000,
+					},
+				],
+			}),
+		);
+		expect(w.grants.retired).toEqual({});
+		expect(w.avail(T2 + 1000, "retreat")).toBeGreaterThanOrEqual(1);
+	});
+
+	test("a row the plan moved off lapses when the subscription ends, as its old tier's rollover would", () => {
+		const w = world();
+		w.invoice(invoice("inv-create-s4"));
+		w.invoice(reissue(invoice("inv-cycle-s2-feb"), "in_down"));
+		expect(w.avail(D("2027-06-01T00:00:00Z"), "retreat")).toBe(1);
+		w.end({
+			source: {
+				eventId: "evt_sub_del",
+				mapping: "stripe-2026-10-28@1",
+				stripeApiVersion: "2026-10-28",
+			},
+			id: "sub_1",
+			customerId: "cus_1",
+			status: "canceled",
+			tierId: "sparkle-2",
+			interval: "month",
+			currentPeriodStart: T1,
+			currentPeriodEnd: T2,
+			cancelAtPeriodEnd: false,
+			at: T1 + 86_400_000,
+			metadata: {},
+		});
+		expect(w.avail(T2 - 1, "retreat")).toBe(1);
+		expect(w.avail(T2 + 1, "retreat")).toBe(0);
+	});
+
+	test("a refund of an invoice that granted nothing (a dollar gift) is marked once, whenever the family gets credits", () => {
+		const w = world();
+		w.invoice(invoice("inv-gift-dollars"));
+		expect(w.grants.holder).toEqual({ orgId: "sch_vol", customerId: HOLDER });
+		expect(w.grants.identity).toBeNull();
+		const refund = load<BillingRefund>("refund-full");
+		const gift = { ...refund, invoiceId: "in_gd" };
+		expect(w.refund(gift).commands).toEqual([]);
+		expect(w.grants.invoices.in_gd?.removed).toBe(true);
+		w.invoice(invoice("inv-create-s2"));
+		const before = JSON.stringify(w.grants);
+		w.refund(gift);
+		expect(JSON.stringify(w.grants)).toBe(before);
+	});
+
+	test("a second subscription for a family whose first ended is refused, not half-applied", () => {
+		const w = world();
+		w.invoice(invoice("inv-create-s2"));
+		w.end({
+			source: {
+				eventId: "evt_sub_del",
+				mapping: "stripe-2026-10-28@1",
+				stripeApiVersion: "2026-10-28",
+			},
+			id: "sub_1",
+			customerId: "cus_1",
+			status: "canceled",
+			tierId: "sparkle-2",
+			interval: "month",
+			currentPeriodStart: T1,
+			currentPeriodEnd: T2,
+			cancelAtPeriodEnd: false,
+			at: T1,
+			metadata: {},
+		});
+		expect(() =>
+			w.invoice(
+				reissue(invoice("inv-create-s2"), "in_new", {
+					subscriptionId: "sub_2",
+				}),
+			),
+		).toThrow(/second subscription/);
+	});
+});
+
+describe("cycles anchored on a month-end", () => {
+	const create = invoice("inv-create-s2");
+	const cycle = invoice("inv-cycle-s2-feb");
+	/** An invoice for the cycle `from` to `to`; its lines carry the same period, as Stripe's do. */
+	const at = (
+		base: BillingInvoice,
+		id: string,
+		from: string,
+		to: string,
+	): BillingInvoice => ({
+		...base,
+		id,
+		source: { ...base.source, eventId: `evt_${id}` },
+		periodStart: D(from),
+		periodEnd: D(to),
+		paidAt: D(from) + 5000,
+		lines: base.lines.map((l) => ({
+			...l,
+			periodStart: D(from),
+			periodEnd: D(to),
+		})),
+	});
+	const history = () => {
+		const w = world();
+		w.invoice(at(create, "i1", "2026-01-31T18:00:00Z", "2026-02-28T18:00:00Z"));
+		w.invoice(at(cycle, "i2", "2026-02-28T18:00:00Z", "2026-03-31T18:00:00Z"));
+		w.invoice(at(cycle, "i3", "2026-03-31T18:00:00Z", "2026-04-30T18:00:00Z"));
+		return w;
+	};
+
+	test("a refreshed row's next reset is Stripe's cycle end, not the engine's step from the last one", () => {
+		const w = history();
+		// the engine alone would step Feb 28 -> Mar 28 -> Apr 28
+		expect(w.row(S2)?.next_reset_at).toBe(D("2026-04-30T18:00:00Z"));
+	});
+
+	test("the leftovers an older invoice carried into a later cycle are found again and taken back", () => {
+		const w = history();
+		const refund = load<BillingRefund>("refund-full");
+		const before = w.avail(D("2026-04-30T17:00:00Z"));
+		w.refund({ ...refund, invoiceId: "i2", at: D("2026-04-10T00:00:00Z") });
+		expect(w.avail(D("2026-04-30T17:00:00Z"))).toBeLessThan(before);
+		expect(
+			w.engine.rollovers.filter((r) => r.balance > 0 && r.expires_at !== null),
+		).toEqual([]);
 	});
 });
