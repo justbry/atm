@@ -1452,7 +1452,8 @@ export type WebhookDeps = {
 	/**
 	 * The Stripe mode this endpoint receives, part of the subject key it writes (`<school>|<env>|family:<id>`). Default
 	 * `"live"`. A school with both a test and a live endpoint passes it so the two do not share a subject; build the
-	 * context's catalog with the same `env`. Anything else throws.
+	 * context's catalog with the same `env`. Anything else throws. A test-mode endpoint must pass `"test"`: an event whose
+	 * boolean `livemode` disagrees with `env` is refused with 422 `livemode_mismatch`, before any claim, and writes nothing.
 	 */
 	env?: AtmEnv;
 	/**
@@ -1481,8 +1482,9 @@ export type WebhookRequest = {
 
 /**
  * What the handler did with a delivery; `handleStripeWebhook`'s header lists the status for each. Among them:
- * `school_mismatch` (422) is an event for a school other than `WebhookDeps.schoolId`; `ambiguous_payment` (422) is a
- * refund or dispute whose payment intent and charge were indexed under different subjects.
+ * `school_mismatch` (422) is an event for a school other than `WebhookDeps.schoolId`; `livemode_mismatch` (422) is an
+ * event whose `livemode` disagrees with `WebhookDeps.env`; `ambiguous_payment` (422) is a refund or dispute whose
+ * payment intent and charge were indexed under different subjects.
  */
 export type WebhookOutcome =
 	| "applied"
@@ -1495,6 +1497,7 @@ export type WebhookOutcome =
 	| "unmatched_invoice"
 	| "unknown_school"
 	| "school_mismatch"
+	| "livemode_mismatch"
 	| "ambiguous_payment"
 	| "stale_revision"
 	| "refused";
@@ -1512,6 +1515,64 @@ export type WebhookResponse = {
 		events?: number;
 		wroteRows?: boolean;
 	};
+};
+
+// ---- Shipping the outbox ----
+
+/** The part of a `ledger_outbox` row a batch is made of. */
+export type OutboxRow = {
+	id: string;
+	idem: string;
+	/** The event's school-local date, `YYYY-MM-DD`: the partition its batch goes to. */
+	date: string;
+	/** The event's canonical serialized line (no newline). Shipped as it is. */
+	body: string;
+};
+
+/** One object to put: a day's unshipped events, in id order, one line each. The key and the bytes depend on the rows alone. */
+export type OutboxBatch = {
+	/** `schools/<school>/events/date=<date>/batch-<first id>-<16 hex of sha256>.jsonl` */
+	key: string;
+	date: string;
+	/** The ids in the object, ascending. */
+	ids: string[];
+	/** The object's text: the bodies joined by newlines, with a final newline. */
+	text: string;
+	sha256: string;
+};
+
+export type ShipOutboxInput = {
+	/** The database the handler writes (`ledger_outbox`). */
+	db: SqlDatabase;
+	/** Where the batches go. Any `Store` works; only the create-only put and its equal-bytes check are used. */
+	store: Store;
+	school: string;
+	/** Stamps `shipped_at` (milliseconds, as the handler stamps its claims). */
+	nowMs: () => number;
+};
+
+export type ShippedBatch = {
+	key: string;
+	date: string;
+	/** The rows this call marked shipped (fewer than the batch holds when another shipper marked some first). */
+	events: number;
+	/** `created`: this call wrote the object. `existing`: an equal one was already there (an earlier try or another shipper). */
+	status: "created" | "existing";
+};
+
+/** A batch whose key already holds different bytes, or whose day already has a `day.jsonl`. Nothing was written and its rows stay unshipped. */
+export type ShipConflict = {
+	key: string;
+	date: string;
+	ids: string[];
+	message: string;
+};
+
+export type ShipOutboxResult = {
+	batches: ShippedBatch[];
+	conflicts: ShipConflict[];
+	/** The rows this call marked shipped. */
+	shipped: number;
 };
 
 /** Thrown by `replayEvents` where the engine disagrees with the log; `eventId` names the event. */

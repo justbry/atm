@@ -18,6 +18,7 @@ import { ULID_PATTERN } from "../ledger/ids.js";
 import { ledgerEvent, mutationToEvents } from "../ledger/postings.js";
 import { runOnState, toCatalog } from "../ledger/run.js";
 import type {
+	AtmEnv,
 	AtmEvent,
 	AtmIdentity,
 	BillingDispute,
@@ -123,6 +124,8 @@ const resolve = (
 
 type Rules = {
 	input: StripeEventInput;
+	/** The input's `env`, resolved once at `handleStripeEvent`. */
+	env: AtmEnv;
 	/** Whose credits these are: the subject's holder, else the one the event names. */
 	holder: { orgId: string; customerId: string };
 	grants: GrantsState;
@@ -164,7 +167,7 @@ const unlinkedInvoice = (
 const decide = (
 	target: string,
 	fact: unknown,
-	{ input, grants, holder, subject }: Rules,
+	{ input, env, grants, holder, subject }: Rules,
 ): Decision | null => {
 	const common = {
 		menu: input.menu,
@@ -174,7 +177,7 @@ const decide = (
 		now: input.now,
 		menuVersion: input.menuVersion,
 		policyVersion: input.policyVersion,
-		env: input.env,
+		env,
 	};
 	switch (target) {
 		case "BillingInvoice": {
@@ -488,8 +491,9 @@ const sameJson = (a: unknown, b: unknown) =>
 export const handleStripeEvent = (
 	input: StripeEventInput,
 ): StripeEventResult => {
-	// Thrown, not refused: a bad env is the caller's code, not an event to retry.
-	resolveEnv(input.env);
+	// Thrown, not refused: a bad env is the caller's code, not an event to retry. Resolved here once; the helpers below
+	// take the `AtmEnv`, never the raw option.
+	const env = resolveEnv(input.env);
 	// Every decision event names its input as `cause`, and the ledger's envelope takes only a ULID there.
 	if (!ULID.test(input.eventId))
 		return refuse(
@@ -511,7 +515,7 @@ export const handleStripeEvent = (
 		return refuse("bad_event", describeNormalizeError(normalized.error));
 
 	try {
-		return decideAndRun(input, mapping.value.target, normalized.value);
+		return decideAndRun(input, env, mapping.value.target, normalized.value);
 	} catch (error) {
 		return refuse(
 			"rejected",
@@ -522,6 +526,7 @@ export const handleStripeEvent = (
 
 const decideAndRun = (
 	input: StripeEventInput,
+	env: AtmEnv,
 	target: string,
 	fact: unknown,
 ): StripeEventResult => {
@@ -541,7 +546,7 @@ const decideAndRun = (
 	if (!holder) return nothing();
 	const identity: AtmIdentity = {
 		orgId: holder.orgId,
-		env: resolveEnv(input.env),
+		env,
 		customerId: holder.customerId,
 		entityId: null,
 	};
@@ -556,7 +561,13 @@ const decideAndRun = (
 			})
 		: null;
 
-	const decision = decide(target, fact, { input, grants, holder, subject });
+	const decision = decide(target, fact, {
+		input,
+		env,
+		grants,
+		holder,
+		subject,
+	});
 	if (decision === null) return nothing();
 	if (!decision.ok) return decision.refusal;
 	const { result } = decision;

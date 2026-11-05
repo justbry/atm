@@ -64,8 +64,34 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # The journal tests that call hledger skip themselves when it is not installed; the ones that spawn atm's CLI take
-      # about 0.6 s per spawn, so the default 5 s test timeout is too short on a slow box.
+      # The journal and report tests that call hledger skip themselves when it is not installed, which on a runner means
+      # they never run: so the version their golden CSV was made with is installed here, from the release, checked
+      # against the sha256 GitHub publishes for it. A box that already has this version keeps it.
+      - name: Install hledger
+        env:
+          HLEDGER_VERSION: "1.52.1"
+          HLEDGER_SHA256: 55bff5785d7528b939e4642a21d3c12a75a8095fedc973340b31dfd7367dd7a2
+        run: |
+          if [ "$(uname -s)-$(uname -m)" != "Linux-x86_64" ]; then
+            echo "::warning::hledger $HLEDGER_VERSION is installed for Linux x86_64 only; the hledger tests will skip here"
+            exit 0
+          fi
+          if command -v hledger >/dev/null && [ "$(hledger --version | awk '{print $2}' | tr -d ,)" = "$HLEDGER_VERSION" ]; then
+            hledger --version
+            exit 0
+          fi
+          dir="$RUNNER_TEMP/hledger"
+          mkdir -p "$dir"
+          curl --fail --silent --show-error --location --retry 3 \
+            --output "$dir/hledger.tar.gz" \
+            "https://github.com/simonmichael/hledger/releases/download/$HLEDGER_VERSION/hledger-linux-x64.tar.gz"
+          echo "$HLEDGER_SHA256  $dir/hledger.tar.gz" | sha256sum --check -
+          tar -xzf "$dir/hledger.tar.gz" -C "$dir" hledger
+          echo "$dir" >> "$GITHUB_PATH"
+          "$dir/hledger" --version
+
+      # The journal tests that spawn atm's CLI take about 0.6 s per spawn, so the default 5 s test timeout is too short on
+      # a slow box.
       - name: Test
         working-directory: packages/atm
         run: bun test --timeout 60000 tests

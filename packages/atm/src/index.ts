@@ -29,6 +29,10 @@ import {
 } from "./ledger/replay.js";
 
 import { runOnState as runOnStateImpl, toCatalog } from "./ledger/run.js";
+import {
+	planOutbox as planOutboxImpl,
+	shipOutbox as shipOutboxImpl,
+} from "./ledger/ship.js";
 import { validateEvent as validateEventImpl } from "./ledger/validate.js";
 import * as folderStore from "./store/folder-store.js";
 import * as r2Store from "./store/r2-store.js";
@@ -84,6 +88,8 @@ import type {
 	OneTimeCheckoutParams,
 	OneTimeCheckoutParamsWithPrices,
 	OneTimeCheckoutResult,
+	OutboxBatch,
+	OutboxRow,
 	PortalConfigIds,
 	ProrationLine,
 	ProrationPair,
@@ -93,6 +99,8 @@ import type {
 	ReplayGapErrorConstructor,
 	RowChanges,
 	RowTable,
+	ShipOutboxInput,
+	ShipOutboxResult,
 	SignatureVerdict,
 	StaleRevisionConstructor,
 	Store,
@@ -181,7 +189,13 @@ export const lapseEvent = (input: {
 /**
  * The `credit.depleted` events (payload `cause: "expired"`) for a feature whose credits ran out by the clock: its total
  * over every plan goes from above 0 to 0 or below at an instant rows lapsed. One event per instant, none when other
- * credits remain, no `credit.low`. Opt-in by calling it; `lapseEvent` is unchanged. Give it the state `lapsedRows` read.
+ * credits remain, no `credit.low`. Opt-in by calling it; `lapseEvent` is unchanged.
+ *
+ * `drawnAfter(instantMs)` is required: the units of the feature the holder drew after that instant and up to `atMs`,
+ * from the cron's ledger or journal (draws only). The state holds balances as of now, so a late run is judged with those
+ * draws added back; `() => 0` is right only when `state` is the state `lapsedRows` read, as of the lapse. `revision` is
+ * the one you give the `credit.expired` events of the instant (the highest, if they differ): the alert shares their time
+ * and is booked at `revision + 1`, so every ordering by id (replay, journal, month files) puts it after them.
  */
 export const lapseAlertEvents = ({
 	state,
@@ -191,6 +205,7 @@ export const lapseAlertEvents = ({
 	featureOf: (internalFeatureId: string) => string | undefined;
 	feature: string;
 	atMs: number;
+	drawnAfter: (instantMs: number) => number;
 	key: string;
 	school: string;
 	tz: string;
@@ -636,3 +651,27 @@ export const handleStripeWebhook = (
 	deps: WebhookDeps,
 	request: WebhookRequest,
 ): WebhookResponse => webhook.handleStripeWebhook(deps, request);
+
+// ---- The shipper: the outbox to the log ----
+
+/**
+ * The plan of a shipment: the unshipped rows of one school as one batch per event date, each object's key and bytes a
+ * pure function of its rows (the bodies as they are, in id order; the key holds the first id and a prefix of the text's
+ * sha256), so a retry or a second shipper plans the same object. Throws on a bad date, an id with a `/`, or a body that is not one line of JSON with the row's own `id`, `idem` and `date`.
+ */
+export const planOutbox = (input: {
+	school: string;
+	rows: readonly OutboxRow[];
+}): OutboxBatch[] => planOutboxImpl(input);
+
+/**
+ * The shipper, for any `Store`: puts the school's unshipped `ledger_outbox` rows as `schools/<school>/events/date=<day>/
+ * batch-*.jsonl` (create-only; an equal object already there counts as shipped, different bytes is reported in
+ * `conflicts` and the rows stay unshipped; so is a day that already has a `day.jsonl`, which the reader would not read
+ * a batch beside), then marks the rows shipped. Run it after the handler, as often as you like: a rerun, a crash between
+ * put and mark, and a second shipper all end the same, unless new rows for that day arrived in between (then a second,
+ * overlapping batch is put and the reader drops the repeated events by `idem`). It does not combine batches into
+ * `day.jsonl`, write a manifest or know R2: those are not built. See the README.
+ */
+export const shipOutbox = (input: ShipOutboxInput): Promise<ShipOutboxResult> =>
+	shipOutboxImpl(input);
