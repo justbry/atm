@@ -929,3 +929,83 @@ export interface StaleRevisionConstructor {
 	): StaleRevisionError;
 	readonly prototype: StaleRevisionError;
 }
+
+// ---- Object store ----
+
+/** A key and what a LIST knows about it. LIST returns no custom metadata, so no sha256 here. */
+export type StoreObject = {
+	key: string;
+	size: number;
+	etag: string;
+};
+
+/** What HEAD knows. `sha256` is null for an object written without `x-amz-meta-sha256` (by hand, or by a school). */
+export type StoreHead = StoreObject & {
+	sha256: string | null;
+};
+
+/** A GET. On a range GET `body` holds only the range and `size` is the object's total size (from `Content-Range`). */
+export type StoreGet = StoreHead & {
+	body: Uint8Array;
+	/** The inclusive byte range `body` covers; absent on a whole-object GET. */
+	range?: { start: number; end: number };
+};
+
+export type ListOptions = {
+	prefix?: string;
+	/** Group keys by this string after the prefix (usually "/"): the groups come back as `prefixes`. */
+	delimiter?: string;
+	/** At most this many keys and prefixes in one page. */
+	maxKeys?: number;
+	/** The `next` of the previous page. */
+	cursor?: string;
+};
+
+export type ListPage = {
+	/** In ascending key order. */
+	objects: StoreObject[];
+	/** Common prefixes (with the delimiter), in ascending order. */
+	prefixes: string[];
+	/** Pass as `cursor` for the next page; null on the last page. */
+	next: string | null;
+};
+
+/** The stored object's identity after a put. */
+export type PutResult = {
+	etag: string;
+	sha256: string;
+};
+
+export type PresignOptions = {
+	/** 1 second to 7 days on R2; an expired URL is refused. */
+	expiresInSeconds: number;
+};
+
+export interface Store {
+	/**
+	 * Create-only put (`If-None-Match: *`). Throws `AlreadyExists` when the key exists (a 412), whatever its bytes: see
+	 * `putOnce` for the caller's rule.
+	 */
+	putIfAbsent(key: string, body: Uint8Array): Promise<PutResult>;
+	/**
+	 * Replace only while the object still has this ETag (`If-Match`). Throws `Stale` when it has another one (a 412), and
+	 * `NotFound` or `Stale` when the key does not exist (AWS and R2 answer 404, SeaweedFS 412).
+	 */
+	putIfMatch(key: string, body: Uint8Array, etag: string): Promise<PutResult>;
+	/** Throws `NotFound`. With `range`, the bytes from `start` to `end` inclusive (to the end when `end` is absent). */
+	get(key: string, range?: { start: number; end?: number }): Promise<StoreGet>;
+	/** Throws `NotFound`. The ETag it returns is one `putIfMatch` accepts. */
+	head(key: string): Promise<StoreHead>;
+	list(options?: ListOptions): Promise<ListPage>;
+	/**
+	 * Delete the object only if its sha256 is the one given: HEAD, compare, then DELETE (R2 documents no conditional
+	 * DELETE, so this guards against a wrong key, not a race). Throws `ShaMismatch` and leaves the object when it
+	 * differs. Returns false when the key is already gone, so a re-run is a no-op.
+	 */
+	delete(key: string, expectedSha256: string): Promise<boolean>;
+	/** A GET URL valid for `expiresInSeconds`. Throws `Unsupported` where the store has no URLs to sign (the folder). */
+	presign(key: string, options: PresignOptions): Promise<string>;
+}
+
+/** What every error a Store throws has in common. Its `name` says which: AlreadyExists, Stale, NotFound, Transient, ShaMismatch, Conflict, Unsupported. */
+export type AtmStoreError = Error & { readonly key: string | null };
