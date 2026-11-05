@@ -29,6 +29,7 @@ Everything on `dev` after the `atm-v0.5.0` tag (`0152d7a1c`).
 | #50 | `5729b4286` | next release, not released | several subscriptions on one customer: what works, what does not (docs) |
 | #52 | `8acc2bbf6` | next release, not released | `reconcile` matches the refunds a handler-made log holds (the nearest equal Stripe refund, not the earliest) |
 | #51 | `5f0a5aad8` | next release, not released | the 0.6.0 release commit: `package.json` 0.6.0 and the upgrade notes (`UPGRADING.md`, "Moving to 0.6.0 from 0.5.0") |
+| (this PR) | not merged | next release, not released | `tests/overage-renewal.test.ts`: a renewal invoice for a holder in overage is refused 422 `rejected` (verified through the handler; docs and one roadmap line, no code change) |
 
 ### Built, with the detail
 
