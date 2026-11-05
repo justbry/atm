@@ -118,7 +118,8 @@ const combinedDayKey = async (
  * Ship: plan the school's unshipped outbox rows, put each batch create-only (`putOnce`: an equal object already there
  * is an earlier try that landed, so success; different bytes is a `ShipConflict`, nothing written and the rows left
  * unshipped for an alert), then mark the batch's rows (`batch_key`, `shipped_at`) in one transaction. The mark only
- * touches rows still unshipped, by id, so a row the handler inserts after the plan is not marked and ships next time.
+ * touches rows still unshipped, by id and body, so a row the handler inserts after the plan (a row of the other env with the
+ * same id too: its body names its env) is not marked and ships next time.
  * A day that already holds a `day.jsonl` is a `ShipConflict` too (nothing put, rows unshipped): the reader keeps only
  * `late-*` beside it, so a `batch-*` there would be marked shipped and never read. A crash between put and mark is
  * repaired by running it again when no row arrived for that day in between (same rows, same key, same bytes, so the
@@ -166,11 +167,12 @@ export const shipOutbox = async ({
 		const shippedAt = nowMs();
 		const marked = db.transaction(() => {
 			let changes = 0;
-			for (const id of batch.ids)
-				changes += db.run(
-					`UPDATE ledger_outbox SET batch_key = ?, shipped_at = ? WHERE school_id = ? AND id = ? AND shipped_at IS NULL`,
-					[batch.key, shippedAt, school, id],
-				).changes;
+			for (const row of rows)
+				if (row.date === batch.date)
+					changes += db.run(
+						`UPDATE ledger_outbox SET batch_key = ?, shipped_at = ? WHERE school_id = ? AND id = ? AND body = ? AND shipped_at IS NULL`,
+						[batch.key, shippedAt, school, row.id, row.body],
+					).changes;
 			return changes;
 		});
 		shipped += marked;

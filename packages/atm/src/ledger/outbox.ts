@@ -3,6 +3,7 @@ import type {
 	SubjectStateMutation,
 } from "@autumn/balance-engine";
 import { resolveEnv } from "../billing/env.js";
+import { assertCurrentSchema } from "../handler/schema.js";
 import type {
 	AtmEnv,
 	AtmEvent,
@@ -32,6 +33,7 @@ export const appendToOutbox = (
 	events: readonly AtmEvent[],
 	env: AtmEnv,
 ): number => {
+	assertCurrentSchema(db);
 	let inserted = 0;
 	for (const event of events)
 		inserted += db.run(
@@ -67,6 +69,7 @@ const refuseReusedCommandId = (
 	db: SqlDatabase,
 	mutation: SubjectStateMutation,
 ): void => {
+	assertCurrentSchema(db);
 	const { id: commandId, revision } = mutation;
 	const { orgId, customerId } = mutation.identity;
 	const held = db.all<{ body: string }>(

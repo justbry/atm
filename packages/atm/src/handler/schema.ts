@@ -143,6 +143,19 @@ export const tablesWithoutEnv = (db: SqlDatabase): string[] =>
 		.map((row) => row.name)
 		.sort();
 
+/**
+ * Throws, naming `migrateHandlerSchema`, when a handler table is from a release that had no `env` key. For the code that
+ * writes these tables (the webhook handler, the family service's outbox calls): without it they fail on the missing column
+ * with an error that does not say what to do. Cheap enough to call on every use.
+ */
+export const assertCurrentSchema = (db: SqlDatabase): void => {
+	const stale = tablesWithoutEnv(db);
+	if (stale.length > 0)
+		throw new Error(
+			`the handler's tables ${stale.join(", ")} have no env column (made by an earlier release): call migrateHandlerSchema(db) once at start, after taking a copy of the database`,
+		);
+};
+
 const migrationsFor = (db: SqlDatabase): TableMigration[] => [
 	// The payment index first: its env is read from the invoice index, which is still in the old shape at this point.
 	{
@@ -237,8 +250,15 @@ export const migrateHandlerSchema = (
 				throw new Error(
 					`migrateHandlerSchema: ${table} had ${before} rows and its copy ${after}; nothing was changed`,
 				);
+			// DROP TABLE takes the table's indexes with it: the ones a caller added (not the keys, which the new definition has)
+			// are made again after the rename.
+			const addedIndexes = db.all<{ sql: string }>(
+				`SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = ? AND sql IS NOT NULL`,
+				[table],
+			);
 			db.exec(`DROP TABLE ${table}`);
 			db.exec(`ALTER TABLE ${next} RENAME TO ${table}`);
+			for (const { sql } of addedIndexes) db.exec(sql);
 			rebuilt.push(table);
 		}
 		return { rebuilt };

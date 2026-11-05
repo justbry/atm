@@ -648,6 +648,98 @@ describe("migrating a database made by the old HANDLER_DDL", () => {
 	});
 });
 
+describe("review of the migration and the shipper", () => {
+	test("an index the caller made on a rebuilt table is made again on the new one", () => {
+		const raw = oldDatabase();
+		raw.exec(`
+			CREATE INDEX ledger_outbox_open ON ledger_outbox (school_id) WHERE shipped_at IS NULL;
+			CREATE INDEX atm_event_claims_open ON atm_event_claims (state, claimed_at);
+			INSERT INTO ledger_outbox VALUES ('sch_vol', 'ev1', 'idem-1', '2026-01-15', '{"id":"ev1"}', NULL, NULL);
+		`);
+		const indexesOf = () =>
+			raw
+				.query(
+					`SELECT name, tbl_name, sql FROM sqlite_master WHERE type = 'index' AND sql IS NOT NULL ORDER BY name`,
+				)
+				.all();
+		const before = indexesOf();
+		expect(before).toHaveLength(2);
+		migrateHandlerSchema(bunSqlite(raw));
+		expect(indexesOf()).toEqual(before);
+		// the partial index is usable: the planner may name it, and the rows are still there
+		expect(
+			(
+				raw.query(`SELECT COUNT(*) AS n FROM ledger_outbox`).get() as {
+					n: number;
+				}
+			).n,
+		).toBe(1);
+	});
+
+	test("a row of the other env that arrives with the same id between the plan and the mark is not marked shipped", async () => {
+		const raw = new Database(":memory:");
+		raw.exec(HANDLER_DDL);
+		const id = "01KF1D0X80000017P7TD9N052W";
+		const bodyOf = (env: string) =>
+			JSON.stringify({ id, idem: "stripe:in_1", date: "2026-01-15", env });
+		const insert = (env: string) =>
+			raw
+				.query(
+					`INSERT INTO ledger_outbox (school_id, env, id, idem, date, body) VALUES (?, ?, ?, 'stripe:in_1', '2026-01-15', ?)`,
+				)
+				.run(SCHOOL, env, id, bodyOf(env));
+		insert("live");
+		const root = await tmp("env-keys-race");
+		const store = new FolderStore({ root });
+		const racing = Object.create(store) as FolderStore;
+		racing.putIfAbsent = async (key, body) => {
+			const result = await store.putIfAbsent(key, body);
+			insert("test");
+			return result;
+		};
+		const first = await shipOutbox({
+			db: bunSqlite(raw),
+			store: racing,
+			school: SCHOOL,
+			nowMs: () => SHIPPED_AT,
+		});
+		expect(first.shipped).toBe(1);
+		expect(
+			raw.query(`SELECT env, shipped_at FROM ledger_outbox ORDER BY env`).all(),
+		).toEqual([
+			{ env: "live", shipped_at: SHIPPED_AT },
+			{ env: "test", shipped_at: null },
+		]);
+		const second = await shipOutbox({
+			db: bunSqlite(raw),
+			store,
+			school: SCHOOL,
+			nowMs: () => SHIPPED_AT,
+		});
+		expect(second.shipped).toBe(1);
+	});
+
+	test("the family service's outbox calls on an old database name the migration too", () => {
+		const raw = oldDatabase();
+		const event = {
+			school: SCHOOL,
+			id: "01KF1D0X80000017P7TD9N052W",
+			idem: "stripe:in_1",
+			date: "2026-01-15",
+		} as unknown as AtmEvent;
+		expect(() => appendToOutbox(bunSqlite(raw), [event], "live")).toThrow(
+			/migrateHandlerSchema/,
+		);
+		expect(
+			(
+				raw.query(`SELECT COUNT(*) AS n FROM ledger_outbox`).get() as {
+					n: number;
+				}
+			).n,
+		).toBe(0);
+	});
+});
+
 describe("the DDL stays portable", () => {
 	test("no trigger and no RAISE, and every statement is IF NOT EXISTS (the family service's schema-portable test reads Litestream's SQLite)", () => {
 		expect(HANDLER_DDL).not.toMatch(/TRIGGER|RAISE/i);

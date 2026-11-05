@@ -140,7 +140,7 @@ import type {
 	RowChanges,
 	StripeEventRefusal,
 } from "../types.js";
-import { tablesWithoutEnv } from "./schema.js";
+import { assertCurrentSchema as assertCurrentTables } from "./schema.js";
 import { verifyStripeSignature } from "./stripe-signature.js";
 import type {
 	SqlDatabase,
@@ -851,11 +851,7 @@ const currentSchemas = new WeakSet<SqlDatabase>();
  */
 const assertCurrentSchema = (db: SqlDatabase): void => {
 	if (currentSchemas.has(db)) return;
-	const stale = tablesWithoutEnv(db);
-	if (stale.length > 0)
-		throw new Error(
-			`the handler's tables ${stale.join(", ")} have no env column (made by an earlier release): call migrateHandlerSchema(db) once at start, after taking a copy of the database`,
-		);
+	assertCurrentTables(db);
 	currentSchemas.add(db);
 };
 
