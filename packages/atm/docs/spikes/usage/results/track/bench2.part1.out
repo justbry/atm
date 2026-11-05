@@ -24,9 +24,9 @@ SQLiteError: database is locked
        code: "SQLITE_BUSY_RECOVERY"
 
       at run (bun:sqlite:318:19)
-      at openDatabase (/Users/jmac/repos/atm/.claude/worktrees/agent-a679a6723a047cebe/packages/atm/tests/spikes/usage-track-harness.ts:272:6)
-      at workerMain (/Users/jmac/repos/atm/.claude/worktrees/agent-a679a6723a047cebe/packages/atm/tests/spikes/usage-track-harness.ts:927:17)
-      at /Users/jmac/repos/atm/.claude/worktrees/agent-a679a6723a047cebe/packages/atm/tests/spikes/usage-track-harness.ts:1087:38
+      at openDatabase (<spike-branch-checkout>/packages/atm/tests/spikes/usage-track-harness.ts:272:6)
+      at workerMain (<spike-branch-checkout>/packages/atm/tests/spikes/usage-track-harness.ts:927:17)
+      at <spike-branch-checkout>/packages/atm/tests/spikes/usage-track-harness.ts:1087:38
 
 Bun v1.4.4 (macOS arm64)
 1041 | 			stderr: "inherit",
@@ -37,6 +37,6 @@ Bun v1.4.4 (macOS arm64)
 1046 | 	for (const child of processes) {
                            ^
 SyntaxError: JSON Parse error: Unexpected EOF
-      at <anonymous> (/Users/jmac/repos/atm/.claude/worktrees/agent-a679a6723a047cebe/packages/atm/tests/spikes/usage-track-harness.ts:1046:21)
+      at <anonymous> (<spike-branch-checkout>/packages/atm/tests/spikes/usage-track-harness.ts:1046:21)
 
 Bun v1.4.4 (macOS arm64)
