@@ -36,17 +36,17 @@
 				"quote_details": null,
 				"subscription_details": {
 					"subscription": "sub_SYNTH_0001",
-					"metadata": {}
+					"metadata": {
+						"b4u_school": "school_synth",
+						"family_id": "fam_SYNTH_0001",
+						"profile_id": "prof_SYNTH_0001",
+						"tier_id": "sparkle",
+						"interval": "month",
+						"menu_version": "1"
+					}
 				}
 			},
-			"metadata": {
-				"b4u_school": "school_synth",
-				"family_id": "fam_SYNTH_0001",
-				"profile_id": "prof_SYNTH_0001",
-				"tier_id": "sparkle",
-				"interval": "month",
-				"menu_version": "1"
-			},
+			"metadata": {},
 			"lines": {
 				"object": "list",
 				"has_more": false,

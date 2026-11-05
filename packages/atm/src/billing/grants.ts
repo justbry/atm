@@ -716,9 +716,22 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 		l.gift ?? addonOf(menu, l.addonId as string).gift ?? null;
 	// A dollar certificate is a coupon the family service issues: it grants no credits.
 	const credited = once.filter((l) => giftOf(l) !== "dollars");
-	// The cycle always anchors on the invoice's period start. The engine refills rows whose reset is strictly before the
-	// command's time, so the reset runs 1 ms after the anchor.
-	const anchorAt = invoice.periodStart + 1;
+	// The service period this invoice pays for. Stripe's own period fields disagree by invoice: a renewal's invoice period
+	// is the PREVIOUS one while its tier line carries the new one, and a first invoice's period is a single instant while
+	// its line carries the real one. So the tier line's period wins; the invoice's is the fallback (manual and gift
+	// invoices, add-on-only invoices, lines without a period). Start and end come from one source: a line with only one of
+	// them would pair, say, the new start with the invoice's end (the previous period's end, the same instant).
+	const periodLine = tierLine ?? upLine;
+	const { periodStart, periodEnd } =
+		periodLine?.periodStart !== undefined && periodLine.periodEnd !== undefined
+			? { periodStart: periodLine.periodStart, periodEnd: periodLine.periodEnd }
+			: invoice;
+	// The cycle always anchors on the period start (not the payment time: a late renewal resets from the start). The engine
+	// refills rows whose reset is strictly before the command's time, so the reset runs 1 ms after the anchor.
+	const anchorAt = periodStart + 1;
+	// A row seeded later than the anchor (an off-cycle add-on bought mid-cycle, seeded at its line's start) is refilled only
+	// by a reset after its seed, so the reset runs at the later of the two.
+	let resetAt = anchorAt;
 	const ops: Op[] = [];
 	let needReset = false;
 	let created = false;
@@ -765,6 +778,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 			if (balance > 0) grantRow(s, balance, cycleEnd);
 		} else {
 			needReset = true;
+			resetAt = Math.max(resetAt, seedAt + 1);
 			// An off-cycle row (a yearly grant on a monthly plan) is refilled by the engine a full interval after its seed date.
 			grantRow(s, full, addUtcMonths(seedAt, s.interval === "year" ? 12 : 1));
 		}
@@ -775,7 +789,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 		const addon = addonOf(menu, addonId);
 		if (addon.price.every === "once") return;
 		const pid = addonProductId(addonId, addon.price.every);
-		const end = line.periodEnd ?? invoice.periodEnd;
+		const end = line.periodEnd ?? periodEnd;
 		ops.push(productOp(addonCp(addonId), pid, who.customerId, now));
 		for (const s of specs) {
 			const full = s.amount * (line.quantity || 1);
@@ -794,7 +808,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 				addonCp(addonId),
 				units,
 				end,
-				invoice.periodStart,
+				line.periodStart ?? periodStart,
 				line.quantity || 1,
 			);
 		}
@@ -813,7 +827,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 	if (isCreate && tierLine) {
 		const tierId = tierLine.tierId as string;
 		const interval = tierLine.interval as Interval;
-		const end = tierLine.periodEnd ?? invoice.periodEnd;
+		const end = periodEnd;
 		created = true;
 		if (state.identity === null)
 			ops.push({
@@ -825,12 +839,12 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 			productOp(TIER_CP, tierProductId(tierId, interval), who.customerId, now),
 		);
 		for (const s of tierSpecs(menu, tierId, interval))
-			insertSpec(s, TIER_CP, s.amount, end, invoice.periodStart);
+			insertSpec(s, TIER_CP, s.amount, end, periodStart);
 		state.tierId = tierId;
 		state.interval = interval;
 		state.subscriptionId = invoice.subscriptionId;
-		state.anchor = invoice.periodStart;
-		state.cycleStart = invoice.periodStart;
+		state.anchor = periodStart;
+		state.cycleStart = periodStart;
 		state.cycleEnd = end;
 		for (const l of recurring) attachAddon(l, "full");
 	} else if (
@@ -840,22 +854,21 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 	) {
 		const tierId = tierLine.tierId as string;
 		const interval = tierLine.interval as Interval;
-		const end = tierLine.periodEnd ?? invoice.periodEnd;
+		const end = periodEnd;
 		if (tierId !== state.tierId || interval !== state.interval) {
 			moveTier({
 				menu,
 				state,
 				to: { tierId, interval },
 				ops,
-				insert: (s) =>
-					insertSpec(s, TIER_CP, s.amount, end, invoice.periodStart),
+				insert: (s) => insertSpec(s, TIER_CP, s.amount, end, periodStart),
 				// The reset at the period start refills it: what is left rolls over, the allowance comes back.
 				revive: (s) => {
 					ops.push({
 						op: "update",
 						table: "customerEntitlements",
 						id: s.rowId,
-						set: { next_reset_at: invoice.periodStart },
+						set: { next_reset_at: periodStart },
 					});
 					state.rows[s.rowId] = (state.rows[s.rowId] ?? 0) + 1;
 					grantRow(
@@ -863,10 +876,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 						s.amount,
 						s.interval === s.plan
 							? end
-							: addUtcMonths(
-									invoice.periodStart,
-									s.interval === "year" ? 12 : 1,
-								),
+							: addUtcMonths(periodStart, s.interval === "year" ? 12 : 1),
 					);
 					needReset = true;
 				},
@@ -904,7 +914,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 		}
 		needReset = true;
 		cycleRows = { rowIds: refilled, end };
-		state.cycleStart = invoice.periodStart;
+		state.cycleStart = periodStart;
 		state.cycleEnd = end;
 	} else if (
 		upLine &&
@@ -916,9 +926,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 		if (tierId !== state.tierId || interval !== state.interval) {
 			const at = upLine.periodStart ?? invoice.paidAt;
 			const newEnd =
-				interval === state.interval
-					? (state.cycleEnd ?? invoice.periodEnd)
-					: (upLine.periodEnd ?? invoice.periodEnd);
+				interval === state.interval ? (state.cycleEnd ?? periodEnd) : periodEnd;
 			const oldSpecs = tierSpecs(
 				menu,
 				state.tierId,
@@ -994,8 +1002,8 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 				grantRow(s, units, newEnd);
 			}
 			if (interval !== state.interval) {
-				state.cycleStart = invoice.periodStart;
-				state.cycleEnd = invoice.periodEnd;
+				state.cycleStart = periodStart;
+				state.cycleEnd = periodEnd;
 			}
 			state.tierId = tierId;
 			state.interval = interval;
@@ -1064,7 +1072,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 	}
 
 	b.plan(now, ops);
-	if (needReset) b.reset(anchorAt);
+	if (needReset) b.reset(resetAt);
 	if (cycleRows) {
 		// The engine steps a row's next reset a month on from the last one, so after a month-end it drifts from Stripe's
 		// periods (Jan 31, Feb 28, then Mar 28, not Mar 31). Put each refilled row's next reset on Stripe's cycle end, so

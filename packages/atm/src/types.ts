@@ -417,12 +417,20 @@ export type BillingInvoice = {
 	periodStart: number;
 	periodEnd: number;
 	lines: InvoiceLine[];
-	/** Our metadata from checkout (`b4u_school`, `family_id`, `tier_id`, `profile_id`, `menu_version`, …). */
+	/**
+	 * Our metadata from checkout (`b4u_school`, `family_id`, `tier_id`, `profile_id`, `menu_version`, …). Checkout's
+	 * `subscription_data.metadata` sits on the invoice at `parent.subscription_details.metadata`; it is merged with the
+	 * invoice's own `metadata`, the invoice's own keys winning.
+	 */
 	metadata: Record<string, string>;
 };
 
 export type BillingRefund = {
 	source: FactSource;
+	/**
+	 * Identifies the refund EVENT: the Stripe event id (`evt_…`). A real `charge.refunded` event carries the charge, not
+	 * the refund object (`re_…`), so there is no refund id to read. Nothing reads it for logic: it only labels the fact.
+	 */
 	id: string;
 	/**
 	 * The invoice the refunded charge paid. Stripe's charge (API 2025-10-29.clover) does not name it: the mapping gives
@@ -431,7 +439,15 @@ export type BillingRefund = {
 	invoiceId?: string | null;
 	paymentIntentId?: string | null;
 	chargeId: string;
+	/**
+	 * The charge's total refunded amount after this event (`amount_refunded`), not this one refund's amount: the charge
+	 * has no refund list. The rules use only `full`.
+	 */
 	amount: number;
+	/**
+	 * The charge is refunded in full: Stripe's own `refunded` flag. Not a comparison of amounts: on a partly captured
+	 * charge `amount_refunded` may or may not count the released remainder, and the flag is right either way.
+	 */
 	full: boolean;
 	at: number;
 };
@@ -827,7 +843,11 @@ export type LineItem = (
 export type StripeEventInput = {
 	/** The raw Stripe event, as received (verified and deduplicated by the caller). */
 	event: unknown;
-	/** The stored input event's id: it becomes `cause` on every decision event and the id of every command. */
+	/**
+	 * The stored input event's id, a ULID (not Stripe's `evt_` id: the caller dedupes on that one): it becomes `cause`
+	 * on every decision event, which the ledger's envelope requires to be a ULID, and the id of every command. Any
+	 * other value comes back `refused` as `bad_event`.
+	 */
 	eventId: string;
 	menu: Menu;
 	menuVersion: number | string;

@@ -195,7 +195,14 @@ export function normalize(
 		mapping: mappingLabel(mapping),
 		stripeApiVersion: mapping.stripeApiVersion,
 	};
-	const body: Record<string, unknown> = { source, ...fields.value };
+	// `subscriptionMetadata` is not a fact field: it is merged under `metadata` (the invoice's own keys win) and dropped.
+	const { subscriptionMetadata, ...own } = fields.value;
+	if (subscriptionMetadata !== undefined)
+		own.metadata = {
+			...(subscriptionMetadata as Record<string, string>),
+			...(own.metadata as Record<string, string> | undefined),
+		};
+	const body: Record<string, unknown> = { source, ...own };
 
 	if (mapping.lines) {
 		const rawLines = getPath(event, mapping.lines.path);

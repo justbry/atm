@@ -14,6 +14,7 @@ import type {
 	SubjectState,
 	SubjectStateMutation,
 } from "@autumn/balance-engine";
+import { ULID_PATTERN } from "../ledger/ids.js";
 import { mutationToEvents } from "../ledger/postings.js";
 import { runOnState, toCatalog } from "../ledger/run.js";
 import type {
@@ -74,6 +75,8 @@ const refuse = (
 
 /** A fresh result each time: a caller that pushes onto `events` must not change the next one. */
 const nothing = (): StripeEventResult => ({ rowChanges: null, events: [] });
+
+const ULID = new RegExp(ULID_PATTERN);
 
 /** What the grant rules decide for a normalized fact, or why not. */
 type Decision =
@@ -440,6 +443,12 @@ const sameJson = (a: unknown, b: unknown) =>
 export const handleStripeEvent = (
 	input: StripeEventInput,
 ): StripeEventResult => {
+	// Every decision event names its input as `cause`, and the ledger's envelope takes only a ULID there.
+	if (!ULID.test(input.eventId))
+		return refuse(
+			"bad_event",
+			`eventId must be the stored input event's id, a ULID; got ${JSON.stringify(input.eventId)} (dedupe on Stripe's own id before this, do not pass it)`,
+		);
 	const type = (input.event as { type?: unknown } | null)?.type;
 	const apiVersion = (input.event as { api_version?: unknown } | null)
 		?.api_version;

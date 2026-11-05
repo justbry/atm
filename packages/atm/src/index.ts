@@ -8,6 +8,7 @@ import * as rows from "./billing/rows.js";
 import * as status from "./billing/status.js";
 import * as stripeMenu from "./billing/stripe-menu.js";
 import { engineCommandTypes, runEngineCommand as run } from "./engine.js";
+import { deterministicUlid as deterministicUlidImpl } from "./ledger/ids.js";
 import { buildJournal as buildJournalImpl } from "./ledger/journal.js";
 import {
 	lapsedRows as lapsedRowsImpl,
@@ -145,6 +146,18 @@ export const lapseEvent = (input: {
 	labels?: Record<string, string>;
 	ingestTime?: string | number;
 }): AtmEvent => lapseEventImpl(input);
+
+/**
+ * The id of a stored input event, derived from a time, a revision and a seed: a ULID whose 48-bit time is `timeMs`
+ * (the event's own instant), then 24 bits of `revision` (events in one millisecond sort in the order they were decided),
+ * then 56 bits of a hash of `seed` (say, the school and the Stripe event id). The same inputs always give the same id,
+ * so a redelivered event gets the id it had. Throws when `timeMs` is not an integer in ULID range.
+ */
+export const deterministicUlid = (input: {
+	timeMs: number;
+	revision: number;
+	seed: string;
+}): string => deterministicUlidImpl(input);
 
 /** An event against the envelope schema, its payload schema, and the rules a schema cannot say (postings sum to zero, ...). */
 export const validateEvent = (event: unknown): AtmValidation =>

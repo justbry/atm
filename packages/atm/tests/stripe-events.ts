@@ -65,7 +65,9 @@ export const invoicePaid = (e: InvoiceEvent): RawEvent => {
 	invoice.status_transitions.paid_at = seconds(e.paidAt ?? e.at);
 	invoice.amount_paid =
 		e.amountPaid ?? e.lines.reduce((n, l) => n + l.amount, 0);
-	invoice.metadata = e.metadata;
+	// As real Stripe: checkout's `subscription_data.metadata` sits on the subscription details of the invoice's parent,
+	// and the invoice's own `metadata` is empty; an invoice without a subscription keeps its metadata at the top.
+	invoice.metadata = e.subscriptionId === null ? e.metadata : {};
 	invoice.parent =
 		e.subscriptionId === null
 			? null
@@ -74,7 +76,7 @@ export const invoicePaid = (e: InvoiceEvent): RawEvent => {
 					quote_details: null,
 					subscription_details: {
 						subscription: e.subscriptionId,
-						metadata: {},
+						metadata: e.metadata,
 					},
 				};
 	invoice.lines.data = e.lines.map((l, i) => {
@@ -98,7 +100,8 @@ export const invoicePaid = (e: InvoiceEvent): RawEvent => {
 
 export const chargeRefunded = (e: {
 	eventId: string;
-	refundId: string;
+	/** Not in the event: a real charge carries no refund object, so the fact's id is the event id. Kept for callers. */
+	refundId?: string;
 	chargeId: string;
 	/** The invoice the charge paid: a charge names only its payment intent (`paymentIntentOf`). */
 	invoiceId: string | null;
@@ -117,15 +120,12 @@ export const chargeRefunded = (e: {
 	charge.payment_intent = e.invoiceId ? paymentIntentOf(e.invoiceId) : null;
 	charge.amount = e.chargeAmount;
 	charge.amount_captured = e.chargeAmount;
+	// As real Stripe: the charge has no refund list; the event says what changed in `previous_attributes`.
 	charge.amount_refunded = e.refundedTotal ?? e.amount;
-	charge.refunds.data = [
-		{
-			...charge.refunds.data[0],
-			id: e.refundId,
-			amount: e.amount,
-			charge: e.chargeId,
-		},
-	];
+	charge.refunded = charge.amount_refunded === e.chargeAmount;
+	event.data.previous_attributes = {
+		amount_refunded: charge.amount_refunded - e.amount,
+	};
 	return event;
 };
 
