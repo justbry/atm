@@ -1575,6 +1575,36 @@ export type ShipOutboxResult = {
 	shipped: number;
 };
 
+export type OutboxStatusInput = {
+	/** The database the handler writes (`ledger_outbox`). */
+	db: SqlDatabase;
+	school: string;
+	/** The clock the age is read against (milliseconds). */
+	nowMs: () => number;
+};
+
+/** What a health check reads about one school's outbox. Nothing is written. */
+export type OutboxStatus = {
+	school: string;
+	/** Every row of the school, shipped or not. */
+	total: number;
+	shipped: number;
+	unshipped: number;
+	/** The newest `shipped_at` (milliseconds), or null when nothing has shipped. */
+	lastShippedAt: number | null;
+	/** The `date` of the oldest unshipped row (`YYYY-MM-DD`), or null when nothing waits. */
+	oldestUnshippedDate: string | null;
+	/** The id of that row, or null when nothing waits. */
+	oldestUnshippedId: string | null;
+	/**
+	 * How long that row has been waiting, read from the instant its id encodes (the event's own time, which the handler
+	 * puts in the id), or from the date's UTC midnight when the id is not a ULID; null when nothing waits. The outbox
+	 * keeps no insert time, so this is an upper bound on the lag: an event Stripe redelivers days late counts from its
+	 * event time.
+	 */
+	oldestUnshippedAgeMs: number | null;
+};
+
 /** Thrown by `replayEvents` where the engine disagrees with the log; `eventId` names the event. */
 export interface ReplayErrorType extends Error {
 	readonly eventId: string;

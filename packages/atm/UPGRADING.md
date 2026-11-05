@@ -1,5 +1,19 @@
 # Upgrading atm
 
+## Moving the family service onto the handler and the shipper (not released yet)
+
+The family service still grants with its own rules (`packages/family-service/src/school-billing/grant.ts`) and nothing ships its outbox. **This change does not touch buzz-school**; it makes atm's side exact, and `README.md` ("Running it") has the recipe with the real paths. What the family service changes, in order:
+
+1. **Pin the atm release that contains this**, in `packages/family-service/package.json` (it is at `atm-v0.3.0` there; the handler, `env`, the quantity rules and `shipOutbox` are later releases), and run `bun install` for `bun.lock`. This change adds `outboxStatus` (library) and the `atm report` command, and changes two exit codes of `atm ship` (below).
+2. **Move existing members onto atm's rows** with `grantsStateFromCallerRows` from `school_memberships` and `school_credit_lots` (`packages/family-service/src/school-billing/subject.ts` and `store.ts` read them), as the adoption section below describes, before the first event reaches the handler.
+3. **Create the handler's tables** (`HANDLER_DDL`) in the service's SQLite file (`DB_PATH`), as a migration in `packages/family-service/migrations/` (the statements are `IF NOT EXISTS`; `test/schema-portable.test.ts` there checks migrations parse under Litestream), and write a `SqlDatabase` over the service's `Db` port (`src/db/port.ts`; the handler's `transaction` should take the write lock at `BEGIN`, as `bunSqlite` does).
+4. **Mount the handler** in `src/routes/school-billing.ts`'s `/hooks/stripe/school` route: keep its school lookup and secret opening, and replace the signature check, the `school_stripe_events` claim and `handleSchoolEvent` (`src/school-billing/webhook.ts`, `grant.ts`, `apply.ts`) by `handleStripeWebhook`, passing `env` from `billingKeyMode` and a `context` built from `school_billing_menus` (`menu.ts`, `store.ts`). Recreate each school's Stripe endpoint with `api_version: "2025-10-29.clover"` (`src/school-billing/connect.ts`), subscribed to the events listed under "Moving to 0.3.0".
+5. **Register the shipper** as a job in the registry (`src/jobs/`, started from `src/server.ts`): `shipOutbox` per school with outbox rows, every 5 minutes, into a folder on the volume, logging each conflict as an error line. A health check reads `outboxStatus` (an `ops` command beside `backup-status` in `src/ops/cli.ts`, or a monitor check beside `litestream_fresh` in `packages/scripts/ci-watchdog/prod-monitor.ts`).
+6. **Back up the ledger folder**; Litestream replicates the database file only.
+7. **Run `atm report` monthly** off the machine (bun, hledger and an atm checkout), on a copy of the folder.
+
+**`atm ship`, `atm journal` and `atm report` exit codes.** `atm ship` exits 0 done, 1 a conflict, 2 any other error with one line and no stack trace. It used to exit 1 for a `--root` that is not an existing folder and for a `--school` with no rows in the outbox: both are exit 2 now, so a wrapper that alerts on 1 means a conflict. A missing or unknown option exits 2 too. An outbox with no row at all (no school has had an event) now ships nothing and exits 0; a `--school` that is not among the schools that do have rows is still refused. `--json` (on `ship` and `journal`) prints one line: see `README.md`. `atm journal` printed a stack trace and exited 1 on an error (for example a school with no events); it now prints one line and exits 2.
+
 ## Moving to 0.5.0 from 0.4.0
 
 A review of 0.4.0 found four ways it could grant or alert wrongly, and five smaller problems. This is a minor release, not a patch, because the handler now refuses a test-mode event sent to a default (`env: "live"`) handler. Two of the fixes change what a caller has to do (`drawnAfter`, and `env: "test"` on a test endpoint):
