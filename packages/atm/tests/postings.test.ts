@@ -712,8 +712,26 @@ describe("one rule per event type", () => {
 				previous_available: 3,
 				cause: "expired",
 			});
-			expect(asked).toContain(T + DAY - 1);
-			expect(asked).toContain(T + 2 * DAY);
+			// Called once per lapse instant, with the instant minus 1 (a draw at the instant itself counts as after it).
+			expect(asked).toEqual([T + DAY - 1, T + 2 * DAY - 1]);
+		});
+		test("a draw at exactly the lapse instant counts as after the lapse: no false credit.depleted", () => {
+			// A holds 10 and lapses at T + DAY; B held 5 and the family drew all 5 at exactly T + DAY (it could not use A, which
+			// lapsed at that instant). Just before: 15. Right after the lapse: 5 (the draw came after). So no depletion.
+			const state = lapseState(10);
+			addRow(state, "ce_kept", 0, null);
+			const instant = T + DAY;
+			// Draws strictly after `t`: the draw at `instant` is after `instant - 1` but not after `instant`.
+			const drawnAfter = (t: number) => (t < instant ? 5 : 0);
+			expect(alerts(state, T + 3 * DAY, drawnAfter)).toEqual([]);
+		});
+		test("drawnAfter is asked once per lapse instant, with the instant minus 1", () => {
+			const asked: number[] = [];
+			alerts(lapseState(2), T + 2 * DAY, (t) => {
+				asked.push(t);
+				return 0;
+			});
+			expect(asked).toEqual([T + DAY - 1]);
 		});
 		test("drawnAfter: a negative count is no draw; a count that is not finite, or no function, throws", () => {
 			const state = lapseState(2);
