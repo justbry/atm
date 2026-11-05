@@ -21,6 +21,19 @@ const byId = (a: AtmEvent, b: AtmEvent): number =>
 const centsOf = (value: unknown): number =>
 	typeof value === "number" && Number.isSafeInteger(value) ? value : 0;
 
+/**
+ * What the event posts to the liability account, in cents: the amount the books hold, which `validateEvent` requires the
+ * payload to equal. The statement reads it from the posting so that it ties to `buildJournal` even for an event that was
+ * not validated.
+ */
+const postedCents = (event: AtmEvent): number => {
+	let units = 0n;
+	for (const posting of event.postings)
+		if (posting.account === LIABILITY_ACCOUNT)
+			units += decimalToUnits(posting.amount, CENTS_PER_DOLLAR_PLACES);
+	return Number(units < 0n ? -units : units);
+};
+
 const textOf = (value: unknown): string | null =>
 	typeof value === "string" && value !== "" ? value : null;
 
@@ -94,11 +107,11 @@ export const shareStatement = ({
 		if (!inMonth) continue;
 		const paymentId = textOf(event.payload.payment_id);
 		if (event.event_type === "share.accrued" && paymentId !== null)
-			rowOf(paymentId, event).accrued += centsOf(event.payload.share);
+			rowOf(paymentId, event).accrued += postedCents(event);
 		else if (event.event_type === "share.reversed" && paymentId !== null)
-			rowOf(paymentId, event).reversed += centsOf(event.payload.reversed);
+			rowOf(paymentId, event).reversed += postedCents(event);
 		else if (event.event_type === "share.settled") {
-			const amount = centsOf(event.payload.amount);
+			const amount = postedCents(event);
 			settled += amount;
 			settlements.push({
 				date,

@@ -32,10 +32,10 @@
 					"required": ["percent"],
 					"properties": {
 						"percent": {
+							"description": "A percent from 0 to 100 with at most two decimals. The bounds are checked here; the two decimals are checked by resolvePolicy, not by a multipleOf, which a plain JSON Schema validator gets wrong in floating point for 1,363 valid rates such as 0.07.",
 							"type": "number",
 							"minimum": 0,
-							"maximum": 100,
-							"multipleOf": 0.01
+							"maximum": 100
 						}
 					}
 				}

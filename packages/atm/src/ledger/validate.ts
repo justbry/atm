@@ -52,6 +52,18 @@ const fromAjv = (
 const PLACES = (commodity: string) => (commodity === "USD" ? 2 : 0);
 
 /**
+ * The share events carry their amount twice, in the payload (cents) and as the posting to this account (dollars): the
+ * statement and the books must not read two different numbers, so the two must agree.
+ */
+const SHARE_LIABILITY = "liabilities:b4uni";
+const SHARE_PAYLOAD_AMOUNT: Readonly<Record<string, string>> = {
+	"share.accrued": "share",
+	"share.reversed": "reversed",
+	"share.settled": "amount",
+};
+const USD_PLACES = 2;
+
+/**
  * An event against its schemas (the envelope, then the payload schema of its `event_type`) and the rules a
  * schema cannot say: postings are none or at least two and sum to zero per commodity, USD has two places and
  * credits none, the id's time is the event time, `date` is the event time in `tz`.
@@ -106,6 +118,20 @@ export const validateEvent = (event: unknown): AtmValidation => {
 				errors.push({
 					path: "/postings",
 					message: `${commodity} postings sum to ${sum}, not zero`,
+				});
+		}
+		const shareField = SHARE_PAYLOAD_AMOUNT[ev.event_type];
+		if (shareField && errors.length === 0 && ev.postings.length > 0) {
+			let posted = 0n;
+			for (const p of ev.postings)
+				if (p.account === SHARE_LIABILITY)
+					posted += decimalToUnits(p.amount, USD_PLACES);
+			const cents = ev.payload[shareField];
+			if (posted < 0n) posted = -posted;
+			if (typeof cents !== "number" || BigInt(cents) !== posted)
+				errors.push({
+					path: `/payload/${shareField}`,
+					message: `${shareField} ${String(cents)} differs from the ${SHARE_LIABILITY} posting of ${posted} cents`,
 				});
 		}
 		if (ulidTime(ev.id) !== Date.parse(ev.event_time)) {

@@ -599,7 +599,8 @@ export type BillingPolicy = {
 	 * B4 Uni's revenue share, negotiated per school: a percentage (0 to 100, at most two decimals) of each payment the
 	 * handler books, taken on the amount collected before Stripe's fee. `null` is no share (the default), and so is 0. A
 	 * policy stored before 0.9.0 has none: read it with `?? null`. A change applies to payments booked after it; a share
-	 * already accrued stays as it was.
+	 * already accrued stays as it was. A policy must pass `resolvePolicy`, which refuses a rate outside 0 to 100 or with more
+	 * than two decimals; a hand-built one with such a rate (or NaN) makes no share and never blocks a payment or its credits.
 	 */
 	revenueShare: { percent: number } | null;
 };

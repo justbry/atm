@@ -528,8 +528,11 @@ describe("a paid booking's payment", () => {
 			reversed: 75,
 		});
 		expect(validateEvent(reversal).errors).toEqual([]);
-		// the redelivery reverses nothing more
-		expect(s.handle(fullRefund)).toEqual(NOTHING);
+		// the redelivery reverses nothing more, and decides nothing: its refund line has the same idem (the outbox keeps one)
+		const again = s.handle(fullRefund);
+		expect(again.rowChanges).toBeNull();
+		expect(typesOf(again.events)).toEqual(["payment.refunded"]);
+		expect(again.events[0]?.idem).toBe(result.events[0]?.idem);
 	});
 
 	test("a partial refund then the rest: 1000 of 3000 reverses 25, and the rest the other 50", () => {
