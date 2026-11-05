@@ -1,0 +1,67 @@
+# atm: Autumn's balance engine as a CLI and library. Run from packages/atm, or `just atm <recipe>` from the repo root.
+
+biome := "../../node_modules/.bin/biome"
+
+# List the recipes
+default:
+    @just --list
+
+# Run the CLI: just cli run --subject subject.json --command check.json
+cli *args:
+    bun ./src/bin.ts {{args}}
+
+# Unit and integration tests; extra args go to bun test, e.g. just test tests/billing-grants.test.ts -t refund
+test *args:
+    bun test tests {{args}}
+
+# Typecheck
+ts:
+    bunx tsc --noEmit
+
+# Biome check on this package only (never the whole repo)
+lint:
+    {{biome}} check --no-errors-on-unmatched .
+
+# Biome format and fix on this package only
+fix:
+    {{biome}} check --write --no-errors-on-unmatched .
+
+# Build the CLI and library into dist/
+build:
+    bun ./build.ts
+
+# Unused files and exports, as the pre-commit hook runs it
+knip:
+    cd ../.. && bun run knip
+
+# The whole gate before a commit: lint, typecheck, tests, build, knip
+check: lint ts test build knip
+
+# Rewrite the committed goldens after an intended change (replay decisions, rows, journal), then review the diff
+golden:
+    UPDATE_GOLDEN=1 bun test tests/replay-inputs.test.ts tests/billing-rows.test.ts tests/journal.test.ts
+
+# Regenerate the fixture year: just fixtures --seed 1
+fixtures *args:
+    bun ./fixtures/generate.ts {{args}}
+
+# Regenerate the envelope DDL and payload schema index
+schema:
+    bun ./schema/build.ts
+
+# Regenerate the Stripe mapping index after editing a mapping file
+mappings:
+    bun ./schema/mapping/build.ts
+
+# Prune Stripe's OpenAPI spec (stripe/openapi tag v2105, openapi/spec3.json) to the objects the mappings read
+stripe-spec spec:
+    bun ./schema/stripe/build.ts {{spec}}
+
+# Build, check and pack the release tarball; prints its sha256 and sha512. Creates nothing.
+release-dry:
+    bun ./release.ts --dry-run
+
+# Create the GitHub release atm-v<version> at HEAD with the tarball (needs a clean, pushed HEAD and the pinned bun)
+[confirm("Create the GitHub release for the version in package.json?")]
+release:
+    bun ./release.ts
