@@ -68,6 +68,7 @@ import type {
 	MenuValidation,
 	NormalizeContext,
 	NormalizeResult,
+	PortalConfigIds,
 	R2StoreOptions,
 	RowChanges,
 	RowTable,
@@ -318,6 +319,17 @@ export const withPriceIds = (
 export const toStripeForm = (
 	params: Record<string, unknown>,
 ): Record<string, string> => stripeMenu.toStripeForm(params);
+
+/**
+ * The form fields for `POST /v1/billing_portal/configurations` that let a family change the quantity of a tier sold in
+ * `quantities`: a raise billed at once (`always_invoice`, so its paid invoice grants the extra units), a decrease at the
+ * renewal. Null when no public tier has several quantities (or none has its product published): the school's default
+ * portal applies. Pass the id of the configuration it makes as `configuration` on every portal session.
+ */
+export const portalConfigOf = (
+	menu: Menu,
+	ids: PortalConfigIds,
+): Record<string, string> | null => stripeMenu.portalConfigOf(menu, ids);
 
 /** The lookup key that names a Stripe price for life. */
 export const lookupKeyOf = (

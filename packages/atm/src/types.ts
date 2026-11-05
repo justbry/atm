@@ -808,6 +808,15 @@ export type CheckoutParamsWithPrices = Omit<CheckoutParams, "line_items"> & {
 	];
 };
 
+/**
+ * The Stripe ids a portal configuration names, by the menu's own keys: `products["t:<tierId>"]` and
+ * `prices["t:<tierId>:<interval>"]` (the `key` and `productKey` of `menuToStripe`'s steps, and `tierPriceKey`).
+ */
+export type PortalConfigIds = {
+	products: Readonly<Record<string, string>>;
+	prices: Readonly<Record<string, string>>;
+};
+
 // ---- Membership status ----
 
 /**

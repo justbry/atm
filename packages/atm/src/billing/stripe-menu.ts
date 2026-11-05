@@ -29,6 +29,7 @@ import type {
 	LineItem,
 	Menu,
 	MenuToStripeInput,
+	PortalConfigIds,
 	StripeOp,
 } from "./types.js";
 
@@ -417,6 +418,65 @@ export function withPriceIds(
 			...addonItems,
 		],
 	};
+}
+
+// ---- Billing portal ----
+
+/**
+ * The billing portal configuration for a menu with tiers sold in quantities, as form fields for
+ * `POST /v1/billing_portal/configurations` (Stripe API `2025-10-29.clover`). Only the quantity of those tiers' prices can
+ * change (a tier switch is not offered), between the tier's smallest and largest count. A raise is billed at once
+ * (`always_invoice`), so its paid `subscription_update` invoice grants the extra units now; a decrease is scheduled for
+ * the renewal (`decreasing_item_amount`) and grants nothing. Cancel stays at the period end; the payment method and the
+ * invoice history are open.
+ *
+ * A tier is included when it is public, lists more than one count, and has its product in `ids.products`; a tier price
+ * missing from `ids.prices` is left out of that tier's `prices`. Null when no tier qualifies. The configuration is marked
+ * `metadata[b4u_key]=portal`.
+ */
+export function portalConfigOf(
+	menu: Menu,
+	ids: PortalConfigIds,
+): Record<string, string> | null {
+	const tiers = menu.tiers.filter(
+		(tier) =>
+			tier.public &&
+			quantitiesOf(tier).length > 1 &&
+			ids.products[`t:${tier.id}`],
+	);
+	if (tiers.length === 0) return null;
+	const products = tiers.map((tier) => {
+		const counts = quantitiesOf(tier);
+		const prices = tier.prices
+			.map((price) => ids.prices[tierPriceKey(tier.id, price.interval)] ?? null)
+			.filter((priceId) => priceId !== null);
+		return {
+			product: ids.products[`t:${tier.id}`],
+			prices,
+			adjustable_quantity: {
+				enabled: true,
+				minimum: Math.min(...counts),
+				maximum: Math.max(...counts),
+			},
+		};
+	});
+	return toStripeForm({
+		features: {
+			invoice_history: { enabled: true },
+			payment_method_update: { enabled: true },
+			subscription_cancel: { enabled: true, mode: "at_period_end" },
+			subscription_update: {
+				enabled: true,
+				default_allowed_updates: ["quantity"],
+				proration_behavior: "always_invoice",
+				schedule_at_period_end: {
+					conditions: [{ type: "decreasing_item_amount" }],
+				},
+				products,
+			},
+		},
+		metadata: { b4u_key: "portal" },
+	});
 }
 
 /** Flattens nested params to Stripe's form encoding (`line_items[0][price]`, `metadata[k]`). Booleans and numbers become strings. */
