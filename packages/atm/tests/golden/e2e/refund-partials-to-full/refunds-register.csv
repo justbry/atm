@@ -1,0 +1,3 @@
+"txnidx","date","code","description","account","amount","total"
+"3","2026-01-15","01KF1GERW000000SH11NTYCQVJ","payment.refunded | refunded 50 USD of charge ch_in_1","income:billing:refunds","50.00 USD","50.00 USD"
+"4","2026-01-15","01KF1KWMG0000004AFDX2KXR02","payment.refunded | refunded 210 USD of charge ch_in_1","income:billing:refunds","210.00 USD","260.00 USD"

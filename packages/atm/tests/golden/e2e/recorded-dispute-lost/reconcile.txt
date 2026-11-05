@@ -1,0 +1,12 @@
+reconcile 2026-11 (America/Denver, live mode)
+invoice: Stripe 1, log 1
+refund: Stripe 0, log 0
+dispute: Stripe 1, log 0
+payout: Stripe 0, log 0
+fees: Stripe 2, log 1
+net: Stripe 2, log 1
+missing_in_log: dispute du_1UYPRdScrubTest0ILJimACb: Stripe has 26000 usd on 2026-11-05, the log has no payment.disputed [stripe 260.00, log none]
+missing_in_log: dispute du_1UYPRdScrubTest0ILJimACb: Stripe has no amount (no currency) on 2026-11-05, the log has no dispute.closed
+amount_differs: fees: Stripe took 2284 cents, the log booked 784 [stripe 22.84, log 7.84]
+amount_differs: net: Stripe's balance moved -2284 cents (payouts apart), the log's assets:stripe postings 25216 [stripe -22.84, log 252.16]
+4 difference(s)

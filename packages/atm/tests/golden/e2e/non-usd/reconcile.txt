@@ -1,0 +1,11 @@
+reconcile 2026-01 (America/Denver, live mode)
+ignored 1 Stripe record(s): balance_transaction_other_currency
+invoice: Stripe 1, log 0
+refund: Stripe 0, log 0
+dispute: Stripe 0, log 0
+payout: Stripe 1, log 0
+fees: Stripe 1, log 0
+net: Stripe 2, log 0
+missing_in_log: invoice in_eur: Stripe has 26000 eur on 2026-01-15, the log has no payment.succeeded [stripe 260.00, log none]
+not_in_log: payouts: Stripe paid out 20000 cents in 1 payouts (po_eur); the log has no payout.paid events [stripe 200.00, log none]
+2 difference(s)

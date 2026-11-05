@@ -117,8 +117,29 @@ export const payout = (over: Partial<Parameters<typeof payoutPaid>[0]> = {}) =>
 		...over,
 	});
 
-/** A live endpoint for the school; `fees` is what the caller read from Stripe for each invoice, by invoice id. */
-export const harness = (fees?: Record<string, number | null>) => {
+/** What the caller read from Stripe for an invoice's fee: a record by invoice id, or a function that may throw (a lookup that failed). */
+export type FeeLookup =
+	| Record<string, number | null>
+	| ((invoiceId: string) => number | null | undefined);
+
+/**
+ * A live endpoint for the school; `fees` is what the caller read from Stripe for each invoice. The matrix serves a second
+ * school with `school`, and the recorded sandbox deliveries with `env: "test"`, their own menu and their price ids.
+ */
+export const harness = (
+	fees?: FeeLookup,
+	{
+		school = SCHOOL,
+		menu: served = menu,
+		env,
+		priceIds,
+	}: {
+		school?: string;
+		menu?: Menu;
+		env?: "test" | "live";
+		priceIds?: Record<string, string>;
+	} = {},
+) => {
 	const raw = new Database(":memory:");
 	const db = bunSqlite(raw);
 	db.exec(HANDLER_DDL);
@@ -127,21 +148,28 @@ export const harness = (fees?: Record<string, number | null>) => {
 	const deps: WebhookDeps = {
 		db,
 		secret: SECRET,
-		schoolId: SCHOOL,
+		schoolId: school,
 		nowMs: () => clock.now,
 		workerId: "worker-a",
+		...(env ? { env } : {}),
 		context: () => ({
-			menu,
+			menu: served,
 			menuVersion: 3,
 			policy: DEFAULT_POLICY,
 			policyVersion: 1,
-			catalog: menuCatalogRows({ menu, school: SCHOOL }),
-			priceIds: Object.fromEntries(
-				[...menuLineItems(SCHOOL, menu).keys()].map((key) => [
-					key,
-					priceIdOf(key),
-				]),
-			),
+			catalog: menuCatalogRows({
+				menu: served,
+				school,
+				...(env ? { env } : {}),
+			}),
+			priceIds:
+				priceIds ??
+				Object.fromEntries(
+					[...menuLineItems(school, served).keys()].map((key) => [
+						key,
+						priceIdOf(key),
+					]),
+				),
 		}),
 		...(fees
 			? {
@@ -149,7 +177,9 @@ export const harness = (fees?: Record<string, number | null>) => {
 						const invoiceId = (event as { data: { object: { id: string } } })
 							.data.object.id;
 						asked.push(invoiceId);
-						return fees[invoiceId];
+						return typeof fees === "function"
+							? fees(invoiceId)
+							: fees[invoiceId];
 					},
 				}
 			: {}),
