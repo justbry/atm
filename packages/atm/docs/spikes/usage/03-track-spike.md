@@ -1,6 +1,6 @@
 # `track` path as a usage wallet spike: report
 
-Date: 2026-11-05. Written by a sub-agent, saved here in full. The roadmap (`ROADMAP.md`, "Usage events as a ledger source") holds the summary. Raw benchmark outputs are in `results/track/`, the scripts in `scripts/track/` (as `.txt` so lint and type checks skip them).
+Date: 2026-11-05. Written by a sub-agent, saved here in full. The summary is in `docs/usage-metering.md` ("Usage events as a ledger source"); `ROADMAP.md` keeps the verdicts. Raw benchmark outputs are in `results/track/`, the scripts in `scripts/track/` (as `.txt` so lint and type checks skip them).
 
 Branch `claude/atm-usage-track-spike`, head `9d815769c404235831fc710f073b3b0c074b81af`, pushed, no PR. Files, under `packages/atm/tests/spikes/`: `usage-track-harness.ts` (seeding, `spend`, `spendOptimistic`, `runWorkload`, `runContention`; it also acts as its own worker process via `import.meta.main`) and `usage-track.test.ts`.
 
