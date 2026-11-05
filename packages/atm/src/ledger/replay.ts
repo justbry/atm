@@ -2,6 +2,7 @@ import type {
 	SubjectState,
 	SubjectStateMutation,
 } from "@autumn/balance-engine";
+import { rowsFromState, stateFromRows } from "../billing/rows.js";
 import type {
 	AtmBalance,
 	AtmCatalogRow,
@@ -265,7 +266,11 @@ const recordedMutations = (events: readonly AtmEvent[]) => {
 	return byMutation;
 };
 
-/** `same`: the changes are the decided ones; `partial`: some of them (an old log's booking); `differs`: not. */
+/**
+ * `same`: the changes are the decided ones; `partial`: some of them (an old log's booking); `differs`: not. The order
+ * does not count: the events of an old booking are put together in the order they are in, which is not the engine's.
+ * (A whole event's own order is held to by the comparison of the event itself.)
+ */
 const compareChanges = (
 	decided: readonly unknown[],
 	recorded: readonly unknown[],
@@ -273,7 +278,9 @@ const compareChanges = (
 	const want = decided.map((c) => canonicalize(c));
 	const got = recorded.map((c) => canonicalize(c));
 	if (got.length === want.length)
-		return got.every((c, i) => c === want[i]) ? "same" : "differs";
+		return [...got].sort().join("\u0000") === [...want].sort().join("\u0000")
+			? "same"
+			: "differs";
 	if (got.length > want.length) return "differs";
 	const left = [...want];
 	for (const c of got) {
@@ -299,11 +306,22 @@ const positionsIn = (
 	});
 };
 
+/**
+ * The state the way the stored rows give it back: each table in id order. The engine lists changes in the order of the
+ * rows it holds, and a write path runs every command on rows read from storage, so a replay that carried the engine's
+ * own row order on (the order the rows were inserted in) would decide the same mutation with its changes in another
+ * order, and fail on the first command that moves two rows (a reset of a monthly and a yearly row together).
+ */
+const inStoredOrder = (state: SubjectState): SubjectState =>
+	stateFromRows({
+		identity: state.identity,
+		revision: state.revision,
+		rows: rowsFromState(state),
+	}) ?? state;
+
 type Cached = {
 	mutation: SubjectStateMutation;
 	before: SubjectState | null;
-	/** The log holds some of the mutation's changes, not all (an old booking's own cut). */
-	partial: boolean;
 };
 
 /**
@@ -491,19 +509,41 @@ export const replayEvents = ({
 						"the engine decides differently from the recorded mutation",
 					);
 				}
-				states[key] = run.state as unknown as AtmSubjectState;
-				entry = {
-					mutation: run.mutation,
-					before,
-					partial: fit === "partial",
-				};
+				states[key] = inStoredOrder(
+					run.state as SubjectState,
+				) as unknown as AtmSubjectState;
+				entry = { mutation: run.mutation, before };
 				cache.set(cmd.commandId, entry);
 			}
 			if (entry && !e.event_type.startsWith("plan.")) {
+				const named = payload.slice;
+				const changeCount = entry.mutation.changes.length;
+				if (
+					named !== undefined &&
+					(!Array.isArray(named) ||
+						named.some(
+							(position) =>
+								!Number.isInteger(position) ||
+								position < 0 ||
+								position >= changeCount,
+						))
+				)
+					throw new ReplayError(
+						e.id,
+						`the slice of the recorded event is not positions among the ${changeCount} changes of the mutation`,
+					);
 				const context = contextFromEvent(e, entry.before);
-				const cut = entry.partial
-					? positionsIn(entry.mutation.changes, own.changes)
-					: undefined;
+				// An event of the old shape holds fewer changes than the mutation: its own cut, whichever its siblings are.
+				const cut =
+					!Array.isArray(payload.slice) &&
+					own.changes.length < entry.mutation.changes.length
+						? positionsIn(entry.mutation.changes, own.changes)
+						: undefined;
+				if (cut?.includes(-1))
+					throw new ReplayError(
+						e.id,
+						"the changes of the recorded event are not among the ones the engine decides",
+					);
 				const derived = mutationToEvents({
 					mutation: entry.mutation,
 					context: cut ? { ...context, slice: cut } : context,

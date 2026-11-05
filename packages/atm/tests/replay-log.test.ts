@@ -8,7 +8,11 @@ import { join } from "node:path";
 import { menuCatalogRows } from "../src/billing/grants.js";
 import { lookupKeyOf, tierPriceKey } from "../src/billing/stripe-menu.js";
 import type { Menu } from "../src/billing/types.js";
-import { replayEvents, replayOrder } from "../src/ledger/replay.js";
+import {
+	ReplayError,
+	replayEvents,
+	replayOrder,
+} from "../src/ledger/replay.js";
 import { validateEvent } from "../src/ledger/validate.js";
 import type { AtmEvent } from "../src/types.js";
 import { createStore, engineRowsOf } from "./billing-store.js";
@@ -167,6 +171,56 @@ describe("replaying the log the write path made", () => {
 			expect(e.postings).toEqual([]);
 			expect(e.cause).toMatch(/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
 		}
+	});
+
+	test("a slice that names changes the mutation does not have is a ReplayError, not a crash", () => {
+		const store = newStore();
+		store.handle(
+			payment({
+				tierId: "sparkle-4",
+				reason: "subscription_create",
+				start: T0,
+				end: T1,
+				invoice: "in_1",
+			}),
+			T0 + 10_000,
+		);
+		const sliced = store.events.find((e) => Array.isArray(e.payload.slice));
+		expect(sliced).toBeDefined();
+		for (const slice of [[99], [-1], [1.5], "0"]) {
+			const events = store.events.map((e) =>
+				e === sliced ? { ...e, payload: { ...e.payload, slice } } : e,
+			);
+			expect(() => replayEvents({ events, catalog: catalogRows })).toThrow(
+				ReplayError,
+			);
+		}
+	});
+
+	test("a sparkle-4 subscription replays through the year-end, where one reset moves both of its rows", () => {
+		const store = newStore();
+		const monthsPaid = 14;
+		for (let month = 0; month < monthsPaid; month += 1) {
+			const start = Date.UTC(2026, month, 15, 18);
+			store.handle(
+				payment({
+					tierId: "sparkle-4",
+					reason: month === 0 ? "subscription_create" : "subscription_cycle",
+					start,
+					end: Date.UTC(2026, month + 1, 15, 18),
+					invoice: `in_${month}`,
+				}),
+				start + 10_000,
+			);
+		}
+		// the retreat row resets once a year, in the same command as the visit row's monthly reset
+		const replayed = replayEvents({
+			events: store.events,
+			catalog: catalogRows,
+		});
+		expect(engineRowsOf(replayed.snapshot.states[store.holder])).toBe(
+			engineRowsOf(store.engineState()),
+		);
 	});
 
 	test("a sparkle-2 create, renew and cancel replays to the live balances", () => {

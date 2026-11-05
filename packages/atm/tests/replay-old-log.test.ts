@@ -146,6 +146,61 @@ describe("replaying a 0.3.0 log", () => {
 		);
 	});
 
+	test("a mutation that 0.3.0 booked as an event per feature, each with its own cut, replays whatever order the events come in", () => {
+		// The year-end reset of a sparkle-4 subscription moves both rows in one mutation: 0.3.0 wrote one event per feature,
+		// the retreat event first (features sort), each recording only its own changes. The log is made by the current
+		// writer and cut back to that shape (the cycle-end plan.changed kept, so no command is lost).
+		const store = createStore({ menu, school: SCHOOL, family: FAMILY });
+		for (let month = 0; month < 14; month += 1) {
+			const start = Date.UTC(2026, month, 15, 18);
+			store.handle(
+				renewal(
+					"sparkle-4",
+					`in_${month}`,
+					start,
+					Date.UTC(2026, month + 1, 15, 18),
+				),
+				start + 10_000,
+			);
+		}
+		const oldShape = store.events.map((e): AtmEvent => {
+			const {
+				complete: _complete,
+				slice,
+				...payload
+			} = e.payload as Record<string, unknown>;
+			const whole = payload.mutation as { changes: unknown[] };
+			return {
+				...e,
+				payload: slice
+					? {
+							...payload,
+							mutation: {
+								...whole,
+								changes: (slice as number[]).map((at) => whole.changes[at]),
+							},
+						}
+					: payload,
+			};
+		});
+		const siblings = oldShape.filter(
+			(e) =>
+				e.event_type.startsWith("credit.") &&
+				(e.payload.mutation as { changes: unknown[] }).changes.length <
+					(
+						store.events.find((x) => x.id === e.id)?.payload.mutation as {
+							changes: unknown[];
+						}
+					).changes.length,
+		);
+		expect(siblings.length).toBeGreaterThan(1);
+		const live = engineRowsOf(store.engineState());
+		for (const events of [oldShape, [...oldShape].reverse()]) {
+			const replayed = replayEvents({ events, catalog: catalogRows });
+			expect(engineRowsOf(replayed.snapshot.states[store.holder])).toBe(live);
+		}
+	});
+
 	test("a changed old booking is still caught", () => {
 		const { events } = load("sparkle-4-create");
 		const forged = events.map((e) =>
