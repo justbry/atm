@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import type { WorkerFullSubject } from "@autumn/balance-engine";
 import { Command } from "commander";
 import packageJson from "../package.json";
@@ -69,9 +69,31 @@ program
 	.requiredOption("--root <folder>", "the folder that holds schools/<id>/")
 	.requiredOption("--school <id>", "school id, as in schools/<id>/")
 	.action(async (opts: { db: string; root: string; school: string }) => {
+		// A typo in --root would otherwise make a new folder and mark every row shipped into it.
+		const root = await stat(opts.root).catch(() => null);
+		if (!root?.isDirectory()) {
+			process.stderr.write(
+				`--root ${opts.root} is not an existing folder; create it first (atm ship does not create the root, so that a typo in it ships nothing)\n`,
+			);
+			process.exitCode = 1;
+			return;
+		}
 		const database = new Database(opts.db, { readwrite: true });
 		try {
 			database.exec(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS}`);
+			// A typo in --school would otherwise ship nothing and exit 0.
+			const schools = bunSqlite(database)
+				.all<{ school_id: string }>(
+					"SELECT DISTINCT school_id FROM ledger_outbox ORDER BY school_id",
+				)
+				.map((row) => row.school_id);
+			if (!schools.includes(opts.school)) {
+				process.stderr.write(
+					`--school ${opts.school} has no rows in ledger_outbox of ${opts.db}; schools there: ${schools.length > 0 ? schools.join(", ") : "none"}\n`,
+				);
+				process.exitCode = 1;
+				return;
+			}
 			const result = await shipOutbox({
 				db: bunSqlite(database),
 				store: new FolderStore({ root: opts.root }),

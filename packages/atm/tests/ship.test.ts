@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
-import { readdir, readFile, rm } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { menuCatalogRows } from "../src/billing/grants.js";
 import { DEFAULT_POLICY } from "../src/billing/policy.js";
@@ -643,6 +643,7 @@ describe("atm ship", () => {
 		const databaseFile = join(folder, "handler.sqlite");
 		raw.exec(`VACUUM INTO '${databaseFile}'`);
 		const root = join(folder, "log");
+		await mkdir(root);
 		const args = ["--db", databaseFile, "--root", root, "--school", SCHOOL];
 
 		const first = runShip(args);
@@ -676,12 +677,84 @@ describe("atm ship", () => {
 		await rm(folder, { recursive: true, force: true });
 	});
 
+	test("a --root that is not an existing folder exits 1, creates nothing and leaves every row unshipped", async () => {
+		const { raw } = filledByHandler();
+		const folder = await tmp("ship-cli-typo-root");
+		const databaseFile = join(folder, "handler.sqlite");
+		raw.exec(`VACUUM INTO '${databaseFile}'`);
+		const typo = join(folder, "lgo");
+		const result = runShip([
+			"--db",
+			databaseFile,
+			"--root",
+			typo,
+			"--school",
+			SCHOOL,
+		]);
+		expect(result.exitCode).toBe(1);
+		expect(result.stderr.toString()).toContain(
+			`--root ${typo} is not an existing folder`,
+		);
+		expect(await readdir(folder)).toEqual(["handler.sqlite"]);
+		const database = new Database(databaseFile, { readonly: true });
+		const unshipped = database
+			.query("SELECT COUNT(*) AS n FROM ledger_outbox WHERE shipped_at IS NULL")
+			.get() as { n: number };
+		database.close();
+		expect(unshipped.n).toBeGreaterThan(0);
+		await rm(folder, { recursive: true, force: true });
+	});
+
+	test("a --root that is a file is refused too", async () => {
+		const { raw } = filledByHandler();
+		const folder = await tmp("ship-cli-file-root");
+		const databaseFile = join(folder, "handler.sqlite");
+		raw.exec(`VACUUM INTO '${databaseFile}'`);
+		const result = runShip([
+			"--db",
+			databaseFile,
+			"--root",
+			databaseFile,
+			"--school",
+			SCHOOL,
+		]);
+		expect(result.exitCode).toBe(1);
+		expect(result.stderr.toString()).toContain("is not an existing folder");
+		await rm(folder, { recursive: true, force: true });
+	});
+
+	test("a --school with no rows in the outbox exits 1, names the schools that have some and ships nothing", async () => {
+		const { raw } = filledByHandler();
+		const folder = await tmp("ship-cli-typo-school");
+		const databaseFile = join(folder, "handler.sqlite");
+		raw.exec(`VACUUM INTO '${databaseFile}'`);
+		const root = join(folder, "log");
+		await mkdir(root);
+		const result = runShip([
+			"--db",
+			databaseFile,
+			"--root",
+			root,
+			"--school",
+			`${SCHOOL}x`,
+		]);
+		expect(result.exitCode).toBe(1);
+		const message = result.stderr.toString();
+		expect(message).toContain(
+			`--school ${SCHOOL}x has no rows in ledger_outbox`,
+		);
+		expect(message).toContain(`schools there: ${SCHOOL}`);
+		expect(await readdir(root)).toEqual([]);
+		await rm(folder, { recursive: true, force: true });
+	});
+
 	test("exits 1 and says so when a batch key holds other bytes", async () => {
 		const { raw } = filledByHandler();
 		const folder = await tmp("ship-cli-conflict");
 		const databaseFile = join(folder, "handler.sqlite");
 		raw.exec(`VACUUM INTO '${databaseFile}'`);
 		const root = join(folder, "log");
+		await mkdir(root);
 		const [first] = planOutbox({
 			school: SCHOOL,
 			rows: outboxOf(bunSqlite(raw))
