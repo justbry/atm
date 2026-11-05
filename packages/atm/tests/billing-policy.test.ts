@@ -21,6 +21,7 @@ describe("resolvePolicy", () => {
 			cancelCutoffHours: 24,
 			noShow: "spend",
 			lateCancel: "spend",
+			revenueShare: null,
 		});
 	});
 
@@ -81,6 +82,28 @@ describe("resolvePolicy", () => {
 			percentOff: 10,
 		});
 		expect(resolvePolicy({ memberCode: null }).memberCode).toBeNull();
+	});
+
+	test("the revenue share is none by default, null or a percent of at most two decimals", () => {
+		expect(DEFAULT_POLICY.revenueShare).toBeNull();
+		expect(resolvePolicy({}).revenueShare).toBeNull();
+		expect(resolvePolicy({ revenueShare: null }).revenueShare).toBeNull();
+		for (const percent of [0, 0.01, 0.07, 2.5, 12.34, 100])
+			expect(resolvePolicy({ revenueShare: { percent } }).revenueShare).toEqual(
+				{ percent },
+			);
+		for (const bad of [
+			{ percent: -1 },
+			{ percent: 100.01 },
+			{ percent: 2.555 },
+			{ percent: "5" },
+			{},
+			{ percent: 5, extra: 1 },
+			5,
+		])
+			expect(() => resolvePolicy({ revenueShare: bad })).toThrow(
+				/policy is invalid/,
+			);
 	});
 
 	test("an unknown key is refused", () => {

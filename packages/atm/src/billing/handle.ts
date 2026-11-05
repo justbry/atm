@@ -81,6 +81,7 @@ import {
 	subjectFromRows,
 	subjectKey,
 } from "./rows.js";
+import { accrueShare, reverseShare } from "./share.js";
 import { menuLineItems } from "./stripe-menu.js";
 
 export type {
@@ -283,19 +284,35 @@ const decide = (
 				...common,
 				invoice: resolved.invoice,
 			});
-			const money = paymentEvents({
+			const payment = paymentEvents({
 				invoice: resolved.invoice,
 				fee: input.fee,
 				labels: result.labels,
 				booker: bookerOf(input, holder),
 				holder,
 			});
+			// The school's revenue share on what the invoice collected, booked right after the payment.
+			const share = accrueShare({
+				policy: input.policy,
+				kind: "invoice",
+				collected: resolved.invoice.amountPaid,
+				money: payment,
+				paymentId: resolved.invoice.id,
+				labels: result.labels,
+				booker: bookerOf(input, holder),
+				holder,
+			});
+			const money = [...payment, ...share.events];
 			// Remember that the books hold this payment: a refund takes back only a payment that was booked. `result.state` is
 			// this decision's own copy.
 			const record = result.state.invoices[resolved.invoice.id];
 			// Only a payment line is a payment the books took: the `money.skipped` marker of a non-USD invoice is not one.
-			if (record && money.some((e) => e.event_type === "payment.succeeded"))
+			if (record && payment.some((e) => e.event_type === "payment.succeeded")) {
 				record.paid = resolved.invoice.amountPaid;
+				// And what the share accrued on it, which its refunds reverse in proportion (absent when the school has no rate).
+				if (share.accrued > 0)
+					record.share = { accrued: share.accrued, reversed: 0 };
+			}
 			return { ok: true, result, reason: "invoice", money };
 		}
 		case "BillingRefund": {
@@ -313,17 +330,52 @@ const decide = (
 			const ours =
 				refund.invoiceId != null &&
 				grants.invoices[refund.invoiceId]?.paid !== undefined;
+			// A refund in another currency is no line either way; a marker says so (it is of a payment the books never held)
+			const refunded = (ours ? refundEvents : skippedRefundEvents)({
+				refund,
+				labels: result.labels,
+				booker: bookerOf(input, holder),
+				holder,
+			});
+			const invoiceId = refund.invoiceId;
+			const record = invoiceId ? grants.invoices[invoiceId] : undefined;
+			if (!ours || !invoiceId || !record?.paid)
+				return { ok: true, result, reason: "refund", money: refunded };
+			// The part of the invoice's share this refund takes back, from the charge's running total refunded.
+			const share = reverseShare({
+				record: record.share,
+				collected: record.paid,
+				refundedTotal: refund.amount,
+				refundId: refund.id,
+				refundAt: refund.at,
+				money: refunded,
+				paymentId: invoiceId,
+				labels: result.labels,
+				booker: bookerOf(input, holder),
+				holder,
+			});
+			const reversed = share.share;
 			return {
 				ok: true,
-				result,
+				// `result.state` can be the caller's own state (a refund that removes nothing): copied, never changed in place.
+				result:
+					reversed && reversed !== record.share
+						? {
+								...result,
+								state: {
+									...result.state,
+									invoices: {
+										...result.state.invoices,
+										[invoiceId]: {
+											...(result.state.invoices[invoiceId] ?? record),
+											share: reversed,
+										},
+									},
+								},
+							}
+						: result,
 				reason: "refund",
-				// A refund in another currency is no line either way; a marker says so (it is of a payment the books never held)
-				money: (ours ? refundEvents : skippedRefundEvents)({
-					refund,
-					labels: result.labels,
-					booker: bookerOf(input, holder),
-					holder,
-				}),
+				money: [...refunded, ...share.events],
 			};
 		}
 		case "BillingDispute": {

@@ -68,6 +68,9 @@
 				"referral.rewarded",
 				"catalog.published",
 				"policy.published",
+				"share.accrued",
+				"share.reversed",
+				"share.settled",
 				"money.skipped"
 			]
 		},

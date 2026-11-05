@@ -26,8 +26,11 @@ import p22 from "../../schema/payload/plan.changed.v1.json";
 import p23 from "../../schema/payload/policy.published.v1.json";
 import p24 from "../../schema/payload/referral.qualified.v1.json";
 import p25 from "../../schema/payload/referral.rewarded.v1.json";
-import p26 from "../../schema/payload/share.charged.v1.json";
-import p27 from "../../schema/payload/subject.erased.v1.json";
+import p26 from "../../schema/payload/share.accrued.v1.json";
+import p27 from "../../schema/payload/share.charged.v1.json";
+import p28 from "../../schema/payload/share.reversed.v1.json";
+import p29 from "../../schema/payload/share.settled.v1.json";
+import p30 from "../../schema/payload/subject.erased.v1.json";
 
 export const envelopeSchema: Record<string, unknown> = envelope;
 export const payloadSchemas: Record<string, Record<string, unknown>> = {
@@ -57,6 +60,9 @@ export const payloadSchemas: Record<string, Record<string, unknown>> = {
 	"policy.published": p23,
 	"referral.qualified": p24,
 	"referral.rewarded": p25,
-	"share.charged": p26,
-	"subject.erased": p27,
+	"share.accrued": p26,
+	"share.charged": p27,
+	"share.reversed": p28,
+	"share.settled": p29,
+	"subject.erased": p30,
 };
