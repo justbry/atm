@@ -853,6 +853,22 @@ describe("addZonedMonths", () => {
 			D("2027-02-28T13:00:00Z"),
 		);
 	});
+	test("a wall time that does not exist (clocks forward) is read with the offset from before, just after the gap, in every zone", () => {
+		// 2027-03-14 02:30 does not exist in Denver: the clocks go from 02:00 MST to 03:00 MDT
+		expect(addZonedMonths(D("2026-09-14T08:30:00Z"), 6, "America/Denver")).toBe(
+			D("2027-03-14T09:30:00Z"), // 03:30 MDT
+		);
+		// 2027-03-28 01:05 does not exist in London: 01:00 GMT goes to 02:00 BST
+		expect(addZonedMonths(D("2026-03-28T01:05:00Z"), 12, "Europe/London")).toBe(
+			D("2027-03-28T01:05:00Z"), // 02:05 BST
+		);
+	});
+	test("a wall time that happens twice (clocks back) is its first time", () => {
+		// 2026-11-01 01:30 happens as 01:30 MDT and again as 01:30 MST in Denver
+		expect(addZonedMonths(D("2026-05-01T07:30:00Z"), 6, "America/Denver")).toBe(
+			D("2026-11-01T07:30:00Z"),
+		);
+	});
 	test("UTC gives the UTC calendar", () => {
 		const t = D("2026-03-12T18:30:45.123Z");
 		expect(addZonedMonths(t, 6, "UTC")).toBe(addUtcMonths(t, 6));

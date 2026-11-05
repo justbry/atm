@@ -342,6 +342,8 @@ export const addUtcMonths = (ms: number, months: number): number => {
 	);
 };
 
+const DAY_MS = 86_400_000;
+
 const WALL_PARTS = {
 	hourCycle: "h23",
 	year: "numeric",
@@ -382,10 +384,15 @@ export const addZonedMonths = (
 	timeZone: string,
 ): number => {
 	const target = addUtcMonths(wallMs(ms, timeZone), months);
-	// Wall time back to an instant: guess with the zone's offset at the wall time, then correct with the offset at the guess.
-	let guess = target - (wallMs(target, timeZone) - target);
-	guess = target - (wallMs(guess, timeZone) - guess);
-	return guess;
+	// The zone's offset a day before and a day after the target bracket any clock change near it.
+	const offsetAt = (instant: number) => wallMs(instant, timeZone) - instant;
+	const before = target - offsetAt(target - DAY_MS);
+	const after = target - offsetAt(target + DAY_MS);
+	const fits = (instant: number) => wallMs(instant, timeZone) === target;
+	// A wall time that happens twice (clocks back) is its first time; one that never happens (clocks forward) is read
+	// with the offset from before the change, which lands just after the gap. Either way the same rule in every zone.
+	if (fits(before) && fits(after)) return Math.min(before, after);
+	return fits(after) && !fits(before) ? after : before;
 };
 
 const labelsOf = (source: FactSource, v: Versions): GrantLabels => ({
