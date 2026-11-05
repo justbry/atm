@@ -28,6 +28,7 @@ Everything on `dev` after the `atm-v0.5.0` tag (`0152d7a1c`).
 | #44 | `d0cf190dd` | next release, not released | roadmap: what shipped after 0.5.0 with merge commits; what reports from the log still need |
 | #50 | `5729b4286` | next release, not released | several subscriptions on one customer: what works, what does not (docs) |
 | #52 | `8acc2bbf6` | next release, not released | `reconcile` matches the refunds a handler-made log holds (the nearest equal Stripe refund, not the earliest) |
+| #58 | | next release, not released | `lapseAlertEvents` calls `drawnAfter` once per lapse instant (with `I - 1`) and adds it to both totals, so a draw at exactly the lapse instant is no longer counted on one side only; its meaning is documented |
 | #51 | `5f0a5aad8` | next release, not released | the 0.6.0 release commit: `package.json` 0.6.0 and the upgrade notes (`UPGRADING.md`, "Moving to 0.6.0 from 0.5.0") |
 | #61 | not merged | next release, not released | `tests/overage-renewal.test.ts`: a renewal invoice for a holder in overage is refused 422 `rejected` (verified through the handler; docs and one roadmap line, no code change) |
 

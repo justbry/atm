@@ -712,8 +712,86 @@ describe("one rule per event type", () => {
 				previous_available: 3,
 				cause: "expired",
 			});
-			expect(asked).toContain(T + DAY - 1);
-			expect(asked).toContain(T + 2 * DAY);
+			// Called once per lapse instant, with the instant minus 1 (a draw at the instant itself counts as after it).
+			expect(asked).toEqual([T + DAY - 1, T + 2 * DAY - 1]);
+		});
+		test("a draw at exactly the lapse instant counts as after the lapse: no false credit.depleted", () => {
+			// A holds 10 and lapses at T + DAY; B held 5 and the family drew all 5 at exactly T + DAY (it could not use A, which
+			// lapsed at that instant). Just before: 15. Right after the lapse: 5 (the draw came after). So no depletion.
+			const state = lapseState(10);
+			addRow(state, "ce_kept", 0, null);
+			const instant = T + DAY;
+			// Draws strictly after `t`: the draw at `instant` is after `instant - 1` but not after `instant`.
+			const drawnAfter = (t: number) => (t < instant ? 5 : 0);
+			expect(alerts(state, T + 3 * DAY, drawnAfter)).toEqual([]);
+		});
+		test("drawnAfter is asked once per lapse instant, with the instant minus 1", () => {
+			const asked: number[] = [];
+			alerts(lapseState(2), T + 2 * DAY, (t) => {
+				asked.push(t);
+				return 0;
+			});
+			expect(asked).toEqual([T + DAY - 1]);
+		});
+		/** A holder's draws as a ledger would give them: `drawnAfter(t)` is the units drawn strictly after `t` and up to `atMs`. */
+		const ledger =
+			(draws: { at: number; units: number }[], atMs: number) =>
+			(t: number): number => {
+				let total = 0;
+				for (const draw of draws)
+					if (draw.at > t && draw.at <= atMs) total += draw.units;
+				return total;
+			};
+		test("two lapse instants and a draw at exactly the later one: no false credit.depleted at either", () => {
+			// A holds 10 and lapses at T + DAY, B holds 2 and lapses at T + 2 DAY; C held 5 and the family drew all 5 at exactly
+			// T + 2 DAY (it could not use B). Just before T + 2 DAY: 7; right after the lapse: 5. Nothing is used up.
+			const atMs = T + 3 * DAY;
+			const state = lapseState(10);
+			addRow(state, "ce_pack", 2, T + 2 * DAY);
+			addRow(state, "ce_kept", 0, null);
+			const draws = [{ at: T + 2 * DAY, units: 5 }];
+			expect(alerts(state, atMs, ledger(draws, atMs))).toEqual([]);
+		});
+		test("two lapse instants and a draw at exactly the earlier one: the later instant is still judged on its own", () => {
+			// A holds 2 and lapses at T + DAY, B holds 3 and lapses at T + 2 DAY; C held 4 and the family drew all 4 at exactly
+			// T + DAY. At T + DAY: 9 down to 7 (no event). Just before T + 2 DAY: 3 (the draw is behind it); then 0: used up.
+			const atMs = T + 3 * DAY;
+			const state = lapseState(2);
+			addRow(state, "ce_pack", 3, T + 2 * DAY);
+			addRow(state, "ce_kept", 0, null);
+			const draws = [{ at: T + DAY, units: 4 }];
+			const out = alerts(state, atMs, ledger(draws, atMs));
+			expect(out).toHaveLength(1);
+			expect(out[0]?.event_time).toBe(
+				new Date(T + 2 * DAY).toISOString().replace(".000", ""),
+			);
+			expect(out[0]?.payload).toMatchObject({
+				available: 0,
+				previous_available: 3,
+			});
+		});
+		test("a draw at exactly atMs, and a row that lapses at exactly atMs", () => {
+			// A holds 2 and lapses at atMs itself (`lapsedRows` takes expires_at <= atMs). With C held 5 and drawn at atMs,
+			// the family kept 5: no alert. With no such draw, the lapse leaves nothing: one alert.
+			const atMs = T + DAY;
+			const state = lapseState(2);
+			addRow(state, "ce_kept", 0, null);
+			const draws = [{ at: atMs, units: 5 }];
+			expect(alerts(state, atMs, ledger(draws, atMs))).toEqual([]);
+			const [depleted] = alerts(state, atMs, ledger([], atMs));
+			expect(depleted?.payload).toMatchObject({
+				available: 0,
+				previous_available: 2,
+			});
+			// A row that ends one millisecond after atMs has not lapsed: no instant, no call, no alert.
+			const asked: number[] = [];
+			expect(
+				alerts(state, atMs - 1, (t) => {
+					asked.push(t);
+					return 0;
+				}),
+			).toEqual([]);
+			expect(asked).toEqual([]);
 		});
 		test("drawnAfter: a negative count is no draw; a count that is not finite, or no function, throws", () => {
 			const state = lapseState(2);
