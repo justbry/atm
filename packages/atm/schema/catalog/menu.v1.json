@@ -2,7 +2,7 @@
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
 	"$id": "https://b4uni.com/_schema/catalog/menu.v1.json",
 	"title": "School billing menu v1",
-	"description": "A school's menu: features (credits), tiers (memberships) and add-ons. Amounts are cents of `currency`. Limits match the family service's MenuSchema. Text fields are trimmed before they are checked (validateMenu does that); the rules a schema cannot say (unique ids, grants name a feature, one price per interval, a gift is a one-time add-on, a real time zone) are in validateMenu.",
+	"description": "A school's menu: features (credits), tiers (memberships) and add-ons. Amounts are cents of `currency`. Limits match the family service's MenuSchema. Text fields are trimmed before they are checked (validateMenu does that); the rules a schema cannot say (unique ids, grants name a feature, one price per interval, a gift is a one-time add-on, a real time zone, a tier's quantities in ascending order) are in validateMenu.",
 	"type": "object",
 	"additionalProperties": false,
 	"required": ["currency", "timeZone", "features", "tiers", "addons"],
@@ -94,6 +94,14 @@
 					"type": "array",
 					"maxItems": 12,
 					"items": { "$ref": "#/$defs/grant" }
+				},
+				"quantities": {
+					"description": "The counts a buyer may pick (e.g. [1, 2, 4] sessions a month), in ascending order (validateMenu checks the order). When set, the tier's prices and grant amounts are per unit. Absent: sold one at a time.",
+					"type": "array",
+					"minItems": 1,
+					"maxItems": 6,
+					"uniqueItems": true,
+					"items": { "type": "integer", "minimum": 1, "maximum": 50 }
 				}
 			}
 		},

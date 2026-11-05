@@ -54,6 +54,7 @@ export const EMPTY_GRANTS_STATE: GrantsState = {
 	anchor: null,
 	cycleStart: null,
 	cycleEnd: null,
+	quantity: 1,
 	addonIds: [],
 	endedAt: null,
 	rows: {},
@@ -190,14 +191,28 @@ const addonSpecs = (menu: Menu, addonId: string) => {
 
 type CatalogRowOut = { table: string; row: Record<string, unknown> };
 
-const rolloverConfig = (r: MenuGrant["rollover"]) =>
-	r
-		? {
-				...(r.max !== undefined ? { max: r.max } : {}),
-				duration: "month",
-				length: r.months,
-			}
-		: null;
+/** Nine decimals of a percentage, rounded up: enough for any allowance, never a unit short after the engine's floor. */
+const PERCENT_SCALE = 1e9;
+
+/**
+ * The engine's rollover terms for a row granting `allowance` per unit. A tier sold in a quantity refills `allowance` x
+ * the customer product's quantity, and its cap must grow with it: the engine scales only `max_percentage` (of the
+ * refill, floored), not `max`, so the cap is written as `max` over the per-unit allowance. A zero allowance keeps `max`.
+ */
+const rolloverConfig = (r: MenuGrant["rollover"], allowance: number) => {
+	if (!r) return null;
+	const cap =
+		r.max === undefined
+			? {}
+			: allowance > 0
+				? {
+						max_percentage:
+							Math.ceil((r.max * 100 * PERCENT_SCALE) / allowance) /
+							PERCENT_SCALE,
+					}
+				: { max: r.max };
+	return { ...cap, duration: "month", length: r.months };
+};
 
 /**
  * The engine catalog rows (features, products, entitlements) for a menu: one product per tier and price
@@ -293,7 +308,7 @@ export const menuCatalogRows = ({
 					s.feature,
 					s.amount,
 					s.interval,
-					rolloverConfig(s.rollover),
+					rolloverConfig(s.rollover, s.amount),
 				);
 		}
 	}
@@ -319,7 +334,7 @@ export const menuCatalogRows = ({
 				s.feature,
 				s.amount,
 				s.interval,
-				rolloverConfig(s.rollover),
+				rolloverConfig(s.rollover, s.amount),
 			);
 	}
 	return rows;
@@ -559,6 +574,7 @@ const productOp = (
 	productId: string,
 	customerId: string,
 	t: number,
+	quantity = 1,
 ): Op => ({
 	op: "insert",
 	table: "customerProducts",
@@ -569,7 +585,7 @@ const productOp = (
 		internal_entity_id: null,
 		status: "active",
 		options: [],
-		quantity: 1,
+		quantity,
 		created_at: t,
 		starts_at: t,
 		access_starts_at: null,
@@ -621,6 +637,14 @@ const rowOp = ({
 	},
 });
 
+/** The tier's customer product at `quantity` units: the engine's refill (and its rollover cap) is the allowance x it. */
+const tierQuantityOp = (quantity: number): Op => ({
+	op: "update",
+	table: "customerProducts",
+	id: TIER_CP,
+	set: { quantity },
+});
+
 const stopRefill = (rowId: string): Op => ({
 	op: "update",
 	table: "customerEntitlements",
@@ -657,13 +681,19 @@ export const invoiceHolder = (
 /**
  * The engine commands one paid invoice calls for, in order, and the state after them.
  *
- * - `subscription_create`: the customer, the tier's product and its credit rows (the whole allowance, next reset
- *   at the period end), recurring add-ons, and one-time add-ons.
+ * A tier's grants are per unit: its tier line's `quantity` (Stripe's) multiplies every one, and `state.quantity` keeps
+ * the quantity the credits reflect.
+ *
+ * - `subscription_create`: the customer, the tier's product and its credit rows (the whole allowance x the line's
+ *   quantity, next reset at the period end), recurring add-ons, and one-time add-ons.
  * - `subscription_cycle`: if the tier changed since (a downgrade took effect) the plan moves to it first, sessions
- *   kept; then the engine's `reset` at the period start (the policy's anchor): refill, rollover within `max`.
- *   Nothing is granted for an unpaid cycle because nothing runs for it.
- * - `subscription_update` with a positive proration line for another tier (an upgrade): the allowance
- *   difference x share of the cycle left, rounded up, per `policy.upgradeGrant`. A lower tier grants nothing.
+ *   kept; then the engine's `reset` at the period start (the policy's anchor): refill to the allowance x the tier
+ *   line's quantity (a decrease made since takes effect here), rollover within `max` x that quantity (so at a decrease
+ *   the carry-over cap follows the new, lower count: the engine has one cap per row). Proration lines on it grant nothing. Nothing is granted for an unpaid cycle because nothing runs for it.
+ * - `subscription_update` with a positive proration line for another tier (an upgrade), or for the same tier at a
+ *   higher quantity (a raise): the difference of allowance x quantity (the credit line's quantity is the old one, the
+ *   charge line's the new total) x share of the cycle left, rounded up, per `policy.upgradeGrant`. A lower tier, or the
+ *   same tier at no more units, grants nothing.
  * - Gift certificate (an add-on with `gift`, or a line whose Stripe price says so): `sessions` is a one-off row per
  *   grant with `expires_at` = `policy.giftSessionMonths` after `paidAt` on the menu's calendar (`menu.timeZone`);
  *   `dollars` grants no credits.
@@ -684,7 +714,10 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 		granted: [],
 		removed: false,
 	};
-	const lines = invoice.lines.filter((l: InvoiceLine) => l.kind !== "unknown");
+	// A line that pays for no units (a paused add-on, a tier at quantity 0) grants nothing, and is not coerced to one unit.
+	const lines = invoice.lines.filter(
+		(l: InvoiceLine) => l.kind !== "unknown" && l.quantity >= 1,
+	);
 	// Once the subscription has ended nothing more is granted for it, whatever invoice still arrives.
 	const live =
 		state.endedAt === null || invoice.subscriptionId !== state.subscriptionId;
@@ -693,15 +726,27 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 				(l) => l.kind === "tier" && !l.proration && l.tierId && l.interval,
 			)
 		: undefined;
+	// The raise is the positive proration line that starts LAST: a decrease made with create_prorations leaves an older
+	// pair pending, and it rides on whichever invoice comes next (a later raise, an add-on purchase, a renewal).
 	const upLine = live
-		? lines.find(
-				(l) =>
-					l.kind === "tier" &&
-					l.proration &&
-					l.tierId &&
-					l.interval &&
-					l.amount > 0,
-			)
+		? lines
+				.filter(
+					(l) =>
+						l.kind === "tier" &&
+						l.proration &&
+						l.tierId &&
+						l.interval &&
+						l.amount > 0,
+				)
+				.reduce<InvoiceLine | undefined>(
+					(latest, l) =>
+						latest === undefined ||
+						(l.periodStart ?? Number.NEGATIVE_INFINITY) >
+							(latest.periodStart ?? Number.NEGATIVE_INFINITY)
+							? l
+							: latest,
+					undefined,
+				)
 		: undefined;
 	const recurring = live
 		? lines.filter(
@@ -792,7 +837,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 		const end = line.periodEnd ?? periodEnd;
 		ops.push(productOp(addonCp(addonId), pid, who.customerId, now));
 		for (const s of specs) {
-			const full = s.amount * (line.quantity || 1);
+			const full = s.amount * line.quantity;
 			const units =
 				share === "full"
 					? full
@@ -809,7 +854,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 				units,
 				end,
 				line.periodStart ?? periodStart,
-				line.quantity || 1,
+				line.quantity,
 			);
 		}
 		if (!state.addonIds.includes(addonId)) state.addonIds.push(addonId);
@@ -828,6 +873,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 		const tierId = tierLine.tierId as string;
 		const interval = tierLine.interval as Interval;
 		const end = periodEnd;
+		const quantity = tierLine.quantity;
 		created = true;
 		if (state.identity === null)
 			ops.push({
@@ -836,12 +882,19 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 				row: customerRow(who.customerId),
 			});
 		ops.push(
-			productOp(TIER_CP, tierProductId(tierId, interval), who.customerId, now),
+			productOp(
+				TIER_CP,
+				tierProductId(tierId, interval),
+				who.customerId,
+				now,
+				quantity,
+			),
 		);
 		for (const s of tierSpecs(menu, tierId, interval))
-			insertSpec(s, TIER_CP, s.amount, end, periodStart);
+			insertSpec(s, TIER_CP, s.amount * quantity, end, periodStart, quantity);
 		state.tierId = tierId;
 		state.interval = interval;
+		state.quantity = quantity;
 		state.subscriptionId = invoice.subscriptionId;
 		state.anchor = periodStart;
 		state.cycleStart = periodStart;
@@ -855,13 +908,26 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 		const tierId = tierLine.tierId as string;
 		const interval = tierLine.interval as Interval;
 		const end = periodEnd;
+		// The renewal's tier line says how many units this cycle pays for (a decrease since takes effect here). Its proration
+		// lines, if any (a decrease made with create_prorations rides on the renewal), grant nothing.
+		const quantity = tierLine.quantity;
+		if (quantity !== state.quantity) ops.push(tierQuantityOp(quantity));
+		state.quantity = quantity;
 		if (tierId !== state.tierId || interval !== state.interval) {
 			moveTier({
 				menu,
 				state,
 				to: { tierId, interval },
 				ops,
-				insert: (s) => insertSpec(s, TIER_CP, s.amount, end, periodStart),
+				insert: (s) =>
+					insertSpec(
+						s,
+						TIER_CP,
+						s.amount * quantity,
+						end,
+						periodStart,
+						quantity,
+					),
 				// The reset at the period start refills it: what is left rolls over, the allowance comes back.
 				revive: (s) => {
 					ops.push({
@@ -873,7 +939,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 					state.rows[s.rowId] = (state.rows[s.rowId] ?? 0) + 1;
 					grantRow(
 						s,
-						s.amount,
+						s.amount * quantity,
 						s.interval === s.plan
 							? end
 							: addUtcMonths(periodStart, s.interval === "year" ? 12 : 1),
@@ -899,9 +965,15 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 		}
 		state.addonIds = state.addonIds.filter((id) => want.has(id));
 		const refilled: string[] = [];
-		for (const s of [
-			...tierSpecs(menu, tierId, interval),
-			...state.addonIds.flatMap((id) => addonSpecs(menu, id)),
+		// The tier's rows refill at its quantity; an add-on's product is one unit, so its rows refill their allowance.
+		for (const { s, units } of [
+			...tierSpecs(menu, tierId, interval).map((spec) => ({
+				s: spec,
+				units: spec.amount * quantity,
+			})),
+			...state.addonIds
+				.flatMap((id) => addonSpecs(menu, id))
+				.map((spec) => ({ s: spec, units: spec.amount })),
 		]) {
 			if (s.interval !== s.plan) continue;
 			if (!(s.rowId in state.rows)) continue;
@@ -909,7 +981,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 			const fresh = record.granted.some((g) => g.rowId === s.rowId);
 			if (!fresh) {
 				state.rows[s.rowId] = (state.rows[s.rowId] ?? 0) + 1;
-				grantRow(s, s.amount, end);
+				grantRow(s, units, end);
 			}
 		}
 		needReset = true;
@@ -923,7 +995,26 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 	) {
 		const tierId = upLine.tierId as string;
 		const interval = upLine.interval as Interval;
-		if (tierId !== state.tierId || interval !== state.interval) {
+		const sameTier = tierId === state.tierId && interval === state.interval;
+		// Stripe's raise (API 2025-10-29.clover, recorded): the credit line of the plan left carries the OLD quantity, the
+		// charge line the NEW total (not the difference). Without a credit line the quantity the credits reflect is the old.
+		// The credit of THIS raise starts when its charge does; a stale pair's credit starts earlier and is not it.
+		const credits = lines.filter(
+			(l) =>
+				l.kind === "tier" &&
+				l.proration &&
+				l.amount < 0 &&
+				l.tierId === state.tierId &&
+				l.interval === state.interval,
+		);
+		const creditLine =
+			upLine.periodStart === undefined
+				? credits[0]
+				: credits.find((l) => l.periodStart === upLine.periodStart);
+		const oldQuantity = creditLine ? creditLine.quantity : state.quantity;
+		const newQuantity = upLine.quantity;
+		// Another tier is always a move (a lower one grants nothing); the same tier grants only for more units.
+		if (!sameTier || newQuantity > oldQuantity) {
 			const at = upLine.periodStart ?? invoice.paidAt;
 			const newEnd =
 				interval === state.interval ? (state.cycleEnd ?? periodEnd) : periodEnd;
@@ -932,70 +1023,80 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 				state.tierId,
 				state.interval as Interval,
 			);
-			const oldAmount = new Map(oldSpecs.map((s) => [s.rowId, s.amount]));
+			// What each row held per cycle before: the old tier's allowance x the old quantity. A tier change that also changes
+			// the quantity (new amount x new quantity against old amount x old quantity) is not checked against real Stripe data.
+			const oldAmount = new Map(
+				oldSpecs.map((s) => [s.rowId, s.amount * oldQuantity]),
+			);
 			const adds: { s: RowSpec; units: number }[] = [];
-			moveTier({
-				menu,
-				state,
-				to: { tierId, interval },
-				ops,
-				insert: (s) => {
-					const units = upgradeUnits({
-						diff: s.amount,
-						policy,
-						at,
-						start: state.cycleStart,
-						end: state.cycleEnd,
-					});
-					insertSpec(s, TIER_CP, units, newEnd, at);
-				},
-				revive: (s) => {
-					if (s.interval === s.plan) {
-						// the cycle's own row: what is left stays, the prorated difference is added
+			const prorated = (diff: number) =>
+				upgradeUnits({
+					diff,
+					policy,
+					at,
+					start: state.cycleStart,
+					end: state.cycleEnd,
+				});
+			/** A row the plan keeps: the prorated difference of what it holds per cycle is added. */
+			const keep = (s: RowSpec) => {
+				const units = prorated(
+					s.amount * newQuantity - (oldAmount.get(s.rowId) ?? 0),
+				);
+				if (units > 0) adds.push({ s, units });
+				return units;
+			};
+			/**
+			 * A row on its own interval (a yearly grant on a monthly plan) renews at its own reset date, which the invoice rules
+			 * do not see (only removals read the subject's rows). Prorating its extra units over the plan's month would grant
+			 * nearly a year's difference for one month's charge, so a raise grants nothing for it: its next refill is already at
+			 * the new quantity.
+			 */
+			const keepSameTier = (s: RowSpec) =>
+				s.interval === s.plan ? keep(s) : 0;
+			if (sameTier) {
+				for (const s of oldSpecs) if (s.rowId in state.rows) keepSameTier(s);
+			} else
+				moveTier({
+					menu,
+					state,
+					to: { tierId, interval },
+					ops,
+					insert: (s) => {
+						const units = prorated(s.amount * newQuantity);
+						insertSpec(s, TIER_CP, units, newEnd, at, newQuantity);
+					},
+					revive: (s) => {
+						if (s.interval === s.plan) {
+							// the cycle's own row: what is left stays, the prorated difference is added
+							ops.push({
+								op: "update",
+								table: "customerEntitlements",
+								id: s.rowId,
+								set: { next_reset_at: newEnd },
+							});
+							const units = prorated(s.amount * newQuantity);
+							if (units > 0) adds.push({ s, units });
+							return;
+						}
+						// a row on its own interval is refilled by a reset from now
 						ops.push({
 							op: "update",
 							table: "customerEntitlements",
 							id: s.rowId,
-							set: { next_reset_at: newEnd },
+							set: { next_reset_at: at },
 						});
-						const units = upgradeUnits({
-							diff: s.amount,
-							policy,
-							at,
-							start: state.cycleStart,
-							end: state.cycleEnd,
-						});
-						if (units > 0) adds.push({ s, units });
-						return;
-					}
-					// a row on its own interval is refilled by a reset from now
-					ops.push({
-						op: "update",
-						table: "customerEntitlements",
-						id: s.rowId,
-						set: { next_reset_at: at },
-					});
-					state.rows[s.rowId] = (state.rows[s.rowId] ?? 0) + 1;
-					grantRow(
-						s,
-						s.amount,
-						addUtcMonths(at, s.interval === "year" ? 12 : 1),
-					);
-					needReset = true;
-				},
-				units: (s) => {
-					const diff = s.amount - (oldAmount.get(s.rowId) ?? 0);
-					const units = upgradeUnits({
-						diff,
-						policy,
-						at,
-						start: state.cycleStart,
-						end: state.cycleEnd,
-					});
-					if (units > 0) adds.push({ s, units });
-					return units;
-				},
-			});
+						state.rows[s.rowId] = (state.rows[s.rowId] ?? 0) + 1;
+						grantRow(
+							s,
+							s.amount * newQuantity,
+							addUtcMonths(at, s.interval === "year" ? 12 : 1),
+						);
+						needReset = true;
+					},
+					units: keep,
+				});
+			if (newQuantity !== state.quantity) ops.push(tierQuantityOp(newQuantity));
+			state.quantity = newQuantity;
 			b.plan(now, ops.splice(0));
 			for (const { s, units } of adds) {
 				b.add(now, s.feature, s.rowId, units);
@@ -1010,8 +1111,10 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 			if (needReset) b.reset(at + 1);
 			needReset = false;
 		}
-	} else if (live && state.tierId && invoice.reason === "subscription_update") {
-		// Add-ons bought mid-cycle.
+	}
+	// Add-ons bought mid-cycle. This runs whatever else the update invoice does: a member may raise the quantity and buy an
+	// add-on at once, or buy one while an older proration pair is still pending on the subscription.
+	if (live && state.tierId && invoice.reason === "subscription_update") {
 		for (const l of lines.filter(
 			(x) => x.kind === "addon" && x.addonId && x.interval && x.amount > 0,
 		)) {
@@ -1034,7 +1137,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 		const gift = giftOf(l) === "sessions";
 		for (const g of addon.grants) {
 			const rowId = `ce_${gift ? "gift" : "once"}_${invoice.id}_${addon.id}_${g.featureId}`;
-			const units = g.amount * (l.quantity || 1);
+			const units = g.amount * l.quantity;
 			const expiresAt = gift
 				? addZonedMonths(
 						invoice.paidAt,
@@ -1336,9 +1439,10 @@ export const subscriptionHolder = (
 
 /**
  * A `customer.subscription.*` event. Records what Stripe says the membership is (status via `subscriptionStatus`, the
- * tier and interval the menu names for its price, renewal or end date) in `state.membership`; a canceled subscription
+ * tier, interval and quantity the menu names for its tier item, renewal or end date) in `state.membership`; a canceled subscription
  * also lets its credits lapse (`subscriptionEndedToCommands`). Nothing is granted here: credits come from paid invoices,
- * so `state.tierId` and `state.interval` stay where the invoices put them. An event about another subscription than the
+ * so `state.tierId`, `state.interval` and `state.quantity` stay where the invoices put them (a quantity change alone
+ * updates only `membership.quantity`). An event about another subscription than the
  * holder's, or older than the one on record, changes nothing; replaying one changes nothing.
  */
 export const subscriptionToCommands = (
@@ -1362,21 +1466,46 @@ export const subscriptionToCommands = (
 	const keepTier = fact.status === "canceled";
 	const recorded =
 		current?.subscriptionId === fact.id
-			? { tierId: current.tierId, interval: current.interval }
-			: { tierId: prior.tierId, interval: prior.interval };
+			? {
+					tierId: current.tierId,
+					interval: current.interval,
+					quantity: current.quantity ?? 1,
+				}
+			: {
+					tierId: prior.tierId,
+					interval: prior.interval,
+					quantity: prior.quantity ?? 1,
+				};
 	const membership: MembershipRecord = {
 		subscriptionId: fact.id,
 		status: shown.status,
 		tierId: plan?.tierId ?? (keepTier ? recorded.tierId : null),
 		interval: plan?.interval ?? (keepTier ? recorded.interval : null),
+		quantity: plan?.quantity ?? (keepTier ? recorded.quantity : 1),
 		renewsAt: shown.renewsAt,
 		cancelAtPeriodEnd: shown.cancelAtPeriodEnd,
 		endsAt: shown.endsAt,
 		at: fact.at,
 	};
-	if (JSON.stringify(current) === JSON.stringify(membership)) return ended;
+	if (sameMembership(current, membership)) return ended;
 	return { ...ended, state: { ...ended.state, membership } };
 };
+
+/** Field by field, so key order in a stored row (a legacy one gets `quantity` last) never counts as a change. */
+const sameMembership = (
+	a: MembershipRecord | null,
+	b: MembershipRecord,
+): boolean =>
+	a !== null &&
+	a.subscriptionId === b.subscriptionId &&
+	a.status === b.status &&
+	a.tierId === b.tierId &&
+	a.interval === b.interval &&
+	a.quantity === b.quantity &&
+	a.renewsAt === b.renewsAt &&
+	a.cancelAtPeriodEnd === b.cancelAtPeriodEnd &&
+	a.endsAt === b.endsAt &&
+	a.at === b.at;
 
 const unchanged = (input: SubscriptionEndInput): GrantResult => ({
 	commands: [],

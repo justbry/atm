@@ -14,12 +14,14 @@ import {
 	redactPersonal,
 	resolveInvoice,
 	resolveLines,
+	resolveSubscriptionPlan,
 } from "../src/billing/normalize.js";
 import type {
 	BillingDispute,
 	BillingInvoice,
 	BillingRefund,
 	SubscriptionFact,
+	SubscriptionItem,
 } from "../src/billing/types.js";
 
 const API = "2025-10-29.clover";
@@ -363,6 +365,7 @@ describe("fixtures normalize to their facts", () => {
 					priceId: "price_SYNTH_sparkle_2s_month",
 					lookupKey: "vol_sparkle_2s_month",
 					interval: "month",
+					quantity: 1,
 				},
 			],
 			currentPeriodStart: 1793491200000,
@@ -645,5 +648,134 @@ describe("determinism", () => {
 			);
 			expect(b).toBe(a);
 		}
+	});
+});
+
+describe("quantity", () => {
+	const subscriptionWithQuantity = (quantity: unknown) => {
+		const raw = load("customer.subscription.created.json");
+		raw.data.object.items.data[0].quantity = quantity;
+		return normalize(raw, mapping("customer.subscription.created"), {
+			eventId: raw.id,
+		});
+	};
+	const invoiceWithQuantity = (quantity: unknown) => {
+		const raw = load("invoice.paid.json");
+		raw.data.object.lines.data[0].quantity = quantity;
+		return normalize(raw, mapping("invoice.paid"), { eventId: raw.id });
+	};
+
+	test("a subscription item carries its quantity as is, even one no menu would list", () => {
+		for (const quantity of [1, 2, 4, 7, 50]) {
+			const subscription = expectOk(
+				subscriptionWithQuantity(quantity),
+			) as SubscriptionFact;
+			expect(subscription.items[0]?.quantity).toBe(quantity);
+		}
+	});
+
+	test("a subscription item without a quantity is one unit", () => {
+		const raw = load("customer.subscription.created.json");
+		delete raw.data.object.items.data[0].quantity;
+		const subscription = expectOk(
+			normalize(raw, mapping("customer.subscription.created"), {
+				eventId: raw.id,
+			}),
+		) as SubscriptionFact;
+		expect(subscription.items[0]?.quantity).toBe(1);
+	});
+
+	test("every subscription event type reads the quantity", () => {
+		for (const event of [
+			"customer.subscription.updated",
+			"customer.subscription.deleted",
+		]) {
+			const raw = load(`${event}.json`);
+			raw.data.object.items.data[0].quantity = 4;
+			const subscription = expectOk(
+				normalize(raw, mapping(event), { eventId: raw.id }),
+			) as SubscriptionFact;
+			expect(subscription.items[0]?.quantity).toBe(4);
+		}
+	});
+
+	test("a subscription item at quantity 0 (a paused add-on) is carried, not refused: it must not block the event", () => {
+		const subscription = expectOk(
+			subscriptionWithQuantity(0),
+		) as SubscriptionFact;
+		expect(subscription.items[0]?.quantity).toBe(0);
+	});
+
+	test("a quantity that is negative, fractional, text or beyond Stripe's maximum is refused as a bad value naming the field, never coerced", () => {
+		for (const quantity of [-1, 1.5, "2", 100_000_000]) {
+			expect(subscriptionWithQuantity(quantity)).toEqual({
+				ok: false,
+				error: {
+					kind: "bad_value",
+					field: "quantity",
+					path: "$.quantity",
+				},
+			});
+		}
+	});
+
+	test("an invoice line carries its quantity as is; a missing one is 1", () => {
+		for (const quantity of [1, 2, 4, 7, 50]) {
+			const invoice = expectOk(invoiceWithQuantity(quantity)) as BillingInvoice;
+			expect(invoice.lines[0]?.quantity).toBe(quantity);
+		}
+		const raw = load("invoice.paid.json");
+		delete raw.data.object.lines.data[0].quantity;
+		const invoice = expectOk(
+			normalize(raw, mapping("invoice.paid"), { eventId: raw.id }),
+		) as BillingInvoice;
+		expect(invoice.lines[0]?.quantity).toBe(1);
+	});
+
+	test("an invoice line at quantity 0 is carried, not refused: the grant rules ignore it", () => {
+		const invoice = expectOk(invoiceWithQuantity(0)) as BillingInvoice;
+		expect(invoice.lines[0]?.quantity).toBe(0);
+	});
+
+	test("an invoice line quantity of -1, 1.5, '2' or beyond Stripe's maximum is refused as a bad value naming the field", () => {
+		for (const quantity of [-1, 1.5, "2", 100_000_000]) {
+			expect(invoiceWithQuantity(quantity)).toEqual({
+				ok: false,
+				error: {
+					kind: "bad_value",
+					field: "quantity",
+					path: "$.quantity",
+				},
+			});
+		}
+	});
+
+	test("plan resolution returns the quantity of the tier item when an add-on item comes first", () => {
+		const items: SubscriptionItem[] = [
+			{
+				priceId: "price_SYNTH_addon_hd_month",
+				lookupKey: null,
+				interval: "month",
+				quantity: 3,
+			},
+			{
+				priceId: "price_SYNTH_sparkle_2s_month",
+				lookupKey: null,
+				interval: "month",
+				quantity: 4,
+			},
+			{
+				priceId: "price_SYNTH_shine_1s_month",
+				lookupKey: null,
+				interval: "month",
+				quantity: 2,
+			},
+		];
+		expect(resolveSubscriptionPlan(items, menu)).toEqual({
+			tierId: "sparkle",
+			interval: "month",
+			quantity: 4,
+		});
+		expect(resolveSubscriptionPlan(items.slice(0, 1), menu)).toBeNull();
 	});
 });

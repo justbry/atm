@@ -2,7 +2,7 @@
 
 Status as of 2026-11-05. `- [x]` is built and tested; `- [ ]` is not. What is built is described in `README.md`; what a caller of 0.1.0 has to change is in `UPGRADING.md`. Competitor behaviour comes from the vendors' public docs as read on 2026-11-04, not from running their products.
 
-**Where the work is.** Eight branches stacked on `dev`, built locally and each gated on its own (lint, `tsc`, tests, build, knip). Nothing is pushed yet. Bottom to top: `claude/atm-membership`, `claude/atm-engine-expiry-order`, `claude/atm-deduction-policy`, `claude/atm-store`, `claude/atm-real-payloads`, `claude/atm-webhook-handler`, `claude/atm-credit-alerts`, `claude/atm-release-prep`. Tier quantities will slot in below release prep.
+**Where the work is.** Eight branches stacked on `dev`, built locally and each gated on its own (lint, `tsc`, tests, build, knip). Nothing is pushed yet. Bottom to top: `claude/atm-membership`, `claude/atm-engine-expiry-order`, `claude/atm-deduction-policy`, `claude/atm-store`, `claude/atm-real-payloads`, `claude/atm-webhook-handler`, `claude/atm-credit-alerts`, `claude/atm-release-prep`. Tier quantities are in their own branch on `dev`.
 
 ## Priority: the B4 Uni update and Vibes of Light membership
 
@@ -11,9 +11,8 @@ The critical path. Simulation, corrections, the Parquet export, decoupling and t
 ### In atm
 - [x] The billing layer, the reference webhook handler, the real-payload fixes, refund and dispute linkage, `credit.low` and `credit.depleted`, and the deduction order (details under Done).
 - [ ] Review each slice, then push the branches, open the PRs (`gh --repo justbry/atm`; base chain, first base `dev`), and merge bottom-up with merge commits (not squash, which would orphan the child PRs), retargeting each child to `dev` after its parent merges. All eight slices have been reviewed (see Review below); the findings are fixed in each slice.
-- [ ] **Tier quantities.** Vibes of Light sells three tiers at 1, 2 or 4 sessions a month; as separate tiers that is 9, past `MAX_TIERS = 4`. A tier gets `quantities` with its price and grants per unit. It goes on top of the stack, not on `dev`, because it edits the code the real-payload slice fixed.
-  - [ ] Capture real quantity payloads from the sandbox first (quantity 2 subscription, raise to 4 with `always_invoice`, lower it, renew at 4), as was done for the renewal bug.
-  - [ ] Decide: carry Stripe's quantity as is and never fall back to 1 (the range check belongs to checkout); keep `quantity` (what credits reflect) apart from `membership.quantity` (what Stripe says); scale rollover `max` with the quantity; forbid a tier change and a quantity change in one update; a decrease grants nothing and applies at the next cycle.
+- [x] **Tier quantities.** Vibes of Light sells three tiers at 1, 2 or 4 sessions a month; as separate tiers that is 9, past `MAX_TIERS = 4`. A tier gets `quantities` with its price and grants per unit (details in `UPGRADING.md`). Built from real quantity payloads captured in the sandbox (`fixtures/billing/stripe/recorded/`). Left out of 0.3.0: a quantity member in the replay fixture year (`fixtures/vibes-year`); the grants tests cover raise, decrease, renewal, yearly refund and the two-item subscription.
+  - [ ] Verify with real data: a tier change and a quantity change in one update; a raise on a yearly plan (grants 0 today); a decrease through a subscription schedule.
   - [ ] Align with the family service's stopgap, justbry/buzz-school#1285.
 - [ ] **Release 0.3.0**: bump `package.json` (0.2.0 on `dev`; no 0.2.0 tag or release exists), `just release-dry`, then `just release` from a clean, pushed `HEAD`; hand the tarball URL and sha512 to `buzz-school`'s `bun.lock`. `release.ts` has no draft mode.
 - [ ] Verify webhook delivery at the pinned version: create a sandbox webhook endpoint with `api_version: "2025-10-29.clover"` that reaches a URL we control (the CLI's `listen` offers only the account default or the newest version), subscribed to the eight events in `UPGRADING.md`.

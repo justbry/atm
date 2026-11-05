@@ -157,6 +157,9 @@ export const grantsFromRows = (rows: readonly BillingRow[]): GrantsState => {
 	const state = { ...EMPTY_GRANTS_STATE, ...jsonSafe(row.data) } as GrantsState;
 	if (state.v !== 1)
 		throw new Error(`grants row has version ${String(state.v)}, expected 1`);
+	// A membership stored before quantities existed was one unit.
+	if (state.membership && state.membership.quantity === undefined)
+		state.membership = { ...state.membership, quantity: 1 };
 	return state;
 };
 

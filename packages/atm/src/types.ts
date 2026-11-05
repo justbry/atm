@@ -331,8 +331,16 @@ export type MenuTier = {
 	blurb: string;
 	/** Shown on the public page and sold. A tier that is not public is a draft: neither shown nor sold. */
 	public: boolean;
+	/** Per unit when the tier has `quantities`: a buyer of quantity q pays q times each amount. */
 	prices: TierPrice[];
+	/** Per unit when the tier has `quantities`: quantity q grants q times each amount. */
 	grants: MenuGrant[];
+	/**
+	 * The counts a buyer may pick (e.g. `[1, 2, 4]` sessions a month): 1 to 6 unique whole numbers from 1 to 50, in
+	 * ascending order. Absent: sold one at a time (the same as `[1]`). Prices and lookup keys stay per unit, so changing
+	 * the counts publishes nothing new to Stripe.
+	 */
+	quantities?: number[];
 };
 /** What a gift certificate holds: `sessions` (credits that lapse after `giftSessionMonths`) or `dollars` (a coupon the family service issues; no credits). */
 export type GiftKind = "sessions" | "dollars";
@@ -512,6 +520,8 @@ export type SubscriptionItem = {
 	priceId: string;
 	lookupKey: string | null;
 	interval: Interval | null;
+	/** Stripe's item quantity, a whole number from 0 (a paused item) up: the truth for how many units are paid for. */
+	quantity: number;
 };
 
 /** A subscription's state after a `customer.subscription.*` event. */
@@ -641,6 +651,12 @@ export type GrantsState = {
 	/** The paid cycle now running (period start and end, ms). */
 	cycleStart: number | null;
 	cycleEnd: number | null;
+	/**
+	 * How many units of the tier the credits reflect (the tier's grants are per unit). It moves only with paid invoices
+	 * (the create, a renewal's tier line, a raise mid-cycle), never with a subscription event. A state stored before it
+	 * existed loads with 1.
+	 */
+	quantity: number;
 	/** Recurring add-ons now on the subscription. */
 	addonIds: string[];
 	/** When the subscription ended (ms), or null while it runs. Its credit rows then lapse on their own and nothing refills. */
@@ -669,6 +685,8 @@ export type MembershipRecord = {
 	/** The tier the subscription's price is on the menu, or null when no item is a menu tier. */
 	tierId: string | null;
 	interval: Interval | null;
+	/** The tier item's quantity Stripe says (1 when no item is a tier). Grants nothing: credits follow paid invoices. */
+	quantity: number;
 	renewsAt: number | null;
 	cancelAtPeriodEnd: boolean;
 	endsAt: number | null;
@@ -713,7 +731,12 @@ export type SubscriptionEndInput = {
 	/** A `canceled` subscription fact (`customer.subscription.deleted`). Any other status gives no commands. */
 	subscription: SubscriptionFact;
 	/** The tier and interval the menu names for the subscription's items (`resolveSubscriptionPlan`); null when none is a tier. */
-	plan?: { tierId: string; interval: Interval | null } | null;
+	plan?: {
+		tierId: string;
+		interval: Interval | null;
+		/** The tier item's quantity; default 1. */
+		quantity?: number;
+	} | null;
 	menu: Menu;
 	policy: BillingPolicy;
 	state: GrantsState;
@@ -745,31 +768,44 @@ export type CheckoutInput = {
 	menuVersion: number | string;
 	returnUrls: { success: string; cancel: string };
 	policy: BillingPolicy;
+	/** How many of the tier (e.g. sessions a month): one of the tier's `quantities`, or 1 for a tier without them. Default 1. */
+	quantity?: number;
 };
 
-/** A Checkout Session's parameters (nested, Stripe's shape); `line_items` name prices by lookup key until `withPriceIds`. */
+/**
+ * A Checkout Session's parameters (nested, Stripe's shape); `line_items` name prices by lookup key until `withPriceIds`.
+ * The first line is the tier, at the quantity bought; each add-on line after it is one.
+ */
 export type CheckoutParams = {
 	mode: "subscription";
 	client_reference_id: string;
 	success_url: string;
 	cancel_url: string;
-	line_items: { lookupKey: string; quantity: 1 }[];
+	line_items: [
+		{ lookupKey: string; quantity: number },
+		...{ lookupKey: string; quantity: 1 }[],
+	];
 	metadata: Record<string, string>;
 	subscription_data: { metadata: Record<string, string> };
 	allow_promotion_codes?: true;
 };
 
+/** Why a checkout was refused. `quantity_not_offered`: `quantity` is not one of the tier's `quantities` (not 1, for a tier without them). */
 export type CheckoutRefusal =
 	| { ok: false; reason: "tier_not_found" }
 	| { ok: false; reason: "addon_not_found"; addonId: string }
-	| { ok: false; reason: "addon_interval_mismatch"; addonId: string };
+	| { ok: false; reason: "addon_interval_mismatch"; addonId: string }
+	| { ok: false; reason: "quantity_not_offered"; quantity: number };
 
 export type CheckoutResult =
 	| { ok: true; params: CheckoutParams }
 	| CheckoutRefusal;
 
 export type CheckoutParamsWithPrices = Omit<CheckoutParams, "line_items"> & {
-	line_items: { price: string; quantity: 1 }[];
+	line_items: [
+		{ price: string; quantity: number },
+		...{ price: string; quantity: 1 }[],
+	];
 };
 
 // ---- Membership status ----
@@ -817,6 +853,10 @@ export type FieldSpec = {
 	fallback?: string | null;
 	/** Bool fields: true when the int at `path` equals the int at `equalsPath`. */
 	equalsPath?: string;
+	/** Int fields: the smallest value allowed. With it, a value that is not a whole number at or above it is a `bad_value`, not a `bad_type`. */
+	min?: number;
+	/** For an `int` field: the largest value accepted; a larger number is a `bad_value`. */
+	max?: number;
 };
 
 export type MappingTarget =

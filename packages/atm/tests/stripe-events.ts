@@ -163,7 +163,12 @@ export const subscriptionEvent = (e: {
 	subscriptionId: string;
 	status: string;
 	/** The subscription's items, each named by its price's lookup key (`priceIdOf` gives the price id). */
-	items: { lookupKey: string; interval: "month" | "year" }[];
+	items: {
+		lookupKey: string;
+		interval: "month" | "year";
+		/** Units of the price; default 1. */
+		quantity?: number;
+	}[];
 	periodStart: number;
 	periodEnd: number;
 	cancelAtPeriodEnd?: boolean;
@@ -183,6 +188,7 @@ export const subscriptionEvent = (e: {
 	sub.items.data = e.items.map((item, i) => ({
 		...base,
 		id: `si_${e.subscriptionId}_${i}`,
+		quantity: item.quantity ?? 1,
 		current_period_start: seconds(e.periodStart),
 		current_period_end: seconds(e.periodEnd),
 		price: {

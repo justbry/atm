@@ -11,8 +11,11 @@
  * - Stripe bills one interval per subscription: a subscription carries one-time add-ons, and recurring add-ons only
  *   on a plan of the same interval.
  * - Prices are immutable: a changed amount, interval or currency is a new price (new lookup key) and the old one is archived.
+ * - A tier sold in `quantities` has per-unit prices: the count is the Checkout line's quantity, never part of a price or
+ *   lookup key, so changing a tier's `quantities` publishes nothing.
  */
 import { createHash } from "node:crypto";
+import { quantitiesOf } from "./menu.js";
 import type {
 	AddonEvery,
 	BillingPolicy,
@@ -319,7 +322,9 @@ export function menuToStripe(input: MenuToStripeInput): StripeOp[] {
 
 /**
  * The Checkout Session for a tier and interval plus add-ons, or why not. `tier_not_found` covers a missing tier, a tier
- * that is not public, and an interval the tier has no usable price for.
+ * that is not public, and an interval the tier has no usable price for. `quantity_not_offered`: the quantity is not one
+ * of the tier's `quantities` (not 1, for a tier without them). The tier's line is at the quantity bought (its price is
+ * per unit, so the member code's percentage applies to each unit alike); add-ons are one each.
  */
 export function checkoutParams(input: CheckoutInput): CheckoutResult {
 	const { schoolId, menu, tierId, interval, policy } = input;
@@ -327,15 +332,20 @@ export function checkoutParams(input: CheckoutInput): CheckoutResult {
 	const price = tier?.prices.find((p) => p.interval === interval);
 	if (!tier || !tier.public || !price || !usable(price.amount))
 		return { ok: false, reason: "tier_not_found" };
+	const quantity = input.quantity ?? 1;
+	if (!quantitiesOf(tier).includes(quantity))
+		return { ok: false, reason: "quantity_not_offered", quantity };
 
-	const lines = [
-		lookupKeyOf(
+	const tierLine = {
+		lookupKey: lookupKeyOf(
 			schoolId,
 			tierPriceKey(tier.id, interval),
 			price.amount,
 			menu.currency,
 		),
-	];
+		quantity,
+	};
+	const lines: string[] = [];
 	const addonIds = [...new Set(input.addonIds ?? [])];
 	for (const id of addonIds) {
 		const a = menu.addons.find((x) => x.id === id);
@@ -368,29 +378,45 @@ export function checkoutParams(input: CheckoutInput): CheckoutResult {
 			client_reference_id: input.familyId,
 			success_url: input.returnUrls.success,
 			cancel_url: input.returnUrls.cancel,
-			line_items: lines.map((lookupKey) => ({
-				lookupKey,
-				quantity: 1 as const,
-			})),
+			line_items: [
+				tierLine,
+				...lines.map((lookupKey) => ({ lookupKey, quantity: 1 as const })),
+			],
 			metadata,
-			subscription_data: { metadata: { ...metadata } },
+			// `quantity` on the subscription is informational, and left out at the default of 1: the tier item's quantity at
+			// Stripe is the truth (the billing portal can change it, and this metadata then goes stale).
+			subscription_data: {
+				metadata:
+					quantity === 1
+						? { ...metadata }
+						: { ...metadata, quantity: String(quantity) },
+			},
 			...(policy.memberCode ? { allow_promotion_codes: true as const } : {}),
 		},
 	};
 }
 
-/** `params` with each line's lookup key swapped for its Stripe price id; null when a price id is missing (not published yet). */
+/** `params` with each line's lookup key swapped for its Stripe price id, quantities kept; null when a price id is missing (not published yet). */
 export function withPriceIds(
 	params: CheckoutParams,
 	priceIds: Readonly<Record<string, string>>,
 ): CheckoutParamsWithPrices | null {
-	const line_items: { price: string; quantity: 1 }[] = [];
-	for (const l of params.line_items) {
-		const price = priceIds[l.lookupKey];
+	const [tierLine, ...addonLines] = params.line_items;
+	const tierPrice = priceIds[tierLine.lookupKey];
+	if (!tierPrice) return null;
+	const addonItems: { price: string; quantity: 1 }[] = [];
+	for (const line of addonLines) {
+		const price = priceIds[line.lookupKey];
 		if (!price) return null;
-		line_items.push({ price, quantity: 1 });
+		addonItems.push({ price, quantity: line.quantity });
 	}
-	return { ...params, line_items };
+	return {
+		...params,
+		line_items: [
+			{ price: tierPrice, quantity: tierLine.quantity },
+			...addonItems,
+		],
+	};
 }
 
 /** Flattens nested params to Stripe's form encoding (`line_items[0][price]`, `metadata[k]`). Booleans and numbers become strings. */

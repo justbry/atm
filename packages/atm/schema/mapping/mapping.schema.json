@@ -68,7 +68,9 @@
 					"additionalProperties": { "type": ["string", "null"] }
 				},
 				"fallback": { "type": ["string", "null"] },
-				"equalsPath": { "$ref": "#/$defs/path" }
+				"equalsPath": { "$ref": "#/$defs/path" },
+				"min": { "type": "integer" },
+				"max": { "type": "integer" }
 			}
 		}
 	}

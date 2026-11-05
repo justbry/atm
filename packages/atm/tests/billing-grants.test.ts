@@ -647,7 +647,14 @@ describe("cancellation", () => {
 		id: "sub_1",
 		customerId: "cus_1",
 		status: "canceled",
-		items: [{ priceId: "price_sparkle_2", lookupKey: null, interval: "month" }],
+		items: [
+			{
+				priceId: "price_sparkle_2",
+				lookupKey: null,
+				interval: "month",
+				quantity: 1,
+			},
+		],
 		currentPeriodStart: D("2026-01-15T18:00:00Z"),
 		currentPeriodEnd: T1,
 		cancelAtPeriodEnd: false,
@@ -782,7 +789,12 @@ describe("plan moves that outlive their rows", () => {
 			customerId: "cus_1",
 			status: "canceled",
 			items: [
-				{ priceId: "price_sparkle_2", lookupKey: null, interval: "month" },
+				{
+					priceId: "price_sparkle_2",
+					lookupKey: null,
+					interval: "month",
+					quantity: 1,
+				},
 			],
 			currentPeriodStart: T1,
 			currentPeriodEnd: T2,
@@ -822,7 +834,12 @@ describe("plan moves that outlive their rows", () => {
 			customerId: "cus_1",
 			status: "canceled",
 			items: [
-				{ priceId: "price_sparkle_2", lookupKey: null, interval: "month" },
+				{
+					priceId: "price_sparkle_2",
+					lookupKey: null,
+					interval: "month",
+					quantity: 1,
+				},
 			],
 			currentPeriodStart: T1,
 			currentPeriodEnd: T2,

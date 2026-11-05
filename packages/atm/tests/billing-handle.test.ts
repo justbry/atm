@@ -1186,6 +1186,7 @@ describe("subscription events", () => {
 			status: "active",
 			tierId: "sparkle-2",
 			interval: "month",
+			quantity: 1,
 			renewsAt: T1,
 			cancelAtPeriodEnd: false,
 			endsAt: null,

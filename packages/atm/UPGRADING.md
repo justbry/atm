@@ -59,6 +59,18 @@ These are facts about the API at `2025-10-29.clover`, checked against sandbox pa
 - With checkout's `subscription_data.metadata` the invoice's own metadata is empty; it is on `parent.subscription_details.metadata`.
 - A charge or dispute does not name its invoice; `invoice_payment.paid` is what links them.
 
+### Tier quantities
+
+A studio sells one tier at several counts (Vibes of Light: Shine at 1, 2 or 4 sessions a month) with `quantities` on the menu tier instead of one tier per count.
+
+- **Menu.** `MenuTier.quantities`: 1 to 6 unique whole counts from 1 to 50, ascending; absent means `[1]`. Prices and grant amounts are per unit. A price times its largest count must stay under 99,999,999 (Stripe's line cap). Editing `quantities` makes no `menuToStripe` step.
+- **Checkout.** `checkoutParams` takes `quantity` (default 1). A count the tier does not offer comes back `{ reason: "quantity_not_offered", quantity }`; answer 400 with `fields: ["quantity"]`. `line_items` is now a tuple: the tier line first (at the quantity), add-ons after at 1. The subscription metadata carries `quantity` only when it is not 1, and only for information: the item's quantity at Stripe is the truth.
+- **Normalized events.** Subscription items and invoice lines carry `quantity` (an integer 0 to 99,999,999; a missing one reads as 1; a negative, fractional or larger one is refused `bad_value`). A line or item with quantity 0 is dropped by the grants rules, never counted as 1.
+- **State.** `GrantsState.quantity` is what the credits reflect and moves only with paid invoices; `MembershipRecord.quantity` is what Stripe says and moves with `customer.subscription.*`. A stored state from 0.2.0 loads with both at 1.
+- **Credits.** Create and renewal grant the per-unit allowance times the tier line's quantity (a yearly payment on a monthly grant: times 12). A raise on the same tier grants the extra units, prorated per `policy.upgradeGrant`; a decrease grants nothing and takes effect at the renewal. Rollover `max` scales with the quantity, and the engine has one cap per row, so after a decrease the carry-over cap follows the lower count.
+- **The family service must:** make a raise with `proration_behavior: "always_invoice"` (otherwise Stripe bills it at the renewal and nothing is granted until then); schedule a decrease for the renewal; and read `quantity` from the subscription item, not from metadata.
+- A tier change and a quantity change in one update grant `newAmount x newQuantity - oldAmount x oldQuantity`, not below 0. This case is not checked against real payloads.
+
 ### Storage
 
 - `Store` and its errors, `FolderStore` and `R2Store` (on `aws4fetch`) are exported, with a contract suite that runs against the folder and SeaweedFS. Live balances stay in the caller's SQLite; the object store holds the append-only log.
@@ -67,4 +79,4 @@ These are facts about the API at `2025-10-29.clover`, checked against sandbox pa
 
 ### Not in this release
 
-Tier quantities, the shipper that moves the outbox to R2, simulation, corrections, the Parquet export and webhook delivery. See `ROADMAP.md`.
+The shipper that moves the outbox to R2, simulation, corrections, the Parquet export and webhook delivery. See `ROADMAP.md`.

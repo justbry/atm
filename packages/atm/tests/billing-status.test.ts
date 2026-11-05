@@ -11,7 +11,9 @@ const fact = (over: Partial<SubscriptionFact>): SubscriptionFact => ({
 	id: "sub_1",
 	customerId: "cus_1",
 	status: "active",
-	items: [{ priceId: "price_1", lookupKey: null, interval: "month" }],
+	items: [
+		{ priceId: "price_1", lookupKey: null, interval: "month", quantity: 1 },
+	],
 	currentPeriodStart: 1_000,
 	currentPeriodEnd: 2_000,
 	cancelAtPeriodEnd: false,
