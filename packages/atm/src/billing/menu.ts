@@ -190,6 +190,18 @@ function crossProblems(m: Menu): { bad: string[]; messages: string[] } {
 				bad.push(`tiers.${i}.prices.${j}.amount`);
 		});
 	});
+	const codes = m.codes ?? [];
+	if (dup(codes.map((c) => c.id))) bad.push("codes");
+	const tierIds = new Set(m.tiers.map((t) => t.id));
+	const seenCodes = new Set<string>();
+	codes.forEach((c, i) => {
+		// Stripe compares a code without case, so two that differ only in case are one code.
+		const folded = c.code.toLowerCase();
+		if (seenCodes.has(folded)) bad.push(`codes.${i}.code`);
+		seenCodes.add(folded);
+		if (c.tierIds?.some((id) => !tierIds.has(id)))
+			bad.push(`codes.${i}.tierIds`);
+	});
 	m.addons.forEach((a, i) => {
 		grants(`addons.${i}.grants`, a.grants);
 		if (!a.gift) return;

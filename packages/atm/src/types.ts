@@ -476,6 +476,29 @@ export type Menu = {
 	features: MenuFeature[];
 	tiers: MenuTier[];
 	addons: MenuAddon[];
+	/** Discount codes for membership tiers (0.8.0). Absent: none beyond `policy.memberCode`. */
+	codes?: MenuCode[];
+};
+
+/**
+ * A member discount code: a percentage off membership tiers, never add-ons or gifts. `menuToStripe` makes a Stripe coupon
+ * restricted to the tier products (the code's `tierIds`, else every public tier) and a promotion code for it.
+ * `policy.memberCode` is the same thing for one code, kept so a 0.6.0 menu and policy still work; a menu code with the
+ * same text as the policy's wins.
+ */
+export type MenuCode = {
+	/** The menu's name for it; the Stripe coupon id is made from it. Lowercase letters, digits, `-` and `_`. */
+	id: string;
+	kind: "member";
+	/** What the member types: letters, digits, `-` and `_`, 2 to 40 (Stripe compares it without case). */
+	code: string;
+	percentOff: number;
+	/** Limit to these tiers; absent: every public tier. */
+	tierIds?: string[];
+	/** Works once per customer (Stripe `first_time_transaction`). Default true. */
+	firstTimeOnly?: boolean;
+	/** The code stops working at this time (ms); absent: no end. */
+	expiresAt?: number;
 };
 
 /**
@@ -513,6 +536,15 @@ export type BillingPolicy = {
 	 * the event off. Reaching zero is always `credit.depleted`, whatever this is.
 	 */
 	lowCreditThreshold: number;
+	/**
+	 * A booking can be canceled with its credits back until this many hours before it starts; later is a late cancel
+	 * (`lateCancel`). Whole hours, 0 to 720. A policy stored before 0.8.0 has none: that is the default.
+	 */
+	cancelCutoffHours: number;
+	/** What a no-show costs the member: `spend` keeps the held credits spent, `release` gives them back. */
+	noShow: "spend" | "release";
+	/** What a cancel after the cutoff costs: `spend` keeps the held credits spent, `release` gives them back. */
+	lateCancel: "spend" | "release";
 };
 
 /**
@@ -540,7 +572,14 @@ export type InvoiceLine = {
 	quantity: number;
 	/** Stripe marks proration lines (an upgrade or downgrade mid-cycle). */
 	proration: boolean;
+	/** Minor units, before any discount: what the price times the quantity comes to. */
 	amount: number;
+	/**
+	 * What discounts took off this line (the sum of its `discount_amounts`, minor units, 0 or more); absent on a fact built
+	 * before 0.8.0 or by hand, which reads as 0. Credits follow the quantity and the line's `amount`, never this: a
+	 * discounted invoice grants in full. What the member paid is `BillingInvoice.amountPaid`.
+	 */
+	discount?: number;
 	/** The line's own period (ms), when Stripe gives one. */
 	periodStart?: number;
 	periodEnd?: number;
@@ -603,6 +642,8 @@ export type BillingInvoice = {
 		| "other";
 	currency: string;
 	amountPaid: number;
+	/** What discounts took off the invoice in all (minor units); absent reads as 0. `amountPaid` is after it. */
+	discount?: number;
 	paidAt: number;
 	periodStart: number;
 	periodEnd: number;
@@ -654,6 +695,11 @@ export type BillingRefund = {
 	/** The charge's currency (lowercase ISO code). Absent on a fact built by hand; the books take it as USD then. */
 	currency?: string;
 	/**
+	 * The booking the charge paid, from the charge's own `metadata.booking_id` (`bookingCheckoutParams` puts it on the payment
+	 * intent, which Stripe copies to the charge). Absent when the charge carries none, as for an invoice's.
+	 */
+	bookingId?: string;
+	/**
 	 * The charge is refunded in full: Stripe's own `refunded` flag. Not a comparison of amounts: on a partly captured
 	 * charge `amount_refunded` may or may not count the released remainder, and the flag is right either way.
 	 */
@@ -668,6 +714,33 @@ export type BillingDispute = {
 	paymentIntentId?: string | null;
 	chargeId: string;
 	status: "open" | "won" | "lost";
+	at: number;
+};
+
+/**
+ * A Stripe Checkout Session event (`checkout.session.completed`, `.async_payment_succeeded`, `.expired`), normalized. Only a
+ * payment-mode session made by `bookingCheckoutParams` (its `metadata.booking_id`) is decided on; the handler ignores the rest.
+ */
+export type CheckoutSessionFact = {
+	source: FactSource;
+	/** Identifies the EVENT (`evt_…`), as on `BillingRefund`. */
+	id: string;
+	/** The session's own id (`cs_…`). */
+	sessionId: string;
+	/** `other` is a mode this version of atm does not know. */
+	mode: "payment" | "subscription" | "setup" | "other";
+	/** `complete` once the customer has finished, `expired` when the session lapsed unpaid. */
+	status: "open" | "complete" | "expired";
+	/** `paid` only when the money is in: a delayed payment method completes a session as `unpaid` first. */
+	paymentStatus: "paid" | "unpaid" | "no_payment_required" | "other";
+	/** The payment intent a payment-mode session made; null before it is paid or for a subscription. */
+	paymentIntentId: string | null;
+	/** What the session charged in all (minor units); null when Stripe sends none. */
+	amountTotal: number | null;
+	/** Lowercase ISO code; null when Stripe sends none. */
+	currency: string | null;
+	/** The session's own metadata (`b4u_school`, `family_id`, `booking_id`, `b4u_kind`, ...). */
+	metadata: Record<string, string>;
 	at: number;
 };
 
@@ -776,12 +849,17 @@ export type StripeOp =
 			idempotencyKey: string;
 	  }
 	| { op: "coupon.archive"; id: string; idempotencyKey: string }
-	/** `firstTimeOnly`: the code works once per customer (Stripe `restrictions[first_time_transaction]`). */
+	/**
+	 * `firstTimeOnly`: the code works once per customer (Stripe `restrictions[first_time_transaction]`). `expiresAt` (ms; the
+	 * caller divides by 1000 for Stripe's `expires_at`): the code stops working then. Only a menu code that has one makes it;
+	 * Stripe cannot change it afterwards, so a changed expiry is a deactivate and a new ensure.
+	 */
 	| {
 			op: "promotion_code.ensure";
 			code: string;
 			couponId: string;
 			firstTimeOnly: boolean;
+			expiresAt?: number;
 			idempotencyKey: string;
 	  }
 	| { op: "promotion_code.deactivate"; code: string; idempotencyKey: string };
@@ -879,6 +957,14 @@ export type GrantsState = {
 	membership: MembershipRecord | null;
 	/** Every invoice seen, by id: a replayed invoice finds its record and decides nothing. */
 	invoices: Record<string, InvoiceRecord>;
+	/**
+	 * Bookings this holder has held, spent, released or paid for, by the caller's booking id (0.8.0). Absent until the first
+	 * one: a state stored by 0.6.0 or 0.7.x has none, and a rule that does not touch bookings leaves the key as it found it,
+	 * so reading and writing a state never adds it (the handler compares states to decide whether a row changed).
+	 */
+	bookings?: Record<string, BookingRecord>;
+	/** Gift codes this holder has redeemed, by code id (0.8.0). Absent until the first, as `bookings`. */
+	redeemed?: Record<string, RedeemedCode>;
 };
 
 /** A subscription as the membership shows it (`subscriptionStatus`), with the plan the menu names for its price. */
@@ -988,6 +1074,12 @@ export type CheckoutInput = {
 	policy: BillingPolicy;
 	/** How many of the tier (e.g. sessions a month): one of the tier's `quantities`, or 1 for a tier without them. Default 1. */
 	quantity?: number;
+	/**
+	 * A member code to apply now (a `MenuCode.code` or `policy.memberCode.code`, compared without case). Sets `discounts` in the
+	 * params and not `allow_promotion_codes` (Stripe refuses both). Absent: the buyer may type a code at checkout
+	 * (`allow_promotion_codes`) when the school has any.
+	 */
+	code?: string;
 };
 
 /**
@@ -1006,6 +1098,8 @@ export type CheckoutParams = {
 	metadata: Record<string, string>;
 	subscription_data: { metadata: Record<string, string> };
 	allow_promotion_codes?: true;
+	/** Set when `CheckoutInput.code` names a member code: the promotion code by its text until `withPriceIds` (its third argument) swaps in Stripe's id. */
+	discounts?: [{ promotionCode: string }];
 };
 
 /** Why a checkout was refused. `quantity_not_offered`: `quantity` is not one of the tier's `quantities` (not 1, for a tier without them). */
@@ -1013,17 +1107,24 @@ export type CheckoutRefusal =
 	| { ok: false; reason: "tier_not_found" }
 	| { ok: false; reason: "addon_not_found"; addonId: string }
 	| { ok: false; reason: "addon_interval_mismatch"; addonId: string }
-	| { ok: false; reason: "quantity_not_offered"; quantity: number };
+	| { ok: false; reason: "quantity_not_offered"; quantity: number }
+	| { ok: false; reason: "code_not_found"; code: string }
+	| { ok: false; reason: "code_not_applicable"; code: string };
 
 export type CheckoutResult =
 	| { ok: true; params: CheckoutParams }
 	| CheckoutRefusal;
 
-export type CheckoutParamsWithPrices = Omit<CheckoutParams, "line_items"> & {
+export type CheckoutParamsWithPrices = Omit<
+	CheckoutParams,
+	"line_items" | "discounts"
+> & {
 	line_items: [
 		{ price: string; quantity: number },
 		...{ price: string; quantity: 1 }[],
 	];
+	/** Stripe's shape: the promotion code's id (`promo_...`), swapped in by `withPriceIds` for the text `CheckoutParams.discounts` carries. */
+	discounts?: [{ promotion_code: string }];
 };
 
 /**
@@ -1090,6 +1191,420 @@ export type PortalConfigIds = {
 	prices: Readonly<Record<string, string>>;
 };
 
+// ---- Bookable items: what a booking or an event costs (0.8.0) ----
+
+/**
+ * What a bookable item (a booking type, an event with sign-ups) costs the person who books it. The item is the caller's
+ * (atm has no bookings); this is its price tag. `included`: a session of the membership, `credits` of `featureId`.
+ * `price`: money, paid at Checkout. `included_or_price`: credits when the member has them (and, when `tierIds` is set,
+ * holds one of those tiers), else the price. `tierIds` limits which tiers the credits count for: absent, any holder of
+ * the feature.
+ */
+export type Billing =
+	| { kind: "free" }
+	| { kind: "included"; featureId: string; credits: number; tierIds?: string[] }
+	| { kind: "price"; amount: number; currency: string }
+	| {
+			kind: "included_or_price";
+			featureId: string;
+			credits: number;
+			tierIds?: string[];
+			amount: number;
+			currency: string;
+	  };
+
+/** `problems` are dotted paths into the billing (`credits`, `featureId`, `tierIds.1`, `amount`, `currency`), as `MenuValidation`'s are into a menu; `messages` say what a path alone does not. */
+export type BillingValidation =
+	| { ok: true; billing: Billing }
+	| { ok: false; problems: string[]; messages?: string[] };
+
+/** What one booking costs once the rules have looked at the member: nothing, credits to hold and spend, or money to pay. */
+export type BookingCost =
+	| { kind: "free" }
+	| { kind: "credits"; featureId: string; credits: number }
+	| { kind: "price"; amount: number; currency: string };
+
+/**
+ * Why a booking rule said no. Typed: the caller maps each to its own answer and text.
+ * - `invalid_billing`: the item's billing fails `validateBilling` against the menu.
+ * - `bad_input`: a count, time or id the rule cannot use (a hold that ends before it starts, a non-whole `credits`).
+ * - `not_a_member`: the holder has no credits of the feature (no subject) and the item is only for members.
+ * - `membership_not_active`: the membership is past due, ended or not paid yet (`MembershipStatus` other than `active`).
+ * - `tier_not_included`: the holder's tier is not in the item's `tierIds`.
+ * - `feature_not_in_plan`: the holder's plan has no credits of the item's feature.
+ * - `insufficient_credits`: fewer spendable credits than the item costs (the engine's own check refused the hold).
+ * - `currency_mismatch`: the item is priced in another currency than the menu's.
+ * - `booking_conflict`: the booking id is known and this call differs from what it held or paid (a replay of the same call is not an error).
+ * - `no_hold`: nothing is held for this booking id.
+ * - `already_settled`: the booking was already spent, released or paid and this call would undo that.
+ * - `hold_expired`: the hold's expiry has passed and this call would do the opposite of its expiry action (a release or a free cancel of a `confirm` hold, a spend of a `release` hold): use `settleExpiredHold`. A call that does what the expiry action does still works.
+ * - `not_credits`: the call is for credits and the booking's cost is free or a price.
+ */
+export type BookingRefusalReason =
+	| "invalid_billing"
+	| "bad_input"
+	| "not_a_member"
+	| "membership_not_active"
+	| "tier_not_included"
+	| "feature_not_in_plan"
+	| "insufficient_credits"
+	| "currency_mismatch"
+	| "booking_conflict"
+	| "no_hold"
+	| "already_settled"
+	| "hold_expired"
+	| "not_credits";
+
+export type BookingRefusal = {
+	ok: false;
+	reason: BookingRefusalReason;
+	message: string;
+};
+
+export type QuoteInput = {
+	billing: Billing;
+	menu: Menu;
+	policy: BillingPolicy;
+	/** The holder's grants state (`grantsFromRows`): its tier, its membership status, the credit rows it holds. */
+	grants: GrantsState;
+	/** Overrides `grants.tierId` (a caller that already resolved the tier). */
+	tierId?: string | null;
+	/**
+	 * The units of `featureId` the holder can spend now (`balancesOf`'s `avail`, which leaves out what is held); null or absent
+	 * when the caller has not read it. With it, an `included` item the holder cannot afford is `insufficient_credits` and an
+	 * `included_or_price` one is quoted at its price; without it the quote trusts the plan and the hold's own check decides.
+	 */
+	available?: number | null;
+	/** The time of the call (ms), not the clock. */
+	now: number;
+};
+
+export type BookingQuote =
+	| {
+			ok: true;
+			cost: BookingCost;
+			/** `included_or_price` only: which half applied. */
+			via?: "included" | "price";
+	  }
+	| BookingRefusal;
+
+/** An open lock row as the engine makes it (`locks` insert of a track); kept so a finalize can settle it. */
+export type HoldLock = Record<string, unknown>;
+
+/**
+ * One booking's place in the holder's grants state, by the caller's booking id.
+ * - `held`: credits are held on `lock` (open lock row) until `expiresAt`; nothing is spent yet.
+ * - `spent`: settled by a confirm, a no-show or late cancel that spends, or an expired hold that confirms.
+ * - `released`: settled with the credits given back.
+ * - `paid`: a one-time payment for the booking was made (`payment`).
+ * - `refunded`: that payment was refunded in full.
+ */
+export type BookingState = "held" | "spent" | "released" | "paid" | "refunded";
+
+export type BookingRecord = {
+	state: BookingState;
+	cost: BookingCost;
+	/** When the session starts (ms); the cancel cutoff counts back from it. */
+	startsAt: number | null;
+	/** When a held booking's lock expires (ms). */
+	expiresAt: number | null;
+	/** What the lock does at `expiresAt` when nobody settled it: from `policy.noShow` when the hold was made. */
+	expiryAction?: "confirm" | "release";
+	/** The open lock row while `state` is `held`; dropped when settled. */
+	lock?: HoldLock;
+	/** When the hold was made, and when it was settled (ms). */
+	heldAt?: number;
+	settledAt?: number;
+	/** How it was settled: `confirm`, `cancel` (before the cutoff), `late_cancel`, `no_show`, `release`, `expiry`. */
+	settledBy?:
+		| "confirm"
+		| "cancel"
+		| "late_cancel"
+		| "no_show"
+		| "release"
+		| "expiry";
+	/** A paid booking's payment (a `booking` payment mode checkout). */
+	payment?: {
+		sessionId: string;
+		paymentIntentId: string | null;
+		amount: number;
+		currency: string;
+		/** The charge's total refunded so far (minor units). */
+		refunded: number;
+	};
+};
+
+/** What every booking command takes besides its own fields: the subject as stored, the menu and the policy, like a Stripe event. */
+export type BookingContext = {
+	menu: Menu;
+	menuVersion: number | string;
+	policy: BillingPolicy;
+	policyVersion: number | string;
+	/** The subject's stored rows and revision (as `StripeEventInput`). */
+	rows: readonly BillingRow[];
+	revision: number;
+	/** The engine catalog rows from `menuCatalogRows` for this menu. */
+	catalog: readonly AtmCatalogRow[];
+	/** The time of the call (ms), not the clock. */
+	now: number;
+	env?: AtmEnv;
+};
+
+/**
+ * Hold credits for a booking. `credits` of `featureId` are taken out of what the holder can spend (the engine's `track`
+ * with a lock, rejecting rather than overdrawing, `commandOrg(policy)` on it so the row that lapses soonest is drawn
+ * first) and kept on a lock until `expiresAt`, so no other booking can use them. The lock's expiry action is `confirm`
+ * when `policy.noShow` is `spend` (an unsettled booking is a no-show) and `release` otherwise. The same booking id with
+ * the same fields again is a replay: ok, nothing to write.
+ */
+export type HoldBookingInput = BookingContext & {
+	bookingId: string;
+	featureId: string;
+	credits: number;
+	/** When the session starts (ms); the cancel cutoff counts back from it. */
+	startsAt: number;
+	/** When the hold lapses (ms), after `startsAt` and the time of the call. */
+	expiresAt: number;
+};
+
+/** The same for confirm, release, cancel and no-show: which booking, and the context. */
+export type SettleBookingInput = BookingContext & { bookingId: string };
+
+/**
+ * `rowChanges` is one write for the subject (the engine's rows and the grants row under one revision), null when the call
+ * changes nothing (a replay). `events` are the ledger events: a hold is `credit.held`; a release `credit.released`; a
+ * `confirmBooking` is `credit.spent`; a no-show, a late cancel and an expired hold that confirms are `credit.forfeited` (the
+ * credits leave `credits:held` for `credits:forfeited`, not for a service); and a hold that takes the holder's balance to
+ * the policy's `lowCreditThreshold` or to zero adds `credit.low` or `credit.depleted` (the balance falls when the credits are
+ * held, so that is where the alert is made). A command that moves no credits is a `plan.changed`.
+ */
+export type BookingResult =
+	| {
+			ok: true;
+			rowChanges: RowChanges | null;
+			events: AtmEvent[];
+			booking: BookingRecord;
+			/** `cancel` only: whether the cutoff had passed (the late-cancel rule applied). */
+			late?: boolean;
+	  }
+	| BookingRefusal;
+
+/** A hold whose expiry has passed and has not been settled. */
+export type ExpiredHold = {
+	bookingId: string;
+	expiresAt: number;
+	expiryAction: "confirm" | "release";
+	featureId: string;
+	credits: number;
+};
+
+// ---- A one-time payment for a booking (0.8.0) ----
+
+export type BookingCheckoutInput = {
+	schoolId: string;
+	familyId: string;
+	/** The caller's booking id; it comes back on the paid event. */
+	bookingId: string;
+	/** What the Checkout page calls the line (the booking type's name). */
+	name: string;
+	amount: number;
+	currency: string;
+	/** A child profile the booking is for; omit for the buyer's own. */
+	forProfileId?: string | null;
+	returnUrls: { success: string; cancel: string };
+};
+
+/**
+ * A payment-mode Checkout Session's parameters (nested, Stripe's shape) for one booking: a single inline price
+ * (`price_data`, so nothing is published for it), `metadata` with `b4u_school`, `family_id`, `booking_id` and `b4u_kind`
+ * `booking` on the session and on its payment intent (so the charge, and its refund, carry them). No `invoice_creation`:
+ * a booking is not a membership invoice and grants no credits.
+ */
+export type BookingCheckoutParams = {
+	mode: "payment";
+	client_reference_id: string;
+	success_url: string;
+	cancel_url: string;
+	line_items: [
+		{
+			quantity: 1;
+			price_data: {
+				currency: string;
+				unit_amount: number;
+				product_data: { name: string };
+			};
+		},
+	];
+	metadata: Record<string, string>;
+	payment_intent_data: { metadata: Record<string, string> };
+};
+
+export type BookingCheckoutRefusal =
+	| { ok: false; reason: "bad_amount" }
+	| { ok: false; reason: "bad_currency" }
+	| { ok: false; reason: "no_booking_id" };
+
+export type BookingCheckoutResult =
+	| { ok: true; params: BookingCheckoutParams }
+	| BookingCheckoutRefusal;
+
+/**
+ * What the handler decided about a booking's payment, for the caller to act on.
+ * - `paid`: the session completed and is paid. Confirm the booking.
+ * - `refunded`: the charge is refunded in full. Cancel the booking.
+ * - `partly_refunded`: part of the charge is refunded. Cancel nothing: the school decides.
+ * - `expired`: the Checkout Session expired unpaid. Free the booking's slot.
+ */
+export type BookingPaymentOutcome = {
+	action: "paid" | "refunded" | "partly_refunded" | "expired";
+	bookingId: string;
+	familyId: string;
+	schoolId: string;
+	sessionId: string | null;
+	/** Learn `paymentIntentId` and `chargeId` here and pass them back as `StripeEventInput.bookingIds`. */
+	paymentIntentId: string | null;
+	chargeId: string | null;
+	/** The amount paid, or for a refund the amount refunded in all so far (minor units). */
+	amount: number;
+	currency: string;
+};
+
+// ---- Gift codes (0.8.0) ----
+
+/**
+ * A session gift certificate: a code that grants `credits` of `featureId` to whoever redeems it, once. Stripe is not
+ * involved. The caller stores it (a row per code, found by `code`) and writes the redeemed copy back in the same
+ * transaction as the holder's rows, guarded so that two redemptions cannot both pass (`UPDATE ... WHERE redeemed IS NULL`);
+ * `redeemSessionGiftCode` checks the one-use rule against the state it is given and `GrantsState.redeemed` makes a replay by
+ * the same holder a no-op, but only the caller's guarded write stops two holders at once.
+ */
+export type SessionGiftCode = {
+	v: 1;
+	/** The caller's id for the code (a row id); names the credit row and the command, so it must not repeat. */
+	id: string;
+	kind: "sessions";
+	/** What the redeemer types: letters, digits, `-` and `_`, 6 to 40, compared without case. */
+	code: string;
+	featureId: string;
+	/** Whole credits, 1 or more. */
+	credits: number;
+	/** The code cannot be redeemed after this time (ms). */
+	redeemBy: number;
+	/** The granted credits lapse this many months after redemption: `policy.giftSessionMonths` when it was made. */
+	creditMonths: number;
+	createdAt: number;
+	/** null until redeemed. */
+	redeemed: { holderId: string; at: number } | null;
+};
+
+export type RedeemedCode = {
+	codeId: string;
+	feature: string;
+	credits: number;
+	at: number;
+	/** The credit row it made, and when its credits lapse (ms). */
+	rowId: string;
+	expiresAt: number | null;
+};
+
+export type CreateSessionGiftCodeInput = {
+	id: string;
+	code: string;
+	featureId: string;
+	credits: number;
+	/** Redeem by this time (ms); atm does not read the clock. */
+	redeemBy: number;
+	createdAt: number;
+	menu: Menu;
+	policy: BillingPolicy;
+};
+
+export type GiftCodeRefusalReason =
+	| "bad_code"
+	| "bad_credits"
+	| "unknown_feature"
+	| "bad_expiry"
+	| "code_mismatch"
+	| "expired"
+	| "already_redeemed"
+	| "wrong_school"
+	| "below_minimum"
+	| "nothing_to_sell";
+
+export type GiftCodeRefusal = {
+	ok: false;
+	reason: GiftCodeRefusalReason;
+	message: string;
+};
+
+export type CreateSessionGiftCodeResult =
+	| { ok: true; code: SessionGiftCode }
+	| GiftCodeRefusal;
+
+export type RedeemSessionGiftCodeInput = BookingContext & {
+	/** The stored code state. */
+	code: SessionGiftCode;
+	/** What the person typed; compared with `code.code` without case. */
+	entered: string;
+	/** Whose credits these are when the subject has no rows yet (a new family with no membership). */
+	holder: { orgId: string; customerId: string };
+};
+
+/**
+ * `code` is the code's next state (redeemed by this holder at `now`); write it with `rowChanges` in one transaction. A
+ * replay by the same holder (the grants state already names this code) is ok with nothing to write and the stored
+ * `code` unchanged.
+ */
+export type RedeemSessionGiftCodeResult =
+	| {
+			ok: true;
+			rowChanges: RowChanges | null;
+			events: AtmEvent[];
+			code: SessionGiftCode;
+			redeemed: RedeemedCode;
+	  }
+	| GiftCodeRefusal;
+
+/** Stripe steps for a dollar gift certificate: a coupon for a fixed amount off, and a promotion code that works once and ends. Not a `StripeOp`: they come per gift, not per menu. */
+export type GiftStripeOp =
+	| {
+			op: "coupon.ensure_amount";
+			id: string;
+			amountOff: number;
+			currency: string;
+			appliesToProductKeys: string[];
+			idempotencyKey: string;
+	  }
+	| {
+			op: "promotion_code.ensure_limited";
+			code: string;
+			couponId: string;
+			/** Stripe `max_redemptions`: 1. */
+			maxRedemptions: 1;
+			/** Stripe `expires_at`, in ms here (the caller divides by 1000). */
+			expiresAt: number;
+			idempotencyKey: string;
+	  }
+	| { op: "promotion_code.deactivate"; code: string; idempotencyKey: string };
+
+export type DollarGiftInput = {
+	schoolId: string;
+	menu: Menu;
+	policy: BillingPolicy;
+	/** The caller's id for the gift (names the coupon). */
+	giftId: string;
+	/** The code text; same rules as `SessionGiftCode.code`. */
+	code: string;
+	/** Cents, at least `policy.giftDollarMinimum`. */
+	amount: number;
+	/** When it was issued (ms); it ends `policy.giftDollarMonths` later on the school's calendar. */
+	issuedAt: number;
+};
+
+export type DollarGiftResult =
+	| { ok: true; ops: GiftStripeOp[]; expiresAt: number }
+	| GiftCodeRefusal;
+
 // ---- Membership status ----
 
 /**
@@ -1120,7 +1635,7 @@ export type SubscriptionStatus = {
 
 // ---- Normalizing Stripe events ----
 
-export type FieldType = "string" | "int" | "seconds" | "bool" | "map";
+export type FieldType = "string" | "int" | "seconds" | "bool" | "map" | "sum";
 
 export type FieldSpec = {
 	/** JSONPath from the event root (for top-level fields) or from the line (for `lines.fields`). */
@@ -1139,6 +1654,8 @@ export type FieldSpec = {
 	min?: number;
 	/** For an `int` field: the largest value accepted; a larger number is a `bad_value`. */
 	max?: number;
+	/** Sum fields: the list is at `path`; each element's whole number is at `each` (from the element). A total of 0 leaves the field out. */
+	each?: string;
 };
 
 export type MappingTarget =
@@ -1147,7 +1664,8 @@ export type MappingTarget =
 	| "BillingDispute"
 	| "SubscriptionFact"
 	| "InvoicePaymentFact"
-	| "StripePayout";
+	| "StripePayout"
+	| "CheckoutSessionFact";
 
 /** A declarative mapping: one Stripe event type at one API version, and where each fact field sits in the raw JSON. */
 export type Mapping = {
@@ -1170,7 +1688,8 @@ export type BillingFact =
 	| BillingDispute
 	| SubscriptionFact
 	| InvoicePaymentFact
-	| StripePayout;
+	| StripePayout
+	| CheckoutSessionFact;
 
 export type NormalizeError =
 	| { kind: "missing_path"; field: string; path: string }
@@ -1239,6 +1758,11 @@ export type StripeEventInput = {
 	 */
 	invoiceIds?: Readonly<Record<string, string>>;
 	/**
+	 * Booking ids by payment intent id (or charge id), for a paid booking's refund, as `invoiceIds` is for an invoice's:
+	 * a charge names neither. Learn it from the `booking` a `checkout.session.completed` result carries.
+	 */
+	bookingIds?: Readonly<Record<string, string>>;
+	/**
 	 * What Stripe took for the payment an `invoice.paid` is, in cents: the `fee` of the charge's balance transaction. No
 	 * webhook event carries it, so the caller reads it from Stripe (see `WebhookDeps.paymentFee`) and passes it in, which
 	 * keeps this function pure. It becomes the `fee` of the `payment.succeeded` event. Absent: no fee line is booked
@@ -1269,6 +1793,7 @@ export type StripeEventRefusal = {
 		| "addon_only_subscription"
 		| "unmatched_invoice"
 		| "unknown_subscription"
+		| "unmatched_booking"
 		| "rejected";
 	message: string;
 };
@@ -1282,6 +1807,12 @@ export type StripeEventResult = {
 	 * (`payout.paid`). A dispute books no money line yet.
 	 */
 	events: AtmEvent[];
+	/**
+	 * What a one-time booking payment's event decided, for the caller to act on (0.8.0): confirm the booking on `paid`, cancel
+	 * it on `refunded`, free its slot on `expired`. Set only for a payment-mode Checkout Session made by `bookingCheckoutParams`
+	 * and the refund of its charge; every other event leaves it out.
+	 */
+	booking?: BookingPaymentOutcome;
 	refused?: StripeEventRefusal;
 };
 
