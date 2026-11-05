@@ -19,6 +19,7 @@ Everything on `dev` after the `atm-v0.8.0` tag (`6e0dbaf75`):
 | PR | Merge commit | What |
 |---|---|---|
 | #77 | `534a55f52` | a non-USD dispute that moved money is answered 200 `non_usd` and leaves a `money.skipped` marker (`kind: "dispute"`) |
+| #87 | `pending` | a paid invoice refused after the claim (`unmatched_line`, `tier_on_other_subscription`, `addon_only_subscription`, `rejected`) is still answered 422, and now books its `payment.succeeded` as the claim is released (once: the retry that applies makes the same idem); `StripeEventRefusal` gains `payment` |
 | #72 | `d186b73fc` | an end-to-end reconciliation matrix (tests and `docs/e2e-reconciliation.md` only, no source change): each case runs the handler, journal and `atm reconcile` against hand-computed numbers, and records six open discrepancies, D1 to D6 |
 | #82 | `02ee67891` | docs: the revenue-share design (a per-school percentage of what is collected, ledger first, invoiced after) and Stripe Connect fees as a later item |
 | #65 | `21641e901` | docs: the design for simulating the grant rules from stored Stripe inputs (no code) |

@@ -109,11 +109,19 @@
  *                          boolean `livemode` is not refused
  *   422 ambiguous_payment  a refund or dispute whose payment intent and charge lead to different subjects
  *
- * A refused event never keeps its claim, and nothing is written for it. What decides a refusal (the menu, the code's
- * mappings, the school's configuration) changes by a human's hand, and the owner then re-sends the same Stripe event
- * from the dashboard; a `done` claim would answer that with `duplicate` and the credits would never be granted. The
- * price is that Stripe keeps retrying a 422 until it gives up, which is the nudge we want. Only `applied` and a
- * family-less `ignored` are `done`.
+ * A refused event never keeps its claim, and no row or credit event is written for it. What decides a refusal (the
+ * menu, the code's mappings, the school's configuration) changes by a human's hand, and the owner then re-sends the
+ * same Stripe event from the dashboard; a `done` claim would answer that with `duplicate` and the credits would never
+ * be granted. The price is that Stripe keeps retrying a 422 until it gives up, which is the nudge we want. Only
+ * `applied` and a family-less `ignored` are `done`.
+ *
+ * One exception, to the money and only to it: a paid invoice refused for `unmatched_line`, `tier_on_other_subscription`,
+ * `addon_only_subscription` or `rejected` has its payment (`refused.payment`: the `payment.succeeded`, or the
+ * `money.skipped` marker of a non-USD one) appended to the outbox in the transaction that releases the claim. Stripe has
+ * the money whatever the menu says; the idem is `stripe:<invoice id>`, so the delivery that is applied once the cause is
+ * fixed makes the same event and the outbox keeps the one it has. The invoice is not indexed, so its `invoice_payment.paid`,
+ * refund and dispute wait (409) for the applied delivery. Every other refusal books nothing. Reasons and why:
+ * `docs/financial-reports.md`, "A paid invoice the handler refuses".
  *
  * Not here, on purpose: no R2 writes, no shipper from the outbox to R2 batches, no compare-and-swap per subject on
  * R2, no Worker version (the ledger's schema validation uses ajv, which compiles with `new Function`, and Workers
@@ -589,6 +597,28 @@ const skippedLines = (events: readonly AtmEvent[]): string[] =>
 				`${String(payload.kind)} ${String(payload.id)} ${String(payload.amount)} ${String(payload.currency)}`,
 		);
 
+const TRAILING_FULL_STOP = /\.$/;
+
+/**
+ * What the answer to a refused paid invoice says about its money, said here because only this handler books it (a caller
+ * of `handleStripeEvent` that ignores `refused.payment` books nothing, and its message must not say otherwise).
+ */
+const withPaymentNote = (
+	refusal: StripeEventRefusal,
+	payment: AtmEvent[],
+): StripeEventRefusal => {
+	const booked = payment.find(
+		(line) => line.event_type === "payment.succeeded",
+	);
+	const note = booked
+		? `The payment itself is booked (payment.succeeded, idem ${booked.idem}) because Stripe has collected it; the delivery that is applied after the cause is fixed does not book it again. A refund or dispute of it waits (409) until that delivery is applied; if the cause is never fixed (the member is refunded instead), it is never booked, the income stays, and the refund has to be entered by hand.`
+		: "The payment is not in USD, so it is not booked as money; a money.skipped marker says so.";
+	return {
+		...refusal,
+		message: `${refusal.message.replace(TRAILING_FULL_STOP, "")}. ${note}`,
+	};
+};
+
 const applyOnce = ({
 	deps,
 	env,
@@ -634,8 +664,18 @@ const applyOnce = ({
 		...(fee === undefined ? {} : { fee }),
 	});
 	if (result.refused) {
+		// A paid invoice whose credits were refused: Stripe has the money, so the books take it in the transaction that
+		// releases the claim. The invoice is neither indexed nor claimed (the retry decides the credits), and the retry's own
+		// payment line is the same idem, which the outbox keeps once.
+		const { payment } = result.refused;
+		if (payment) appendToOutbox(db, payment, env);
 		releaseClaim(deps, event.id, claim);
-		return { kind: "refused", refusal: result.refused };
+		return {
+			kind: "refused",
+			refusal: payment
+				? withPaymentNote(result.refused, payment)
+				: result.refused,
+		};
 	}
 	if (result.rowChanges) {
 		if (result.rowChanges.subjectKey !== located.subjectKey)

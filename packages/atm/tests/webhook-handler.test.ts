@@ -327,6 +327,10 @@ const availOf = (h: Harness, asOfMs: number, feature = "visit") => {
 	);
 };
 
+/** The event types in the outbox, in id order. */
+const eventTypes = (h: Harness): string[] =>
+	h.outbox().map((row) => (JSON.parse(row.body) as AtmEvent).event_type);
+
 const nothingWritten = (h: Harness) => {
 	expect(h.count("atm_rows")).toBe(0);
 	expect(h.count("atm_subjects")).toBe(0);
@@ -766,7 +770,7 @@ describe("handleStripeWebhook", () => {
 		expect(h.deliver(create()).body.outcome).toBe("applied");
 	});
 
-	test("an event the menu cannot decide is 422, writes nothing and keeps no claim; once the menu is fixed the same event applies", () => {
+	test("an event the menu cannot decide is 422, grants nothing (its payment is booked) and keeps no claim; once the menu is fixed the same event applies", () => {
 		const h = harness();
 		const without = structuredClone(menu);
 		without.tiers = without.tiers.filter((tier) => tier.id !== "sparkle-2");
@@ -778,12 +782,18 @@ describe("handleStripeWebhook", () => {
 			reason: "unmatched_line",
 			stripeEventId: "evt_create",
 		});
-		nothingWritten(h);
+		// no credits, no subject; the only thing written is the payment Stripe has collected (tests/handler-refused-payment.test.ts)
+		expect(h.count("atm_rows")).toBe(0);
+		expect(h.count("atm_subjects")).toBe(0);
+		expect(eventTypes(h)).toEqual(["payment.succeeded"]);
 		expect(h.claim("evt_create")).toBeNull();
 
 		h.setWorld(menu);
 		expect(h.deliver(create()).body.outcome).toBe("applied");
 		expect(h.revision()).toBe(1);
+		expect(
+			eventTypes(h).filter((type) => type === "payment.succeeded"),
+		).toHaveLength(1);
 	});
 
 	test("an invoice with half of the family's metadata is 422 missing_metadata, before any claim", () => {
@@ -933,7 +943,7 @@ describe("an invoice that pays for a recurring add-on on its own subscription is
 			metadata,
 		});
 
-	test("422 with the new reason, nothing written, claim released; its follow-on events are the retryable 409s", () => {
+	test("422 with the new reason, no credits (the payment is booked), claim released; its follow-on events are the retryable 409s", () => {
 		const h = harness();
 		expect(h.deliver(create()).body.outcome).toBe("applied");
 		const rows = h.rows();
@@ -954,7 +964,9 @@ describe("an invoice that pays for a recurring add-on on its own subscription is
 		expect(h.claim("evt_in_glow")).toBeNull();
 		expect(h.rows()).toEqual(rows);
 		expect(h.revision()).toBe(revision);
-		expect(h.outbox()).toHaveLength(outbox);
+		// the one thing written is the payment Stripe has collected: 50.00 of Glow, income of the add-on
+		expect(h.outbox()).toHaveLength(outbox + 1);
+		expect(eventTypes(h).at(-1)).toBe("payment.succeeded");
 		expect(h.count("atm_invoice_index")).toBe(invoices);
 
 		// Stripe's payment event for it has no invoice to link to, and a refund of it no payment: both retried, neither claimed.
@@ -997,7 +1009,10 @@ describe("an invoice that pays for a recurring add-on on its own subscription is
 			outcome: "refused",
 			reason: "addon_only_subscription",
 		});
-		nothingWritten(h);
+		// no credits and no subject; the 28.00 Stripe collected is booked
+		expect(h.count("atm_rows")).toBe(0);
+		expect(h.count("atm_subjects")).toBe(0);
+		expect(eventTypes(h)).toEqual(["payment.succeeded"]);
 		expect(h.claim("evt_glow_update")).toBeNull();
 
 		expect(h.deliver(create()).body.outcome).toBe("applied");
@@ -1005,6 +1020,10 @@ describe("an invoice that pays for a recurring add-on on its own subscription is
 		expect(resent.status).toBe(200);
 		expect(resent.body.outcome).toBe("applied");
 		expect(h.claim("evt_glow_update")).toMatchObject({ state: "done" });
+		// two invoices, two payments: the update's was booked when it was refused and its re-send does not book it again
+		expect(
+			eventTypes(h).filter((type) => type === "payment.succeeded"),
+		).toHaveLength(2);
 		// Glow is attached: its credits are in the books (the tier gives 2 visits, Glow 1).
 		expect(availOf(h, T0 + 5 * MINUTE)).toBe(3);
 	});

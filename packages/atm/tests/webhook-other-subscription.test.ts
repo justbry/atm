@@ -82,14 +82,26 @@ const upgrade = (
 		metadata,
 	});
 
-/** The whole of what the handler holds for the school: rows, revisions, the outbox, the indexes and the claims. */
+/**
+ * The whole of what the handler holds for the school: rows, revisions, the outbox without the payments, the indexes and
+ * the claims. A refused invoice still books its payment (Stripe has collected it): `refusedPayments` lists those.
+ */
 const stored = (h: ReturnType<typeof harness>) => ({
 	rows: h.db.all(`SELECT * FROM atm_rows ORDER BY table_name, row_id`),
 	subjects: h.db.all(`SELECT * FROM atm_subjects`),
-	outbox: h.outbox(),
+	outbox: h
+		.outbox()
+		.filter((event) => event.event_type !== "payment.succeeded"),
 	invoices: h.db.all(`SELECT * FROM atm_invoice_index ORDER BY invoice_id`),
 	claims: h.db.all(`SELECT event_id FROM atm_event_claims ORDER BY event_id`),
 });
+
+/** The ids of the invoices whose payment the books hold. */
+const refusedPayments = (h: ReturnType<typeof harness>): string[] =>
+	h
+		.outbox()
+		.filter((event) => event.event_type === "payment.succeeded")
+		.map((event) => event.idem);
 
 describe("an invoice with a tier line of another subscription than the holder's", () => {
 	test("a renewal of the other subscription is refused 422, nothing is written, the claim is released", () => {
@@ -110,6 +122,8 @@ describe("an invoice with a tier line of another subscription than the holder's"
 		expect(response.body.message).toContain("sub_1");
 		expect(h.claim("evt_in_other")).toBeNull();
 		expect(stored(h)).toEqual(before);
+		// What was collected is booked, once
+		expect(refusedPayments(h)).toEqual(["stripe:in_1", "stripe:in_other"]);
 		// Not recorded as decided: the same delivery gets the same answer.
 		expect(h.deliver(cycle("sub_2", "sparkle-4", "in_other"), T1).status).toBe(
 			422,

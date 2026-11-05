@@ -1913,6 +1913,16 @@ export type StripeEventRefusal = {
 		| "unmatched_booking"
 		| "rejected";
 	message: string;
+	/**
+	 * The money line of a paid invoice whose credits were refused (`unmatched_line`, `tier_on_other_subscription`,
+	 * `addon_only_subscription`, `rejected`): its `payment.succeeded`, or the `money.skipped` marker of a non-USD one.
+	 * Stripe has collected the money whatever the menu says, so the caller appends these to the outbox in the
+	 * transaction that releases the claim (the reference handler does). `rowChanges` stays null and `events` empty: no
+	 * credit is granted. The line's idem is `stripe:<invoice id>`, so the delivery that is applied after the cause is
+	 * fixed makes the same event and the outbox keeps the one it has. Absent for every other refusal, and ignored by a
+	 * caller that does not know it: the refusal is then what it was.
+	 */
+	payment?: AtmEvent[];
 };
 
 export type StripeEventResult = {
