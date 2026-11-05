@@ -1,0 +1,2 @@
+"txnidx","date","code","description","account","amount","total"
+"66","2026-10-18","01M57W11S000001VXEECV0TTCM","payment.refunded | refunded the October payment 130 USD","income:billing:refunds","130.00 USD","130.00 USD"
