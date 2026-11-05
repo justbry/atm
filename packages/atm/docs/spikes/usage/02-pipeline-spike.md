@@ -58,7 +58,7 @@ All times are seconds on this machine. "Cold" is the first query in a fresh proc
 
 - **`read_json_auto` vs an explicit schema:** the cost is negligible at 10M because DuckDB infers from a sample. The risk is a wrong inference when the sample is unrepresentative, so use the explicit schema.
 - **Memory limits:** `QUALIFY` dedupe at 10M ran under memory limits of 1, 2 and 4 GB (spilling). `arg_min` ran out of memory at 1 GB.
-- **Parity checks:** the 1M and 10M results matched the generator's own totals with 0 mismatching cells. Re-rating from raw JSONL, raw Parquet and the rollup gave identical lines.
+- **Parity checks:** the 10M result matched the generator's own totals with 0 mismatching cells (`results/pipeline/rate-10m.txt`: 112,690 expected cells, 0 mismatches). At 1M the saved ground-truth check failed with a SQL parse error (`rate-1m.txt`), so 1M is checked only against itself: the JSONL and Parquet rollups differ in 0 rows. Re-rating from raw JSONL, raw Parquet and the rollup gave identical lines at both sizes.
 
 ## Rating, rounding and late events
 

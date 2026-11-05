@@ -1,5 +1,5 @@
-import { deterministicUlid } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/src/ledger/ids.ts";
-import { canonicalize } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/src/ledger/util.ts";
+import { deterministicUlid } from "<spike-branch-checkout>/packages/atm/src/ledger/ids.ts";
+import { canonicalize } from "<spike-branch-checkout>/packages/atm/src/ledger/util.ts";
 
 const start = performance.now();
 for (let i = 0; i < 200000; i++)

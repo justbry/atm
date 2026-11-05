@@ -4,7 +4,7 @@ import { mkdirSync } from "node:fs";
 import {
 	type GeneratedUsage,
 	generateUsage,
-} from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/tests/spikes/usage-events.ts";
+} from "<spike-branch-checkout>/packages/atm/tests/spikes/usage-events.ts";
 
 const [eventsArg, outDir, layout, holdersArg] = process.argv.slice(2);
 const events = Number(eventsArg);

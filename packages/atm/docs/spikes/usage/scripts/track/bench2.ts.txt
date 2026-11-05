@@ -1,5 +1,5 @@
 import { rmSync } from "node:fs";
-import * as h from "/Users/jmac/repos/atm/.claude/worktrees/agent-a679a6723a047cebe/packages/atm/tests/spikes/usage-track-harness.ts";
+import * as h from "<spike-branch-checkout>/packages/atm/tests/spikes/usage-track-harness.ts";
 
 const DIR = "/tmp/atm-usage-track";
 let seq = 0;
