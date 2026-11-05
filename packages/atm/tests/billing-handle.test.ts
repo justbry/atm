@@ -22,8 +22,10 @@ import type {
 	Menu,
 	StripeEventResult,
 } from "../src/billing/types.js";
+import { deterministicUlid } from "../src/ledger/ids.js";
 import { balancesOf, replayEvents } from "../src/ledger/replay.js";
 import { runOnState, toCatalog } from "../src/ledger/run.js";
+import { canonicalize } from "../src/ledger/util.js";
 import { validateEvent } from "../src/ledger/validate.js";
 import type { AtmEvent } from "../src/types.js";
 import {
@@ -74,6 +76,14 @@ const addonKey = (addonId: string) => {
 };
 const metadata = { b4u_school: SCHOOL, family_id: FAMILY };
 
+/** The stored input event's id: a ULID the event decides. Stripe's own `evt_` id is what the caller dedupes on. */
+const inputEventId = (stripeEventId: string, at: number) =>
+	deterministicUlid({
+		timeMs: at,
+		revision: 0,
+		seed: canonicalize([SCHOOL, stripeEventId]),
+	});
+
 /** What publishing the menu would have recorded: each lookup key's Stripe price id. */
 const priceIds = Object.fromEntries(
 	[...menuLineItems(SCHOOL, menu).keys()].map((key) => [key, priceIdOf(key)]),
@@ -105,7 +115,7 @@ const store = (world: Menu = menu, policy: BillingPolicy = DEFAULT_POLICY) => {
 				invoiceIds[paymentIntentOf(paid.data.object.id)] = paid.data.object.id;
 			const result = handleStripeEvent({
 				event,
-				eventId: id,
+				eventId: inputEventId(id, at),
 				menu: world,
 				menuVersion: MENU_VERSION,
 				policy,
@@ -241,7 +251,7 @@ describe("handleStripeEvent", () => {
 
 		expect(r.events.map((e) => e.event_type)).toEqual(["credit.granted"]);
 		const event = r.events[0] as AtmEvent;
-		expect(event.cause).toBe("evt_create");
+		expect(event.cause).toBe(inputEventId("evt_create", T0 + 10_000));
 		expect(event.labels).toMatchObject({
 			menu_version: "3",
 			policy_version: "1",
@@ -270,7 +280,7 @@ describe("handleStripeEvent", () => {
 		expect(r.rowChanges?.nextRevision).toBe(3);
 		expect(r.events.length).toBeGreaterThan(0);
 		for (const e of r.events) {
-			expect(e.cause).toBe("evt_cycle_2");
+			expect(e.cause).toBe(inputEventId("evt_cycle_2", T1 + 10_000));
 			expect(e.labels.menu_version).toBe("3");
 			expect(sumsToZero(e)).toBe(true);
 		}
@@ -321,7 +331,7 @@ describe("handleStripeEvent", () => {
 		create(s);
 		const r = s.handle(refundOf("in_1"), T1);
 		expect(r.events.map((e) => e.event_type)).toEqual(["credit.adjusted"]);
-		expect(r.events[0]?.cause).toBe("evt_re_1");
+		expect(r.events[0]?.cause).toBe(inputEventId("evt_re_1", T1));
 		expect(r.events[0]?.labels.mapping).toBe("stripe/charge.refunded@v1");
 		expect(s.avail(T0 + 1)).toBe(0);
 		expect(s.handle(refundOf("in_1"), T1)).toEqual({
@@ -391,10 +401,10 @@ describe("handleStripeEvent", () => {
 		]);
 		expect(r.events[0]?.idem).toMatch(/:expiry:ce_tier_visit_month$/);
 		expect(r.events[0]?.labels.expires_at).toBe("2026-03-15T18:00:00Z");
-		expect(r.events[0]?.cause).toBe("evt_sub_del");
-		// `cause` carries the Stripe event id, which the envelope's ULID pattern for `cause` does not take
-		const { cause: _cause, ...envelope } = r.events[0] as AtmEvent;
-		expect(validateEvent(envelope as AtmEvent).errors).toEqual([]);
+		expect(r.events[0]?.cause).toBe(
+			inputEventId("evt_sub_del", T0 + 86_400_000),
+		);
+		expect(validateEvent(r.events[0]).errors).toEqual([]);
 		expect(r.rowChanges?.nextRevision).toBe(2);
 		expect(s.avail(T0 + 2 * 86_400_000)).toBe(2);
 		expect(s.avail(D("2026-03-15T18:00:01Z"))).toBe(0);
@@ -1045,7 +1055,7 @@ describe("what the reviews found", () => {
 describe("refusals", () => {
 	const input = (event: unknown) => ({
 		event,
-		eventId: "evt_x",
+		eventId: inputEventId("evt_x", T0),
 		menu,
 		menuVersion: MENU_VERSION,
 		policy: DEFAULT_POLICY,
@@ -1572,5 +1582,53 @@ describe("deduction order", () => {
 	test("the engine's own order spends the refilling tier row first", () => {
 		const rows = drawnFrom(gifted("engine"));
 		expect(rows).toEqual(["ce_tier_visit_month"]);
+	});
+});
+
+describe("input event id", () => {
+	test("every event a history makes passes the ledger's envelope, cause included", () => {
+		const s = store();
+		create(s);
+		renew(s);
+		s.handle(refundOf("in_1"), T2);
+		expect(s.events.length).toBeGreaterThan(0);
+		for (const e of s.events)
+			expect(validateEvent(e).errors, e.idem).toEqual([]);
+	});
+
+	test("an eventId that is not a ULID (Stripe's own id) is refused, nothing written", () => {
+		const r = handleStripeEvent({
+			event: invoicePaid({
+				eventId: "evt_x",
+				invoiceId: "in_x",
+				at: T0,
+				subscriptionId: "sub_1",
+				reason: "subscription_create",
+				periodStart: T0,
+				periodEnd: T1,
+				lines: [
+					{
+						lookupKey: tierKey("sparkle-2", "month"),
+						amount: 26000,
+						interval: "month",
+					},
+				],
+				metadata,
+			}),
+			eventId: "evt_x",
+			menu,
+			menuVersion: MENU_VERSION,
+			policy: DEFAULT_POLICY,
+			policyVersion: POLICY_VERSION,
+			rows: [],
+			revision: 0,
+			catalog: catalogRows,
+			now: T0,
+			priceIds,
+		});
+		expect(r.rowChanges).toBeNull();
+		expect(r.events).toEqual([]);
+		expect(r.refused?.reason).toBe("bad_event");
+		expect(r.refused?.message).toMatch(/ULID/);
 	});
 });

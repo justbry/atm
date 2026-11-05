@@ -827,7 +827,11 @@ export type LineItem = (
 export type StripeEventInput = {
 	/** The raw Stripe event, as received (verified and deduplicated by the caller). */
 	event: unknown;
-	/** The stored input event's id: it becomes `cause` on every decision event and the id of every command. */
+	/**
+	 * The stored input event's id, a ULID (not Stripe's `evt_` id: the caller dedupes on that one): it becomes `cause`
+	 * on every decision event, which the ledger's envelope requires to be a ULID, and the id of every command. Any
+	 * other value comes back `refused` as `bad_event`.
+	 */
 	eventId: string;
 	menu: Menu;
 	menuVersion: number | string;

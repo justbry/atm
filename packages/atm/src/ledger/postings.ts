@@ -783,7 +783,11 @@ export const lapsedRows = ({
 	);
 };
 
-/** The `credit.expired` event for one lapsed row, at the instant it lapsed. Idempotent on the row and its expiry. */
+/**
+ * The `credit.expired` event for one lapsed row, at the instant it lapsed. Idempotent on the holder, the row and its
+ * expiry: row ids repeat across holders (every family has a `ce_tier_visit_month`), and the ledger keeps one event per
+ * idem for the whole school.
+ */
 export const lapseEvent = ({
 	row,
 	holder,
@@ -814,7 +818,7 @@ export const lapseEvent = ({
 		tz,
 		key,
 		labels: { feature, ...(labels ?? {}) },
-		idem: `lapse:${row.id}:${row.expires_at}`,
+		idem: `lapse:${key}:${row.id}:${row.expires_at}`,
 		text: `expired ${row.balance} ${feature} (${row.table === "rollovers" ? "rollover" : "grant"} lapsed)`,
 		postings: creditPostings("credit.expired", {
 			holder,
