@@ -15,7 +15,8 @@
 	"periodEnd": 1773340200000,
 	"lines": [
 		{
-			"kind": "unknown",
+			"kind": "addon",
+			"addonId": "gift-dollars",
 			"interval": null,
 			"quantity": 1,
 			"proration": false,
@@ -24,7 +25,6 @@
 	],
 	"metadata": {
 		"b4u_school": "sch_vol",
-		"family_id": "fam_8k2",
-		"gift": "dollars"
+		"family_id": "fam_8k2"
 	}
 }

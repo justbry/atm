@@ -140,15 +140,27 @@ describe("mapping files", () => {
 });
 
 describe("fixtures normalize to their facts", () => {
-	test("invoice.paid: a line has only its price id; the menu gives the rest", () => {
+	test("invoice.paid: a line has only its price id; the menu gives the rest, a gift kind included", () => {
 		const raw = load("invoice.paid.json");
 		const inv = expectOk(
 			normalize(raw, mapping("invoice.paid"), { eventId: raw.id }),
 		) as BillingInvoice;
-		expect(inv.lines.map((l) => [l.lookupKey, l.interval])).toEqual([
-			[undefined, null],
-			[undefined, null],
+		expect(inv.lines.map((l) => [l.lookupKey, l.interval, l.gift])).toEqual([
+			[undefined, null, undefined],
+			[undefined, null, undefined],
 		]);
+		const gift = new Map<string, LineItem>([
+			[
+				"price_SYNTH_addon_hd_month",
+				{ kind: "addon", addonId: "gift", interval: null, gift: "sessions" },
+			],
+		]);
+		expect(resolveLines(inv.lines, gift)[1]).toMatchObject({
+			kind: "addon",
+			addonId: "gift",
+			interval: null,
+			gift: "sessions",
+		});
 	});
 
 	test("invoice.paid: a monthly join with a tier line and an add-on line", () => {

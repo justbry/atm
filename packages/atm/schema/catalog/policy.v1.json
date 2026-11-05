@@ -10,7 +10,6 @@
 		"upgradeGrant": { "enum": ["prorated", "full", "none"] },
 		"removeOnFullRefund": { "type": "boolean" },
 		"removeOnLostDispute": { "type": "boolean" },
-		"cycleFromPeriodStart": { "type": "boolean" },
 		"giftSessionMonths": { "type": "integer", "minimum": 1, "maximum": 120 },
 		"giftDollarMinimum": {
 			"type": "integer",

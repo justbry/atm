@@ -20,7 +20,6 @@ const POLICY: BillingPolicy = {
 	upgradeGrant: "prorated",
 	removeOnFullRefund: true,
 	removeOnLostDispute: true,
-	cycleFromPeriodStart: true,
 	giftSessionMonths: 6,
 	giftDollarMinimum: 2500,
 	giftDollarMonths: 12,
@@ -50,6 +49,62 @@ describe("lookupKeyOf", () => {
 });
 
 describe("menuToStripe", () => {
+	test("a gift add-on's price carries the gift kind in its metadata and its key; flipping the kind is a new price", () => {
+		const menu = clone(MENU);
+		const feature = menu.features[0]?.id as string;
+		menu.addons = [
+			{
+				id: "gift",
+				name: "Gift",
+				price: { amount: 9000, every: "once" },
+				grants: [{ featureId: feature, amount: 1, every: "month" }],
+			},
+		];
+		const plain = noKeys(publish(menu, null)).filter(
+			(o) => o.op === "price.create" && o.productKey === "a:gift",
+		);
+		expect(plain).toEqual([
+			expect.objectContaining({
+				lookupKey: lk("a:gift:once", 9000),
+				metadata: { b4u_school: SCHOOL, b4u_key: "a:gift:once" },
+			}),
+		]);
+		const gifted = clone(menu);
+		(gifted.addons[0] as Addon).gift = "sessions";
+		const created = noKeys(publish(gifted, null)).filter(
+			(o) => o.op === "price.create" && o.productKey === "a:gift",
+		);
+		expect(created).toEqual([
+			expect.objectContaining({
+				lookupKey: lk("a:gift:once:gift-sessions", 9000),
+				metadata: {
+					b4u_school: SCHOOL,
+					b4u_key: "a:gift:once:gift-sessions",
+					b4u_gift: "sessions",
+				},
+			}),
+		]);
+		const flipped = noKeys(publish(gifted, menu)).filter(
+			(o) => o.op === "price.create" || o.op === "price.archive",
+		);
+		expect(flipped.map((o) => o.op)).toEqual(["price.create", "price.archive"]);
+		expect(publish(gifted, gifted)).toEqual([]);
+		const checkout = checkoutParams({
+			schoolId: SCHOOL,
+			menu: gifted,
+			tierId: gifted.tiers[0]?.id as string,
+			interval: gifted.tiers[0]?.prices[0]?.interval as "month",
+			addonIds: ["gift"],
+			familyId: "fam_1",
+			menuVersion: 1,
+			returnUrls: { success: "https://x/ok", cancel: "https://x/no" },
+			policy: POLICY,
+		});
+		expect(
+			checkout.ok && checkout.params.line_items.map((l) => l.lookupKey),
+		).toContain(lk("a:gift:once:gift-sessions", 9000));
+	});
+
 	test("first publish of the fixture menu: golden ops", () => {
 		const ops = noKeys(publish(MENU, null));
 		expect(ops).toEqual([

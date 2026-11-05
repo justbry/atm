@@ -15,7 +15,8 @@
 	"periodEnd": 1773340200000,
 	"lines": [
 		{
-			"kind": "unknown",
+			"kind": "addon",
+			"addonId": "gift-visit",
 			"interval": null,
 			"quantity": 1,
 			"proration": false,
@@ -24,8 +25,6 @@
 	],
 	"metadata": {
 		"b4u_school": "sch_vol",
-		"family_id": "fam_8k2",
-		"gift": "sessions",
-		"gift_feature": "visit"
+		"family_id": "fam_8k2"
 	}
 }
