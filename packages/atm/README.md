@@ -53,6 +53,18 @@ bun run --cwd packages/atm build   # or: bun build.ts <outDir>
 
 The public types (`src/types.ts`) are atm's own JSON shapes, not the engine's zod types, so a consumer needs no engine, zod or `@autumn/shared` types. `tests/types.test.ts` stops compiling if the engine's types stop fitting them; `tests/dist.test.ts` builds into an empty directory and typechecks and runs the result there.
 
+## Release
+
+B4 Uni's family service depends on atm by a pinned release URL, not a vendored bundle: `"atm": "https://github.com/justbry/atm/releases/download/atm-v<version>/atm-<version>.tgz"` in its `packages/family-service/package.json`, with the tarball's sha512 in its `bun.lock`. The tarball holds `package/package.json`, `package/dist/index.js`, `package/dist/index.d.ts`, `package/dist/types.d.ts`, `package/LICENSE` and `package/README.md`, and nothing else (the engine is inlined, so no dependencies).
+
+1. Bump `version` in `packages/atm/package.json` (the workspace package stays `"private": true`; it is never published to npm), commit and push.
+2. `bun run --cwd packages/atm release --dry-run` builds from that commit, runs the dist checks, packs, and prints the file list, sha256 and the sha512 integrity bun.lock will record. It prints, without stopping, what a real run would refuse on.
+3. `bun run --cwd packages/atm release` does the same and creates the GitHub release `atm-v<version>` at HEAD with the tarball. It refuses unless the working tree is clean, HEAD is on origin, neither the tag nor a release for it exists, and the bun running it is the one the repo pins (`packageManager`), because the bundle and the pack are part of the bytes. The same commit on that bun gives the same tarball.
+4. Pushing a tag `atm-v*` runs `.github/workflows/release-atm.yml`, which builds the tag and creates the release if it is missing, or checks that an existing release's asset is exactly this build.
+5. In buzz-school, change the URL in `packages/family-service/package.json` and run `bun install`; `bun.lock` gets the new sha512.
+
+Local development: `bun link` here and `bun link atm` in the family service. `bun install` there undoes the link. Never commit while linked.
+
 ## Ledger (slices 1-5)
 
 - `atm journal --root <folder> --school <id> --month YYYY-MM`: events under `<folder>/schools/<id>/events/` to `ledger/b4u/YYYY-MM.journal`, `ledger/accounts.journal`, `main.journal`, `ledger/build.json`; a file is rewritten only if its bytes change.
