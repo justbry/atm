@@ -20,7 +20,6 @@ const POLICY: BillingPolicy = {
 	upgradeGrant: "prorated",
 	removeOnFullRefund: true,
 	removeOnLostDispute: true,
-	cycleFromPeriodStart: true,
 	giftSessionMonths: 6,
 	giftDollarMinimum: 2500,
 	giftDollarMonths: 12,

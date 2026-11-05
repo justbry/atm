@@ -8,7 +8,6 @@ export const DEFAULT_POLICY: BillingPolicy = {
 	upgradeGrant: "prorated",
 	removeOnFullRefund: true,
 	removeOnLostDispute: true,
-	cycleFromPeriodStart: true,
 	giftSessionMonths: 6,
 	giftDollarMinimum: 2500,
 	giftDollarMonths: 12,
@@ -29,7 +28,14 @@ export const resolvePolicy = (overrides: unknown): BillingPolicy => {
 	);
 	if (!validate(overrides)) {
 		const why = (validate.errors ?? [])
-			.map((e) => `${e.instancePath || "policy"} ${e.message ?? "is invalid"}`)
+			.map((e) => {
+				const where = e.instancePath || "policy";
+				const extra =
+					e.keyword === "additionalProperties"
+						? ` (${String((e.params as { additionalProperty: string }).additionalProperty)})`
+						: "";
+				return `${where} ${e.message ?? "is invalid"}${extra}`;
+			})
 			.join("; ");
 		throw new Error(`policy is invalid: ${why}`);
 	}

@@ -348,8 +348,6 @@ export type BillingPolicy = {
 	removeOnFullRefund: boolean;
 	/** On a lost dispute, remove that payment's unused credits. */
 	removeOnLostDispute: boolean;
-	/** Cycles and rollover expiry count from the invoice's period start (true) or the payment time (false). */
-	cycleFromPeriodStart: boolean;
 	/** A session gift certificate lasts this many months from purchase. */
 	giftSessionMonths: number;
 	/** Smallest dollar gift certificate, in cents. */

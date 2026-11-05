@@ -8,7 +8,6 @@ describe("resolvePolicy", () => {
 			upgradeGrant: "prorated",
 			removeOnFullRefund: true,
 			removeOnLostDispute: true,
-			cycleFromPeriodStart: true,
 			giftSessionMonths: 6,
 			giftDollarMinimum: 2500,
 			giftDollarMonths: 12,
@@ -52,6 +51,13 @@ describe("resolvePolicy", () => {
 		expect(() =>
 			resolvePolicy({ memberCode: { code: "AB", percentOff: 5, extra: 1 } }),
 		).toThrow();
+	});
+
+	test("cycleFromPeriodStart is gone: the engine always anchors on the period start, so naming it is refused", () => {
+		expect(() => resolvePolicy({ cycleFromPeriodStart: false })).toThrow(
+			/cycleFromPeriodStart/,
+		);
+		expect("cycleFromPeriodStart" in DEFAULT_POLICY).toBe(false);
 	});
 
 	test("a wrong value is refused", () => {

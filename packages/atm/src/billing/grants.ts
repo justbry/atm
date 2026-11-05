@@ -693,12 +693,9 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 		l.gift ?? addonOf(menu, l.addonId as string).gift ?? null;
 	// A dollar certificate is a coupon the family service issues: it grants no credits.
 	const credited = once.filter((l) => giftOf(l) !== "dollars");
-	// The engine refills rows whose reset is strictly before the command's time, so the reset runs 1 ms after the anchor.
-	const anchorAt =
-		(policy.cycleFromPeriodStart
-			? invoice.periodStart
-			: Math.max(now, invoice.periodStart + 1)) +
-		(policy.cycleFromPeriodStart ? 1 : 0);
+	// The cycle always anchors on the invoice's period start. The engine refills rows whose reset is strictly before the
+	// command's time, so the reset runs 1 ms after the anchor.
+	const anchorAt = invoice.periodStart + 1;
 	const ops: Op[] = [];
 	let needReset = false;
 	let created = false;
