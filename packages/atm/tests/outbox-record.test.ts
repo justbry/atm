@@ -459,6 +459,13 @@ const bookSomeVisits = (service: ReturnType<typeof familyService>) => {
 	return commands;
 };
 
+/** The handler now also books the money of an invoice (`payment.succeeded`): the tests below are about the credit events. */
+const isNotGrantOrMoney = (type: string) =>
+	type !== "credit.granted" && type !== "payment.succeeded";
+
+/** An event that was made by an engine command: a money event (a payment, a refund, a payout) has none. */
+const hasCommand = (event: AtmEvent) => event.payload.command !== undefined;
+
 const typesOf = (events: readonly AtmEvent[]) =>
 	events
 		.filter((event) => event.key === HOLDER)
@@ -473,17 +480,15 @@ describe("recordEngineCommand", () => {
 		service.hold(1, T0 + 7 * DAY, "bk_3");
 
 		const events = outboxEvents(db);
-		expect(typesOf(events).filter((type) => type !== "credit.granted")).toEqual(
-			[
-				"credit.adjusted",
-				"credit.held",
-				"credit.spent",
-				"credit.held",
-				"credit.released",
-				"credit.refunded",
-				"credit.held",
-			],
-		);
+		expect(typesOf(events).filter(isNotGrantOrMoney)).toEqual([
+			"credit.adjusted",
+			"credit.held",
+			"credit.spent",
+			"credit.held",
+			"credit.released",
+			"credit.refunded",
+			"credit.held",
+		]);
 		for (const event of events) expect(validateEvent(event).errors).toEqual([]);
 
 		const replayed = expectReplayMatchesRows(db, events);
@@ -561,7 +566,9 @@ describe("recordEngineCommand", () => {
 		service.finalize(held, null, T1 + 2 * DAY);
 
 		const events = outboxEvents(db);
-		const order = replayOrder(events).filter((event) => event.key === HOLDER);
+		const order = replayOrder(events).filter(
+			(event) => event.key === HOLDER && hasCommand(event),
+		);
 		const writers = order.map((event) =>
 			/^[0-7][0-9A-HJKMNP-TV-Z]{25}:\d+$/.test(
 				(event.payload.command as { commandId: string }).commandId,
@@ -720,6 +727,7 @@ describe("recordEngineCommand", () => {
 			});
 			const own = outboxEvents(db).filter(
 				(event) =>
+					hasCommand(event) &&
 					!/^[0-7][0-9A-HJKMNP-TV-Z]{25}:\d+$/.test(
 						(event.payload.command as { commandId: string }).commandId,
 					),
