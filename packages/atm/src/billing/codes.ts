@@ -12,6 +12,7 @@ import { runOnState, toCatalog } from "../ledger/run.js";
 import type { AtmEvent, AtmIdentity, GrantsState } from "../types.js";
 import { resolveEnv } from "./env.js";
 import { addZonedMonths, customerRow, giftEntId, rowOp } from "./grants.js";
+import { MAX_LINE_TOTAL } from "./menu.js";
 import { commandOrg } from "./policy.js";
 import {
 	GRANTS_TABLE,
@@ -108,9 +109,13 @@ export const createSessionGiftCode = (
 	};
 };
 
-/** The gift's credit row: one per code, named from the code's id. `ce_gift_` is how the ledger reads it as a gift. */
+/**
+ * The gift's credit row: one per code, named from the code's id and the feature. `ce_gift_` is how the ledger reads it as a
+ * gift. The id's length comes first so no two (code, feature) pairs can make the same row id: ids and features may both hold
+ * `_`, so `a`+`b_c` and `a_b`+`c` would otherwise meet.
+ */
 const giftRowId = (code: SessionGiftCode): string =>
-	`ce_gift_code_${code.id}_${code.featureId}`;
+	`ce_gift_code_${code.id.length}_${code.id}_${code.featureId}`;
 
 /**
  * Redeems a session gift code for a holder. Pure: it decides against the code's state and the holder's rows, and returns
@@ -122,7 +127,7 @@ const giftRowId = (code: SessionGiftCode): string =>
  * (`expired`); the menu still has its feature (`unknown_feature`).
  *
  * Then `credits` of the feature become a NEW credit row (one `applyBillingPlan` insert, the way a session gift add-on
- * bought at Checkout does: the entitlement `ent_gift_<feature>`, the row `ce_gift_code_<codeId>_<feature>`), lapsing
+ * bought at Checkout does: the entitlement `ent_gift_<feature>`, the row `ce_gift_code_<length of codeId>_<codeId>_<feature>`), lapsing
  * `code.creditMonths` months after `now` on the school's calendar; a holder with no engine rows gets a customer made in the
  * same plan. `GrantsState.redeemed[code.id]` records it. The events come from the engine's own mutation (`credit.granted`
  * on the plan `gift`), labelled with the menu and policy versions.
@@ -337,6 +342,12 @@ export const dollarGiftOps = (input: DollarGiftInput): DollarGiftResult => {
 		return refuse(
 			"below_minimum",
 			`a dollar gift is a whole number of cents, at least ${policy.giftDollarMinimum}`,
+		);
+	// Stripe refuses a coupon above its largest amount: say so here, not in the caller's executor.
+	if (input.amount > MAX_LINE_TOTAL)
+		return refuse(
+			"above_maximum",
+			`a dollar gift is at most ${MAX_LINE_TOTAL} cents`,
 		);
 	if (!isWhole(input.issuedAt))
 		return refuse("bad_expiry", "issuedAt must be a whole number of ms");
