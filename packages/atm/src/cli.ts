@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import { readFile, stat } from "node:fs/promises";
+import { basename } from "node:path";
 import type { WorkerFullSubject } from "@autumn/balance-engine";
 import { Command } from "commander";
 import packageJson from "../package.json";
@@ -440,7 +441,19 @@ const policyFrom = async (path: string): Promise<BillingPolicy> => {
 	}
 };
 
+const SIMULATE_MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+
 const runSimulate = async (opts: SimulateOptions): Promise<void> => {
+	// `--school ..` or `a/../b` would read some other folder's events as the school's (as `atm reconcile` refuses).
+	if (
+		opts.school === "" ||
+		opts.school === "." ||
+		opts.school === ".." ||
+		basename(opts.school) !== opts.school
+	)
+		throw new InputError(
+			`--school ${JSON.stringify(opts.school)} must be one folder name under schools/`,
+		);
 	if (opts.menu && opts.catalog)
 		throw new InputError("give --menu or --catalog, not both");
 	if (opts.currentMenu && opts.currentCatalog)
@@ -453,7 +466,7 @@ const runSimulate = async (opts: SimulateOptions): Promise<void> => {
 		throw new InputError(
 			"give --current-menu or --current-catalog: the menu (or catalog rows) the log was written under",
 		);
-	if (opts.month !== undefined && !/^\d{4}-\d{2}$/.test(opts.month))
+	if (opts.month !== undefined && !SIMULATE_MONTH.test(opts.month))
 		throw new InputError(`--month ${opts.month} is not YYYY-MM`);
 	const candidate = {
 		menu: opts.menu ? await menuFrom("--menu", opts.menu) : undefined,

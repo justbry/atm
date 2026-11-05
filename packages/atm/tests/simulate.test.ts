@@ -667,14 +667,15 @@ describe("simulate: the library", () => {
 		);
 		expect(sim.refused.map((r) => r.commandId)).toEqual(["cmd_026", "cmd_027"]);
 		expect(sim.transactions.map((t) => t.month)).toEqual(["2026-05"]);
-		expect(() =>
-			simulate({
-				events: year.events,
-				catalog: year.catalog,
-				candidate: {},
-				month: "May",
-			}),
-		).toThrow(/YYYY-MM/);
+		for (const bad of ["May", "2026-13", "2026-00"])
+			expect(() =>
+				simulate({
+					events: year.events,
+					catalog: year.catalog,
+					candidate: {},
+					month: bad,
+				}),
+			).toThrow(/YYYY-MM/);
 	});
 
 	test("the current and the candidate each name a catalog or a menu, not both", () => {
@@ -921,6 +922,36 @@ describe("atm simulate", () => {
 			[
 				[...base(FIXTURE), "--catalog", catalogFile, "--month", "May"],
 				/not YYYY-MM/,
+			],
+			[
+				[...base(FIXTURE), "--catalog", catalogFile, "--month", "2026-13"],
+				/not YYYY-MM/,
+			],
+			[
+				[
+					"--root",
+					FIXTURE,
+					"--school",
+					"sch_vol/../sch_vol",
+					"--current-catalog",
+					catalogFile,
+					"--catalog",
+					catalogFile,
+				],
+				/must be one folder name/,
+			],
+			[
+				[
+					"--root",
+					FIXTURE,
+					"--school",
+					"..",
+					"--current-catalog",
+					catalogFile,
+					"--catalog",
+					catalogFile,
+				],
+				/must be one folder name/,
 			],
 			[
 				[

@@ -162,7 +162,7 @@ const withPolicy = (
 	};
 };
 
-const MONTH = /^\d{4}-\d{2}$/;
+const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 /** Sum of each event's postings by month (the school's calendar), account and commodity. */
 const postingTotals = (events: readonly AtmEvent[]): Map<string, bigint> => {
