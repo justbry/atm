@@ -16,6 +16,8 @@ export const STRIPE_FILES: Record<ReconcileStripeList, string> = {
 	disputes: "disputes.json",
 	payouts: "payouts.json",
 	balanceTransactions: "balance_transactions.json",
+	// Read when it is there; needed only by a school whose log holds a booking's payment.
+	paymentIntents: "payment_intents.json",
 };
 
 /** The numbers each record must carry, whole (Stripe's amounts are integer cents, its times whole seconds): a missing one would otherwise compare as NaN and match nothing. */
@@ -25,6 +27,7 @@ const NUMBER_FIELDS: Record<ReconcileStripeList, string[]> = {
 	disputes: ["amount", "created"],
 	payouts: ["amount", "created"],
 	balanceTransactions: ["amount", "fee", "net", "created"],
+	paymentIntents: ["amount", "created"],
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>

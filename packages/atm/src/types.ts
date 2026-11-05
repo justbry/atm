@@ -226,7 +226,7 @@ export type AtmLedgerEventInput = {
 	amount?: number;
 	/** Stripe fee in cents, on `payment.succeeded`; on `payment.disputed`, Stripe's dispute fee (`expenses:billing:dispute-fees`). */
 	fee?: number;
-	/** Income account tail on `payment.succeeded`: `membership:sparkle-2` -> `income:billing:membership:sparkle-2`. */
+	/** Income account tail on `payment.succeeded`: `membership:sparkle-2` -> `income:billing:membership:sparkle-2`; a paid booking's is `booking`. */
 	incomeKind?: string;
 	campaign?: string;
 	won?: boolean;
@@ -1370,6 +1370,12 @@ export type BookingRecord = {
 		currency: string;
 		/** The charge's total refunded so far (minor units). */
 		refunded: number;
+		/**
+		 * The books took this payment (its `payment.succeeded`), as `InvoiceRecord.paid` says for an invoice. Absent when none
+		 * was booked: a payment decided before payments were booked, or one in another currency (its `money.skipped` marker is
+		 * not a payment). A refund of such a payment makes no `payment.refunded`: there is no payment for it to take back from.
+		 */
+		booked?: boolean;
 	};
 };
 
@@ -1807,7 +1813,9 @@ export type StripeEventInput = {
 	 * webhook event carries it, so the caller reads it from Stripe (see `WebhookDeps.paymentFee`) and passes it in, which
 	 * keeps this function pure. It becomes the `fee` of the `payment.succeeded` event. Absent: no fee line is booked
 	 * (the books then hold the gross amount in `assets:stripe`). Anything but a whole number from 0 to the amount paid
-	 * comes back `refused` as `bad_event`. Read only for `invoice.paid`.
+	 * comes back `refused` as `bad_event`. Read only for `invoice.paid` and for the paid `checkout.session.completed` (or
+	 * `async_payment_succeeded`) of a booking, where it is the fee of the payment intent's charge; read from the first
+	 * delivery only, as a replay decides nothing.
 	 */
 	fee?: number;
 	/**
@@ -1844,7 +1852,7 @@ export type StripeEventResult = {
 	rowChanges: RowChanges | null;
 	/**
 	 * The decision events, each with `cause` = the event id and the menu, policy and mapping labels: `credit.*` and
-	 * `plan.changed`, and the money lines of a payment (`payment.succeeded`), a refund (`payment.refunded`) and a payout
+	 * `plan.changed`, and the money lines of a payment (`payment.succeeded`, also of a paid booking's), a refund (`payment.refunded`) and a payout
 	 * (`payout.paid`), and of a dispute that moved money: `payment.disputed` when it opens (the withdrawal and Stripe's
 	 * dispute fee) and `dispute.closed` when it closes.
 	 */
@@ -2481,6 +2489,21 @@ export type StripePayoutRecord = {
 	livemode?: boolean;
 };
 
+/**
+ * The fields `reconcile` reads of a Stripe payment intent, for a booking's one-time payment (no invoice). Only a `succeeded`
+ * intent whose `metadata.booking_id` is set is compared (`bookingCheckoutParams` puts it there); the rest of the list, the
+ * intents that paid invoices, is ignored.
+ */
+export type StripePaymentIntentRecord = {
+	id: string;
+	status?: string | null;
+	amount: number;
+	currency: string;
+	created: number;
+	livemode?: boolean;
+	metadata?: Record<string, string> | null;
+};
+
 export type StripeBalanceTransactionRecord = {
 	id: string;
 	amount: number;
@@ -2498,6 +2521,11 @@ export type ReconcileStripe = {
 	disputes?: readonly StripeDisputeRecord[];
 	payouts?: readonly StripePayoutRecord[];
 	balanceTransactions?: readonly StripeBalanceTransactionRecord[];
+	/**
+	 * `stripe payment_intents list`: needed only by a school whose log holds a booking's `payment.succeeded`. When the log
+	 * holds one and this is left out it is `notSupplied`; for a school with no booking payment it is never required.
+	 */
+	paymentIntents?: readonly StripePaymentIntentRecord[];
 };
 
 export type ReconcileStripeList = keyof ReconcileStripe;
@@ -2522,7 +2550,9 @@ export type ReconcileObject =
 	| "dispute"
 	| "payout"
 	| "fees"
-	| "net";
+	| "net"
+	/** A booking's one-time payment (a payment intent, no invoice). */
+	| "payment";
 
 export type ReconcileKind =
 	| "missing_in_log"
@@ -2549,7 +2579,7 @@ export type ReconcileSide = {
 export type ReconcileDifference = {
 	kind: ReconcileKind;
 	object: ReconcileObject;
-	/** Stripe's id (`in_`, `re_`, `dp_`, `po_`); null for the totals. */
+	/** Stripe's id (`in_`, `re_`, `dp_`, `po_`, `pi_` for a booking's payment); null for the totals. */
 	id: string | null;
 	/** The log event type compared against, null for the totals. */
 	eventType: AtmEventType | null;
@@ -2572,7 +2602,13 @@ export type ReconcileResult = {
 	/** Lists of `stripe` that were undefined: their checks did not run. */
 	notSupplied: ReconcileStripeList[];
 	/** Records each side has in the period, after ignoring. Stripe's count is null for a list not supplied. */
-	counts: Record<ReconcileObject, { stripe: number | null; log: number }>;
+	counts: Record<
+		Exclude<ReconcileObject, "payment">,
+		{ stripe: number | null; log: number }
+	> & {
+		/** A booking's payments; present only when `paymentIntents` was supplied or the log holds one, so a school with none reconciles as before. */
+		payment?: { stripe: number | null; log: number };
+	};
 	/** Stripe records skipped, by reason (only reasons that applied). */
 	ignored: Record<string, number>;
 	/**
