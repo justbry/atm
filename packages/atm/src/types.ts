@@ -1532,6 +1532,7 @@ export type GiftCodeRefusalReason =
 	| "already_redeemed"
 	| "wrong_school"
 	| "below_minimum"
+	| "above_maximum"
 	| "nothing_to_sell";
 
 export type GiftCodeRefusal = {

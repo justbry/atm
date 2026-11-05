@@ -302,7 +302,7 @@ describe("redeemSessionGiftCode", () => {
 		const row = result.rowChanges?.upserts.find(
 			(r) => r.table === "customerEntitlements",
 		);
-		expect(row?.id).toBe("ce_gift_code_code_1_visit");
+		expect(row?.id).toBe("ce_gift_code_6_code_1_visit");
 		expect(row?.data).toMatchObject({
 			entitlement_id: "ent_gift_visit",
 			balance: 2,
@@ -319,10 +319,10 @@ describe("redeemSessionGiftCode", () => {
 			feature: "visit",
 			credits: 2,
 			at: NOW,
-			rowId: "ce_gift_code_code_1_visit",
+			rowId: "ce_gift_code_6_code_1_visit",
 			expiresAt: addZonedMonths(NOW, 6, menu.timeZone),
 		});
-		expect(grants.rows.ce_gift_code_code_1_visit).toBe(1);
+		expect(grants.rows.ce_gift_code_6_code_1_visit).toBe(1);
 		expect(grants.identity).toEqual(HOLDER);
 		// the code's next state
 		expect(result.code).toEqual({
@@ -417,7 +417,7 @@ describe("redeemSessionGiftCode", () => {
 			expect(result.rowChanges?.deletes).toEqual([]);
 			expect(upserts.map((row) => `${row.table}:${row.id}`).sort()).toEqual([
 				"atm_grants:grants",
-				"customerEntitlements:ce_gift_code_code_1_visit",
+				"customerEntitlements:ce_gift_code_6_code_1_visit",
 			]);
 			expect(result.rowChanges?.expectedRevision).toBe(store.revision);
 			expect(result.rowChanges?.nextRevision).toBe(store.revision + 1);
@@ -496,8 +496,8 @@ describe("redeemSessionGiftCode", () => {
 					)
 					.map((c) => (c as { id: string }).id);
 			};
-			expect(drawn("expiry")).toEqual(["ce_gift_code_code_1_visit"]);
-			expect(drawn("engine")).not.toContain("ce_gift_code_code_1_visit");
+			expect(drawn("expiry")).toEqual(["ce_gift_code_6_code_1_visit"]);
+			expect(drawn("engine")).not.toContain("ce_gift_code_6_code_1_visit");
 		});
 	});
 
