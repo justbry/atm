@@ -44,6 +44,7 @@ export type {
 	NormalizeContext,
 	NormalizeError,
 	NormalizeResult,
+	PortalConfigIds,
 	Rollover,
 	RowChanges,
 	RowData,
