@@ -21,6 +21,10 @@ What was checked against a real Stripe sandbox or against real webhook deliverie
   - [x] Invoice metadata: with checkout's `subscription_data.metadata` the invoice's own metadata is empty; it is on `parent.subscription_details.metadata`. Every real subscription invoice was refused as `missing_metadata`.
   - [x] Renewal period: a `subscription_cycle` invoice's own period is the previous one; the lines carry the new one. A real renewal reset a month early and granted nothing.
 
+## Discounted invoices
+
+- [x] Discounted invoices recorded from a sandbox (2026-11-05, `fixtures/billing/stripe/recorded/discount/`, percent, amount-off and 100% coupons, a raise and a renewal): an invoice line's `amount` is **gross** (price x quantity); the discount is in `discount_amounts` / `total_discount_amounts`; `subtotal` is the sum of the lines, `total` and `amount_paid` are net. Proration lines are `discountable: false` (discount 0). atm's reading was right; no code changed.
+
 ## A Checkout with a one-time gift line
 
 - A subscription-mode Checkout that carries a one-time gift line, verified in a real hosted Checkout (2026-11-05, test card): one `invoice.paid` has both lines (the gift line is `quantity 1`, `proration: false`, with a period equal to the first cycle's) and the handler grants the tier's credits and a separate gift lot of 1 visit that expires after `giftSessionMonths`; the gift line is not on the subscription's items. Webhook delivery and the schedule downgrade are verified above.

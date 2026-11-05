@@ -97,11 +97,47 @@ Same rules as above, applied by a script: the account-specific tail of every id 
 - A portal configuration's `products` (and `adjustable_quantity`) is accepted and validated by Stripe but never returned on a read; the hosted portal still enforced 1 to 4.
 - A gift line in a subscription Checkout comes on the first invoice as `quantity 1`, `proration: false`, with a period equal to the first cycle's.
 
-## SYNTHETIC / UNVERIFIED: discounted invoices (added 2026-11-05, 0.8.0)
+## Discounted invoices (recorded 2026-11-05)
 
-**Nothing in this directory shows a discounted invoice, and none was recorded.** `../synthetic/invoice.paid.discount_15pct.json` and `../synthetic/invoice.paid.discount_100pct.json` are `invoice.paid.subscription_create.json` (real) with the discount fields added by hand, in the shape Stripe documents for the pinned API version: the line's `discount_amounts` and `discounts`, the invoice's `discounts` and `total_discount_amounts`, and `total`, `amount_due` and `amount_paid` lowered by the discount (15%: 225 of 1500; 100%: 1500, paid 0). The envelope and event ids are invented (`evt_SynthDiscount...`). They are not Stripe output; do not cite them as such.
+`discount/` holds six real discounted invoices. They settle what the earlier synthetic files (`../synthetic/invoice.paid.discount_15pct.json`, `../synthetic/invoice.paid.discount_100pct.json`) only assumed: **an invoice line's `amount` is GROSS** (price x quantity, before any discount). What a coupon took off is in the line's `discount_amounts`; the invoice's `subtotal` is the sum of its lines' `amount`, `total` is `subtotal` less the discount, and `amount_due` and `amount_paid` follow `total`. atm's reading (`InvoiceLine.discount` and `BillingInvoice.discount` are the sums of `discount_amounts` and `total_discount_amounts`; the grant rules never read them) matches Stripe, so no code changed. `tests/stripe-recorded-discount.test.ts` checks it on these files.
 
-What is assumed and not verified: that a real discounted invoice line keeps its **gross** `amount` (the price times the quantity, with `subtotal` equal to it) and lists what a coupon took off in `discount_amounts`. Stripe documents `subtotal` as "before any discounts or taxes" and does not say in so many words that `amount` is the same; every recorded line here has no discount, so `amount` equals `subtotal` and cannot tell the two readings apart. `normalize` maps `amount` as before and adds `InvoiceLine.discount` and `BillingInvoice.discount` (the sums of the `discount_amounts` and `total_discount_amounts`), and the grant rules never read them, so credits are the same either way unless Stripe's `amount` turns out to be net of the discount (then a 100% off line would read as 0 and a recurring add-on's `amount > 0` check would skip it). To close it: record a test-mode invoice from a subscription with a coupon (`stripe` CLI, a test-mode sandbox only) and compare `amount`, `subtotal` and `discount_amounts` of its lines. `tests/billing-codes-discount.test.ts` names these cases `SYNTHETIC / UNVERIFIED`.
+### Provenance
+
+- Same Stripe sandbox (test mode, `livemode: false`; the CLI said `sandbox` and every object had `livemode: false` before anything was created), the Stripe CLI at API `2025-10-29.clover` (`--stripe-version`), 2026-11-05. A script made a product with a monthly 1500 USD price, three coupons (`percent_off` 15, `amount_off` 500 cents, `percent_off` 100, each `duration: forever`), and a test clock per group of customers (a clock holds at most three). Each customer had `pm_card_visa` as its default payment method, so the first invoice paid at once. Four subscriptions of **2** units each were created with `discounts[0][coupon]`: 15%, 500 off, 100%, and a second 15% one for the raise. On the second clock the 15% subscription was raised 2 to 4 ten days into the cycle (`proration_behavior: always_invoice`), then the clock was advanced past the renewal.
+- Every invoice was re-read from the API (`stripe get /v1/invoices/<id>` with `expand[]=payments`) at the pinned version. All the test objects were deleted afterwards (clocks with their customers and subscriptions, the coupons) or archived (the price and the product, which Stripe cannot delete).
+- **Real:** every `data.object`: ids (after scrubbing), amounts, quantities, periods, `discount_amounts`, `total_discount_amounts`, `discountable`, the `payments` list.
+- **Reconstructed:** the event envelope. These are API objects, not webhook deliveries: `id` is invented (`evt_1ScrubDiscount...`), `created` is the invoice's own `created`, `api_version` is the pinned one, `livemode` is `false`, `pending_webhooks` is `0`, `request` is `{id: null, idempotency_key: null}`.
+- **Scrubbed** as above: the account-specific tail of every id became `ScrubTest0`, hosted invoice and PDF links became `example.test` links, `account_name` became `Example Account`, `customer_name` (a probe name) became `Example Customer`. Coupon ids appear nowhere in an invoice (only the discount's `di_...` id does). The probe subscriptions carry `b4u_school: sch_probe` and `family_id: fam_pct15`, `fam_amt500`, `fam_pct100`, `fam_raise`.
+
+### What the real shape is (cents)
+
+| Case | Line `amount` | Line `discount_amounts` | `subtotal` | `total` = `amount_due` = `amount_paid` |
+|---|---|---|---|---|
+| 2 x 1500, 15% off | 3000 | 450 | 3000 | 2550 |
+| 2 x 1500, 500 off | 3000 | 500 | 3000 | 2500 |
+| 2 x 1500, 100% off | 3000 | 3000 | 3000 | 0 (and the invoice has no `payments`) |
+| Raise 2 to 4, 15% coupon | -1700 and 3400 | 0 and 0 | 1700 | 1700 |
+| Renewal at 4 x 1500, 15% coupon | 6000 | 900 | 6000 | 5100 |
+
+Other things the files show:
+
+- A line's own `discounts` list is **empty**; the discount's id is on the invoice's `discounts` (a list of ids) and in each `discount_amounts[].discount`. The line also has `pretax_credit_amounts` (type `discount`) and the invoice `total_pretax_credit_amounts`.
+- A **proration line is not discountable** (`discountable: false`): on the raise invoice the coupon is listed with `amount: 0` on both proration lines and on the invoice, so the proration pair and the amount paid are the same as at full price. The `sum` field type leaves a total of 0 out, so those lines and that invoice carry no `discount` key in the normalized fact. The renewal's tier line is discounted again (900 of 6000).
+- With a 100% coupon the invoice is `paid` with `amount_paid: 0`, and `payments.data` is empty: there was no payment to link. (Nothing in atm needs one: the handler grants from the invoice.)
+- Credits do not depend on the discount: with each discount stripped from a copy (lists emptied, `total` and `amount_paid` at the subtotal), the handler stores the same engine rows and balance for the create (15%, 500 off, 100%), and for the create, raise and renewal chain.
+
+| File | Shows |
+|---|---|
+| `discount/invoice.paid.discount_pct15_create.json` | `subscription_create`, 2 units, 15% coupon |
+| `discount/invoice.paid.discount_amt500_create.json` | the same with a 500-cent `amount_off` coupon |
+| `discount/invoice.paid.discount_pct100_create.json` | the same with a 100% coupon: paid 0 |
+| `discount/invoice.paid.discount_pct15_raise_create.json` | the create of the subscription the raise and the renewal belong to (15%) |
+| `discount/invoice.paid.discount_pct15_raise.json` | the raise 2 to 4 under that coupon: two proration lines, not discounted |
+| `discount/invoice.paid.discount_pct15_cycle.json` | the renewal of that subscription at 4 units: 6000 gross, 900 off |
+
+### The synthetic files
+
+`../synthetic/invoice.paid.discount_15pct.json` and `../synthetic/invoice.paid.discount_100pct.json` are still hand-made (a real invoice with discount fields added). They were right in what they assumed about the amounts; they **differ** from Stripe in giving a line a non-empty `discounts` list, and `tests/billing-codes-discount.test.ts` still uses them for the edge cases the recordings cannot make (several discounts on one line, a coupon on a proration line). The recorded files above are the evidence; do not cite the synthetic ones as Stripe output.
 
 ## Booking payments: Checkout Session and refund (added 2026-11-05)
 

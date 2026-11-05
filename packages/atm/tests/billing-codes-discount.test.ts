@@ -5,10 +5,12 @@
  * and `BillingInvoice.discount` carry as a fact. Credits follow the quantity and the menu, so a 15% off invoice and a 100%
  * off invoice grant in full, and a raise reads the gross amounts of its proration pair.
  *
- * SYNTHETIC / UNVERIFIED: no discounted invoice was recorded from Stripe. The two files in
- * `fixtures/billing/stripe/synthetic/` are a recorded invoice with discount fields added by hand in Stripe's documented
- * shape (see the README beside them). That `amount` is gross on a real discounted line is the documented reading, not
- * something a recording showed.
+ * SYNTHETIC (the gross reading is now VERIFIED): the two files in `fixtures/billing/stripe/synthetic/` are a recorded
+ * invoice with discount fields added by hand. Real discounted invoices were recorded afterwards
+ * (`fixtures/billing/stripe/recorded/discount/`, `tests/stripe-recorded-discount.test.ts`) and confirm that a line's
+ * `amount` is gross. They differ from these files in the line's own `discounts` (empty on Stripe) and in proration
+ * lines (not discountable on Stripe, discount 0); these tests stay for what a recording cannot make: several discounts
+ * on one line, and a coupon on a proration line.
  */
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
@@ -81,7 +83,7 @@ const discounted = (event: RawEvent, discounts: number[]): RawEvent => {
 	return copy;
 };
 
-describe("SYNTHETIC / UNVERIFIED discounted invoice facts", () => {
+describe("SYNTHETIC discounted invoice facts", () => {
 	test("a 15% off invoice: the line keeps its gross amount, the discount is a fact, amountPaid is net", () => {
 		const invoice = invoiceOf(load("invoice.paid.discount_15pct.json"));
 		expect(invoice.lines).toHaveLength(1);
@@ -163,7 +165,7 @@ describe("SYNTHETIC / UNVERIFIED discounted invoice facts", () => {
 	});
 });
 
-describe("SYNTHETIC / UNVERIFIED credits do not follow discounts", () => {
+describe("SYNTHETIC credits do not follow discounts", () => {
 	const create = (event: RawEvent) => {
 		const store = createStore({ menu, school: SCHOOL, family: FAMILY });
 		const line = event.data.object.lines.data[0];
