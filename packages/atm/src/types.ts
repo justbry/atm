@@ -1009,3 +1009,36 @@ export interface Store {
 
 /** What every error a Store throws has in common. Its `name` says which: AlreadyExists, Stale, NotFound, Transient, ShaMismatch, Conflict, Unsupported. */
 export type AtmStoreError = Error & { readonly key: string | null };
+
+// ---- Stores and the reference webhook handler ----
+
+/** Where a FolderStore keeps its objects. */
+export type FolderStoreOptions = {
+	root: string;
+	/** A lock file older than this is taken over. Default 30_000. It must exceed the longest critical section. */
+	lockStaleAfterMs?: number;
+};
+
+/** An R2 (or other S3-compatible) bucket and the credentials to reach it. */
+export type R2StoreOptions = {
+	/** `https://<account>.r2.cloudflarestorage.com`, or `http://127.0.0.1:8333` for SeaweedFS. */
+	endpoint: string;
+	bucket: string;
+	/** Every key lives under this prefix; `list` and `get` never see it. */
+	prefix?: string;
+	accessKeyId: string;
+	secretAccessKey: string;
+	sessionToken?: string;
+	/** Default "auto". */
+	region?: string;
+	/** Default `globalThis.fetch`. Tests pass a fake S3. */
+	fetch?: typeof fetch;
+	/** Default: a real timer. Tests record the backoff and return at once. */
+	sleep?: (ms: number) => Promise<void>;
+	/** In [0, 1); the jitter. Default `Math.random`. */
+	random?: () => number;
+	/** Default 5. */
+	maxTries?: number;
+	/** Per request, default 30_000. */
+	timeoutMs?: number;
+};

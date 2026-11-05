@@ -18,6 +18,8 @@ import {
 import { replayEvents as replayEventsImpl } from "./ledger/replay.js";
 import { runOnState as runOnStateImpl, toCatalog } from "./ledger/run.js";
 import { validateEvent as validateEventImpl } from "./ledger/validate.js";
+import * as folderStore from "./store/folder-store.js";
+import * as r2Store from "./store/r2-store.js";
 import * as store from "./store/store.js";
 import type {
 	AtmCatalogRow,
@@ -47,6 +49,7 @@ import type {
 	CheckoutParams,
 	CheckoutParamsWithPrices,
 	CheckoutResult,
+	FolderStoreOptions,
 	GrantCommand,
 	GrantRemovalInput,
 	GrantResult,
@@ -60,6 +63,7 @@ import type {
 	MenuValidation,
 	NormalizeContext,
 	NormalizeResult,
+	R2StoreOptions,
 	RowChanges,
 	RowTable,
 	StaleRevisionConstructor,
@@ -445,3 +449,10 @@ export const replaceIfMatch = (
 	body: Uint8Array,
 	etag: string,
 ): Promise<"replaced" | "existing"> => store.replaceIfMatch(s, key, body, etag);
+
+/** Objects as files under a folder: the Store for tests and local runs. ETag is the sha256 of the bytes. */
+export const FolderStore: new (options: FolderStoreOptions) => Store =
+	folderStore.FolderStore;
+
+/** An R2 or other S3-compatible bucket on `aws4fetch`; conditional puts, sha256 identity, bounded retries. */
+export const R2Store: new (options: R2StoreOptions) => Store = r2Store.R2Store;
