@@ -423,6 +423,8 @@ const eventsOf = ({
 					cause: input.eventId,
 					labels,
 					idemPrefix,
+					// No `lowCreditThreshold`: a Stripe event only grants, refills and takes back by the rules, never a draw by
+					// the family, so it makes no `credit.low` or `credit.depleted`.
 					before: before as never,
 				},
 			}),

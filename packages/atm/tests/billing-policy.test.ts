@@ -17,6 +17,7 @@ describe("resolvePolicy", () => {
 			giftDollarMonths: 12,
 			memberCode: { code: "MEMBER15", percentOff: 15 },
 			deductionOrder: "expiry",
+			lowCreditThreshold: 2,
 		});
 	});
 

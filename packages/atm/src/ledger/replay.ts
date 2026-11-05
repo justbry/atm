@@ -106,6 +106,16 @@ const DERIVED_PAYLOAD = new Set([
 	"refills_ended",
 ]);
 
+/** What `credit.low` and `credit.depleted` add to the payload; read from the mutation and the state, not from the context. */
+const ALERT_PAYLOAD = new Set([
+	"feature",
+	"available",
+	"threshold",
+	"previous_available",
+]);
+const isAlert = (type: string) =>
+	type === "credit.low" || type === "credit.depleted";
+
 /** Everything the postings need that is not in the mutation was written into the event; read it back. */
 const contextFromEvent = (
 	e: AtmEvent,
@@ -132,9 +142,17 @@ const contextFromEvent = (
 		),
 		before: before as unknown as AtmSubjectState | null,
 		payload: Object.fromEntries(
-			Object.entries(payload).filter(([k]) => !DERIVED_PAYLOAD.has(k)),
+			Object.entries(payload).filter(
+				([k]) =>
+					!DERIVED_PAYLOAD.has(k) &&
+					!(isAlert(e.event_type) && ALERT_PAYLOAD.has(k)),
+			),
 		),
 		idemPrefix: e.idem.split(":")[0],
+		// The alerts are made only when the caller gives a threshold: the one `credit.low` was made under; 0 for `credit.depleted`, which has none.
+		lowCreditThreshold: isAlert(e.event_type)
+			? ((payload.threshold as number | null | undefined) ?? 0)
+			: undefined,
 	};
 };
 

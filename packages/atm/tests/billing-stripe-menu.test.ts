@@ -25,6 +25,7 @@ const POLICY: BillingPolicy = {
 	giftDollarMonths: 12,
 	memberCode: null,
 	deductionOrder: "expiry",
+	lowCreditThreshold: 2,
 };
 const MEMBER: BillingPolicy = {
 	...POLICY,

@@ -330,6 +330,7 @@ describe("handleStripeEvent", () => {
 		const s = store();
 		create(s);
 		const r = s.handle(refundOf("in_1"), T1);
+		// The clawback takes the family's last visits, but it is the rules' own take-back, not a draw: no credit.depleted.
 		expect(r.events.map((e) => e.event_type)).toEqual(["credit.adjusted"]);
 		expect(r.events[0]?.cause).toBe(inputEventId("evt_re_1", T1));
 		expect(r.events[0]?.labels.mapping).toBe("stripe/charge.refunded@v1");
@@ -1015,6 +1016,13 @@ describe("what the reviews found", () => {
 			"credits:issued:sparkle-2@v3",
 		]);
 		expect(s.avail(T0)).toBe(4);
+		// A full refund takes all four back over the three plans: the rules' take-back, not a draw, so no alert.
+		const refund = s.handle(refundOf("in_multi"), T1);
+		expect(refund.refused).toBeUndefined();
+		expect(new Set(refund.events.map((e) => e.event_type))).toEqual(
+			new Set(["credit.adjusted"]),
+		);
+		expect(s.avail(T1 + 3_700_000)).toBe(0);
 	});
 
 	test("a renewal whose invoice carries no checkout metadata is handled for a holder we know", () => {

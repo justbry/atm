@@ -1,0 +1,71 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://b4uni.com/_schema/payload/credit.depleted.v1.json",
+	"title": "credit.depleted payload v1",
+	"description": "A draw took the holder's available balance of a feature from above zero to zero or below (\"pack used up\"). Made once per crossing. No postings: the draw's own event carries the balance move. Only a draw by the family's own activity makes it: a `track` (a booking's hold) or a `finalize`; never a refund or lost-dispute clawback (`applyBillingPlan`), an edit by hand, or a reset. Judged on the balance after holds: a cancel (`credit.released`) returns the credits with no event and booking again makes it again. atm does not remember that it already alerted: dedupe the notices per holder, feature and grant or cycle. Labelled with `feature`, not `plan`: the balance is the feature's total over every plan.",
+	"type": "object",
+	"required": [
+		"command",
+		"mutation",
+		"feature",
+		"available",
+		"threshold",
+		"previous_available"
+	],
+	"properties": {
+		"command": {
+			"type": "object",
+			"required": ["type", "commandId", "occurredAt"],
+			"properties": {
+				"type": {
+					"type": "string",
+					"minLength": 1
+				},
+				"commandId": {
+					"type": "string",
+					"minLength": 1
+				},
+				"occurredAt": {
+					"type": "integer"
+				}
+			}
+		},
+		"mutation": {
+			"type": "object",
+			"required": ["id", "revision", "changes", "result"],
+			"properties": {
+				"id": {
+					"type": "string",
+					"minLength": 1
+				},
+				"revision": {
+					"type": "object",
+					"required": ["before", "after"]
+				},
+				"changes": {
+					"type": "array"
+				},
+				"result": {
+					"type": "object"
+				}
+			}
+		},
+		"feature": {
+			"type": "string",
+			"minLength": 1,
+			"description": "The credit feature, e.g. visit."
+		},
+		"available": {
+			"type": "number",
+			"description": "The holder's available balance of the feature after the mutation, in the feature's credits."
+		},
+		"threshold": {
+			"type": "null",
+			"description": "Always null: running out does not depend on the low-credit threshold."
+		},
+		"previous_available": {
+			"type": "number",
+			"description": "The available balance before the mutation (above `available`: these events come from a draw)."
+		}
+	}
+}

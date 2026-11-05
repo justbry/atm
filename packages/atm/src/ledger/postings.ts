@@ -154,6 +154,16 @@ const adjustedLines = (r: CreditRule, signed: number): [string, number][] => [
 
 type CreditType = keyof typeof creditRules | "credit.adjusted";
 
+/** Credit events that say something about a balance without moving it: no postings. */
+type BookkeepingOnly =
+	| "credit.expiration_changed"
+	| "credit.low"
+	| "credit.depleted";
+const isAlert = (type: string): type is "credit.low" | "credit.depleted" =>
+	type === "credit.low" || type === "credit.depleted";
+const isBookkeepingOnly = (type: string): type is BookkeepingOnly =>
+	type === "credit.expiration_changed" || isAlert(type);
+
 const creditPostings = (
 	type: CreditType,
 	r: CreditRule,
@@ -428,6 +438,79 @@ const expiryMoves = (m: SubjectStateMutation): ExpiryMove[] => {
 	return moves;
 };
 
+type AvailableAround = { before: number; after: number };
+
+/**
+ * The feature's available balance before and after a draw, summed over all its credit rows as `balancesOf` counts it
+ * (balance rows and rollovers not yet past their expiry at the time of the command); holds already came off the rows.
+ * `given` are the changes the caller says make up the feature's move; without them, the mutation's changes to the rows
+ * of `drawnFeature` (the internal feature the command draws), so a multi-feature mutation never sums features.
+ * `before` is the state they were computed against. Null when nothing is drawn (the balance does not go down), when no
+ * state is given, or when the changes touch no balance row.
+ */
+const availableAround = (
+	m: SubjectStateMutation,
+	given: SubjectStateMutation["changes"] | null,
+	drawnFeature: string | undefined,
+	before: SubjectState | null | undefined,
+	atMs: number,
+): AvailableAround | null => {
+	if (!before) return null;
+	const internalOf = new Map<string, string>();
+	for (const r of before.customerEntitlements)
+		internalOf.set(r.id, r.internal_feature_id);
+	for (const c of given ?? m.changes)
+		if (c.table === "customerEntitlements" && c.op === "insert")
+			internalOf.set(
+				(c.row as Row).id as string,
+				(c.row as Row).internal_feature_id as string,
+			);
+	const owners = new Map<string, string>();
+	for (const r of before.rollovers) owners.set(r.id, r.cus_ent_id);
+	const featureOfChange = (
+		c: SubjectStateMutation["changes"][number],
+	): string | undefined => {
+		if (c.table === "customerEntitlements")
+			return internalOf.get(
+				c.op === "insert" ? ((c.row as Row).id as string) : c.id,
+			);
+		if (c.table !== "rollovers") return undefined;
+		const owner =
+			c.op === "insert"
+				? ((c.row as Row).cus_ent_id as string)
+				: owners.get(c.id);
+		return owner ? internalOf.get(owner) : undefined;
+	};
+	const changes =
+		given ??
+		(drawnFeature === undefined
+			? m.changes
+			: m.changes.filter((c) => featureOfChange(c) === drawnFeature));
+	const { delta } = balanceMoves(
+		{ ...m, changes } as SubjectStateMutation,
+		before,
+		atMs,
+	);
+	if (delta >= 0) return null;
+	const features = new Set<string>();
+	for (const c of changes) {
+		const internal = featureOfChange(c);
+		if (internal) features.add(internal);
+	}
+	if (features.size === 0) return null;
+	const rowIds = new Set<string>();
+	let total = 0;
+	for (const r of before.customerEntitlements) {
+		if (!features.has(r.internal_feature_id)) continue;
+		rowIds.add(r.id);
+		if (isLive(r.expires_at, atMs)) total += r.balance;
+	}
+	for (const r of before.rollovers)
+		if (rowIds.has(r.cus_ent_id) && isLive(r.expires_at, atMs))
+			total += r.balance;
+	return { before: total, after: total + delta };
+};
+
 const bookingOf = (m: SubjectStateMutation): string | undefined => {
 	const lockInsert = m.changes.find(
 		(c) => c.table === "locks" && c.op === "insert",
@@ -475,7 +558,7 @@ export const mutationToEvents = ({
 	};
 	const made: AtmEvent[] = [];
 	const emit = (
-		type: CreditType | "credit.expiration_changed",
+		type: CreditType | BookkeepingOnly,
 		suffix: string,
 		units: number,
 		text: string,
@@ -492,6 +575,9 @@ export const mutationToEvents = ({
 			plan: context.plan,
 			service: context.service,
 		};
+		const labels = { ...baseLabels, ...(extra.labels ?? {}) };
+		// An alert judges the feature's total over every plan, so no one plan names it.
+		if (isAlert(type)) delete labels.plan;
 		made.push(
 			buildEvent({
 				type,
@@ -502,14 +588,13 @@ export const mutationToEvents = ({
 					context.ingestTime === undefined ? atMs : asMs(context.ingestTime),
 				tz: context.tz,
 				key: mutation.identity.customerId,
-				labels: { ...baseLabels, ...(extra.labels ?? {}) },
+				labels,
 				idem: `${context.idemPrefix ?? "engine"}:${mutationId}:${suffix}`,
 				cause: context.cause,
 				text,
-				postings:
-					type === "credit.expiration_changed"
-						? []
-						: creditPostings(type, rule, extra.signed),
+				postings: isBookkeepingOnly(type)
+					? []
+					: creditPostings(type, rule, extra.signed),
 				payload: {
 					command: mutation.command,
 					mutation: mutationWithoutCommand,
@@ -719,6 +804,52 @@ export const mutationToEvents = ({
 				},
 			},
 		);
+	}
+	// Alerts are for draws by the family's own activity only: a booking's hold (`track`) or its settling (`finalize`).
+	// The rules' own take-backs (a refund or lost dispute is an `applyBillingPlan`), edits by hand and resets make none,
+	// so a refund never sends "pack used up". The alerts are opt-in: without `lowCreditThreshold`, the events it always got.
+	const threshold = context.lowCreditThreshold;
+	const isDraw = command.type === "track" || command.type === "finalize";
+	const around =
+		!isDraw || threshold === undefined
+			? null
+			: availableAround(
+					mutation,
+					(context.featureChanges as unknown as
+						| SubjectStateMutation["changes"]
+						| undefined) ?? null,
+					command.internalFeatureId as string | undefined,
+					context.before as unknown as SubjectState | null | undefined,
+					atMs,
+				);
+	if (around && threshold !== undefined) {
+		const alertPayload = (limit: number | null) => ({
+			feature,
+			available: around.after,
+			threshold: limit,
+			previous_available: around.before,
+		});
+		if (around.before > 0 && around.after <= 0) {
+			emit(
+				"credit.depleted",
+				`depleted:${feature}`,
+				0,
+				`${feature} credits used up`,
+				{ payload: alertPayload(null) },
+			);
+		} else if (
+			around.before > threshold &&
+			around.after > 0 &&
+			around.after <= threshold
+		) {
+			emit(
+				"credit.low",
+				`low:${feature}`,
+				0,
+				`${around.after} ${feature} left`,
+				{ payload: alertPayload(threshold) },
+			);
+		}
 	}
 	void commodity;
 	return made;
