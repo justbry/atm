@@ -1,5 +1,9 @@
 # Upgrading atm
 
+## On dev since 0.6.0 (not released)
+
+- **A feature id whose letters spell `USD` is now refused.** `usd`, `u-s-d`, `usd-2` and the like become the credit commodity `USD`, which is also the money commodity: the credits would add up with the dollars in one hledger balance (and a credit has no decimal places, where dollars have two). `validateMenu` returns `problems: ["features.<n>.id"]` with a sentence naming the id, and `menuCatalogRows` throws the same sentence (capitals too: it does not run the schema). Before upgrading, run `validateMenu` over every stored menu version. `commodityOf` is unchanged.
+
 ## Moving to 0.6.0 from 0.5.0
 
 A minor release: it adds the pieces that turn the handler's events into financial reports, and one handler change that adds events. Nothing is removed. What a caller sees:
