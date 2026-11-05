@@ -14,6 +14,8 @@ Newest first. The version history before 0.3.0 and what a caller has to change f
 
 On `dev` after `atm-v0.8.0`, not released.
 
+- Library: the folder and ledger helpers the CLI uses are now exported from `src/index.ts`: `readEvents`, `journalMonth`, `reportMonth`, `HledgerError`, `REPORT_NAMES`, `balancesOf`, `canonicalize`, `localDate`, `decimalToUnits`, `duckdbDdl` and `appendToOutbox`, with the types `JournalRun`, `AtmEventFile`, `ReportRun`, `ReportName`, `ReportChoice` and `ReportFormat`. `reportMonth` now runs hledger through Node's `child_process`, so it works in the Node bundle too. Left out: `reconcileFolder` (CLI directory reader) and `bunSqlite` (its declaration imports `bun:sqlite`). README, "Reading a school's folder and the ledger helpers".
+
 | PR | Merge commit | What |
 |---|---|---|
 | #77 | `534a55f52` | a non-USD dispute that moved money is answered 200 `non_usd` and leaves a `money.skipped` marker (`kind: "dispute"`) |

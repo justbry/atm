@@ -1,14 +1,19 @@
+import { spawnSync } from "node:child_process";
 import { join } from "node:path";
-import { type JournalRun, journalMonth, readEvents } from "./files.js";
+import type {
+	ReportChoice,
+	ReportFormat,
+	ReportName,
+	ReportRun,
+	SkippedNonUsd,
+} from "../types.js";
+import { journalMonth, readEvents } from "./files.js";
 
-export const REPORT_NAMES = [
+export const REPORT_NAMES: readonly ReportName[] = [
 	"income-statement",
 	"balance-sheet",
 	"credits",
-] as const;
-export type ReportName = (typeof REPORT_NAMES)[number];
-export type ReportChoice = ReportName | "all";
-export type ReportFormat = "table" | "csv";
+];
 
 export const REPORT_CHOICES: readonly ReportChoice[] = [...REPORT_NAMES, "all"];
 export const REPORT_FORMATS: readonly ReportFormat[] = ["table", "csv"];
@@ -22,18 +27,6 @@ const HLEDGER_COMMANDS: Record<ReportName, readonly string[]> = {
 
 /** Thrown when hledger cannot be run: not installed, not on PATH, or failing. The message is one line. */
 export class HledgerError extends Error {}
-
-export type ReportOutput = { report: ReportName; text: string };
-
-/** The `money.skipped` events (a non-USD invoice, refund, payout or dispute the handler applied but did not book), counted. */
-export type SkippedNonUsd = { inMonth: number; total: number };
-
-export type ReportRun = {
-	journal: JournalRun;
-	reports: ReportOutput[];
-	/** Money the reports leave out because it is not in USD: in the month built, and in all the school's events. */
-	skippedNonUsd: SkippedNonUsd;
-};
 
 /** One line for stderr when the reports leave non-USD money out; null when nothing was skipped. */
 export const skippedNote = ({
@@ -50,23 +43,17 @@ export const skippedNote = ({
 const oneLine = (text: string): string =>
 	text.trim().split("\n")[0] || "no message";
 
-/** Throws a `HledgerError` that says so when `hledger` does not run, so a missing tool is never a silent skip. */
+/** Throws a `HledgerError` that says so when `hledger` does not run, so a missing tool is never a silent skip. Node's `spawnSync`, not Bun's: the library bundle also runs under Node. */
 const assertHledgerRuns = (): void => {
-	try {
-		const probe = Bun.spawnSync(["hledger", "--version"], {
-			stdout: "pipe",
-			stderr: "pipe",
-		});
-		if (probe.exitCode === 0) return;
-		throw new HledgerError(
-			`hledger --version failed: ${oneLine(probe.stderr.toString())}`,
-		);
-	} catch (error) {
-		if (error instanceof HledgerError) throw error;
+	const probe = spawnSync("hledger", ["--version"], { encoding: "utf8" });
+	if (probe.error)
 		throw new HledgerError(
 			"hledger is not installed or not on PATH; atm report needs it (https://hledger.org/install.html)",
 		);
-	}
+	if (probe.status !== 0)
+		throw new HledgerError(
+			`hledger --version failed: ${oneLine(probe.stderr)}`,
+		);
 };
 
 const runHledger = ({
@@ -79,15 +66,16 @@ const runHledger = ({
 	format: ReportFormat;
 }): string => {
 	const output = format === "csv" ? ["-O", "csv"] : [];
-	const run = Bun.spawnSync(
-		["hledger", "-f", "main.journal", ...HLEDGER_COMMANDS[report], ...output],
-		{ cwd: books, stdout: "pipe", stderr: "pipe" },
+	const run = spawnSync(
+		"hledger",
+		["-f", "main.journal", ...HLEDGER_COMMANDS[report], ...output],
+		{ cwd: books, encoding: "utf8" },
 	);
-	if (run.exitCode !== 0)
+	if (run.error || run.status !== 0)
 		throw new HledgerError(
-			`hledger ${report} failed: ${oneLine(run.stderr.toString())}`,
+			`hledger ${report} failed: ${oneLine(run.error?.message ?? run.stderr)}`,
 		);
-	return run.stdout.toString();
+	return run.stdout;
 };
 
 /**

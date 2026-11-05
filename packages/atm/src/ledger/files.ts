@@ -1,6 +1,6 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import type { AtmEvent, AtmJournalBuild } from "../types.js";
+import type { AtmEvent, JournalRun } from "../types.js";
 import { buildJournal } from "./journal.js";
 import { sha256Hex } from "./util.js";
 
@@ -62,12 +62,6 @@ export const readEvents = async (
 		}),
 		files,
 	};
-};
-
-export type JournalRun = {
-	build: AtmJournalBuild;
-	written: string[];
-	unchanged: boolean;
 };
 
 type BuildRecord = {

@@ -2684,3 +2684,37 @@ export type ReconcileResult = {
 	 */
 	skipped: Record<string, number>;
 };
+
+// ---- Reading a school's folder: events, journals and reports (the library form of `atm journal` and `atm report`) ----
+
+/** What `journalMonth` made: the month's build, the paths it wrote (under the school's prefix), and whether it wrote none. */
+export type JournalRun = {
+	build: AtmJournalBuild;
+	written: string[];
+	unchanged: boolean;
+};
+
+/** One event file `readEvents` read: its key under the school's prefix, the sha256 of its text and its line count. */
+export type AtmEventFile = { key: string; sha256: string; lines: number };
+
+export type ReportName = "income-statement" | "balance-sheet" | "credits";
+export type ReportChoice = ReportName | "all";
+export type ReportFormat = "table" | "csv";
+
+export type ReportOutput = { report: ReportName; text: string };
+
+/** The `money.skipped` events (a non-USD invoice, refund, payout or dispute the handler applied but did not book), counted. */
+export type SkippedNonUsd = { inMonth: number; total: number };
+
+export type ReportRun = {
+	journal: JournalRun;
+	reports: ReportOutput[];
+	/** Money the reports leave out because it is not in USD: in the month built, and in all the school's events. */
+	skippedNonUsd: SkippedNonUsd;
+};
+
+/** Thrown by `reportMonth` when hledger cannot be run: not installed, not on PATH, or failing. The message is one line. */
+export interface HledgerErrorConstructor {
+	new (message?: string): Error;
+	readonly prototype: Error;
+}

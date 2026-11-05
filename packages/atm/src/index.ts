@@ -19,9 +19,15 @@ import {
 } from "./handler/schema.js";
 import * as signature from "./handler/stripe-signature.js";
 import * as webhook from "./handler/stripe-webhook.js";
+import { duckdbDdl as duckdbDdlImpl } from "./ledger/duckdb.js";
+import {
+	journalMonth as journalMonthImpl,
+	readEvents as readEventsImpl,
+} from "./ledger/files.js";
 import { deterministicUlid as deterministicUlidImpl } from "./ledger/ids.js";
 import { buildJournal as buildJournalImpl } from "./ledger/journal.js";
 import {
+	appendToOutbox as appendToOutboxImpl,
 	recordEngineCommand as recordEngineCommandImpl,
 	recordLapse as recordLapseImpl,
 } from "./ledger/outbox.js";
@@ -34,11 +40,17 @@ import {
 } from "./ledger/postings.js";
 import { reconcile as reconcileImpl } from "./ledger/reconcile.js";
 import {
+	balancesOf as balancesOfImpl,
 	ReplayError as ReplayErrorImpl,
 	ReplayGapError as ReplayGapErrorImpl,
 	replayEvents as replayEventsImpl,
 } from "./ledger/replay.js";
 
+import {
+	HledgerError as HledgerErrorImpl,
+	REPORT_NAMES as REPORT_NAMES_IMPL,
+	reportMonth as reportMonthImpl,
+} from "./ledger/report.js";
 import { runOnState as runOnStateImpl, toCatalog } from "./ledger/run.js";
 import {
 	formatShareStatement as formatShareStatementImpl,
@@ -50,17 +62,25 @@ import {
 } from "./ledger/ship.js";
 import { simulate as simulateImpl } from "./ledger/simulate.js";
 import { outboxStatus as outboxStatusImpl } from "./ledger/status.js";
+import {
+	canonicalize as canonicalizeImpl,
+	decimalToUnits as decimalToUnitsImpl,
+	localDate as localDateImpl,
+} from "./ledger/util.js";
 import { validateEvent as validateEventImpl } from "./ledger/validate.js";
 import * as folderStore from "./store/folder-store.js";
 import * as r2Store from "./store/r2-store.js";
 import * as store from "./store/store.js";
 import type {
+	AtmBalance,
 	AtmCatalogRow,
 	AtmCommand,
 	AtmCommandType,
 	AtmEnv,
 	AtmEvent,
 	AtmEventContext,
+	AtmEventFile,
+	AtmHold,
 	AtmIdentity,
 	AtmJournalBuild,
 	AtmLapsedRow,
@@ -103,9 +123,11 @@ import type {
 	GrantResult,
 	GrantsState,
 	HandlerMigrationResult,
+	HledgerErrorConstructor,
 	HoldBookingInput,
 	InvoiceGrantInput,
 	InvoiceLine,
+	JournalRun,
 	LineItem,
 	Mapping,
 	Menu,
@@ -138,6 +160,10 @@ import type {
 	RedeemSessionGiftCodeResult,
 	ReplayErrorConstructor,
 	ReplayGapErrorConstructor,
+	ReportChoice,
+	ReportFormat,
+	ReportName,
+	ReportRun,
 	RowChanges,
 	RowTable,
 	SettleBookingInput,
@@ -883,3 +909,87 @@ export const redeemSessionGiftCode = (
 /** The Stripe steps for a dollar gift certificate: a fixed-amount coupon and a promotion code that works once and ends. */
 export const dollarGiftOps = (input: DollarGiftInput): DollarGiftResult =>
 	codes.dollarGiftOps(input);
+
+// ---- Reading a school's folder, and the ledger's own helpers (0.9.0) ----
+
+/**
+ * A school's events under `<root>/schools/<school>/events`, sorted by id, a second event with an `idem` already seen
+ * dropped (the first by id wins), with each file read (key, sha256 of its text, line count). A day with a `day.jsonl`
+ * reads it and its `late-*` batches; otherwise its batches. Reads the folder only; the same call `atm journal` makes.
+ */
+export const readEvents = (
+	root: string,
+	school: string,
+): Promise<{ events: AtmEvent[]; files: AtmEventFile[] }> =>
+	readEventsImpl(root, school);
+
+/**
+ * `atm journal`: reads the school's events under `root`, writes the month's journal, `accounts.journal`, `main.journal`
+ * and `ledger/build.json` under `<root>/schools/<school>`, and returns the build and the paths written. A file is
+ * rewritten only when its bytes would change, so a second run writes nothing. Throws when the school has no events.
+ */
+export const journalMonth = (input: {
+	root: string;
+	school: string;
+	month: string;
+}): Promise<JournalRun> => journalMonthImpl(input);
+
+/** The reports `reportMonth` can run: `income-statement`, `balance-sheet` and `credits`. */
+export const REPORT_NAMES: readonly ReportName[] = REPORT_NAMES_IMPL;
+
+/**
+ * `atm report`: builds the month's journal (`journalMonth`), then runs hledger on the school's `main.journal` for the
+ * chosen reports (default all three, as tables). The reports are to date over every month journaled so far, so journal
+ * each earlier month first. Needs `hledger` on PATH; throws a `HledgerError` before writing anything when it is missing.
+ */
+export const reportMonth = (input: {
+	root: string;
+	school: string;
+	month: string;
+	report?: ReportChoice;
+	format?: ReportFormat;
+}): Promise<ReportRun> => reportMonthImpl(input);
+
+/** Thrown by `reportMonth` when hledger is not installed, not on PATH, or fails. The message is one line. */
+export const HledgerError: HledgerErrorConstructor = HledgerErrorImpl;
+export type HledgerError = InstanceType<HledgerErrorConstructor>;
+
+/**
+ * The balance per holder and feature as the engine counts it at `asOfMs`: `avail` is the sum of the rows and rollovers
+ * not yet past their expiry, `held` the units the open locks hold. Sorted by holder then feature. Pure. `catalog` is the
+ * one `menuCatalogRows` makes. `replayEvents` returns the same list as `balances`.
+ */
+export const balancesOf = (input: {
+	states: Record<string, AtmSubjectState>;
+	holds: Record<string, AtmHold>;
+	catalog: readonly AtmCatalogRow[];
+	asOfMs: number;
+}): AtmBalance[] =>
+	balancesOfImpl({ ...input, catalog: toCatalog(input.catalog) });
+
+/** JSON with every object's keys sorted and `undefined` fields dropped, so the same value is always the same bytes: what an event's line and its hash are made from. */
+export const canonicalize = (value: unknown): string => canonicalizeImpl(value);
+
+/** `YYYY-MM-DD` of an instant (ms) in an IANA time zone; DST comes from the zone's rules. How an event's `date` is set. */
+export const localDate = (ms: number, tz: string): string =>
+	localDateImpl(ms, tz);
+
+/** A decimal string (a posting's amount) as a whole count of the smallest unit: `decimalToUnits("130.00", 2)` is `13000n`. Throws when the text is not a decimal or has more than `places` places. */
+export const decimalToUnits = (text: string, places: number): bigint =>
+	decimalToUnitsImpl(text, places);
+
+/** DuckDB `CREATE TABLE` text for the events, made from the envelope's JSON Schema (`schema/`); throws on an unresolved `$ref`. */
+export const duckdbDdl = (envelope: Record<string, unknown>): string =>
+	duckdbDdlImpl(envelope);
+
+/**
+ * The one insert into `ledger_outbox`, for events the caller built itself (`ledgerEvent`: a payment, payout or plan
+ * change that is not an engine command; `recordEngineCommand` and `recordLapse` call it for the rest). `env` is the Stripe
+ * mode the events were decided in. An event whose `idem` the outbox already holds in that env is left as it was. Runs in the
+ * caller's transaction (opens none); returns the rows inserted.
+ */
+export const appendToOutbox = (
+	db: SqlDatabase,
+	events: readonly AtmEvent[],
+	env: AtmEnv,
+): number => appendToOutboxImpl(db, events, env);
