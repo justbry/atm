@@ -423,6 +423,47 @@ describe("validateMenu: credit commodities", () => {
 		}
 	});
 
+	test("a feature id that spells the money commodity is refused: its credits would add up with the dollars", () => {
+		// The schema allows lowercase letters, digits, "-" and "_" only, and `commodityOf` drops all but the letters in
+		// capitals, so each of these becomes USD.
+		for (const id of ["usd", "usd-2", "u-s-d", "u_s_d", "usd9", "us-d"]) {
+			const { result, menu: refused } = refusedFeatures(["visit", id]);
+			expect(result.ok).toBe(false);
+			if (result.ok) continue;
+			expect(result.problems).toEqual(["features.1.id"]);
+			expect(result.messages).toHaveLength(1);
+			expect(result.messages?.[0]).toContain(JSON.stringify(id));
+			expect(result.messages?.[0]).toContain("USD");
+			expect(result.messages?.[0]).toContain("money");
+			expect(() => menuCatalogRows({ menu: refused, school: "sch_x" })).toThrow(
+				/money commodity/,
+			);
+		}
+	});
+
+	test("a stored menu with the id in capitals never reaches the books either (validateMenu's schema refuses capitals; menuCatalogRows does not run it)", () => {
+		for (const id of ["USD", "Usd", "uSd"]) {
+			const { menu: stored } = refusedFeatures([id]);
+			expect(() => menuCatalogRows({ menu: stored, school: "sch_x" })).toThrow(
+				/money commodity/,
+			);
+		}
+	});
+
+	test("a feature id that spells the money commodity is refused on its own, and as the first of two", () => {
+		const alone = refusedFeatures(["usd"]).result;
+		if (alone.ok) throw new Error("expected problems");
+		expect(alone.problems).toEqual(["features.0.id"]);
+		const first = refusedFeatures(["usd", "visit"]).result;
+		if (first.ok) throw new Error("expected problems");
+		expect(first.problems).toEqual(["features.0.id"]);
+	});
+
+	test("an id that only contains the letters usd, in another order or with more letters, is accepted", () => {
+		// DUS, USDA and BUSD are not USD
+		expect(refusedFeatures(["dus", "usda", "busd"]).result.ok).toBe(true);
+	});
+
 	test("ids whose letters differ are accepted, even with digits and punctuation in them", () => {
 		// LIGHT, MASSAGE, KDOGS and K
 		const { result } = refusedFeatures([
