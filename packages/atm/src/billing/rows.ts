@@ -22,16 +22,22 @@ import type {
 	AtmMutation,
 	AtmSubject,
 	BillingRow,
+	GrantsState,
 	RowChanges,
 	RowData,
 	RowKey,
 	RowTable,
 	SubjectRows,
 } from "../types.js";
+import { EMPTY_GRANTS_STATE } from "./grants.js";
 
 export type { BillingRow, RowChanges, RowData, RowKey, RowTable, SubjectRows };
 
-/** The state tables, in the order rows are listed. `openLocks` holds the open locks' ids (the engine keeps no more in memory). */
+/** The table and id of the one row that holds a subject's `GrantsState`. */
+export const GRANTS_TABLE = "atm_grants" as const satisfies RowTable;
+export const GRANTS_ROW_ID = "grants";
+
+/** The engine's state tables, in the order rows are listed. `openLocks` holds the open locks' ids (the engine keeps no more in memory). */
 export const ROW_TABLES = [
 	"customer",
 	"entity",
@@ -45,6 +51,12 @@ export const ROW_TABLES = [
 	"pooledBalances",
 	"customerLicenses",
 ] as const satisfies readonly RowTable[];
+
+/** Every table a subject's rows may use: the engine's, then the grants row. */
+const LISTED_TABLES: readonly RowTable[] = [...ROW_TABLES, GRANTS_TABLE];
+const isEngineTable = (table: RowTable) => table !== GRANTS_TABLE;
+const engineRows = (rows: readonly BillingRow[]): BillingRow[] =>
+	rows.filter((r) => isEngineTable(r.table));
 
 /** Thrown when the stored revision is not the one a mutation was computed against: re-read, recompute, retry. */
 export class StaleRevision extends Error {
@@ -113,7 +125,7 @@ const byKey = (a: RowKey, b: RowKey) =>
 			: a.id > b.id
 				? 1
 				: 0
-		: ROW_TABLES.indexOf(a.table) - ROW_TABLES.indexOf(b.table);
+		: LISTED_TABLES.indexOf(a.table) - LISTED_TABLES.indexOf(b.table);
 
 /** Rows in canonical order: table order, then id. */
 export const sortRows = (rows: readonly BillingRow[]): BillingRow[] =>
@@ -138,12 +150,30 @@ export const rowsFromState = (state: SubjectState): BillingRow[] => {
 	return sortRows(out);
 };
 
-/** Rows back to a state. No rows is no state (null): the subject has not been created. */
+/** The billing rules' state stored with the subject; no grants row is the empty state. */
+export const grantsFromRows = (rows: readonly BillingRow[]): GrantsState => {
+	const row = rows.find((r) => r.table === GRANTS_TABLE);
+	if (!row) return jsonSafe(EMPTY_GRANTS_STATE);
+	const state = { ...EMPTY_GRANTS_STATE, ...jsonSafe(row.data) } as GrantsState;
+	if (state.v !== 1)
+		throw new Error(`grants row has version ${String(state.v)}, expected 1`);
+	return state;
+};
+
+/** The grants row for a state: store it with the engine's rows, under the same revision. */
+export const grantsRow = (state: GrantsState): BillingRow => ({
+	table: GRANTS_TABLE,
+	id: GRANTS_ROW_ID,
+	data: jsonSafe(state) as unknown as RowData,
+});
+
+/** Rows back to a state. No engine rows is no state (null): the subject has not been created. The grants row is not engine state. */
 export const stateFromRows = ({
 	identity,
 	revision,
-	rows,
+	rows: allRows,
 }: SubjectRows): SubjectState | null => {
+	const rows = engineRows(allRows);
 	if (rows.length === 0) return null;
 	const sorted = sortRows(rows);
 	const of = (t: RowTable) =>
@@ -244,9 +274,10 @@ export const rowChangesFromMutation = ({
 		actual: revision,
 		subjectKey: key,
 	});
+	// The grants row is not the engine's: it is neither read into the state nor deleted for being absent from it.
 	const state = stateFromRows({ identity: m.identity, revision, rows });
 	const next = applyMutation({ state, mutation: m });
-	const { upserts, deletes } = diffRows(rows, rowsFromState(next));
+	const { upserts, deletes } = diffRows(engineRows(rows), rowsFromState(next));
 	return {
 		subjectKey: key,
 		expectedRevision: m.revision.before,
