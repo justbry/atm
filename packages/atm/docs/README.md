@@ -11,4 +11,5 @@ Reference material, findings and detail that used to sit in `ROADMAP.md`. The ro
 - `spikes/usage/`: the full reports, raw results and scripts of the three usage spikes (`README.md` there).
 - `pricing-and-positioning.md`: how atm could be priced and positioned next to open and proprietary competitors, a worked example, and the decision to wait on usage events.
 - `comparisons.md`: credit ledger depth and the comparison with open-source billing systems.
+- `simulate-from-inputs.md`: design (atm 0.7.0) for storing each handled Stripe input and replaying them through the grant rules with a candidate menu or policy (`atm simulate --inputs`): what is stored and why, the table, replay fidelity, the interfaces, owner decisions, the test plan.
 - `releasing.md`: how a release is made and checked.
