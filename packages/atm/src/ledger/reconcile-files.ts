@@ -1,5 +1,5 @@
 import { readFile, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import type {
 	ReconcilePeriod,
 	ReconcileResult,
@@ -18,7 +18,7 @@ export const STRIPE_FILES: Record<ReconcileStripeList, string> = {
 	balanceTransactions: "balance_transactions.json",
 };
 
-/** The numbers each record must carry: a missing one would otherwise compare as NaN and match nothing. */
+/** The numbers each record must carry, whole (Stripe's amounts are integer cents, its times whole seconds): a missing one would otherwise compare as NaN and match nothing. */
 const NUMBER_FIELDS: Record<ReconcileStripeList, string[]> = {
 	invoices: ["amount_paid", "created"],
 	refunds: ["amount", "created"],
@@ -52,7 +52,7 @@ const recordsOf = (
 		const bad =
 			!isRecord(record) ||
 			typeof record.id !== "string" ||
-			NUMBER_FIELDS[list].some((field) => !Number.isFinite(record[field]));
+			NUMBER_FIELDS[list].some((field) => !Number.isInteger(record[field]));
 		if (bad)
 			throw new ReconcileInputError(
 				`${file} record ${index} needs a string id and numeric ${NUMBER_FIELDS[list].join(", ")}`,
@@ -114,6 +114,16 @@ export const reconcileFolder = async ({
 	timeZone?: string;
 	mode?: "live" | "test";
 }): Promise<ReconcileResult> => {
+	// `--school ..` or `a/b` would read some other folder as the school's.
+	if (
+		school === "" ||
+		school === "." ||
+		school === ".." ||
+		basename(school) !== school
+	)
+		throw new ReconcileInputError(
+			`--school ${JSON.stringify(school)} must be one folder name under schools/`,
+		);
 	// A typo in --school would otherwise read no events and report every Stripe record missing.
 	const schoolFolder = await stat(join(root, "schools", school)).catch(
 		() => null,
@@ -123,7 +133,12 @@ export const reconcileFolder = async ({
 			`no school folder ${join(root, "schools", school)}`,
 		);
 	const stripe = await readStripeDirectory(stripeDirectory);
-	const { events } = await readEvents(root, school);
+	// A log line that is not JSON, or a file that cannot be read, is input it cannot use: not a crash, whose exit status 1 reads as "differences".
+	const { events } = await readEvents(root, school).catch((error: unknown) => {
+		throw new ReconcileInputError(
+			`cannot read the events of ${school}: ${error instanceof Error ? error.message : String(error)}`,
+		);
+	});
 	return reconcile({ events, stripe, period, timeZone, mode });
 };
 

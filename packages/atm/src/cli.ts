@@ -7,7 +7,11 @@ import { engineCommandTypes, runEngineCommand } from "./engine.js";
 import { bunSqlite } from "./handler/bun-sqlite.js";
 import { journalMonth } from "./ledger/files.js";
 import { ReconcileInputError } from "./ledger/reconcile.js";
-import { formatReconcile, reconcileFolder } from "./ledger/reconcile-files.js";
+import {
+	formatReconcile,
+	reconcileFolder,
+	STRIPE_FILES,
+} from "./ledger/reconcile-files.js";
 import { shipOutbox } from "./ledger/ship.js";
 import { FolderStore } from "./store/folder-store.js";
 
@@ -132,7 +136,7 @@ program
 	.option("--to <YYYY-MM-DD>", "last day of a range (inclusive)")
 	.option(
 		"--stripe <folder>",
-		"folder of the JSON that `stripe <resource> list` prints: invoices.json, refunds.json, disputes.json, payouts.json, balance_transactions.json (a missing file is reported as not supplied)",
+		"folder of the JSON that `stripe <resource> list` prints: invoices.json, refunds.json, disputes.json, payouts.json, balance_transactions.json (a missing file is reported as not supplied and exits 2)",
 	)
 	.option(
 		"--time-zone <iana>",
@@ -195,6 +199,13 @@ program
 						: formatReconcile(result),
 				);
 				if (result.differences.length > 0) process.exitCode = 1;
+				// A list that was not read ran none of its checks, so "no differences" would be a half-truth: the result is printed, and the exit says the input was incomplete.
+				if (result.notSupplied.length > 0) {
+					process.stderr.write(
+						`atm reconcile: ${result.notSupplied.map((list) => STRIPE_FILES[list]).join(", ")} not in ${stripe}, so their checks did not run (a list with nothing in it is [])\n`,
+					);
+					process.exitCode = RECONCILE_BAD_INPUT;
+				}
 			} catch (error) {
 				if (!(error instanceof ReconcileInputError)) throw error;
 				process.stderr.write(`atm reconcile: ${error.message}\n`);

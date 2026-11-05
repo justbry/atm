@@ -131,13 +131,16 @@ describe("atm reconcile", () => {
 		expect((JSON.parse(run.stdout) as ReconcileResult).differences).toEqual([]);
 	});
 
-	test("a missing file is reported as not supplied, not skipped silently", async () => {
+	test("a missing file runs none of its checks, so it exits 2 with the result still printed", async () => {
 		const folder = await stripeFolder({ refunds: null, disputes: null });
 		const run = await atm(...base(folder), "--month", "2026-01");
-		expect(run.exitCode).toBe(0);
+		expect(run.exitCode).toBe(2);
 		expect(run.stdout).toContain("not supplied: refunds.json");
 		expect(run.stdout).toContain("not supplied: disputes.json");
+		expect(run.stderr.trim().split("\n")).toHaveLength(1);
+		expect(run.stderr).toContain("refunds.json, disputes.json");
 		const json = await atm(...base(folder), "--month", "2026-01", "--json");
+		expect(json.exitCode).toBe(2);
 		expect((JSON.parse(json.stdout) as ReconcileResult).notSupplied).toEqual([
 			"refunds",
 			"disputes",
@@ -274,6 +277,57 @@ describe("atm reconcile with input it cannot use", () => {
 			),
 			"has_more",
 		);
+	});
+
+	test("a school that is not one folder name", async () => {
+		const folder = await stripeFolder();
+		for (const school of ["..", ".", "a/b"]) {
+			const run = await atm(
+				"--root",
+				root,
+				"--school",
+				school,
+				"--stripe",
+				folder,
+				"--month",
+				"2026-01",
+			);
+			expectBad(run, "must be one folder name");
+		}
+	});
+
+	test("an amount that is not whole cents", async () => {
+		const run = await atm(
+			...base(
+				await stripeFolder({
+					refunds: [{ id: "re_1", amount: 129.99, created: 1 }],
+				}),
+			),
+			"--month",
+			"2026-10",
+		);
+		expectBad(run, "refunds.json record 0");
+	});
+
+	test("an events file that is not JSON is bad input, not a crash that exits 1", async () => {
+		const broken = await tmp("reconcile-broken");
+		const day = join(broken, "schools", "sch_bad", "events", "date=2026-01-05");
+		await mkdir(day, { recursive: true });
+		await writeFile(join(day, "batch-1.jsonl"), "{not json\n");
+		const run = await atm(
+			"--root",
+			broken,
+			"--school",
+			"sch_bad",
+			"--stripe",
+			await stripeFolder(),
+			"--month",
+			"2026-01",
+			"--time-zone",
+			"UTC",
+		);
+		expectBad(run, "cannot read the events of sch_bad");
+		await rm(broken, { recursive: true, force: true });
 	});
 
 	test("a school that has no folder", async () => {
