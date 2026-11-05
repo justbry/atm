@@ -14,11 +14,30 @@ import {
 import { menuLineItems } from "../src/billing/stripe-menu.js";
 import type { Menu, StripeEventResult } from "../src/billing/types.js";
 import { deterministicUlid } from "../src/ledger/ids.js";
+import { mutationToEvents } from "../src/ledger/postings.js";
 import { balancesOf } from "../src/ledger/replay.js";
 import { runOnState, toCatalog } from "../src/ledger/run.js";
 import { canonicalize } from "../src/ledger/util.js";
 import type { AtmEvent } from "../src/types.js";
 import { paymentIntentOf, priceIdOf } from "./stripe-events.js";
+
+/**
+ * The engine's rows of a subject as one comparable string: the revision left out (the stored one also moves on a write of
+ * the grants row alone) and each table in id order.
+ */
+export const engineRowsOf = (state: unknown): string => {
+	const { revision: _revision, ...tables } = state as Record<string, unknown>;
+	const byId = (a: unknown, b: unknown) =>
+		(a as { id: string }).id < (b as { id: string }).id ? -1 : 1;
+	return canonicalize(
+		Object.fromEntries(
+			Object.entries(tables).map(([table, value]) => [
+				table,
+				Array.isArray(value) ? [...value].sort(byId) : value,
+			]),
+		),
+	);
+};
 
 export const createStore = ({
 	menu,
@@ -61,6 +80,8 @@ export const createStore = ({
 		get revision() {
 			return revision;
 		},
+		/** The engine's state as the stored rows hold it now. */
+		engineState: state,
 		events,
 		results,
 		/** One raw Stripe event at `at`; the stored input event's id is a ULID decided by the event. */
@@ -115,8 +136,22 @@ export const createStore = ({
 				internalFeatureId: "feat_visit",
 				addToBalance: -n,
 			};
-			const run = runOnState({ state: state(), catalog, command });
+			const before = state();
+			const run = runOnState({ state: before, catalog, command });
 			if (!run.mutation) return;
+			// the family service logs its own commands as it runs them, so the log holds every one
+			events.push(
+				...mutationToEvents({
+					mutation: run.mutation,
+					context: {
+						school,
+						tz: menu.timeZone,
+						feature: "visit",
+						reason: "visit taken",
+						before: before as never,
+					},
+				}),
+			);
 			const changes = rowChangesFromMutation({
 				mutation: run.mutation as never,
 				rows,

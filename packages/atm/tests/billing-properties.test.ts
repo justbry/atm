@@ -5,14 +5,15 @@
  *   - no credit row or rollover is ever below zero;
  *   - every event's postings sum to zero in each commodity;
  *   - the same inputs give the same rows and events, byte for byte;
- *   - one grant per invoice: handling any event a second time changes nothing.
+ *   - one grant per invoice: handling any event a second time changes nothing;
+ *   - replaying the log through the engine ends on the rows and balances the write path ended with.
  * A failing seed is the seed in the test name: run it alone to see the sequence.
  */
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { makeRng } from "../fixtures/rng.js";
-import { addUtcMonths } from "../src/billing/grants.js";
+import { addUtcMonths, menuCatalogRows } from "../src/billing/grants.js";
 import { grantsFromRows } from "../src/billing/rows.js";
 import {
 	addonPriceKey,
@@ -20,8 +21,9 @@ import {
 	tierPriceKey,
 } from "../src/billing/stripe-menu.js";
 import type { Menu } from "../src/billing/types.js";
+import { replayEvents } from "../src/ledger/replay.js";
 import type { AtmEvent } from "../src/types.js";
-import { createStore, type Store } from "./billing-store.js";
+import { createStore, engineRowsOf, type Store } from "./billing-store.js";
 import {
 	chargeRefunded,
 	disputeEvent,
@@ -404,6 +406,37 @@ describe("random histories of one family", () => {
 				});
 			};
 			expect(run()).toBe(run());
+		},
+	);
+
+	test.each(SEEDS)(
+		"seed %d: replaying the log through the engine ends on the rows and balances the write path ended with",
+		(seed) => {
+			const store = createStore({ menu, school: SCHOOL, family: FAMILY });
+			play({ seed, steps: 40, store });
+			const catalog = menuCatalogRows({ menu, school: SCHOOL });
+			const replayed = replayEvents({ events: store.events, catalog });
+			expect(engineRowsOf(replayed.snapshot.states[store.holder])).toBe(
+				engineRowsOf(store.engineState()),
+			);
+			const last = Date.parse(replayed.asOf as string);
+			for (const asOf of [
+				last,
+				last + 40 * 24 * HOUR,
+				last + 400 * 24 * HOUR,
+			]) {
+				const again = replayEvents({
+					events: store.events,
+					catalog,
+					asOf: new Date(asOf).toISOString(),
+				});
+				for (const feature of ["visit", "retreat"])
+					expect([
+						asOf,
+						feature,
+						again.balances.find((b) => b.feature === feature)?.avail ?? 0,
+					]).toEqual([asOf, feature, store.avail(asOf, feature)]);
+			}
 		},
 	);
 

@@ -195,6 +195,13 @@ export type AtmEventContext = {
 	 * feature the command draws (its `internalFeatureId`).
 	 */
 	featureChanges?: AtmMutation["changes"];
+	/**
+	 * Positions in `mutation.changes` of the changes these events are made from, when the caller cuts one mutation into
+	 * one call per feature and plan. The payload still records the whole mutation (a replay runs the whole command), and
+	 * the positions are written beside it as `payload.slice`, so a replay derives the same events from the same cut.
+	 * Default: all of them.
+	 */
+	slice?: number[];
 };
 
 /** Inputs of the events that are not engine mutations (payments, payouts, plan changes, ...). */

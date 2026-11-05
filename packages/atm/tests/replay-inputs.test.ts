@@ -2,10 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { generateYear } from "../fixtures/vibes.js";
+import { menuCatalogRows } from "../src/billing/grants.js";
+import { stateFromRows } from "../src/billing/rows.js";
 import type { Menu } from "../src/billing/types.js";
+import { replayEvents } from "../src/ledger/replay.js";
 import { canonicalize } from "../src/ledger/util.js";
 import { validateEvent } from "../src/ledger/validate.js";
 import type { AtmEvent } from "../src/types.js";
+import { engineRowsOf } from "./billing-store.js";
 import { replayYear, settingsOf, yearInputs } from "./replay-inputs.js";
 import { shapeProblems } from "./stripe-shape.js";
 
@@ -134,6 +138,28 @@ describe("the fixture year, replayed from its inputs", () => {
 		const text = `${replay.decisions.map((e) => JSON.stringify(e)).join("\n")}\n`;
 		if (process.env.UPDATE_GOLDEN) writeFileSync(GOLDEN, text);
 		expect(text).toBe(readFileSync(GOLDEN, "utf8"));
+	});
+
+	test("the decisions and the family's bookings, replayed through the engine, end on the rows and balances of the year", () => {
+		const replayed = replayEvents({
+			events: replay.log,
+			catalog: menuCatalogRows({ menu, school: inputs.school }),
+			asOf: year.expected.asOf,
+		});
+		const live = stateFromRows({
+			identity: {
+				orgId: inputs.school,
+				env: "live",
+				customerId: inputs.holder,
+				entityId: null,
+			},
+			revision: replay.revision,
+			rows: replay.rows,
+		});
+		expect(engineRowsOf(replayed.snapshot.states[inputs.holder])).toBe(
+			engineRowsOf(live),
+		);
+		expect(replayed.balances).toEqual(replay.balances);
 	});
 
 	test("replaying again gives the same decisions and the same rows, byte for byte", () => {

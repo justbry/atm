@@ -35,7 +35,7 @@ All eight slices were reviewed by sub-agents and the findings fixed slice by sli
 - **`FolderStore` reserved names are case-insensitive**, and both object stores validate keys and ranges more strictly.
 - **Equal-second membership ordering.** Membership events that carry the same second now have a defined order (see the PR for the rule).
 - **`deterministicUlid` is exported** so a caller can derive `eventId` as the handler does.
-- **Replay of the log is broken beyond multi-feature tiers.** Slice 3's fix agent found `replayEvents` fails even on a plain create, renew, cancel of a one-feature tier ("the engine decides differently"). Causes: event ids are time-based, so a `reset` at the period start sorts before the `applyBillingPlan` at payment time; commands that make no event are not logged, so replay's revision falls behind; and each per-feature event records only its own slice of the mutation. It needs its own change (record every command once with its full mutation, replay in subject-revision order), which also moves the replay golden. Not in 0.3.0.
+- **Replay of the log works for what `handleStripeEvent` writes.** It had failed even on a plain create, renew, cancel of a one-feature tier. Three causes, three fixes: event ids are time-based, so a `reset` at the period start sorted before the `applyBillingPlan` at payment time (replay now runs each subject's commands in revision order, `replayOrder`); commands that moved no credits were not logged (each is now a `plan.changed` with its command and mutation, and a stored revision that moved without an engine command is read from the next mutation's `revision.before`); and each per-feature event recorded only its own slice of the mutation (every event now records the whole mutation, with `payload.slice` naming the changes it is made from). The replay golden moved (the added `plan.changed` events). Logs the earlier code wrote (0.3.0) still do not replay.
 
 ## Done
 
@@ -91,7 +91,7 @@ All eight slices were reviewed by sub-agents and the findings fixed slice by sli
 - [ ] Replace the third-party PyPI SeaweedFS wheel with the official release, pinned by version and checksum, before CI depends on it.
 - [ ] Check whether R2 honours `If-Match` on DELETE (undocumented; production code does not depend on it).
 - [ ] A Worker version of the handler. Blocked: Workers refuse `new Function`, which `ajv` uses.
-- [ ] Fix replay of the log (see the Review section): record each command once with its full mutation and replay in subject-revision order. `simulate`, parity and any rebuild-from-log depend on it. Confirmed by running: a sparkle-4 create fails to replay, and so does create, renew, cancel on sparkle-2.
+- [x] Fix replay of the log (see the Review section): every command is recorded once with its full mutation and replayed in subject-revision order. `simulate`, parity and any rebuild-from-log depend on it; `tests/replay-log.test.ts` (a sparkle-4 create, create, renew, cancel on sparkle-2), 60 random histories and the fixture year check it.
 
 ### Ledger export
 - [ ] Parquet on R2 from DuckDB (`COPY (... ORDER BY ...)`, `SET threads = 1`), compared by a hash of the rows. After the log path.
@@ -127,7 +127,7 @@ Written 2026-11-05 from memory of their public docs, not read or run; check a ro
 - Tax, invoice PDFs, customer portal, admin UI, REST API, multi-tenant auth: left to Stripe and the caller.
 - Revenue analytics (MRR and similar): only the ledger export; the Parquet export and any dashboard are not built.
 - Expiry alerts by the clock: see Alerts above.
-- Replay and rebuild from the log: see Review above; the largest functional gap against any engine that is event-sourced.
+- Rebuild from the log: `replayEvents` now reproduces what `handleStripeEvent` wrote (see Review above); `simulate` and a rebuild of a subject's rows from a stored log are not built.
 - Reuse outside B4 Uni: see "Decouple, the cheap parts" (prefix, `family_id`, `env`, menu limits), and the Worker handler blocked on `ajv`.
 - SOC 2, a DPA and subprocessor list: none; the caller writes them.
 

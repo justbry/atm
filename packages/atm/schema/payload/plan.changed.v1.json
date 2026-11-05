@@ -2,7 +2,7 @@
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
 	"$id": "https://b4uni.com/_schema/payload/plan.changed.v1.json",
 	"title": "plan.changed payload v1",
-	"description": "The applyBillingPlan command and the mutation the engine decided. No postings: balances a plan moves are credit.* events with cause.",
+	"description": "An engine command (applyBillingPlan, reset, ...) that moved no credits, with its command and the whole mutation the engine decided: what a plan change or the cycle-end update after a renewal leaves in the log, so a replay runs every command. No postings: balances a plan moves are credit.* events with cause.",
 	"type": "object",
 	"required": ["command", "mutation"],
 	"properties": {

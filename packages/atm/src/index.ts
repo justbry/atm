@@ -172,7 +172,7 @@ export const deterministicUlid = (input: {
 export const validateEvent = (event: unknown): AtmValidation =>
 	validateEventImpl(event);
 
-/** Events back through the engine in id order, each with its own time as `now`; throws an Error named `ReplayError` (with `eventId`) where the engine disagrees with the log. */
+/** Events back through the engine in replay order (each subject's commands by revision), each with its own time as `now`; throws an Error named `ReplayError` (with `eventId`) where the engine disagrees with the log. */
 export const replayEvents = (input: {
 	events: readonly AtmEvent[];
 	catalog: readonly AtmCatalogRow[];
