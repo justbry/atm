@@ -21,6 +21,7 @@ import {
 	balancesOf,
 	compareChanges,
 	contextFromEvent,
+	HANDLER_COMMAND,
 	inStoredOrder,
 	type RecordedMutation,
 	recordedMutations,
@@ -572,10 +573,17 @@ export const simulate = (input: AtmSimulateInput): AtmSimulation => {
 		const { command: _decidedCommand, ...decided } =
 			run.mutation as unknown as Record<string, unknown>;
 		const fit = compareChanges(decided.changes as unknown[], recorded.changes);
+		// Fewer recorded changes than decided are an old booking's own cut only in a log of the old shape (0.3.0: a handler
+		// command whose events are not marked `complete`); in a log of the current shape they are a decision that adds changes.
+		const oldShape =
+			HANDLER_COMMAND.test(command.commandId) &&
+			group.every(
+				(g) => (g.payload as { complete?: unknown }).complete !== true,
+			);
 		const same =
 			canonicalize({ ...decided, changes: null }) ===
 				canonicalize({ ...recorded, changes: null }) &&
-			(fit === "same" || (fit === "partial" && !gathered.sliced));
+			(fit === "same" || (fit === "partial" && !gathered.sliced && oldShape));
 		let outcome: AtmEvent[];
 		if (same) {
 			outcome = group;

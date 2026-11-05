@@ -12,7 +12,9 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { cp, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { generateYear } from "../fixtures/vibes.js";
+import { addUtcMonths } from "../src/billing/grants.js";
 import { DEFAULT_POLICY, resolvePolicy } from "../src/billing/policy.js";
+import { lookupKeyOf, tierPriceKey } from "../src/billing/stripe-menu.js";
 import type { Menu } from "../src/billing/types.js";
 import { buildJournal } from "../src/ledger/journal.js";
 import { simulate } from "../src/ledger/simulate.js";
@@ -20,6 +22,7 @@ import type { AtmCatalogRow, AtmEvent, AtmSimulation } from "../src/types.js";
 import { FAMILY, menu, play, SCHOOL } from "./billing-play.js";
 import { createStore } from "./billing-store.js";
 import { hasHledger, readTree, tmp } from "./helpers.js";
+import { invoicePaid } from "./stripe-events.js";
 
 const FIXTURE = join(import.meta.dir, "../fixtures/vibes-year");
 const GOLDEN = join(import.meta.dir, "golden/simulate");
@@ -285,6 +288,92 @@ describe("simulate: what-ifs on the golden year", () => {
 		expect(sim.events.some((e) => !ids.has(e.id))).toBe(true);
 		const kept = new Set(sim.events.map((e) => e.id));
 		expect(year.events.some((e) => !kept.has(e.id))).toBe(true);
+	});
+});
+
+describe("simulate: a candidate that decides more than the log recorded", () => {
+	const ROLL_FAMILY = "fam_roll";
+	const ROLL_HOLDER = `family:${ROLL_FAMILY}`;
+	/** The menu without any rollover: each reset expires what is left. */
+	const withoutRollover = () => {
+		const bare = structuredClone(menu) as Menu;
+		for (const tier of bare.tiers)
+			for (const grant of tier.grants)
+				delete (grant as { rollover?: unknown }).rollover;
+		return bare;
+	};
+	/** A family on sparkle-2 that pays four monthly renewals after the first invoice and spends nothing, under `under`. */
+	const fiveMonths = (under: Menu) => {
+		const store = createStore({
+			menu: under,
+			school: SCHOOL,
+			family: ROLL_FAMILY,
+		});
+		const price = under.tiers
+			.find((t) => t.id === "sparkle-2")
+			?.prices.find((p) => p.interval === "month")?.amount as number;
+		let start = Date.UTC(2026, 0, 3, 15, 0, 0);
+		for (let n = 1; n <= 5; n++) {
+			const end = addUtcMonths(start, 1);
+			store.handle(
+				invoicePaid({
+					eventId: `evt_in_${n}`,
+					invoiceId: `in_${n}`,
+					at: start,
+					subscriptionId: "sub_1",
+					reason: n === 1 ? "subscription_create" : "subscription_cycle",
+					periodStart: start,
+					periodEnd: end,
+					lines: [
+						{
+							lookupKey: lookupKeyOf(
+								SCHOOL,
+								tierPriceKey("sparkle-2", "month"),
+								price,
+								under.currency,
+							),
+							amount: price,
+							interval: "month",
+						},
+					],
+					metadata: { b4u_school: SCHOOL, family_id: ROLL_FAMILY },
+				}),
+				start,
+			);
+			start = end;
+		}
+		return store.events;
+	};
+	test("a rollover the log's menu did not have is a decision the candidate makes: the four resets are listed and book what rolls over", () => {
+		const events = fiveMonths(withoutRollover());
+		const sim = simulate({
+			events,
+			menu: withoutRollover(),
+			school: SCHOOL,
+			candidate: { menu },
+		});
+		// each reset (February to May) now rolls the leftover 2 into a rollover row instead of expiring it
+		expect(sim.changed.map((d) => d.command)).toEqual([
+			"reset",
+			"reset",
+			"reset",
+			"reset",
+		]);
+		for (const decision of sim.changed)
+			expect(decision.added.some((c) => c.table === "rollovers")).toBe(true);
+		expect(
+			sim.postingChanges.find(
+				(p) => p.month === "2026-02" && p.account === "credits:expired",
+			),
+		).toMatchObject({ current: "2", candidate: "0" });
+		expect(sim.balanceChanges).toEqual([
+			{
+				holder: ROLL_HOLDER,
+				feature: "visit",
+				current: { avail: 2, held: 0 },
+				candidate: { avail: 4, held: 0 },
+			},
+		]);
 	});
 });
 

@@ -226,7 +226,7 @@ export const replayOrder = (events: readonly AtmEvent[]): AtmEvent[] => {
 };
 
 /** What the handler writes names its command `<ULID of the stored input event>:<step>`; the family service's own commands do not. */
-const HANDLER_COMMAND = new RegExp(`${ULID_PATTERN.slice(0, -1)}:\\d+$`);
+export const HANDLER_COMMAND = new RegExp(`${ULID_PATTERN.slice(0, -1)}:\\d+$`);
 
 export type RecordedMutation = {
 	id: string;
