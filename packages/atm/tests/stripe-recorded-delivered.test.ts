@@ -76,7 +76,7 @@ const context = (): WebhookContext => ({
 	menuVersion: 1,
 	policy: DEFAULT_POLICY,
 	policyVersion: 1,
-	catalog: menuCatalogRows({ menu, school: SCHOOL }),
+	catalog: menuCatalogRows({ menu, school: SCHOOL, env: "test" }),
 	priceIds: priceIds(),
 });
 
@@ -90,6 +90,8 @@ const harness = () => {
 		schoolId: SCHOOL,
 		nowMs: () => clock.now,
 		workerId: "recorded",
+		// The recordings are sandbox events (livemode false): a default (live) handler refuses them.
+		env: "test",
 		context,
 	};
 	const deliver = (event: Recorded): WebhookResponse => {
@@ -140,7 +142,7 @@ const familyOf = (events: Recorded[]): string => {
 type Rows = { entitlements: Record<string, number>; grants: Recorded };
 
 const rowsOf = (db: ReturnType<typeof harness>["db"], family: string): Rows => {
-	const subject = `${SCHOOL}|live|family:${family}`;
+	const subject = `${SCHOOL}|test|family:${family}`;
 	const entitlements: Record<string, number> = {};
 	for (const row of db.all<{ row_id: string; data: string }>(
 		"SELECT row_id, data FROM atm_rows WHERE subject_key = ? AND table_name = 'customerEntitlements'",

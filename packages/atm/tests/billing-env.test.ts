@@ -89,7 +89,8 @@ const harness = ({
 		context: contextFor(env),
 		...(env === undefined ? {} : { env }),
 	};
-	const deliver = (event: Recorded): WebhookResponse => {
+	/** The event exactly as given. */
+	const deliverAsIs = (event: Recorded): WebhookResponse => {
 		clock.now = (event.created + 1) * SECOND;
 		const payload = JSON.stringify(event);
 		return handleStripeWebhook(deps, {
@@ -101,7 +102,11 @@ const harness = ({
 			}),
 		});
 	};
-	return { db, deps, deliver };
+	// The recordings are sandbox events (livemode false). Most tests here are about where an env puts the rows, so each
+	// harness is sent events of its own mode; the handler refuses a mismatch (see "livemode against env" below).
+	const deliver = (event: Recorded): WebhookResponse =>
+		deliverAsIs({ ...event, livemode: env !== "test" });
+	return { db, deps, deliver, deliverAsIs };
 };
 
 const subjectKeysOf = (db: ReturnType<typeof bunSqlite>): string[] =>
@@ -336,6 +341,50 @@ describe("a bad env throws, naming the field", () => {
 		expect(db.all("SELECT * FROM atm_event_claims")).toEqual([]);
 	});
 
+	// A bad env is resolved once at the entry point. It must not reach the per-event holder lookup, whose catch would
+	// answer it as a family with no metadata (a 422 `missing_metadata`) instead of throwing.
+	test.each(BAD_ENVS)(
+		"handleStripeWebhook throws, not missing_metadata, for an event with half the holder metadata: %p",
+		(value) => {
+			const { db, deps } = harness();
+			// biome-ignore lint/suspicious/noExplicitAny: plain JavaScript passing a bad value
+			const bad = { ...deps, env: value as any };
+			const half = structuredClone(invoiceEvent);
+			half.data.object.metadata = {};
+			half.data.object.parent.subscription_details.metadata = {
+				b4u_school: SCHOOL,
+			};
+			const payload = JSON.stringify(half);
+			expect(() =>
+				handleStripeWebhook(bad, {
+					payload,
+					signatureHeader: signStripePayload({
+						payload,
+						secret: SECRET,
+						timestampSeconds: half.created + 1,
+					}),
+				}),
+			).toThrow(/^env must be "live" or "test"/);
+			expect(db.all("SELECT * FROM atm_event_claims")).toEqual([]);
+			expect(db.all("SELECT * FROM atm_rows")).toEqual([]);
+		},
+	);
+
+	test.each(BAD_ENVS)(
+		"handleStripeEvent throws on %p before its other checks run",
+		(value) => {
+			// An unusable eventId would otherwise be refused as bad_event: the env check comes first.
+			expect(() =>
+				handleStripeEvent({
+					...stripeEventInput(),
+					eventId: "not-a-ulid",
+					// biome-ignore lint/suspicious/noExplicitAny: plain JavaScript passing a bad value
+					env: value as any,
+				}),
+			).toThrow(/^env must be "live" or "test"/);
+		},
+	);
+
 	test("the error is an Error, and says what it got", () => {
 		let caught: unknown;
 		try {
@@ -348,5 +397,74 @@ describe("a bad env throws, naming the field", () => {
 		expect((caught as Error).message).toBe(
 			'env must be "live" or "test", got "prod"',
 		);
+	});
+});
+
+describe("livemode against env", () => {
+	const nothingWritten = (db: ReturnType<typeof bunSqlite>) => {
+		for (const table of [
+			"atm_event_claims",
+			"atm_rows",
+			"ledger_outbox",
+			"atm_invoice_index",
+		])
+			expect(db.all(`SELECT * FROM ${table}`)).toEqual([]);
+	};
+	const { livemode: _livemode, ...withoutLivemode } = invoiceEvent;
+
+	test("a test-mode event to a default (live) handler is 422 livemode_mismatch and writes nothing", () => {
+		const { db, deliverAsIs } = harness();
+		const response = deliverAsIs({ ...invoiceEvent, livemode: false });
+		expect(response.status).toBe(422);
+		expect(response.body.outcome).toBe("livemode_mismatch");
+		expect(response.body.stripeEventId).toBe(invoiceEvent.id);
+		expect(response.body.message).toContain("livemode=false");
+		expect(response.body.message).toContain('env "live"');
+		nothingWritten(db);
+	});
+
+	test("a live-mode event to an env: test handler is 422 livemode_mismatch and writes nothing", () => {
+		const { db, deliverAsIs } = harness({ env: "test" });
+		const response = deliverAsIs({ ...invoiceEvent, livemode: true });
+		expect(response.status).toBe(422);
+		expect(response.body.outcome).toBe("livemode_mismatch");
+		expect(response.body.message).toContain("livemode=true");
+		expect(response.body.message).toContain('env "test"');
+		nothingWritten(db);
+	});
+
+	test("the same event is applied once the mode agrees, and the refusal kept no claim", () => {
+		const { db, deliverAsIs } = harness();
+		expect(deliverAsIs(invoiceEvent).body.outcome).toBe("livemode_mismatch");
+		const live = { ...invoiceEvent, livemode: true };
+		expect(deliverAsIs(live).body.outcome).toBe("applied");
+		expect(subjectKeysOf(db)).toEqual([`${SCHOOL}|live|family:${familyId}`]);
+	});
+
+	test("a matching livemode applies, on either env", () => {
+		const live = harness();
+		expect(
+			live.deliverAsIs({ ...invoiceEvent, livemode: true }).body.outcome,
+		).toBe("applied");
+		const test = harness({ env: "test" });
+		expect(
+			test.deliverAsIs({ ...invoiceEvent, livemode: false }).body.outcome,
+		).toBe("applied");
+	});
+
+	test("an event with no livemode field is not refused, on either env", () => {
+		expect("livemode" in withoutLivemode).toBe(false);
+		for (const env of [undefined, "live", "test"] as const) {
+			const { deliverAsIs } = harness({ env });
+			expect(deliverAsIs(withoutLivemode).body.outcome).toBe("applied");
+		}
+	});
+
+	test("an invoice_payment.paid is checked too, before its claim", () => {
+		const payment = read(`${FIXTURE_SCENARIO}/01-invoice_payment.paid.json`);
+		const { db, deliverAsIs } = harness();
+		const response = deliverAsIs({ ...payment, livemode: false });
+		expect(response.body.outcome).toBe("livemode_mismatch");
+		expect(db.all("SELECT * FROM atm_event_claims")).toEqual([]);
 	});
 });

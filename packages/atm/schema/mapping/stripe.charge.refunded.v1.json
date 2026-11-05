@@ -23,6 +23,16 @@
 			"path": "$.data.object.amount_refunded",
 			"type": "int"
 		},
+		"currency": {
+			"path": "$.data.object.currency",
+			"type": "string"
+		},
+		"previousAmount": {
+			"path": "$.data.previous_attributes.amount_refunded",
+			"type": "int",
+			"optional": true,
+			"default": 0
+		},
 		"full": {
 			"path": "$.data.object.refunded",
 			"type": "bool"

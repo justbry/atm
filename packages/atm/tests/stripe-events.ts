@@ -11,8 +11,14 @@ export const API_VERSION = "2025-10-29.clover";
 export type RawEvent = any;
 
 const dir = join(import.meta.dir, "../fixtures/billing/stripe");
-const template = (name: string): RawEvent =>
-	JSON.parse(readFileSync(join(dir, name), "utf8"));
+/**
+ * The committed files are sandbox events (`livemode: false`); a test's synthetic event stands for the live endpoint the
+ * handler serves by default (`env: "live"`), which refuses an event whose `livemode` disagrees.
+ */
+const template = (name: string): RawEvent => ({
+	...JSON.parse(readFileSync(join(dir, name), "utf8")),
+	livemode: true,
+});
 
 const seconds = (ms: number) => Math.floor(ms / 1000);
 
@@ -198,6 +204,24 @@ export const subscriptionEvent = (e: {
 			recurring: { interval: item.interval, interval_count: 1 },
 		},
 	}));
+	return event;
+};
+
+/** A `payout.paid` event: `amount` is what reaches the bank, net of Stripe's fees. */
+export const payoutPaid = (e: {
+	eventId: string;
+	payoutId: string;
+	amount: number;
+	currency?: string;
+	/** Event time (ms): the event's `created`. */
+	at: number;
+}): RawEvent => {
+	const event = template("payout.paid.json");
+	event.id = e.eventId;
+	event.created = seconds(e.at);
+	event.data.object.id = e.payoutId;
+	event.data.object.amount = e.amount;
+	event.data.object.currency = e.currency ?? "usd";
 	return event;
 };
 
