@@ -1,3 +1,4 @@
+// Modified by justbry/atm: opt-in expiry-first draw order (org.config.deduction_order).
 import {
 	cusEntToCusPrice,
 	isAllocatedCustomerEntitlement,
@@ -55,6 +56,7 @@ export const isSameSelection = ({
 	left.countsUsageWindows === right.countsUsageWindows &&
 	left.countsAllocations === right.countsAllocations &&
 	left.reverseOrder === right.reverseOrder &&
+	Boolean(left.expiryFirst) === Boolean(right.expiryFirst) &&
 	left.blocksOverdue === right.blocksOverdue &&
 	sameJson(left.inStatuses, right.inStatuses) &&
 	sameJson(left.properties, right.properties) &&

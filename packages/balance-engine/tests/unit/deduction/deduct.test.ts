@@ -225,6 +225,169 @@ describe("deduct", () => {
 		},
 	);
 
+	describe("deduction_order", () => {
+		const drainedFirstUnder = ({
+			deductionOrder,
+			customerEntitlements,
+			rollovers,
+		}: {
+			deductionOrder?: "expiry" | "engine";
+			customerEntitlements: ReturnType<typeof createCustomerEntitlement>[];
+			rollovers?: NonNullable<Parameters<typeof deductFrom>[0]["rollovers"]>;
+		}) =>
+			deductFrom({
+				customerEntitlements,
+				rollovers,
+				value: 5,
+				orgConfig: { ...org.config, deduction_order: deductionOrder },
+			}).deltas.map((delta) => delta.id);
+
+		const resettingRow = ({
+			resetsAt,
+			createdAt = occurredAt,
+		}: {
+			resetsAt: number;
+			createdAt?: number;
+		}) => ({
+			...createCustomerEntitlement({ id: "resetting", balance: 10 }),
+			next_reset_at: resetsAt,
+			created_at: createdAt,
+		});
+		const oneOffRow = ({
+			expiresAt,
+			createdAt = occurredAt,
+		}: {
+			expiresAt: number | null;
+			createdAt?: number;
+		}) => ({
+			...createCustomerEntitlement({ id: "one_off", balance: 10 }),
+			expires_at: expiresAt,
+			created_at: createdAt,
+		});
+
+		test.concurrent(
+			"absent and engine keep the engine's order: the resetting row drains first",
+			() => {
+				const customerEntitlements = [
+					oneOffRow({ expiresAt: occurredAt + 500 }),
+					resettingRow({ resetsAt: occurredAt + 1000 }),
+				];
+
+				for (const deductionOrder of [undefined, "engine" as const]) {
+					expect(
+						drainedFirstUnder({ deductionOrder, customerEntitlements }),
+					).toEqual(["resetting"]);
+				}
+			},
+		);
+
+		test.concurrent(
+			"expiry: a one-off row expiring before the resetting row's reset drains first",
+			() => {
+				expect(
+					drainedFirstUnder({
+						deductionOrder: "expiry",
+						customerEntitlements: [
+							resettingRow({ resetsAt: occurredAt + 1000 }),
+							oneOffRow({ expiresAt: occurredAt + 500 }),
+						],
+					}),
+				).toEqual(["one_off"]);
+			},
+		);
+
+		test.concurrent(
+			"expiry: a resetting row resetting before the one-off row expires drains first",
+			() => {
+				expect(
+					drainedFirstUnder({
+						deductionOrder: "expiry",
+						customerEntitlements: [
+							oneOffRow({ expiresAt: occurredAt + 1000 }),
+							resettingRow({ resetsAt: occurredAt + 500 }),
+						],
+					}),
+				).toEqual(["resetting"]);
+			},
+		);
+
+		test.concurrent(
+			"expiry: equal lapse times drain the oldest grant first",
+			() => {
+				expect(
+					drainedFirstUnder({
+						deductionOrder: "expiry",
+						customerEntitlements: [
+							resettingRow({
+								resetsAt: occurredAt + 500,
+								createdAt: occurredAt + 2,
+							}),
+							oneOffRow({
+								expiresAt: occurredAt + 500,
+								createdAt: occurredAt + 1,
+							}),
+						],
+					}),
+				).toEqual(["one_off"]);
+			},
+		);
+
+		test.concurrent("expiry: a row that never lapses drains last", () => {
+			expect(
+				drainedFirstUnder({
+					deductionOrder: "expiry",
+					customerEntitlements: [
+						oneOffRow({ expiresAt: null, createdAt: occurredAt }),
+						resettingRow({
+							resetsAt: occurredAt + 5000,
+							createdAt: occurredAt + 1,
+						}),
+					],
+				}),
+			).toEqual(["resetting"]);
+		});
+
+		test.concurrent("expiry: an unlimited row still comes first", () => {
+			expect(
+				drainedFirstUnder({
+					deductionOrder: "expiry",
+					customerEntitlements: [
+						oneOffRow({ expiresAt: occurredAt + 500 }),
+						{
+							...createCustomerEntitlement({ id: "infinite", balance: 0 }),
+							unlimited: true,
+							created_at: occurredAt + 9,
+						},
+					],
+				}),
+			).toEqual(["infinite"]);
+		});
+
+		test.concurrent(
+			"expiry: rollovers still drain before included rows",
+			() => {
+				const drained = drainedFirstUnder({
+					deductionOrder: "expiry",
+					customerEntitlements: [
+						oneOffRow({ expiresAt: occurredAt + 500 }),
+						resettingRow({ resetsAt: occurredAt + 1000 }),
+					],
+					rollovers: [
+						{
+							id: "rollover_1",
+							cus_ent_id: "resetting",
+							balance: 10,
+							usage: 0,
+							expires_at: occurredAt + 9000,
+						},
+					],
+				});
+
+				expect(drained).toEqual(["rollover_1"]);
+			},
+		);
+	});
+
 	test.concurrent(
 		"past-due products fund a track only when the org says so",
 		() => {

@@ -1,6 +1,10 @@
+// Modified by justbry/atm: opt-in expiry-first draw order (org.config.deduction_order).
 import {
+	AllowanceType,
 	CusProductStatus,
+	FeatureType,
 	fullSubjectToCustomerEntitlements,
+	isEntityCusEnt,
 	isThresholdBillingCustomerProduct,
 	isUnlimitedCustomerEntitlement,
 } from "@autumn/shared";
@@ -26,6 +30,97 @@ const hoistUnlimited = ({
 		unlimited,
 		...customerEntitlements.filter((candidate) => candidate !== unlimited),
 	];
+};
+
+/** When the row's unused balance is lost or rolled over: a refilling row's at its next reset, a one-off grant's at its expiry. A row with neither never lapses. */
+const lapsesAtOf = ({
+	customerEntitlement,
+}: {
+	customerEntitlement: WorkerFullCustomerEntitlementWithProduct;
+}): number =>
+	Math.min(
+		customerEntitlement.expires_at ?? Number.POSITIVE_INFINITY,
+		customerEntitlement.next_reset_at ?? Number.POSITIVE_INFINITY,
+	);
+
+/** Rows that share this key were ordered by the engine's earlier criteria as peers; expiry-first never moves a row across it. */
+const drawGroupKeyOf = ({
+	customerEntitlement,
+	selection,
+}: {
+	customerEntitlement: WorkerFullCustomerEntitlementWithProduct;
+	selection: DeductionSelection;
+}): string => {
+	const idsFilter =
+		selection.customerEntitlementFilters?.cusEntIds &&
+		selection.customerEntitlementFilters.cusEntIds.length > 0
+			? selection.customerEntitlementFilters.cusEntIds
+			: null;
+	const { feature, allowance_type: allowanceType } =
+		customerEntitlement.entitlement;
+	return JSON.stringify([
+		idsFilter?.includes(customerEntitlement.id) ?? false,
+		isEntityCusEnt({ cusEnt: customerEntitlement }),
+		feature.type === FeatureType.Boolean,
+		feature.type === FeatureType.CreditSystem,
+		allowanceType === AllowanceType.Unlimited,
+		Boolean(customerEntitlement.unlimited),
+	]);
+};
+
+/**
+ * Opt-in `deduction_order: "expiry"`: within each maximal run of rows the engine's order already ranks as peers
+ * (same filter hit, entity level, boolean, credit system, unlimited), soonest-lapsing first, then oldest grant.
+ * A tuple key, not a patched comparator: the original index closes every tie, so the order is total.
+ */
+const rankByExpiry = ({
+	customerEntitlements,
+	selection,
+}: {
+	customerEntitlements: WorkerFullCustomerEntitlementWithProduct[];
+	selection: DeductionSelection;
+}): WorkerFullCustomerEntitlementWithProduct[] => {
+	const ranked: WorkerFullCustomerEntitlementWithProduct[] = [];
+	let runStart = 0;
+	while (runStart < customerEntitlements.length) {
+		const runKey = drawGroupKeyOf({
+			customerEntitlement: customerEntitlements[runStart],
+			selection,
+		});
+		let runEnd = runStart + 1;
+		while (
+			runEnd < customerEntitlements.length &&
+			drawGroupKeyOf({
+				customerEntitlement: customerEntitlements[runEnd],
+				selection,
+			}) === runKey
+		) {
+			runEnd += 1;
+		}
+		const keyed = customerEntitlements
+			.slice(runStart, runEnd)
+			.map((customerEntitlement, index) => ({
+				customerEntitlement,
+				lapsesAt: lapsesAtOf({ customerEntitlement }),
+				index,
+			}));
+		keyed.sort((left, right) => {
+			if (left.lapsesAt !== right.lapsesAt) {
+				return left.lapsesAt < right.lapsesAt ? -1 : 1;
+			}
+			const leftCreatedAt = left.customerEntitlement.created_at;
+			const rightCreatedAt = right.customerEntitlement.created_at;
+			if (leftCreatedAt !== rightCreatedAt) {
+				return leftCreatedAt - rightCreatedAt;
+			}
+			return left.index - right.index;
+		});
+		for (const { customerEntitlement } of keyed) {
+			ranked.push(customerEntitlement);
+		}
+		runStart = runEnd;
+	}
+	return ranked;
 };
 
 /** Soonest-expiring first; rollovers without an expiry drain last. */
@@ -71,7 +166,7 @@ export const selectDeductionRows = ({
 						(customerProduct) => !blockedProducts.includes(customerProduct),
 					),
 				};
-	const customerEntitlements = hoistUnlimited({
+	const sortedCustomerEntitlements = hoistUnlimited({
 		customerEntitlements: fullSubjectToCustomerEntitlements({
 			fullSubject: fundingSubject,
 			...(selection.includesCreditSystems
@@ -83,6 +178,12 @@ export const selectDeductionRows = ({
 			now: selection.now,
 		}),
 	});
+	const customerEntitlements = selection.expiryFirst
+		? rankByExpiry({
+				customerEntitlements: sortedCustomerEntitlements,
+				selection,
+			})
+		: sortedCustomerEntitlements;
 	// State outlives a rollover's expiry; the hydration query drops these, the draw must too.
 	const rollovers = customerEntitlements
 		.flatMap((customerEntitlement) => customerEntitlement.rollovers)
