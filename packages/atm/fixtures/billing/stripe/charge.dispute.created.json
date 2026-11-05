@@ -28,7 +28,9 @@
 			},
 			"payment_method_details": {
 				"type": "card",
-				"card": { "brand": "visa", "last4": "4242" }
+				"card": {
+					"brand": "visa"
+				}
 			},
 			"metadata": {}
 		}

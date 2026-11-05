@@ -14,7 +14,7 @@
 			"amount_refunded": 26000,
 			"currency": "usd",
 			"customer": "cus_SYNTH_0001",
-			"invoice": "in_SYNTH_0001",
+			"payment_intent": "pi_SYNTH_0001",
 			"refunded": true,
 			"status": "succeeded",
 			"billing_details": {

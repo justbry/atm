@@ -207,7 +207,12 @@ export function normalize(
 		for (const raw of rawLines) {
 			const line = buildFields(raw, mapping.lines.fields);
 			if (!line.ok) return line;
-			lines.push({ kind: "unknown", ...line.value } as InvoiceLine);
+			// A line (API 2025-10-29.clover) has no interval of its own; the menu says it once the line is matched.
+			lines.push({
+				kind: "unknown",
+				interval: null,
+				...line.value,
+			} as InvoiceLine);
 		}
 		body.lines = lines;
 	}
@@ -229,9 +234,15 @@ export function resolveLines(
 			(line.lookupKey ? itemByKey.get(line.lookupKey) : undefined) ??
 			(line.priceId ? itemByKey.get(line.priceId) : undefined);
 		if (!item) return { ...rest, kind: "unknown" };
+		// What the line lacks, the menu's item gives: its price's lookup key and interval.
+		const known = {
+			...rest,
+			lookupKey: line.lookupKey ?? item.lookupKey ?? null,
+			interval: line.interval ?? item.interval ?? null,
+		};
 		return item.kind === "tier"
-			? { ...rest, kind: "tier", tierId: item.tierId }
-			: { ...rest, kind: "addon", addonId: item.addonId };
+			? { ...known, kind: "tier", tierId: item.tierId }
+			: { ...known, kind: "addon", addonId: item.addonId };
 	});
 }
 

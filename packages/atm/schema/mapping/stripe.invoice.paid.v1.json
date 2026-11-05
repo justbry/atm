@@ -5,8 +5,14 @@
 	"target": "BillingInvoice",
 	"stripeApiVersion": "2025-10-29.clover",
 	"fields": {
-		"id": { "path": "$.data.object.id", "type": "string" },
-		"customerId": { "path": "$.data.object.customer", "type": "string" },
+		"id": {
+			"path": "$.data.object.id",
+			"type": "string"
+		},
+		"customerId": {
+			"path": "$.data.object.customer",
+			"type": "string"
+		},
 		"subscriptionId": {
 			"path": "$.data.object.parent.subscription_details.subscription",
 			"type": "string",
@@ -24,42 +30,54 @@
 			},
 			"fallback": "other"
 		},
-		"currency": { "path": "$.data.object.currency", "type": "string" },
-		"amountPaid": { "path": "$.data.object.amount_paid", "type": "int" },
+		"currency": {
+			"path": "$.data.object.currency",
+			"type": "string"
+		},
+		"amountPaid": {
+			"path": "$.data.object.amount_paid",
+			"type": "int"
+		},
 		"paidAt": {
 			"path": "$.data.object.status_transitions.paid_at",
 			"type": "seconds"
 		},
-		"periodStart": { "path": "$.data.object.period_start", "type": "seconds" },
-		"periodEnd": { "path": "$.data.object.period_end", "type": "seconds" },
-		"metadata": { "path": "$.data.object.metadata", "type": "map" }
+		"periodStart": {
+			"path": "$.data.object.period_start",
+			"type": "seconds"
+		},
+		"periodEnd": {
+			"path": "$.data.object.period_end",
+			"type": "seconds"
+		},
+		"metadata": {
+			"path": "$.data.object.metadata",
+			"type": "map"
+		}
 	},
 	"lines": {
 		"path": "$.data.object.lines.data",
 		"fields": {
-			"lookupKey": {
-				"path": "$.price.lookup_key",
-				"type": "string",
-				"optional": true,
-				"default": null
-			},
 			"priceId": {
 				"path": "$.pricing.price_details.price",
 				"type": "string",
 				"optional": true,
 				"default": null
 			},
-			"interval": {
-				"path": "$.price.recurring.interval",
-				"type": "string",
-				"optional": true,
-				"default": null,
-				"values": { "month": "month", "year": "year" },
-				"fallback": null
+			"quantity": {
+				"path": "$.quantity",
+				"type": "int"
 			},
-			"quantity": { "path": "$.quantity", "type": "int" },
-			"proration": { "path": "$.proration", "type": "bool" },
-			"amount": { "path": "$.amount", "type": "int" },
+			"proration": {
+				"path": "$.parent.subscription_item_details.proration",
+				"type": "bool",
+				"optional": true,
+				"default": false
+			},
+			"amount": {
+				"path": "$.amount",
+				"type": "int"
+			},
 			"periodStart": {
 				"path": "$.period.start",
 				"type": "seconds",
