@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { EMPTY_GRANTS_STATE, menuCatalogRows } from "../src/billing/grants.js";
 import { handleStripeEvent } from "../src/billing/handle.js";
-import { DEFAULT_POLICY } from "../src/billing/policy.js";
+import { commandOrg, DEFAULT_POLICY } from "../src/billing/policy.js";
 import {
 	applyRowChanges,
 	type BillingRow,
@@ -17,9 +17,13 @@ import {
 	menuLineItems,
 	tierPriceKey,
 } from "../src/billing/stripe-menu.js";
-import type { Menu, StripeEventResult } from "../src/billing/types.js";
+import type {
+	BillingPolicy,
+	Menu,
+	StripeEventResult,
+} from "../src/billing/types.js";
 import { balancesOf, replayEvents } from "../src/ledger/replay.js";
-import { toCatalog } from "../src/ledger/run.js";
+import { runOnState, toCatalog } from "../src/ledger/run.js";
 import { validateEvent } from "../src/ledger/validate.js";
 import type { AtmEvent } from "../src/types.js";
 import {
@@ -76,7 +80,7 @@ const priceIds = Object.fromEntries(
 );
 
 /** The family service in miniature: stored rows and revision, the event log, one write per event. */
-const store = (world: Menu = menu) => {
+const store = (world: Menu = menu, policy: BillingPolicy = DEFAULT_POLICY) => {
 	const worldRows = menuCatalogRows({ menu: world, school: SCHOOL });
 	const worldCatalog = toCatalog(worldRows);
 	let rows: BillingRow[] = [];
@@ -104,7 +108,7 @@ const store = (world: Menu = menu) => {
 				eventId: id,
 				menu: world,
 				menuVersion: MENU_VERSION,
-				policy: DEFAULT_POLICY,
+				policy,
 				policyVersion: POLICY_VERSION,
 				rows,
 				revision,
@@ -1235,7 +1239,7 @@ describe("subscription events", () => {
 	test.each([
 		["past_due", "past_due", T1],
 		["unpaid", "past_due", T1],
-		["incomplete", "payment_incomplete", null],
+		["incomplete", "incomplete", null],
 		["paused", "inactive", null],
 		["trialing", "active", T1],
 	] as const)("status %s is shown as %s", (status, shown, renewsAt) => {
@@ -1455,5 +1459,77 @@ describe("subscription events", () => {
 		expect(grants.endedAt).toBe(T0 + DAY);
 		expect(s.avail(T0 + 2 * DAY)).toBe(2);
 		expect(s.avail(D("2026-03-15T18:00:01Z"))).toBe(0);
+	});
+});
+
+describe("deduction order", () => {
+	const DAY = 86_400_000;
+	/** A one-month gift bought ten days before the tier: it lapses before the tier's first reset. */
+	const gifted = (deductionOrder: BillingPolicy["deductionOrder"]) => {
+		const policy = { ...DEFAULT_POLICY, giftSessionMonths: 1, deductionOrder };
+		const s = store(menu, policy);
+		s.handle(
+			invoicePaid({
+				eventId: "evt_gift",
+				invoiceId: "in_gift",
+				at: T0 - 10 * DAY,
+				subscriptionId: null,
+				reason: "manual",
+				periodStart: T0 - 10 * DAY,
+				periodEnd: T0 - 10 * DAY,
+				lines: [{ lookupKey: addonKey("gift-visit"), amount: 13000 }],
+				metadata,
+			}),
+			T0 - 10 * DAY,
+		);
+		create(s);
+		return { s, policy };
+	};
+	/** The credit rows one `track` of a visit takes from, with the org the policy makes for it. */
+	const drawnFrom = (world: ReturnType<typeof gifted>) => {
+		const identity = {
+			orgId: SCHOOL,
+			env: "live" as const,
+			customerId: HOLDER,
+			entityId: null,
+		};
+		const state = stateFromRows({
+			identity,
+			revision: world.s.revision,
+			rows: world.s.rows,
+		});
+		const run = runOnState({
+			state,
+			catalog: toCatalog(catalogRows),
+			command: {
+				schemaVersion: 1,
+				type: "track",
+				org: commandOrg(world.policy),
+				commandId: "track_1",
+				requestId: "track_1",
+				identity,
+				occurredAt: T0 + DAY,
+				featureId: "visit",
+				internalFeatureId: "feat_visit",
+				value: 1,
+				overageBehavior: "reject",
+				properties: null,
+				usageEvent: null,
+			},
+		});
+		return (run.mutation?.changes ?? [])
+			.filter((c) => c.table === "customerEntitlements" && c.op === "increment")
+			.map((c) => (c as { id: string }).id);
+	};
+
+	test("by expiry, the gift that lapses before the tier's next reset is spent first", () => {
+		const rows = drawnFrom(gifted("expiry"));
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toMatch(/^ce_gift_/);
+	});
+
+	test("the engine's own order spends the refilling tier row first", () => {
+		const rows = drawnFrom(gifted("engine"));
+		expect(rows).toEqual(["ce_tier_visit_month"]);
 	});
 });

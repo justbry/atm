@@ -162,6 +162,13 @@ export const buildJournal = (input: {
 
 export const DEFAULT_POLICY: BillingPolicy = policy.DEFAULT_POLICY;
 
+/**
+ * The `org` to put on every `track` and `check` command: the engine takes its draw order from it
+ * (`policy.deductionOrder`). A caller that sends its own org config gets the engine's own order instead.
+ */
+export const commandOrg = (billingPolicy: BillingPolicy) =>
+	policy.commandOrg(billingPolicy);
+
 /** A school's policy overrides over the defaults; throws, naming each problem, on an unknown key or wrong value. */
 export const resolvePolicy = (overrides: unknown): BillingPolicy =>
 	policy.resolvePolicy(overrides);

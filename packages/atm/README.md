@@ -30,7 +30,7 @@ const decision: AtmCheckResult = runEngineCommand({ subject, command }); // comm
 
 Pure rules for a school's menu, its Stripe facts, credit grants and storage rows. No I/O, no clock: every function takes its time and state as arguments, so the family service only does I/O around them (read rows, call Stripe, write rows) and the same input always gives the same output.
 
-- Policy: `DEFAULT_POLICY`, `resolvePolicy` (a school's overrides over the defaults).
+- Policy: `DEFAULT_POLICY`, `resolvePolicy` (a school's overrides over the defaults), `commandOrg(policy)` (the `org` for every `track` and `check`; see Deduction order).
 - Menu: `validateMenu`, `publishProblems`, `publicMenu`, `validTimeZone`, `MAX_TIERS`, `MAX_ADDONS`, `MAX_FEATURES`.
 - Menu to Stripe: `menuToStripe` (idempotent steps that make Stripe match a menu), `checkoutParams`, `withPriceIds`, `toStripeForm`, `lookupKeyOf`.
 - Stripe events to facts: `normalize`, `mappingFor`, `mappingLabels`, `MAPPINGS` (declarative mappings in `schema/mapping/`, bundled; regenerate the index with `bun schema/mapping/build.ts`), `resolveLines`, `resolveInvoice`, `resolveSubscriptionPlan`, `redactPersonal`, `subscriptionStatus`.
@@ -40,6 +40,30 @@ Pure rules for a school's menu, its Stripe facts, credit grants and storage rows
 - Storage rows: `subjectKey`, `subjectFromRows`, `rowChangesFromMutation`, `applyRowChanges`, `stateFromRows`, `rowsFromState`, `ROW_TABLES`, `assertRevision`, `StaleRevision`. The billing rules' `GrantsState` is one more JSON row of the subject (`GRANTS_TABLE`, `grantsFromRows`, `grantsRow`) under the same revision.
 - **One entry point**: `handleStripeEvent({ event, eventId, menu, menuVersion, policy, policyVersion, rows, revision, catalog, now, priceIds, invoiceIds })` gives `{ rowChanges, events, refused? }`. The caller verifies the signature, dedupes on the event id, loads the subject's rows, calls it and writes `rowChanges` and `events` in one transaction. Replaying an event gives `rowChanges: null`; an event atm cannot decide comes back `refused` with nothing to write. Two things a Stripe event (API `2025-10-29.clover`) does not carry are the caller's: `priceIds` (lookup key to Stripe price id, from publishing the menu: a line names its price by id only) and `invoiceIds` (payment intent to invoice id, from `invoice_payment.paid`: a charge or dispute does not name its invoice).
 - Shapes: `schema/stripe/objects.clover.json` is Stripe's OpenAPI spec for the pinned API version, pruned to the objects the mappings read (`bun run stripe-spec <spec3.json>`). The tests check every mapping path and every synthetic event against it.
+
+### Deduction order
+
+A `track` takes from a holder's credit rows for one feature in this order (Autumn's engine, `balance-engine/src/deduction/deduct.ts`):
+
+1. **Unlimited** rows.
+2. **Rollovers**, soonest-expiring first, rollovers without an expiry last. A rollover is always spent before the row it came from, whatever the order below.
+3. **Included** rows, in the order below.
+4. **Overage** (only where the plan allows it).
+
+`policy.deductionOrder` sets the order inside step 3. The caller puts `commandOrg(policy)` on every `track` and `check` it runs; a caller that sends its own org config gets `engine` (the second line below), because the engine reads the setting from the command, not from atm.
+
+- `expiry` (default): the row whose unused credits lapse soonest goes first, then the oldest grant (`created_at`). A refilling row lapses at its `next_reset_at` (what is left rolls over within its `max`, or is lost); a one-off row (gift, pack, a cancelled plan's last cycle) at its `expires_at`; a row that never lapses goes last. The engine keeps its earlier groupings (listed balances, entity level, boolean, credit systems, unlimited) and reorders only within each.
+- `engine`: Autumn's own order. Rows that refill (have a `next_reset_at`) first, then the shorter reset interval, then soonest `expires_at` (none last), then add-ons after the main plan, then prepaid before pay-per-use, then oldest first. `reverse_deduction_order` (off in `commandOrg`) flips the first two steps.
+
+So a gift that lapses before the tier's next reset is spent first under `expiry` and after the tier row under `engine` (`tests/billing-handle.test.ts`, "deduction order"). The engine option (`org.config.deduction_order`, off unless set) is listed in `../../UPSTREAM.md`.
+
+### Credit events that are not a balance change
+
+`credit.expiration_changed` says a row's credits stay but their end date moved (a cancelled plan's rows stop refilling and lapse at the last cycle's end plus the rollover months). It carries the row, `previous_expires_at`, `expires_at` and `refills_ended`, has no postings, and is emitted only when the date changes without a balance change in the same write.
+
+### Membership status
+
+`incomplete` means the first payment is not finished (Stripe `incomplete`); the other values are `active`, `past_due`, `ended` and `inactive` (`status.ts`).
 
 ## Build
 
