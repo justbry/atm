@@ -117,7 +117,7 @@ export type AtmEventType =
 	| "referral.rewarded"
 	| "catalog.published"
 	| "policy.published"
-	/** A Stripe money fact the books did not take (a payment, refund or payout in a currency other than USD): no postings, a count. */
+	/** A Stripe money fact the books did not take (a payment, refund, payout or dispute in a currency other than USD): no postings, a count. */
 	| "money.skipped";
 
 /** One line of a transaction. `amount` is a decimal string (two places for USD, none for credits), never a float. */
@@ -2215,8 +2215,8 @@ export type WebhookDeps = {
 	 */
 	paymentFee?: (event: unknown) => number | null | undefined;
 	/**
-	 * Optional: where the handler says that it applied a delivery but did not book a money line (a non-USD invoice, refund
-	 * or payout: outcome `non_usd`). Called once per such delivery, after the transaction committed, with one line of text.
+	 * Optional: where the handler says that it applied a delivery but did not book a money line (a non-USD invoice, refund,
+	 * payout or dispute: outcome `non_usd`). Called once per such delivery, after the transaction committed, with one line of text.
 	 * Default: the line goes to stderr. A throw here is caught (the delivery is committed, so it is still answered 200
 	 * `non_usd`): the line goes to stderr instead, with the error's message.
 	 */
@@ -2239,8 +2239,8 @@ export type WebhookRequest = {
 export type WebhookOutcome =
 	| "applied"
 	/**
-	 * 200, like `applied`: the rows and the credits were written, but a money line was not, because the invoice, refund or
-	 * payout is not in USD. Each one left a `money.skipped` event in the outbox and `body.skipped` names them.
+	 * 200, like `applied`: the rows and the credits were written, but a money line was not, because the invoice, refund,
+	 * payout or dispute is not in USD. Each one left a `money.skipped` event in the outbox and `body.skipped` names them.
 	 */
 	| "non_usd"
 	| "duplicate"

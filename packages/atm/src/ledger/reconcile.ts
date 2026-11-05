@@ -587,7 +587,7 @@ export const reconcile = (input: ReconcileInput): ReconcileResult => {
 	const balanceTransactions = stripe.balanceTransactions?.filter(
 		(transaction) => scope.has(dayOf(transaction.created)),
 	);
-	/** What the handler applied but did not book (a non-USD invoice, refund or payout), counted from its own markers. */
+	/** What the handler applied but did not book (a non-USD invoice, refund, payout or dispute), counted from its own markers. */
 	const skipped: Record<string, number> = {};
 	for (const event of ofType("money.skipped").filter(inScope)) {
 		const reason = textOf(event.payload.reason) ?? "unknown";

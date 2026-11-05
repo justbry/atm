@@ -1,0 +1,10 @@
+reconcile 2026-01 (America/Denver, live mode)
+invoice: Stripe 1, log 1
+refund: Stripe 2, log 2
+dispute: Stripe 0, log 0
+payout: Stripe 0, log 0
+fees: Stripe 1, log 1
+net: Stripe 3, log 3
+amount_differs: refund re_b: Stripe has 3000 usd on 2026-01-15, the log has 8000 usd on 2026-01-15 [stripe 30.00, log 80.00]
+amount_differs: net: Stripe's balance moved 17216 cents (payouts apart), the log's assets:stripe postings 12216 [stripe 172.16, log 122.16]
+2 difference(s)

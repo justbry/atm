@@ -56,6 +56,7 @@ import {
 	paymentEvents,
 	payoutEvents,
 	refundEvents,
+	skippedDisputeEvents,
 	skippedRefundEvents,
 } from "./money.js";
 import {
@@ -340,6 +341,8 @@ const decide = (
 				ok: true,
 				result,
 				reason: "dispute lost",
+				// A dispute in another currency is no line either way; a marker says so, also for a payment the books never held
+				// (a non-USD invoice), as for a refund. One in USD of a payment the books do not hold is nothing.
 				money: ours
 					? disputeEvents({
 							dispute,
@@ -350,7 +353,12 @@ const decide = (
 							booker: bookerOf(input, holder),
 							holder,
 						})
-					: [],
+					: skippedDisputeEvents({
+							dispute,
+							labels: result.labels,
+							booker: bookerOf(input, holder),
+							holder,
+						}),
 			};
 		}
 		case "SubscriptionFact": {

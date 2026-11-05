@@ -1,8 +1,17 @@
 # Upgrading atm
 
+## On dev since 0.8.0 (not released)
+
+Changes merged to `dev` after the `atm-v0.8.0` tag. Nothing here is in a release yet.
+
+- **A non-USD dispute is answered `non_usd` too.** Not additive for a caller that tests the outcome. It extends the 0.8.0 `non_usd` outcome (an `invoice.paid`, `charge.refunded` or `payout.paid` in another currency; see "Moving to 0.8.0 from 0.6.0" below) to disputes, which the handler has booked since #66 (0.8.0). What a caller sees:
+  - **A `charge.dispute.created` or `.closed` in a currency other than USD that moved money** (its `balance_transactions` is not empty) used to be answered 200 `applied` with nothing in the outbox. It is now answered 200 `non_usd`, with `body.skipped` naming `dispute <du_...> <amount> <currency>`, the claim's `outcome` `non_usd`, and `deps.warn` called. Still no `payment.disputed` or `dispute.closed`; the credits are as before (a lost dispute takes its credits back in any currency).
+  - **`money.skipped` gains `kind: "dispute"`** (the payload schema's enum is closed, so a reader built before it rejects such a payload). One marker per dispute: idem `stripe:<dispute id>:non_usd`, so the created event, the closed event and a re-send under another event id leave one. Each of those deliveries is still answered `non_usd` and warns, and `reconcile`'s `result.skipped` counts the dispute once.
+  - **An inquiry (empty `balance_transactions`) is still `applied`, with no marker**: no money moved. If it becomes a chargeback, the closing event is marked. Detail: `docs/financial-reports.md`, "Non-USD".
+
 ## Moving to 0.8.0 from 0.6.0
 
-A minor release. There is no 0.7.0: that number is held by the design of simulating from stored inputs (#65, not built). Two kinds of change: what was fixed on `dev` after 0.6.0 (first block; some of it is not additive), and what 0.8.0 adds for the family service: credits that are held and spent by bookings, a price for a booking or an event, and three kinds of code (second block). Nothing is removed. A 0.6.0 caller that changes nothing and calls none of the new functions gets the same rows, keys, events and answers, except for the items in the first block.
+A minor release (released; tag `atm-v0.8.0`). There is no 0.7.0: the number was skipped, and the design of simulating from stored inputs (#65, not built) is planned as 0.9.0. Two kinds of change: what was fixed on `dev` after 0.6.0 (first block; some of it is not additive), and what 0.8.0 adds for the family service: credits that are held and spent by bookings, a price for a booking or an event, and three kinds of code (second block). Nothing is removed. A 0.6.0 caller that changes nothing and calls none of the new functions gets the same rows, keys, events and answers, except for the items in the first block.
 
 ### Changes since 0.6.0 that are not about bookings (read these first)
 
