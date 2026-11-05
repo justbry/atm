@@ -758,6 +758,48 @@ export type LineItem =
 	| { kind: "tier"; tierId: string }
 	| { kind: "addon"; addonId: string };
 
+// ---- One entry point for a Stripe event ----
+
+export type StripeEventInput = {
+	/** The raw Stripe event, as received (verified and deduplicated by the caller). */
+	event: unknown;
+	/** The stored input event's id: it becomes `cause` on every decision event and the id of every command. */
+	eventId: string;
+	menu: Menu;
+	menuVersion: number | string;
+	policy: BillingPolicy;
+	policyVersion: number | string;
+	/** The subject's stored rows, engine tables and the grants row; empty for a subject not created yet. */
+	rows: readonly BillingRow[];
+	/** The revision the store holds for the subject (0 for none). */
+	revision: number;
+	/** The engine catalog rows from `menuCatalogRows` for this menu. */
+	catalog: readonly AtmCatalogRow[];
+	/** The time of the event being handled (ms), not the clock. */
+	now: number;
+	/** Stripe price ids by lookup key, for invoice lines that name a price by id only. Optional. */
+	priceIds?: Readonly<Record<string, string>>;
+};
+
+/** Why an event was set aside: nothing was decided and nothing is to be written. Keep the event and retry after the cause is fixed. */
+export type StripeEventRefusal = {
+	reason:
+		| "unknown_mapping"
+		| "bad_event"
+		| "missing_metadata"
+		| "unmatched_line"
+		| "rejected";
+	message: string;
+};
+
+export type StripeEventResult = {
+	/** One write for the subject, or null when the event changes nothing (replayed, not about credits). */
+	rowChanges: RowChanges | null;
+	/** The decision events (credit.*), each with `cause` = the event id and the menu, policy and mapping labels. */
+	events: AtmEvent[];
+	refused?: StripeEventRefusal;
+};
+
 // ---- Storage rows ----
 
 /**

@@ -1,5 +1,6 @@
 import type { WorkerFullSubject } from "@autumn/balance-engine";
 import * as grants from "./billing/grants.js";
+import * as handle from "./billing/handle.js";
 import * as menu from "./billing/menu.js";
 import * as normalizer from "./billing/normalize.js";
 import * as policy from "./billing/policy.js";
@@ -60,6 +61,8 @@ import type {
 	RowChanges,
 	RowTable,
 	StaleRevisionConstructor,
+	StripeEventInput,
+	StripeEventResult,
 	StripeOp,
 	SubjectRows,
 	SubscriptionEndInput,
@@ -207,6 +210,16 @@ export const refundToCommands = (
 export const disputeToCommands = (
 	input: GrantRemovalInput & { dispute: BillingDispute },
 ): GrantResult => grants.disputeToCommands(input);
+
+/**
+ * One entry point for a raw Stripe event: normalize, apply the grant rules, run the engine, and return the single
+ * write for the subject's rows (engine rows and the grants row, one revision) and the decision events (`cause` = the
+ * event id; labelled with the menu, policy and mapping versions). The caller verifies and dedupes the event, passes the
+ * subject's stored rows and revision, and writes the result in one transaction. A replayed event gives no changes; an
+ * event atm cannot decide comes back `refused` with nothing to write.
+ */
+export const handleStripeEvent = (input: StripeEventInput): StripeEventResult =>
+	handle.handleStripeEvent(input);
 
 /**
  * A canceled subscription: the tier and add-on rows stop refilling and the last cycle's unused credits lapse at their

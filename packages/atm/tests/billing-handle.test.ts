@@ -1,0 +1,512 @@
+import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { EMPTY_GRANTS_STATE, menuCatalogRows } from "../src/billing/grants.js";
+import { handleStripeEvent } from "../src/billing/handle.js";
+import { DEFAULT_POLICY } from "../src/billing/policy.js";
+import {
+	applyRowChanges,
+	type BillingRow,
+	GRANTS_TABLE,
+	grantsFromRows,
+	StaleRevision,
+	stateFromRows,
+} from "../src/billing/rows.js";
+import {
+	addonPriceKey,
+	lookupKeyOf,
+	tierPriceKey,
+} from "../src/billing/stripe-menu.js";
+import type { Menu, StripeEventResult } from "../src/billing/types.js";
+import { balancesOf } from "../src/ledger/replay.js";
+import { toCatalog } from "../src/ledger/run.js";
+import type { AtmEvent } from "../src/types.js";
+import {
+	chargeRefunded,
+	disputeEvent,
+	invoicePaid,
+	subscriptionDeleted,
+} from "./stripe-events.js";
+
+const SCHOOL = "sch_vol";
+const FAMILY = "fam_8k2";
+const HOLDER = `family:${FAMILY}`;
+const menu = JSON.parse(
+	readFileSync(
+		`${import.meta.dir}/../fixtures/billing/grants/menu.json`,
+		"utf8",
+	),
+) as Menu;
+const catalogRows = menuCatalogRows({ menu, school: SCHOOL });
+const D = (s: string) => Date.parse(s);
+const MENU_VERSION = 3;
+const POLICY_VERSION = 1;
+
+const tierKey = (tierId: string, interval: "month" | "year") => {
+	const price = menu.tiers
+		.find((t) => t.id === tierId)
+		?.prices.find((p) => p.interval === interval);
+	return lookupKeyOf(
+		SCHOOL,
+		tierPriceKey(tierId, interval),
+		price?.amount as number,
+		menu.currency,
+	);
+};
+const addonKey = (addonId: string) => {
+	const addon = menu.addons.find(
+		(a) => a.id === addonId,
+	) as Menu["addons"][number];
+	return lookupKeyOf(
+		SCHOOL,
+		addonPriceKey(addon.id, addon.price.every, addon.gift),
+		addon.price.amount,
+		menu.currency,
+	);
+};
+const metadata = { b4u_school: SCHOOL, family_id: FAMILY };
+
+/** The family service in miniature: stored rows and revision, the event log, one write per event. */
+const store = (world: Menu = menu) => {
+	const worldRows = menuCatalogRows({ menu: world, school: SCHOOL });
+	const worldCatalog = toCatalog(worldRows);
+	let rows: BillingRow[] = [];
+	let revision = 0;
+	const events: AtmEvent[] = [];
+	const results: StripeEventResult[] = [];
+	const api = {
+		get rows() {
+			return rows;
+		},
+		get revision() {
+			return revision;
+		},
+		events,
+		results,
+		handle(event: unknown, at: number) {
+			const id = (event as { id: string }).id;
+			const result = handleStripeEvent({
+				event,
+				eventId: id,
+				menu: world,
+				menuVersion: MENU_VERSION,
+				policy: DEFAULT_POLICY,
+				policyVersion: POLICY_VERSION,
+				rows,
+				revision,
+				catalog: worldRows,
+				now: at,
+			});
+			results.push(result);
+			if (result.rowChanges) {
+				({ rows, revision } = applyRowChanges({
+					rows,
+					revision,
+					changes: result.rowChanges,
+				}));
+			}
+			events.push(...result.events);
+			return result;
+		},
+		avail(asOf: number, feature = "visit") {
+			const state = stateFromRows({
+				identity: {
+					orgId: SCHOOL,
+					env: "live",
+					customerId: HOLDER,
+					entityId: null,
+				},
+				revision,
+				rows,
+			});
+			if (!state) return 0;
+			return (
+				balancesOf({
+					states: { [HOLDER]: state as never },
+					holds: {},
+					catalog: worldCatalog,
+					asOfMs: asOf,
+				}).find((b) => b.feature === feature)?.avail ?? 0
+			);
+		},
+	};
+	return api;
+};
+
+const T0 = D("2026-01-15T18:00:00Z");
+const T1 = D("2026-02-15T18:00:00Z");
+const T2 = D("2026-03-15T18:00:00Z");
+
+const create = (s: ReturnType<typeof store>, tier = "sparkle-2") =>
+	s.handle(
+		invoicePaid({
+			eventId: "evt_create",
+			invoiceId: "in_1",
+			at: T0 + 10_000,
+			paidAt: T0 + 5000,
+			subscriptionId: "sub_1",
+			reason: "subscription_create",
+			periodStart: T0,
+			periodEnd: T1,
+			lines: [
+				{
+					lookupKey: tierKey(tier, "month"),
+					amount: menu.tiers
+						.find((t) => t.id === tier)
+						?.prices.find((p) => p.interval === "month")?.amount as number,
+					interval: "month",
+				},
+			],
+			metadata,
+		}),
+		T0 + 10_000,
+	);
+
+const renew = (s: ReturnType<typeof store>, id = "2") =>
+	s.handle(
+		invoicePaid({
+			eventId: `evt_cycle_${id}`,
+			invoiceId: `in_${id}`,
+			at: T1 + 10_000,
+			subscriptionId: "sub_1",
+			reason: "subscription_cycle",
+			periodStart: T1,
+			periodEnd: T2,
+			lines: [
+				{
+					lookupKey: tierKey("sparkle-2", "month"),
+					amount: 26000,
+					interval: "month",
+				},
+			],
+			metadata,
+		}),
+		T1 + 10_000,
+	);
+
+const refundOf = (invoiceId: string, id = "1") =>
+	chargeRefunded({
+		eventId: `evt_re_${id}`,
+		refundId: `re_${id}`,
+		chargeId: `ch_${invoiceId}`,
+		invoiceId,
+		amount: 26000,
+		chargeAmount: 26000,
+		at: T1 + 3_600_000,
+	});
+
+const sumsToZero = (e: AtmEvent) => {
+	const by = new Map<string, number>();
+	for (const p of e.postings)
+		by.set(p.commodity, (by.get(p.commodity) ?? 0) + Number(p.amount));
+	return [...by.values()].every((v) => Math.abs(v) < 1e-9);
+};
+
+describe("handleStripeEvent", () => {
+	test("a first payment: rows for the engine and the grants under one revision, and a labelled credit.granted", () => {
+		const s = store();
+		const r = create(s);
+		expect(r.refused).toBeUndefined();
+		expect(r.rowChanges).toMatchObject({
+			subjectKey: `${SCHOOL}|live|${HOLDER}`,
+			expectedRevision: 0,
+			nextRevision: 1,
+		});
+		const tables = new Set(r.rowChanges?.upserts.map((u) => u.table));
+		expect(tables.has(GRANTS_TABLE)).toBe(true);
+		expect(tables.has("customerEntitlements")).toBe(true);
+		expect(s.revision).toBe(1);
+		expect(grantsFromRows(s.rows).invoices.in_1?.granted).toHaveLength(1);
+		expect(s.avail(T0)).toBe(2);
+
+		expect(r.events.map((e) => e.event_type)).toEqual(["credit.granted"]);
+		const event = r.events[0] as AtmEvent;
+		expect(event.cause).toBe("evt_create");
+		expect(event.labels).toMatchObject({
+			menu_version: "3",
+			policy_version: "1",
+			mapping: "stripe/invoice.paid@v1",
+			feature: "visit",
+			plan: "sparkle-2@v3",
+		});
+		expect(event.text).toBe("granted 2 visit on sparkle-2@v3");
+		expect(sumsToZero(event)).toBe(true);
+	});
+
+	test("a replayed event decides nothing and writes nothing", () => {
+		const s = store();
+		create(s);
+		const again = create(s);
+		expect(again).toEqual({ rowChanges: null, events: [] });
+		expect(s.revision).toBe(1);
+	});
+
+	test("a renewal resets, rolls over, and every event names its cause", () => {
+		const s = store();
+		create(s);
+		const r = renew(s);
+		expect(r.rowChanges?.expectedRevision).toBe(1);
+		expect(r.rowChanges?.nextRevision).toBe(2);
+		expect(r.events.length).toBeGreaterThan(0);
+		for (const e of r.events) {
+			expect(e.cause).toBe("evt_cycle_2");
+			expect(e.labels.menu_version).toBe("3");
+			expect(sumsToZero(e)).toBe(true);
+		}
+		expect(s.avail(T1 + 20_000)).toBe(4);
+	});
+
+	test("a yearly grant on a monthly plan is booked by the reset that fills it", () => {
+		const s = store();
+		const r = create(s, "sparkle-4");
+		expect(
+			r.events.map((e) => [e.event_type, e.labels.feature, e.text]),
+		).toEqual([
+			["credit.granted", "visit", "granted 4 visit on sparkle-4@v3"],
+			["credit.granted", "retreat", "granted 1 retreat on sparkle-4@v3"],
+		]);
+		for (const e of r.events) expect(sumsToZero(e)).toBe(true);
+		expect(s.avail(T0, "retreat")).toBe(1);
+		expect(s.avail(T0, "visit")).toBe(4);
+	});
+
+	test("one mutation that moves two features is booked one event per feature, each balanced", () => {
+		const both = structuredClone(menu);
+		const tier = both.tiers.find(
+			(t) => t.id === "sparkle-4",
+		) as Menu["tiers"][number];
+		tier.grants = [
+			{ featureId: "visit", amount: 4, every: "month" },
+			{ featureId: "retreat", amount: 1, every: "month" },
+		];
+		const s = store(both);
+		const r = create(s, "sparkle-4");
+		expect(r.events.map((e) => [e.labels.feature, e.text])).toEqual([
+			["retreat", "granted 1 retreat on sparkle-4@v3"],
+			["visit", "granted 4 visit on sparkle-4@v3"],
+		]);
+		expect(new Set(r.events.map((e) => e.idem)).size).toBe(2);
+		expect(r.events.map((e) => e.idem)).toEqual([
+			expect.stringMatching(/^engine\.retreat:/),
+			expect.stringMatching(/^engine\.visit:/),
+		]);
+		for (const e of r.events) expect(sumsToZero(e)).toBe(true);
+		expect(s.avail(T0, "retreat")).toBe(1);
+		expect(s.avail(T0, "visit")).toBe(4);
+	});
+
+	test("a full refund takes the unused visits back, once", () => {
+		const s = store();
+		create(s);
+		const r = s.handle(refundOf("in_1"), T1);
+		expect(r.events.map((e) => e.event_type)).toEqual(["credit.adjusted"]);
+		expect(r.events[0]?.cause).toBe("evt_re_1");
+		expect(r.events[0]?.labels.mapping).toBe("stripe/charge.refunded@v1");
+		expect(s.avail(T0 + 1)).toBe(0);
+		expect(s.handle(refundOf("in_1"), T1)).toEqual({
+			rowChanges: null,
+			events: [],
+		});
+	});
+
+	test("a refund of the older invoice also takes its rolled-over leftovers", () => {
+		const s = store();
+		create(s);
+		renew(s);
+		expect(s.avail(T1 + 20_000)).toBe(4);
+		s.handle(refundOf("in_1"), T1 + 3_600_000);
+		expect(s.avail(T1 + 3_700_000)).toBe(2);
+	});
+
+	test("a lost dispute removes like a full refund; won or open does nothing", () => {
+		const s = store();
+		create(s);
+		const dispute = (status: "needs_response" | "won" | "lost", id: string) =>
+			disputeEvent({
+				type: "charge.dispute.closed",
+				eventId: `evt_dp_${id}`,
+				disputeId: `dp_${id}`,
+				chargeId: "ch_in_1",
+				invoiceId: "in_1",
+				status,
+				at: T1,
+			});
+		expect(s.handle(dispute("won", "a"), T1).rowChanges).toBeNull();
+		expect(s.avail(T0 + 1)).toBe(2);
+		const lost = s.handle(dispute("lost", "b"), T1);
+		expect(lost.events.map((e) => e.event_type)).toEqual(["credit.adjusted"]);
+		expect(s.avail(T0 + 1)).toBe(0);
+	});
+
+	test("a canceled subscription is a row write with no credit event; the visits then lapse on their own", () => {
+		const s = store();
+		create(s);
+		const r = s.handle(
+			subscriptionDeleted({
+				eventId: "evt_sub_del",
+				subscriptionId: "sub_1",
+				tierId: "sparkle-2",
+				interval: "month",
+				periodStart: T0,
+				periodEnd: T1,
+				at: T0 + 86_400_000,
+			}),
+			T0 + 86_400_000,
+		);
+		expect(r.events).toEqual([]);
+		expect(r.rowChanges?.nextRevision).toBe(2);
+		expect(s.avail(T0 + 2 * 86_400_000)).toBe(2);
+		expect(s.avail(D("2026-03-15T18:00:01Z"))).toBe(0);
+	});
+
+	test("a gift whose price says so is credited for the policy's months; a dollar gift is a grants-only write", () => {
+		const s = store();
+		const gift = (
+			lookupKey: string,
+			amount: number,
+			meta?: Record<string, string>,
+		) =>
+			invoicePaid({
+				eventId: "evt_gift",
+				invoiceId: "in_gift",
+				at: T0,
+				subscriptionId: null,
+				reason: "manual",
+				periodStart: T0,
+				periodEnd: T0,
+				lines: [{ lookupKey, amount, interval: null, priceMetadata: meta }],
+				metadata,
+			});
+		const r = s.handle(
+			gift(addonKey("gift-visit"), 13000, { b4u_gift: "sessions" }),
+			T0,
+		);
+		expect(r.events.map((e) => [e.event_type, e.labels.plan])).toEqual([
+			["credit.granted", "gift"],
+		]);
+		expect(s.avail(D("2026-07-14T00:00:00Z"))).toBe(1);
+		expect(s.avail(D("2026-07-16T00:00:00Z"))).toBe(0);
+
+		const dollars = store();
+		const d = dollars.handle(gift(addonKey("gift-dollars"), 5000), T0);
+		expect(d.events).toEqual([]);
+		expect(d.rowChanges?.upserts.map((u) => u.table)).toEqual([GRANTS_TABLE]);
+		expect(d.rowChanges?.nextRevision).toBe(1);
+		expect(
+			dollars.handle(gift(addonKey("gift-dollars"), 5000), T0).rowChanges,
+		).toBeNull();
+	});
+
+	test("one revision covers both: a write computed against another revision is stale", () => {
+		const s = store();
+		const changes = create(s).rowChanges;
+		if (!changes) throw new Error("expected a write");
+		expect(() =>
+			applyRowChanges({ rows: s.rows, revision: s.revision, changes }),
+		).toThrow(StaleRevision);
+	});
+
+	test("the same inputs give the same rows and events, byte for byte", () => {
+		const run = () => {
+			const s = store();
+			create(s);
+			renew(s);
+			s.handle(refundOf("in_1"), T1 + 3_600_000);
+			return JSON.stringify({
+				rows: s.rows,
+				events: s.events,
+				revision: s.revision,
+			});
+		};
+		expect(run()).toBe(run());
+	});
+
+	test("an empty store holds no grants state until the first payment", () => {
+		expect(grantsFromRows([])).toEqual(EMPTY_GRANTS_STATE);
+	});
+});
+
+describe("refusals", () => {
+	const input = (event: unknown) => ({
+		event,
+		eventId: "evt_x",
+		menu,
+		menuVersion: MENU_VERSION,
+		policy: DEFAULT_POLICY,
+		policyVersion: POLICY_VERSION,
+		rows: [] as BillingRow[],
+		revision: 0,
+		catalog: catalogRows,
+		now: T0,
+	});
+	const paid = () =>
+		invoicePaid({
+			eventId: "evt_x",
+			invoiceId: "in_x",
+			at: T0,
+			subscriptionId: "sub_1",
+			reason: "subscription_create",
+			periodStart: T0,
+			periodEnd: T1,
+			lines: [
+				{
+					lookupKey: tierKey("sparkle-2", "month"),
+					amount: 26000,
+					interval: "month",
+				},
+			],
+			metadata,
+		});
+	const refusedAs = (event: unknown) => {
+		const r = handleStripeEvent(input(event));
+		expect(r.rowChanges).toBeNull();
+		expect(r.events).toEqual([]);
+		return r.refused?.reason;
+	};
+
+	test("not an event, or an event type with no mapping, or a Stripe version we have no mapping for", () => {
+		expect(refusedAs("nope")).toBe("bad_event");
+		expect(refusedAs({ type: "invoice.paid" })).toBe("bad_event");
+		expect(
+			refusedAs({ type: "customer.created", api_version: "2025-10-29.clover" }),
+		).toBe("unknown_mapping");
+		expect(refusedAs({ ...paid(), api_version: "2099-01-01.future" })).toBe(
+			"unknown_mapping",
+		);
+	});
+
+	test("an event whose fields are not where the mapping says is refused", () => {
+		const event = paid();
+		event.data.object.period_start = "soon";
+		expect(refusedAs(event)).toBe("bad_event");
+	});
+
+	test("an invoice without the checkout metadata is refused, not guessed", () => {
+		const event = paid();
+		event.data.object.metadata = {};
+		expect(refusedAs(event)).toBe("missing_metadata");
+	});
+
+	test("money for one of our prices that the menu does not know is refused, not silently ignored", () => {
+		const event = paid();
+		event.data.object.lines.data[0].price.lookup_key =
+			"b4u_sch_vol_t_old_month_9900_usd";
+		expect(refusedAs(event)).toBe("unmatched_line");
+	});
+
+	test("a line that is not ours is left alone", () => {
+		const event = paid();
+		event.data.object.lines.data.push({
+			...structuredClone(event.data.object.lines.data[0]),
+			price: { id: "price_other", lookup_key: "other_thing", recurring: null },
+			amount: 1000,
+		});
+		const r = handleStripeEvent(input(event));
+		expect(r.refused).toBeUndefined();
+		expect(r.events).toHaveLength(1);
+	});
+
+	test("a refund or dispute for a family with no rows is nothing, not an error", () => {
+		const r = handleStripeEvent(input(refundOf("in_unknown")));
+		expect(r).toEqual({ rowChanges: null, events: [] });
+	});
+});

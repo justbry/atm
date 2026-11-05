@@ -632,6 +632,12 @@ const identityFrom = (
 	return { orgId, customerId: `family:${family}` };
 };
 
+/** Who an invoice's credits belong to: the school and the family named in its checkout metadata. Throws when it names neither. */
+export const invoiceHolder = (
+	invoice: BillingInvoice,
+): { orgId: string; customerId: string } =>
+	identityFrom(invoice, EMPTY_GRANTS_STATE);
+
 /**
  * The engine commands one paid invoice calls for, in order, and the state after them.
  *
