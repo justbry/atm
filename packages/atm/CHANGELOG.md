@@ -18,6 +18,7 @@ On `dev` after `atm-v0.8.0`, not released.
 |---|---|---|
 | #77 | `534a55f52` | a non-USD dispute that moved money is answered 200 `non_usd` and leaves a `money.skipped` marker (`kind: "dispute"`) |
 | #72 | `d186b73fc` | an end-to-end reconciliation matrix (tests and `docs/e2e-reconciliation.md` only, no source change): each case runs the handler, journal and `atm reconcile` against hand-computed numbers, and records six open discrepancies, D1 to D6 |
+| #PR | pending | no behaviour change: `handleStripeEvent` is now `normalizeStripeEvent` and `handleStripeFact`, with `replayFactOf` and `inputCauseId` beside them (internal; the first step of the stored-inputs work in `docs/simulate-from-inputs.md`); proved against the old path by 300 seeded histories and every recorded event |
 
 ## 0.8.0
 

@@ -71,7 +71,7 @@ const familyOf = (holder: Holder): string =>
 
 /** The one write of a booking decision: the grants row alone, one revision on. Engine rows are not touched. */
 const writeGrants = (
-	input: StripeEventInput,
+	input: Omit<StripeEventInput, "event">,
 	env: AtmEnv,
 	holder: Holder,
 	state: GrantsState,
@@ -108,7 +108,7 @@ const withBooking = (
 
 /** The labels of a booking's money lines: the versions and mapping every decision carries, and the booking's id. */
 const labelsOf = (
-	input: StripeEventInput,
+	input: Omit<StripeEventInput, "event">,
 	mapping: string,
 	bookingId: string,
 ): Record<string, string> => ({
@@ -132,7 +132,7 @@ export const decideCheckoutSession = ({
 	grants,
 	fact,
 }: {
-	input: StripeEventInput;
+	input: Omit<StripeEventInput, "event">;
 	env: AtmEnv;
 	grants: GrantsState;
 	fact: CheckoutSessionFact;
@@ -267,7 +267,7 @@ export const decideBookingRefund = ({
 	grants,
 	fact,
 }: {
-	input: StripeEventInput;
+	input: Omit<StripeEventInput, "event">;
 	env: AtmEnv;
 	grants: GrantsState;
 	fact: BillingRefund;

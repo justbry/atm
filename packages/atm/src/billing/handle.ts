@@ -29,9 +29,11 @@ import type {
 	GrantsState,
 	InvoiceLine,
 	Menu,
+	NormalizedStripeEvent,
 	StripeEventInput,
 	StripeEventRefusal,
 	StripeEventResult,
+	StripeFactInput,
 	StripePayout,
 	SubscriptionFact,
 } from "../types.js";
@@ -63,6 +65,7 @@ import {
 import {
 	describeNormalizeError,
 	mappingFor,
+	mappingLabel,
 	normalize,
 	resolveInvoice,
 	resolveSubscriptionPlan,
@@ -100,6 +103,9 @@ const nothing = (): StripeEventResult => ({ rowChanges: null, events: [] });
 
 const ULID = new RegExp(ULID_PATTERN);
 
+/** What the rules read from the caller's input: everything but the raw event, which they never see. */
+type FactInput = Omit<StripeEventInput, "event">;
+
 /** What the grant rules decide for a normalized fact, or why not. */
 type Decision =
 	| {
@@ -116,7 +122,7 @@ const BILLING_LINE_PREFIX = "b4u_";
 /** The menu applied to the invoice's lines; refuses one of ours that the menu does not know. */
 const resolve = (
 	invoice: BillingInvoice,
-	input: StripeEventInput,
+	input: FactInput,
 	holder: { orgId: string } | null,
 ): { ok: true; invoice: BillingInvoice } | { ok: false; message: string } => {
 	// Once the holder is known (an earlier invoice named it) the checkout metadata is not needed again.
@@ -148,7 +154,9 @@ const resolve = (
 };
 
 type Rules = {
-	input: StripeEventInput;
+	input: FactInput;
+	/** The event's `type`, which the raw event no longer carries here. */
+	type: string;
 	/** The input's `env`, resolved once at `handleStripeEvent`. */
 	env: AtmEnv;
 	/** Whose credits these are: the subject's holder, else the one the event names. */
@@ -160,7 +168,7 @@ type Rules = {
 /** A refund or dispute with the invoice its payment paid, found by the payment intent, else the charge. */
 const withInvoiceId = <T extends BillingRefund | BillingDispute>(
 	fact: T,
-	input: StripeEventInput,
+	input: FactInput,
 ): T => {
 	if (fact.invoiceId) return fact;
 	const invoiceId =
@@ -211,7 +219,7 @@ const otherTierMessage = (
 const decide = (
 	target: string,
 	fact: unknown,
-	{ input, env, grants, holder, subject }: Rules,
+	{ input, type, env, grants, holder, subject }: Rules,
 ): Decision | null => {
 	const common = {
 		menu: input.menu,
@@ -340,9 +348,7 @@ const decide = (
 				money: ours
 					? disputeEvents({
 							dispute,
-							closing:
-								(input.event as { type?: unknown }).type ===
-								"charge.dispute.closed",
+							closing: type === "charge.dispute.closed",
 							labels: result.labels,
 							booker: bookerOf(input, holder),
 							holder,
@@ -459,7 +465,7 @@ const eventsOf = ({
 	mutation: SubjectStateMutation;
 	before: SubjectState | null;
 	catalog: ReturnType<typeof toCatalog>;
-	input: StripeEventInput;
+	input: FactInput;
 	grants: GrantsState;
 	labels: Record<string, string>;
 	reason: string;
@@ -581,7 +587,7 @@ const planChangedOf = ({
 	labels,
 }: {
 	mutation: SubjectStateMutation;
-	input: StripeEventInput;
+	input: FactInput;
 	labels: Record<string, string>;
 }): AtmEvent =>
 	planChangedEvent({
@@ -598,37 +604,105 @@ const sameJson = (a: unknown, b: unknown) =>
 	JSON.stringify(a) === JSON.stringify(b);
 
 /**
+ * The mapping and normalization step of `handleStripeEvent`: reads the event's `type` and `api_version`, finds the mapping
+ * and normalizes the event into the fact the rules decide on. `eventId` becomes the fact's `source.eventId`. Pure.
+ */
+export const normalizeStripeEvent = (
+	event: unknown,
+	eventId: string,
+): NormalizedStripeEvent => {
+	const type = (event as { type?: unknown } | null)?.type;
+	const apiVersion = (event as { api_version?: unknown } | null)?.api_version;
+	if (typeof type !== "string" || typeof apiVersion !== "string")
+		return {
+			ok: false,
+			refusal: {
+				reason: "bad_event",
+				message: "the event has no type or api_version",
+			},
+		};
+	const mapping = mappingFor(type, apiVersion);
+	if (!mapping.ok)
+		return {
+			ok: false,
+			refusal: {
+				reason: "unknown_mapping",
+				message: describeNormalizeError(mapping.error),
+			},
+		};
+	const normalized = normalize(event, mapping.value, { eventId });
+	if (!normalized.ok)
+		return {
+			ok: false,
+			refusal: {
+				reason: "bad_event",
+				message: describeNormalizeError(normalized.error),
+			},
+		};
+	return {
+		ok: true,
+		target: mapping.value.target,
+		mappingLabel: mappingLabel(mapping.value),
+		apiVersion,
+		type,
+		fact: normalized.value,
+	};
+};
+
+const badEventId = (eventId: string): StripeEventResult =>
+	refuse(
+		"bad_event",
+		`eventId must be the stored input event's id, a ULID; got ${JSON.stringify(eventId)} (dedupe on Stripe's own id before this, do not pass it)`,
+	);
+
+/**
  * Handles one Stripe event for one subject. The caller passes the subject's rows and revision as stored and writes
- * `rowChanges` (when not null) and appends `events` in one transaction, after checking the revision.
+ * `rowChanges` (when not null) and appends `events` in one transaction, after checking the revision. It is
+ * `normalizeStripeEvent` and then `handleStripeFact`.
  */
 export const handleStripeEvent = (
 	input: StripeEventInput,
 ): StripeEventResult => {
+	const { event, ...rest } = input;
+	// Same order as before the split: a bad env throws, then the id is checked, then the event is read.
+	resolveEnv(input.env);
+	if (!ULID.test(input.eventId)) return badEventId(input.eventId);
+	const normalized = normalizeStripeEvent(event, input.eventId);
+	if (!normalized.ok)
+		return { rowChanges: null, events: [], refused: normalized.refusal };
+	return handleStripeFact({
+		...rest,
+		// A full fact is a ReplayFact with members the rules do not read.
+		fact: normalized.fact,
+		target: normalized.target,
+		type: normalized.type,
+		apiVersion: normalized.apiVersion,
+		mapping: normalized.mappingLabel,
+	});
+};
+
+/**
+ * `handleStripeEvent` from the step "decide" on, for a fact already normalized (or stored as a `ReplayFact`): the same
+ * rules, engine and result. `source` is rebuilt from `eventId`, `mapping` and `apiVersion`, so a stored fact need not
+ * keep it. The event `type` is passed because the dispute rule reads it and there is no raw event.
+ */
+export const handleStripeFact = (input: StripeFactInput): StripeEventResult => {
+	const { fact, target, type, apiVersion, mapping, ...rest } = input;
 	// Thrown, not refused: a bad env is the caller's code, not an event to retry. Resolved here once; the helpers below
 	// take the `AtmEnv`, never the raw option.
 	const env = resolveEnv(input.env);
 	// Every decision event names its input as `cause`, and the ledger's envelope takes only a ULID there.
-	if (!ULID.test(input.eventId))
-		return refuse(
-			"bad_event",
-			`eventId must be the stored input event's id, a ULID; got ${JSON.stringify(input.eventId)} (dedupe on Stripe's own id before this, do not pass it)`,
-		);
-	const type = (input.event as { type?: unknown } | null)?.type;
-	const apiVersion = (input.event as { api_version?: unknown } | null)
-		?.api_version;
-	if (typeof type !== "string" || typeof apiVersion !== "string")
-		return refuse("bad_event", "the event has no type or api_version");
-	const mapping = mappingFor(type, apiVersion);
-	if (!mapping.ok)
-		return refuse("unknown_mapping", describeNormalizeError(mapping.error));
-	const normalized = normalize(input.event, mapping.value, {
-		eventId: input.eventId,
-	});
-	if (!normalized.ok)
-		return refuse("bad_event", describeNormalizeError(normalized.error));
-
+	if (!ULID.test(input.eventId)) return badEventId(input.eventId);
+	const whole = {
+		source: {
+			eventId: input.eventId,
+			mapping,
+			stripeApiVersion: apiVersion,
+		},
+		...fact,
+	};
 	try {
-		return decideAndRun(input, env, mapping.value.target, normalized.value);
+		return decideAndRun(rest, env, type, target, whole);
 	} catch (error) {
 		return refuse(
 			"rejected",
@@ -639,7 +713,7 @@ export const handleStripeEvent = (
 
 /** A payout belongs to no family: it is booked for the school the caller names, and writes no rows. */
 const decidePayout = (
-	input: StripeEventInput,
+	input: FactInput,
 	payout: StripePayout,
 ): StripeEventResult => {
 	if (!input.school)
@@ -661,8 +735,9 @@ const decidePayout = (
 };
 
 const decideAndRun = (
-	input: StripeEventInput,
+	input: FactInput,
 	env: AtmEnv,
+	type: string,
 	target: string,
 	fact: unknown,
 ): StripeEventResult => {
@@ -718,6 +793,7 @@ const decideAndRun = (
 
 	const decision = decide(target, fact, {
 		input,
+		type,
 		env,
 		grants,
 		holder,
