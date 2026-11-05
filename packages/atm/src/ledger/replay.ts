@@ -442,7 +442,8 @@ export const replayEvents = ({
 				sliced: false,
 			};
 			const recorded = gathered.mutation;
-			let entry = cache.get(cmd.commandId);
+			const cacheKey = `${key}\u0000${cmd.commandId}`;
+			let entry = cache.get(cacheKey);
 			const current =
 				(states[key] as unknown as SubjectState | undefined) ?? null;
 			if (
@@ -513,7 +514,7 @@ export const replayEvents = ({
 					run.state as SubjectState,
 				) as unknown as AtmSubjectState;
 				entry = { mutation: run.mutation, before };
-				cache.set(cmd.commandId, entry);
+				cache.set(cacheKey, entry);
 			}
 			if (entry && !e.event_type.startsWith("plan.")) {
 				const named = payload.slice;

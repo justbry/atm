@@ -43,7 +43,9 @@ const payment = ({
 	start,
 	end,
 	invoice,
+	family = FAMILY,
 }: {
+	family?: string;
 	tierId: string;
 	reason: "subscription_create" | "subscription_cycle";
 	start: number;
@@ -70,10 +72,11 @@ const payment = ({
 				interval: "month",
 			},
 		],
-		metadata,
+		metadata: { ...metadata, family_id: family },
 	});
 
-const newStore = () => createStore({ menu, school: SCHOOL, family: FAMILY });
+const newStore = (family = FAMILY) =>
+	createStore({ menu, school: SCHOOL, family });
 
 describe("replaying the log the write path made", () => {
 	test("a sparkle-4 create replays to the live balances", () => {
@@ -171,6 +174,40 @@ describe("replaying the log the write path made", () => {
 			expect(e.postings).toEqual([]);
 			expect(e.cause).toMatch(/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
 		}
+	});
+
+	test("two subjects whose commands share a commandId replay on their own", () => {
+		const stores = ["fam_replay_a", "fam_replay_b"].map((family) => {
+			const store = newStore(family);
+			store.handle(
+				payment({
+					tierId: "sparkle-4",
+					reason: "subscription_create",
+					start: T0,
+					end: T1,
+					invoice: "in_1",
+					family,
+				}),
+				T0 + 10_000,
+			);
+			return store;
+		});
+		const [first, second] = stores;
+		const ids = (store: (typeof stores)[number]) =>
+			new Set(
+				store.events.map(
+					(e) => (e.payload.command as { commandId: string }).commandId,
+				),
+			);
+		expect([...ids(first)].some((id) => ids(second).has(id))).toBe(true);
+		const replayed = replayEvents({
+			events: [...first.events, ...second.events],
+			catalog: catalogRows,
+		});
+		for (const store of stores)
+			expect(engineRowsOf(replayed.snapshot.states[store.holder])).toBe(
+				engineRowsOf(store.engineState()),
+			);
 	});
 
 	test("a slice that names changes the mutation does not have is a ReplayError, not a crash", () => {
