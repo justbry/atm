@@ -15,10 +15,16 @@ The critical path. Simulation, corrections, the Parquet export, decoupling and t
   - [ ] Verify with real data: a tier change and a quantity change in one update; a raise on a yearly plan (grants 0 today); a decrease through a subscription schedule.
   - [x] A raise after a pending decrease compared against Stripe's old count and over-granted; it now compares against `GrantsState.quantity`, what the credits reflect (`membership.quantity` stays Stripe's).
   - [x] The raise rule is exported as pure functions, `prorationPair` and `raiseUnits`, and `invoiceToCommands` calls them, so the family service (which uses only `runEngineCommand`) reuses it instead of copying it (justbry/buzz-school#1285's stopgap, #1307's `raiseLots`). Still to do in `buzz-school`: replace that copy once this is released.
+  - [x] `portalConfigOf(menu, { products, prices })`: the billing portal configuration for a tier sold in quantities (a raise billed at once, a decrease at the renewal, quantity-only updates, cancel at the period end), matching the family service's own `portalFieldsOf` (justbry/buzz-school#1307) field for field. Not yet created in a real Stripe account: field names are from the API reference, not checked against a response. Still to do in `buzz-school`: replace `portalFieldsOf` with it.
 - [x] **Release 0.3.0**: tag `atm-v0.3.0` at `98f2488034e145260c3f9e8a2948160461665ef5` (2026-11-05), the tag-push workflow `Release atm` passed. Tarball `https://github.com/justbry/atm/releases/download/atm-v0.3.0/atm-0.3.0.tgz`, sha512 `sha512-nEBqWX7STue4O9U2bCrRr308yWgUkX8t+Cc2MPI4vgSTyv89lcdgOEMT1ASxCBx/Mksl8rbiS7e2dNTT1NIjOg==`. Built with bun 1.4.2 (the release script refuses another version). Still to do in `buzz-school`: pin it in `bun.lock`.
 - [ ] Verify webhook delivery at the pinned version: create a sandbox webhook endpoint with `api_version: "2025-10-29.clover"` that reaches a URL we control (the CLI's `listen` offers only the account default or the newest version), subscribed to the eight events in `UPGRADING.md`.
 - [ ] An atm test workflow in `.github/workflows`. Today no workflow runs atm's tests on a PR: `knip.yml` runs on PRs to main, staging and dev; `build.yml` runs on pushes to main, staging and dev (it type-checks, and builds the server image only on main or a manual dispatch); `release-atm.yml` runs on an `atm-v*` tag push and calls `release --ci`, which builds the package and runs `tests/dist.test.ts` against the built output.
 - [ ] The contract suite under Node (only Bun has run) and against staging R2 (never run).
+
+- [x] **Adoption by a caller with its own grants** (the family service's move onto `handleStripeEvent`, without regranting): `grantsStateFromCallerRows` builds a member's atm rows from `school_memberships` and `school_credit_lots`; a renewal after it is tested against the caller's rule (`tests/billing-adopt.test.ts`). Details and the list of what the rows do not carry in `UPGRADING.md`. Not released yet: it needs a version bump.
+  - [x] An event from another Stripe API version is refused with the endpoint's version and the fix (recreate it at `2025-10-29.clover`) rather than read in a second, unchecked shape.
+  - [ ] Owner decisions, from `UPGRADING.md`: the rollover cap (the caller has none), rollover months on the school's calendar against the UTC calendar (an hour at a clock change), what a lapsed cycle that is not renewed does, whether a yearly grant on a monthly plan (the retreat) should be restored (the caller's lot expires with the first month), and `invoiceIds` for payments made before the import.
+  - [ ] Try the import on a copy of the family service's database before any member is moved.
 
 ### In `buzz-school` (not atm; listed because atm's release waits on it)
 - [ ] Move the family service off its own grant rules (`school-billing/grant.ts`, which grants only on create and cycle invoices) onto atm's `handleStripeEvent` or the reference handler, pinned to `atm-v0.3.0`.
@@ -125,7 +131,7 @@ Written 2026-11-05 from memory of their public docs, not read or run; check a ro
 - Prepaid wallets and auto top-up (Lago, Flexprice): not built. The Autumn monorepo has an `auto-topup` package that atm does not use.
 - Other payment providers (Lago, Kill Bill, Flexprice): atm is Stripe only. Not planned.
 - Own subscription lifecycle (proration, trials, dunning, coupons): left to Stripe, see Ruled out.
-- Tax, invoice PDFs, customer portal, admin UI, REST API, multi-tenant auth: left to Stripe and the caller.
+- Tax, invoice PDFs, the customer portal itself (atm only builds the configuration for tiers sold in quantities: `portalConfigOf`), admin UI, REST API, multi-tenant auth: left to Stripe and the caller.
 - Revenue analytics (MRR and similar): only the ledger export; the Parquet export and any dashboard are not built.
 - Expiry alerts by the clock: see Alerts above.
 - Replay and rebuild from the log: see Review above; the largest functional gap against any engine that is event-sourced.

@@ -851,6 +851,15 @@ export type CheckoutParamsWithPrices = Omit<CheckoutParams, "line_items"> & {
 	];
 };
 
+/**
+ * The Stripe ids a portal configuration names, by the menu's own keys: `products["t:<tierId>"]` and
+ * `prices["t:<tierId>:<interval>"]` (the `key` and `productKey` of `menuToStripe`'s steps, and `tierPriceKey`).
+ */
+export type PortalConfigIds = {
+	products: Readonly<Record<string, string>>;
+	prices: Readonly<Record<string, string>>;
+};
+
 // ---- Membership status ----
 
 /**
@@ -1059,6 +1068,84 @@ export type RowChanges = {
 	nextRevision: number;
 	upserts: BillingRow[];
 	deletes: RowKey[];
+};
+
+// ---- Moving a caller that grants on its own onto `handleStripeEvent` ----
+
+/**
+ * A row of the B4 Uni family service's `school_memberships` (migrations 0131 and 0134), as `SELECT *` returns it.
+ * Instants are Unix SECONDS here (Stripe's own: `current_period_end`, `stripe_event_at`, `created_at`, `updated_at`).
+ * atm reads `school_id`, `family_id`, `tier_id`, `interval`, `addon_ids`, `quantity`, `stripe_subscription_id`,
+ * `status`, `current_period_end`, `cancel_at_period_end`, `stripe_event_at`, `created_at` and `updated_at`.
+ */
+export type CallerMembershipRow = {
+	id: string;
+	school_id: string;
+	family_id: string;
+	profile_id: string | null;
+	tier_id: string;
+	interval: Interval;
+	/** The add-ons bought with the tier, comma-separated menu ids; '' = none. */
+	addon_ids: string;
+	menu_version: number;
+	stripe_customer_id: string;
+	/** The count of the tier bought (1 to 50). */
+	quantity: number;
+	stripe_subscription_id: string;
+	status: "active" | "past_due" | "incomplete" | "canceled";
+	current_period_end: number | null;
+	/** 0 or 1 (SQLite has no boolean). */
+	cancel_at_period_end: number;
+	revision: number;
+	stripe_event_at: number | null;
+	created_at: number;
+	updated_at: number;
+};
+
+/**
+ * A row of the caller's `school_credit_lots` (migration 0131): one grant of one feature for one invoice, shaped as the
+ * engine's customer entitlement. Instants are Unix MILLISECONDS here (`expires_at`, `next_reset_at`, `created_at`,
+ * `removed_at`), unlike the membership's seconds. `created_at` is the time of the Stripe event that granted the lot.
+ */
+export type CallerCreditLotRow = {
+	id: string;
+	membership_id: string;
+	school_id: string;
+	feature_id: string;
+	invoice_id: string;
+	/** `tier` or `addon:<menu add-on id>`. */
+	source: string;
+	/** `once` for a one-time add-on; otherwise the grant's own interval on the menu. */
+	every: Interval | "once";
+	/** What the invoice put into the lot (already times the quantity, and times 12 for a monthly grant paid yearly). */
+	allowance: number;
+	/** When a refund or a lost dispute took the lot's unused credits back (once), else null. */
+	removed_at: number | null;
+	balance: number;
+	adjustment: number;
+	additional_balance: number;
+	/** The caller never sets it: a lot lasts until `expires_at`. */
+	next_reset_at: number | null;
+	expires_at: number | null;
+	created_at: number;
+};
+
+export type CallerRowsInput = {
+	/** The member's `school_memberships` row. */
+	membership: CallerMembershipRow;
+	/** Every `school_credit_lots` row of that membership, in any order. */
+	lots: readonly CallerCreditLotRow[];
+	/** The menu the membership's invoices are granted against. */
+	menu: Menu;
+	/** The instant of the import (ms): a lot past its `expires_at` then holds nothing. atm reads no clock. */
+	now: number;
+};
+
+/** A member's rows as atm keeps them: the engine rows and the grants row to write at one revision, and the grants state in them. */
+export type CallerRowsImport = {
+	state: GrantsState;
+	/** The engine rows (customer, products, credit rows, rollovers) and the `atm_grants` row, in canonical order. */
+	rows: BillingRow[];
 };
 
 /** Thrown by `assertRevision` and `applyRowChanges` when the stored revision is not the one a mutation was computed against: re-read, recompute, retry. */

@@ -76,22 +76,22 @@ const ORG = {
 // ---------------------------------------------------------------------------------------------------------------
 
 const featId = (feature: string) => `feat_${feature}`;
-const tierProductId = (tierId: string, interval: Interval) =>
+export const tierProductId = (tierId: string, interval: Interval) =>
 	`tier_${tierId}_${interval}`;
-const addonProductId = (addonId: string, every: string) =>
+export const addonProductId = (addonId: string, every: string) =>
 	`addon_${addonId}_${every}`;
 const internalProduct = (productId: string) => `prod_${productId}`;
 const entId = (productId: string, feature: string, interval: string) =>
 	`ent_${productId}_${feature}_${interval}`;
-const giftEntId = (feature: string) => `ent_gift_${feature}`;
-const onceEntId = (addonId: string, feature: string) =>
+export const giftEntId = (feature: string) => `ent_gift_${feature}`;
+export const onceEntId = (addonId: string, feature: string) =>
 	`ent_addon_${addonId}_once_${feature}`;
 const tierRowId = (feature: string, interval: string) =>
 	`ce_tier_${feature}_${interval}`;
 const addonRowId = (addonId: string, feature: string, interval: string) =>
 	`ce_addon_${addonId}_${feature}_${interval}`;
-const TIER_CP = "cp_tier";
-const addonCp = (addonId: string) => `cp_addon_${addonId}`;
+export const TIER_CP = "cp_tier";
+export const addonCp = (addonId: string) => `cp_addon_${addonId}`;
 const customerInternal = (customerId: string) => `cus_${customerId}`;
 
 /**
@@ -106,7 +106,7 @@ const effective = (
 		? { interval: "year", amount: g.amount * 12 }
 		: { interval: g.every, amount: g.amount };
 
-type RowSpec = {
+export type RowSpec = {
 	rowId: string;
 	entId: string;
 	productId: string;
@@ -164,7 +164,7 @@ const addonOf = (menu: Menu, addonId: string) => {
 	return a;
 };
 
-const tierSpecs = (menu: Menu, tierId: string, interval: Interval) =>
+export const tierSpecs = (menu: Menu, tierId: string, interval: Interval) =>
 	specsOf({
 		grants: tierOf(menu, tierId).grants,
 		plan: interval,
@@ -173,7 +173,7 @@ const tierSpecs = (menu: Menu, tierId: string, interval: Interval) =>
 	});
 
 /** A recurring add-on is billed on its own interval; its grants follow the same rule as a tier's. */
-const addonSpecs = (menu: Menu, addonId: string) => {
+export const addonSpecs = (menu: Menu, addonId: string) => {
 	const addon = addonOf(menu, addonId);
 	const every = addon.price.every;
 	if (every === "once") return [];
@@ -424,8 +424,10 @@ const labelsOf = (source: FactSource, v: Versions): GrantLabels => ({
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
 /** When a refill's leftovers lapse if the engine rolls them over at `boundary` (the end of the cycle that refilled the row). */
-const rolloverExpiry = (rollover: Rollover | undefined, boundary: number) =>
-	rollover ? addUtcMonths(boundary, rollover.months) : null;
+export const rolloverExpiry = (
+	rollover: Rollover | undefined,
+	boundary: number,
+) => (rollover ? addUtcMonths(boundary, rollover.months) : null);
 
 type HeldRollover = {
 	id: string;
@@ -480,7 +482,7 @@ const heldOf = (subject: AtmSubject | null): Map<string, Held> => {
 	return held;
 };
 
-type Op = Record<string, unknown>;
+export type Op = Record<string, unknown>;
 
 class Builder {
 	readonly commands: GrantCommand[] = [];
@@ -535,7 +537,7 @@ class Builder {
 	}
 }
 
-const customerRow = (customerId: string) => ({
+export const customerRow = (customerId: string) => ({
 	internal_id: customerInternal(customerId),
 	id: customerId,
 	config: null,
@@ -546,7 +548,7 @@ const customerRow = (customerId: string) => ({
 	processor: null,
 });
 
-const productOp = (
+export const productOp = (
 	cpId: string,
 	productId: string,
 	customerId: string,
@@ -571,7 +573,7 @@ const productOp = (
 	},
 });
 
-const rowOp = ({
+export const rowOp = ({
 	rowId,
 	cpId,
 	entitlementId,
