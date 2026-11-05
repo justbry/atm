@@ -12,7 +12,7 @@ cli *args:
 
 # Unit and integration tests; extra args go to bun test, e.g. just test tests/billing-grants.test.ts -t refund
 test *args:
-    bun test tests {{args}}
+    bun test {{ if args == "" { "tests" } else { args } }}
 
 # Typecheck
 ts:
