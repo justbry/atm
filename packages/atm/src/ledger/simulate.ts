@@ -324,9 +324,13 @@ const summaryOf = (
  * they are; where it decides another, the events are derived again from its mutation, each recorded event keeping its
  * feature, plan and slice (found again by table and row); a command it refuses (the engine throws, decides nothing, or
  * answers `rejected`) is listed with the reason, its events are not made, and the replay goes on from the state before it.
- * Events no command made are carried over as they are, except the cron's expiry of a row, which is judged again on the
- * candidate's row; and a row the candidate holds lapsed at `asOf` that the log's state does not is booked as expired at
- * its expiry, as the cron would have (rows lapsed in the middle of the log and removed by a later command are not). Nothing is written and the inputs are not changed.
+ * Where the decision is the log's but the candidate's rows are not (an earlier command was decided or refused otherwise),
+ * the events are derived again too: their postings follow the rows. Events no command made are carried over as they are,
+ * except the cron's expiry of a row, which is judged again on the candidate's row; and a row the candidate holds lapsed
+ * that the log's own rows at that point did not (a rollover the log's menu never made) is booked as expired at its expiry,
+ * as the cron would have, before the subject's next command (and at `asOf`). A row both sides hold lapsed is left as the
+ * log has it, booked or not. A refused command is not made up for: later commands of the subject run on a state the log
+ * never had. Nothing is written and the inputs are not changed.
  */
 export const simulate = (input: AtmSimulateInput): AtmSimulation => {
 	const { events, candidate } = input;
