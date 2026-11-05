@@ -1,11 +1,11 @@
 // usage: bun oneday.ts <rows> : every row on one event date, then the real shipOutbox (one batch per date)
 import { Database } from "bun:sqlite";
 import { mkdirSync, rmSync } from "node:fs";
-import { bunSqlite } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/src/handler/bun-sqlite.ts";
-import { HANDLER_DDL } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/src/handler/schema.ts";
-import { shipOutbox } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/src/ledger/ship.ts";
-import { FolderStore } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/src/store/folder-store.ts";
-import { generateUsage } from "/Users/jmac/repos/atm/.claude/worktrees/agent-a075e1757895893d6/packages/atm/tests/spikes/usage-events.ts";
+import { bunSqlite } from "<spike-branch-checkout>/packages/atm/src/handler/bun-sqlite.ts";
+import { HANDLER_DDL } from "<spike-branch-checkout>/packages/atm/src/handler/schema.ts";
+import { shipOutbox } from "<spike-branch-checkout>/packages/atm/src/ledger/ship.ts";
+import { FolderStore } from "<spike-branch-checkout>/packages/atm/src/store/folder-store.ts";
+import { generateUsage } from "<spike-branch-checkout>/packages/atm/tests/spikes/usage-events.ts";
 
 const W = "/tmp/atm-usage-pipeline/work";
 mkdirSync(W, { recursive: true });
