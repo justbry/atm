@@ -1,0 +1,3 @@
+date,event_type,idem,postings
+2026-01-15,payment.succeeded,stripe:in_1,"assets:stripe 87.09 USD | expenses:billing:stripe-fees 2.91 USD | income:billing:addon:pack -90.00 USD"
+2026-01-15,credit.granted,engine:01KF1D0X800000130YHE8YRFXX:1:granted,"credits:avail:family:fam_8k2:visit 1 VISIT | credits:issued:pack@v3 -1 VISIT"

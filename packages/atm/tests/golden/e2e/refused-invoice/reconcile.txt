@@ -1,0 +1,11 @@
+reconcile 2026-01 (America/Denver, live mode)
+invoice: Stripe 1, log 0
+refund: Stripe 0, log 0
+dispute: Stripe 0, log 0
+payout: Stripe 0, log 0
+fees: Stripe 1, log 0
+net: Stripe 1, log 0
+missing_in_log: invoice in_1: Stripe has 26000 usd on 2026-01-15, the log has no payment.succeeded [stripe 260.00, log none]
+not_in_log: fees: Stripe took 784 cents in fees; the log has no expenses:billing:stripe-fees or expenses:billing:dispute-fees postings [stripe 7.84, log none]
+amount_differs: net: Stripe's balance moved 26000 cents before fees (payouts apart), the log's assets:stripe postings 0 [stripe 260.00, log 0.00]
+3 difference(s)

@@ -1,0 +1,3 @@
+"txnidx","date","code","description","account","amount","total"
+"3","2026-01-17","01KF6HTB8000000XZBKEXJ5QSD","payment.disputed | dispute opened on 260 USD of charge ch_in_1, dispute fee 15 USD","expenses:billing:disputes","260.00 USD","260.00 USD"
+"4","2026-01-27","01KG09SH8000001WJGVW7GQK24","dispute.closed | dispute won","expenses:billing:disputes","-260.00 USD","0"

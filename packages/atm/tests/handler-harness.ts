@@ -117,15 +117,28 @@ export const payout = (over: Partial<Parameters<typeof payoutPaid>[0]> = {}) =>
 		...over,
 	});
 
+/** What the caller read from Stripe for an invoice's fee: a record by invoice id, or a function that may throw (a lookup that failed). */
+export type FeeLookup =
+	| Record<string, number | null>
+	| ((invoiceId: string) => number | null | undefined);
+
 /**
- * A live endpoint for the school; `fees` is what the caller read from Stripe for each invoice, by invoice id. `options.env`
- * makes it the school's test endpoint (events are sent with `livemode: false`), and `options.raw` puts it on a database
- * that already exists, so a live and a test endpoint can share one.
+ * A live endpoint for the school; `fees` is what the caller read from Stripe for each invoice. The matrix serves a second
+ * school with `school`, and the recorded sandbox deliveries with `env: "test"`, their own menu and their price ids.
+ * `options.env` makes it the school's test endpoint (events are sent with `livemode: false`), and `options.raw` puts it
+ * on a database that already exists, so a live and a test endpoint can share one.
  */
 export const harness = (
-	fees?: Record<string, number | null>,
-	options: { env?: AtmEnv; raw?: Database } = {},
+	fees?: FeeLookup,
+	options: {
+		school?: string;
+		menu?: Menu;
+		env?: AtmEnv;
+		priceIds?: Record<string, string>;
+		raw?: Database;
+	} = {},
 ) => {
+	const { school = SCHOOL, menu: served = menu, priceIds } = options;
 	const { env = "live" } = options;
 	const raw = options.raw ?? new Database(":memory:");
 	const db = bunSqlite(raw);
@@ -135,22 +148,24 @@ export const harness = (
 	const deps: WebhookDeps = {
 		db,
 		secret: SECRET,
-		schoolId: SCHOOL,
+		schoolId: school,
 		nowMs: () => clock.now,
 		workerId: "worker-a",
 		...(options.env === undefined ? {} : { env }),
 		context: () => ({
-			menu,
+			menu: served,
 			menuVersion: 3,
 			policy: DEFAULT_POLICY,
 			policyVersion: 1,
-			catalog: menuCatalogRows({ menu, school: SCHOOL, env }),
-			priceIds: Object.fromEntries(
-				[...menuLineItems(SCHOOL, menu).keys()].map((key) => [
-					key,
-					priceIdOf(key),
-				]),
-			),
+			catalog: menuCatalogRows({ menu: served, school, env }),
+			priceIds:
+				priceIds ??
+				Object.fromEntries(
+					[...menuLineItems(school, served).keys()].map((key) => [
+						key,
+						priceIdOf(key),
+					]),
+				),
 		}),
 		...(fees
 			? {
@@ -158,7 +173,9 @@ export const harness = (
 						const invoiceId = (event as { data: { object: { id: string } } })
 							.data.object.id;
 						asked.push(invoiceId);
-						return fees[invoiceId];
+						return typeof fees === "function"
+							? fees(invoiceId)
+							: fees[invoiceId];
 					},
 				}
 			: {}),

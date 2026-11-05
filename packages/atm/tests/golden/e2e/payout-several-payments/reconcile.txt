@@ -1,0 +1,8 @@
+reconcile 2026-01 (America/Denver, live mode)
+invoice: Stripe 3, log 3
+refund: Stripe 0, log 0
+dispute: Stripe 0, log 0
+payout: Stripe 1, log 1
+fees: Stripe 3, log 3
+net: Stripe 4, log 3
+no differences

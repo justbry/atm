@@ -1,0 +1,3 @@
+"txnidx","date","code","description","account","amount","total"
+"2","2026-11-05","01M6NSP1GG00000SDNQ033Y4EJ","payment.disputed | dispute opened on 260 USD of charge ch_3UYPRcScrubTest00xUWIO7u, dispute fee 15 USD","expenses:billing:disputes","260.00 USD","260.00 USD"
+"4","2026-11-05","01M6NSPG5800000GMVNBZGJ3GF","dispute.closed | dispute won","expenses:billing:disputes","-260.00 USD","0"
