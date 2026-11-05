@@ -59,7 +59,7 @@ Month grain (the event's local date). Money in cents, credits in units. Cash bas
 | Money | `gross_collected`, `revenue_by_kind:<kind>`, `revenue_by_tier:<tier>`, `refunds`, `disputes_lost`, `dispute_fees`, `stripe_fees`, `net_income`, `payouts` |
 | Counts | `payments_count`, `refunds_count`, `disputes_opened` |
 | Rates | `refund_rate`, `dispute_rate`, `breakage_rate`, `arpa` |
-| Members | `active_members` (billed in the month), `active_members_by_tier:<tier>`, `new_members` |
+| Members | `paying_members` (a membership payment booked in the month), `new_paying_members` |
 | Credits | `credits_granted`, `credits_consumed`, `credits_expired` |
 | Balances | `closing_balance_usd:<account>`, `closing_balance_credits:<account>` |
 
@@ -70,11 +70,12 @@ Add a KPI by adding it to `kpis/school.v1.json`; no channel code changes unless 
 The books are cash basis and carry no interval or period on a payment, so these cannot be derived the same way in every channel (or at all). They are not in the spec:
 
 - **Deferred revenue and accounts receivable**: no such accounts exist (owner decision open in `ROADMAP.md`, "Revenue is booked when the invoice is paid"). Inventing them here would make the parity meaningless.
-- **MRR (new, expansion, contraction, churned), ARR and logo churn**: they need a payment's interval (month or year) and period. `payment.succeeded` has neither, so a yearly payment is indistinguishable from a monthly one of the same size. `revenue_by_tier` and `active_members` are the cash-basis stand-ins, and a yearly member counts only in the month it is billed (the `annual-prepay` golden shows it: billed members fall to 0 in months with no renewal). A proposed fix, not made here: an `interval` (and `period_end`) label on `payment.succeeded`.
+- **MRR (new, expansion, contraction, churned), ARR and logo churn**: they need a payment's interval (month or year) and period. `payment.succeeded` has neither, so a yearly payment is indistinguishable from a monthly one of the same size. `revenue_by_tier` and `paying_members` are the cash-basis stand-ins, and a yearly member counts only in the month it is paid (the `annual-prepay` golden shows it: paying members fall to 0 in months with no renewal). A proposed fix, not made here: an `interval` (and `period_end`) label on `payment.succeeded`.
 - **Skipped non-USD lines as a KPI**: a `money.skipped` event has no postings, so it is not a journal transaction and hledger cannot count it. The count is kept in the golden (`skippedNonUsd`) and in the CLI's `stats`, from the fixture.
 
 ## Channel discrepancies found
 
+- **A renewal that moves nothing leaves no credit event.** When a renewal resets a balance to its allowance without raising it (the member used nothing, or the reset lands first), the engine's command moves no credits, so the log holds a `plan.changed` with no postings and no `credit.granted`. Members counted from credit grants fell to 0 in most months for a school that bills them every month; `paying_members` counts from `payment.succeeded` instead, and members on zero invoices are not countable at all after their first month. `credits_granted` is therefore top-ups, not allowances, and a monthly breakage rate (`credits_expired` / `credits_granted`) can pass 1. Found by rendering the first dashboard.
 - hledger drops every event without postings (`money.skipped`, `plan.changed`, `credit.expiration_changed`): any KPI over those would differ. See above.
 - The hledger channel cannot make hledger's regexes case-sensitive; it throws if a filter would match differently with and without case. A label value's comma or line break is a space in the journal (`journal.ts`), so a KPI keyed on such a label would differ from the raw event. Neither occurs in the fixtures.
 - hledger cannot add different commodities, so a `credits` sum over several credit features is added in TypeScript per cell. The demo school's three features are three commodities; this is exercised by every credit KPI.

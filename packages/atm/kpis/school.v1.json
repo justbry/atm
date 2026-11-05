@@ -235,71 +235,44 @@
 			}
 		},
 		{
-			"id": "active_members",
-			"title": "Billed members",
+			"id": "paying_members",
+			"title": "Paying members",
 			"unit": "count",
 			"precision": 0,
-			"definition": "Distinct holders granted credits by a plan in the month (a paying member or one on a zero invoice). A yearly member counts in the month it is billed only: the books hold no coverage period.",
+			"definition": "Distinct holders with a membership payment booked in the month. A yearly member counts in the month it is paid only (the books hold no coverage period), and a member on a zero invoice is not counted: a renewal that moves no money and no credit leaves no ledger event.",
 			"compute": {
 				"op": "distinct",
 				"where": {
-					"eventType": ["credit.granted"],
-					"label": {
-						"name": "plan",
-						"pattern": "."
-					}
+					"eventType": ["payment.succeeded"],
+					"account": "^income:billing:membership:"
 				}
 			}
 		},
 		{
-			"id": "active_members_by_tier",
-			"title": "Billed members by tier",
+			"id": "new_paying_members",
+			"title": "New paying members",
 			"unit": "count",
 			"precision": 0,
-			"definition": "Billed members, split by the tier of the plan that granted the credits. A member who changes tier in a month counts in each.",
+			"definition": "Holders whose first membership payment is in this month.",
 			"compute": {
 				"op": "distinct",
+				"first": true,
 				"where": {
-					"eventType": ["credit.granted"],
-					"label": {
-						"name": "plan",
-						"pattern": "."
-					}
-				},
-				"by": {
-					"from": "label:plan",
-					"pattern": "^([^@]+)@"
+					"eventType": ["payment.succeeded"],
+					"account": "^income:billing:membership:"
 				}
-			}
-		},
-		{
-			"id": "new_members",
-			"title": "New members",
-			"unit": "count",
-			"precision": 0,
-			"definition": "Holders whose first plan grant is in this month.",
-			"compute": {
-				"op": "distinct",
-				"where": {
-					"eventType": ["credit.granted"],
-					"label": {
-						"name": "plan",
-						"pattern": "."
-					}
-				},
-				"first": true
 			}
 		},
 		{
 			"id": "arpa",
-			"title": "Gross collected per billed member",
+			"title": "Gross collected per paying member",
 			"unit": "cents",
 			"precision": 2,
-			"definition": "Gross collected / billed members, in the month (cents, two decimals); 0 when there were no billed members.",
+			"definition": "Gross collected / paying members, in the month (cents, two decimals); 0 when there were no paying members.",
 			"compute": {
 				"op": "ratio",
 				"num": "gross_collected",
-				"den": "active_members"
+				"den": "paying_members"
 			}
 		},
 		{
@@ -307,7 +280,7 @@
 			"title": "Credits granted",
 			"unit": "count",
 			"precision": 0,
-			"definition": "Credit units issued by plans and gifts in the month.",
+			"definition": "Credit units issued to balances in the month by a plan or a gift. A renewal that resets a balance to its allowance without raising it issues nothing, so this is top-ups, not allowances.",
 			"compute": {
 				"op": "sum",
 				"commodity": "credits",

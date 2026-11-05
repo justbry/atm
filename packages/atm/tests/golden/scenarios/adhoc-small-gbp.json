@@ -23,7 +23,7 @@
     "feeFixedCents": 30
   },
   "fixtureHash": "c311e3cb665feadaaa7f3a4eec8dc4dcf2f78682ee9d5b572567f156aefd8a2f",
-  "kpisHash": "162082cf49925ffb6a105f7bb5c1df857ddb48bd38b6df8e6b6df68738ceb62c",
+  "kpisHash": "cf78cc8ff36d8bc32b793d14ccd1d2ef63552106a6302f6ed38f6a2d09822a6c",
   "events": 64,
   "periods": 3,
   "summary": {
@@ -37,11 +37,11 @@
     "payments_count": 0,
     "refunds_count": 0,
     "disputes_opened": 0,
-    "new_members": 5,
+    "new_paying_members": 0,
     "credits_granted": 21,
     "credits_consumed": 9,
     "credits_expired": 0,
-    "billed_members_last_period": 0
+    "paying_members_last_period": 0
   },
   "skippedNonUsd": 15
 }
