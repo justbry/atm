@@ -155,7 +155,8 @@ Usage that has already happened (post-hoc LLM tokens) cannot be un-served. Batch
 - A `reset` at the cycle end sets the row back to the grant (-30 becomes 1,000,000). `persist_free_overage` is off in `commandOrg`; turning it on gives 999,970.
 - The overage amount survives only in that mutation's `before` guard, and in the `reset` mutation payload.
 - `mutationToEvents` throws `"a reset cannot add more than it refills (-30)"` in both cases.
-- In `handleStripeEvent`, a throw inside `decideAndRun` becomes a refusal (`refuse("rejected", ...)`). The conclusion that a renewal invoice for a holder in overage is refused is inferred from this and the proven throw, not run end to end through the handler. Verify this before relying on overage rows.
+- In `handleStripeEvent`, a throw inside `decideAndRun` becomes a refusal (`refuse("rejected", ...)`).
+- **Verified (2026-11-05).** Run end to end through `handleStripeWebhook` with the recorded `schedule-decrease` deliveries and a holder at -30: the renewal `invoice.paid` is refused, 422 `refused` / `rejected`, "a reset cannot add more than it refills (-30)"; the claim is released, nothing is written, and Stripe's retries get the same answer until the row is no longer negative. The same holds with `spend_limits` `overage_limit: 20` (-20) and with a positive rollover or pack beside the negative tier row. A balance at zero or above renews. `persist_free_overage` cannot be turned on from the handler. Full result, variants and fix options: `docs/usage-metering.md` (spike 3, "A reset forgives overage"); test: `tests/overage-renewal.test.ts`.
 
 **Missing for a "report overage to a Stripe meter" job:**
 
