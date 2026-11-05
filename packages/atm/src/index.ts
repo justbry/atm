@@ -323,7 +323,7 @@ export const toStripeForm = (
 /**
  * The form fields for `POST /v1/billing_portal/configurations` that let a family change the quantity of a tier sold in
  * `quantities`: a raise billed at once (`always_invoice`, so its paid invoice grants the extra units), a decrease at the
- * renewal. Null when no public tier has several quantities (or none has its product published): the school's default
+ * renewal. Null when no public tier has several quantities (or none has its product and a price published): the school's default
  * portal applies. Pass the id of the configuration it makes as `configuration` on every portal session.
  */
 export const portalConfigOf = (

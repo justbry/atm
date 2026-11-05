@@ -430,36 +430,36 @@ export function withPriceIds(
  * the renewal (`decreasing_item_amount`) and grants nothing. Cancel stays at the period end; the payment method and the
  * invoice history are open.
  *
- * A tier is included when it is public, lists more than one count, and has its product in `ids.products`; a tier price
- * missing from `ids.prices` is left out of that tier's `prices`. Null when no tier qualifies. The configuration is marked
- * `metadata[b4u_key]=portal`.
+ * A tier is included when it is public, lists more than one count, has its product in `ids.products` and at least one of
+ * its prices in `ids.prices` (Stripe requires `prices` on every product); a tier price missing from `ids.prices` is left
+ * out of that tier's `prices`. Null when no tier qualifies. Stripe takes the quantity as a range, so a tier sold in
+ * `[1, 2, 4]` also lets a member pick 3 in the portal. The configuration is marked `metadata[b4u_key]=portal`.
  */
 export function portalConfigOf(
 	menu: Menu,
 	ids: PortalConfigIds,
 ): Record<string, string> | null {
-	const tiers = menu.tiers.filter(
-		(tier) =>
-			tier.public &&
-			quantitiesOf(tier).length > 1 &&
-			ids.products[`t:${tier.id}`],
-	);
-	if (tiers.length === 0) return null;
-	const products = tiers.map((tier) => {
+	const products = [];
+	for (const tier of menu.tiers) {
 		const counts = quantitiesOf(tier);
+		const product = ids.products[`t:${tier.id}`];
+		if (!tier.public || counts.length < 2 || !product) continue;
 		const prices = tier.prices
 			.map((price) => ids.prices[tierPriceKey(tier.id, price.interval)] ?? null)
 			.filter((priceId) => priceId !== null);
-		return {
-			product: ids.products[`t:${tier.id}`],
+		// Stripe requires `prices` on every product of a subscription update.
+		if (prices.length === 0) continue;
+		products.push({
+			product,
 			prices,
 			adjustable_quantity: {
 				enabled: true,
 				minimum: Math.min(...counts),
 				maximum: Math.max(...counts),
 			},
-		};
-	});
+		});
+	}
+	if (products.length === 0) return null;
 	return toStripeForm({
 		features: {
 			invoice_history: { enabled: true },

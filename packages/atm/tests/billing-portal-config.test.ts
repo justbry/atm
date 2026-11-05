@@ -54,10 +54,13 @@ function portalFieldsOf(
 		const q = quantitiesOf(t);
 		const k = `features[subscription_update][products][${i}]`;
 		f[`${k}[product]`] = ids.products[`t:${t.id}`] as string;
-		t.prices.forEach((p, j) => {
-			const price = ids.prices[`t:${t.id}:${p.interval}`];
-			if (price) f[`${k}[prices][${j}]`] = price;
-		});
+		// Dense indexes: Stripe refuses a form array with a gap.
+		t.prices
+			.map((p) => ids.prices[`t:${t.id}:${p.interval}`])
+			.filter((x): x is string => !!x)
+			.forEach((price, j) => {
+				f[`${k}[prices][${j}]`] = price;
+			});
 		f[`${k}[adjustable_quantity][enabled]`] = "true";
 		f[`${k}[adjustable_quantity][minimum]`] = String(Math.min(...q));
 		f[`${k}[adjustable_quantity][maximum]`] = String(Math.max(...q));
@@ -139,6 +142,9 @@ describe("portalConfigOf", () => {
 		const prices = { ...ids.prices };
 		delete prices["t:sparkle:month"];
 		const fields = portalConfigOf(MENU, { products: ids.products, prices });
+		expect(fields).toEqual(
+			portalFieldsOf(MENU, { products: ids.products, prices }),
+		);
 		expect(fields).toMatchObject({
 			"features[subscription_update][products][0][prices][0]":
 				"price_sparkle_year",
@@ -148,5 +154,41 @@ describe("portalConfigOf", () => {
 				"features[subscription_update][products][0][prices][1]"
 			],
 		).toBeUndefined();
+	});
+
+	test("a tier whose product is published but none of its prices is left out: Stripe requires prices on every product", () => {
+		const ids = idsFor(MENU);
+		const prices = Object.fromEntries(
+			Object.entries(ids.prices).filter(
+				([key]) => !key.startsWith("t:sparkle:"),
+			),
+		);
+		const fields = portalConfigOf(MENU, { products: ids.products, prices });
+		const form = fields as Record<string, string>;
+		const productIds = Object.entries(form)
+			.filter(([key]) => key.endsWith("[product]"))
+			.map(([, value]) => value);
+		expect(productIds).toEqual(["prod_shine", "prod_radiate"]);
+		for (const [key, value] of Object.entries(form))
+			if (key.endsWith("[product]")) {
+				const prefix = key.slice(0, -"[product]".length);
+				expect(form[`${prefix}[prices][0]`]).toBeDefined();
+				expect(value).not.toBe("prod_sparkle");
+			}
+	});
+
+	test("no tier has a published price: null, as when no product is published", () => {
+		const ids = idsFor(MENU);
+		expect(
+			portalConfigOf(MENU, { products: ids.products, prices: {} }),
+		).toBeNull();
+	});
+
+	test("the inputs are not changed", () => {
+		const menu = clone(MENU);
+		const ids = idsFor(menu);
+		const before = structuredClone({ menu, ids });
+		portalConfigOf(menu, ids);
+		expect({ menu, ids }).toEqual(before);
 	});
 });
