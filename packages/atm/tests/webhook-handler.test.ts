@@ -141,8 +141,11 @@ const refund = (invoiceId: string): RawEvent =>
 	});
 
 const recordedPaymentPath = `${import.meta.dir}/../fixtures/billing/stripe/recorded/invoice_payment.paid.json`;
-const recordedPayment = (): RawEvent =>
-	JSON.parse(readFileSync(recordedPaymentPath, "utf8"));
+// The recording is a sandbox event (`livemode: false`); this file's handlers are the default live env.
+const recordedPayment = (): RawEvent => ({
+	...JSON.parse(readFileSync(recordedPaymentPath, "utf8")),
+	livemode: true,
+});
 
 /** An `invoice_payment.paid` event in the recorded shape: the invoice, and the payment intent a test gives its payment. */
 const invoicePayment = (e: {

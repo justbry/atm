@@ -181,7 +181,12 @@ export const lapseEvent = (input: {
 /**
  * The `credit.depleted` events (payload `cause: "expired"`) for a feature whose credits ran out by the clock: its total
  * over every plan goes from above 0 to 0 or below at an instant rows lapsed. One event per instant, none when other
- * credits remain, no `credit.low`. Opt-in by calling it; `lapseEvent` is unchanged. Give it the state `lapsedRows` read.
+ * credits remain, no `credit.low`. Opt-in by calling it; `lapseEvent` is unchanged.
+ *
+ * `drawnAfter(instantMs)` is required: the units of the feature the holder drew after that instant and up to `atMs`,
+ * from the cron's ledger or journal (draws only). The state holds balances as of now, so a late run is judged with those
+ * draws added back; `() => 0` is right only when `state` is the state `lapsedRows` read, as of the lapse. Book the alert
+ * with a `revision` after the `credit.expired` events of the same instant: they share its time.
  */
 export const lapseAlertEvents = ({
 	state,
@@ -191,6 +196,7 @@ export const lapseAlertEvents = ({
 	featureOf: (internalFeatureId: string) => string | undefined;
 	feature: string;
 	atMs: number;
+	drawnAfter: (instantMs: number) => number;
 	key: string;
 	school: string;
 	tz: string;

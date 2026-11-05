@@ -454,12 +454,18 @@ describe("one rule per event type", () => {
 				expires_at: expiresAt,
 			});
 		};
-		const alerts = (state: SubjectState, atMs = T + 2 * DAY) =>
+		/** `() => 0` is the cron that read the state as of the lapse: nothing was drawn after it. */
+		const alerts = (
+			state: SubjectState,
+			atMs = T + 2 * DAY,
+			drawnAfter: (instantMs: number) => number = () => 0,
+		) =>
 			lapseAlertEvents({
 				state,
 				featureOf,
 				feature: "visit",
 				atMs,
+				drawnAfter,
 				key: identity.customerId,
 				school: SCHOOL,
 				tz: "America/Denver",
@@ -559,6 +565,64 @@ describe("one rule per event type", () => {
 			expect(expired.event_type).toBe("credit.expired");
 			expect(expired.idem).not.toBe(first[0]?.idem);
 			expect(expired.id).not.toBe(first[0]?.id);
+		});
+		test("a late cron: a draw from another live row after the lapse does not make a false credit.depleted", () => {
+			// Grant A holds 10 and lapses at T + DAY; grant B (no expiry) held 5, and the family drew all 5 at T + 2 DAY. At the
+			// lapse the family had 15 and kept 5. The cron runs at T + 3 DAY on the state it has now: A 10, B 0.
+			const state = lapseState(10);
+			addRow(state, "ce_kept", 0, null);
+			const drewAt = T + 2 * DAY;
+			const drawnAfter = (instantMs: number) => (instantMs < drewAt ? 5 : 0);
+			expect(alerts(state, T + 3 * DAY, drawnAfter)).toEqual([]);
+			// The state alone cannot tell: read as of the lapse (`() => 0`), it is a depletion from 10 to 0.
+			const [asOfLapse] = alerts(state, T + 3 * DAY, () => 0);
+			expect(asOfLapse?.payload).toMatchObject({
+				available: 0,
+				previous_available: 10,
+			});
+		});
+		test("a late cron: a true depletion is judged with only the draws after each instant added back", () => {
+			// A holds 4 and lapses at T + DAY; B held 5, lapses at T + 2 DAY, and the family drew 2 from it at T + 1.5 DAY, so B
+			// holds 3. At T + DAY the family had 9 and kept 5 (no event); at T + 2 DAY it had 3 and kept 0.
+			const state = lapseState(4);
+			addRow(state, "ce_pack", 3, T + 2 * DAY);
+			const drewAt = T + DAY + DAY / 2;
+			const asked: number[] = [];
+			const drawnAfter = (instantMs: number) => {
+				asked.push(instantMs);
+				return instantMs < drewAt ? 2 : 0;
+			};
+			const out = alerts(state, T + 3 * DAY, drawnAfter);
+			expect(out).toHaveLength(1);
+			expect(out[0]?.event_time).toBe(
+				new Date(T + 2 * DAY).toISOString().replace(".000", ""),
+			);
+			expect(out[0]?.payload).toMatchObject({
+				available: 0,
+				previous_available: 3,
+				cause: "expired",
+			});
+			expect(asked).toContain(T + DAY - 1);
+			expect(asked).toContain(T + 2 * DAY);
+		});
+		test("drawnAfter: a negative count is no draw; a count that is not finite, or no function, throws", () => {
+			const state = lapseState(2);
+			expect(alerts(state, T + 2 * DAY, () => -4)).toHaveLength(1);
+			expect(() => alerts(state, T + 2 * DAY, () => Number.NaN)).toThrow(
+				/drawnAfter\(\d+\) must be a finite number/,
+			);
+			expect(() =>
+				lapseAlertEvents({
+					state,
+					featureOf,
+					feature: "visit",
+					atMs: T + 2 * DAY,
+					key: identity.customerId,
+					school: SCHOOL,
+					tz: "America/Denver",
+					revision: 3,
+				} as unknown as Parameters<typeof lapseAlertEvents>[0]),
+			).toThrow(/drawnAfter must be a function/);
 		});
 	});
 	describe("credit.expiration_changed", () => {

@@ -89,6 +89,9 @@
  *   422 refused            `unmatched_line`, `missing_metadata`, `unknown_mapping`, `bad_event`, `rejected`;
  *                          and 422 `unknown_school` when `context` returns null: a human has to fix something
  *   422 school_mismatch    the event's school is not `deps.schoolId`
+ *   422 livemode_mismatch  the event's `livemode` disagrees with `deps.env` (a test-mode event to a live handler, or a
+ *                          live one to `env: "test"`); refused before any claim, nothing written. An event with no
+ *                          boolean `livemode` is not refused
  *   422 ambiguous_payment  a refund or dispute whose payment intent and charge lead to different subjects
  *
  * A refused event never keeps its claim, and nothing is written for it. What decides a refusal (the menu, the code's
@@ -751,6 +754,25 @@ const schoolMismatch = (
 	});
 
 /**
+ * The event's `livemode` against the handler's `env`, so a school that forgot `env: "test"` on its test endpoint does not
+ * write test events to the `|live|` subject. Null when they agree, or when the event carries no boolean `livemode` (an
+ * older hand-built fixture).
+ */
+const livemodeMismatch = (
+	deps: WebhookDeps,
+	event: StripeEvent,
+): WebhookResponse | null => {
+	const livemode = isObject(event.raw) ? event.raw.livemode : undefined;
+	const env = resolveEnv(deps.env);
+	if (typeof livemode !== "boolean" || livemode === (env === "live"))
+		return null;
+	return reply(422, "livemode_mismatch", {
+		stripeEventId: event.id,
+		message: `${event.id} is livemode=${livemode} but this handler is env "${env}"`,
+	});
+};
+
+/**
  * A type we do not map: answered and not recorded, so that once a later version maps it, the owner's re-send from the
  * dashboard is handled instead of answered `duplicate`.
  */
@@ -795,6 +817,8 @@ export const handleStripeWebhook = (
 				"the body is not a Stripe event (id, type, created, data.object)",
 		});
 	if (!HANDLED_TYPES.has(event.type)) return ignoreUnmapped(event);
+	const mismatched = livemodeMismatch(deps, event);
+	if (mismatched) return mismatched;
 
 	if (event.type === INVOICE_PAYMENT_EVENT) {
 		const claimed = claimEvent(deps, event.id);

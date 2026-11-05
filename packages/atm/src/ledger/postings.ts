@@ -968,17 +968,39 @@ export const lapseEvent = ({
 		revision,
 	});
 
-/** What `feature` holds in live rows and rollovers at `atMs`: a row with no expiry, or one that ends after it. */
+/** The units drawn after `atMs`, as the caller counted them: a negative count is no draw, and one that is not finite is an error. */
+const drawnSince = (
+	drawnAfter: (instantMs: number) => number,
+	atMs: number,
+): number => {
+	if (typeof drawnAfter !== "function")
+		throw new Error(
+			`lapseAlertEvents: drawnAfter must be a function, got ${String(drawnAfter)}`,
+		);
+	const drawn = drawnAfter(atMs);
+	if (typeof drawn !== "number" || !Number.isFinite(drawn))
+		throw new Error(
+			`lapseAlertEvents: drawnAfter(${atMs}) must be a finite number, got ${String(drawn)}`,
+		);
+	return Math.max(drawn, 0);
+};
+
+/**
+ * What `feature` held in live rows and rollovers at `atMs`: a row with no expiry, or one that ends after it, at its
+ * current balance, plus the units drawn after `atMs` (`drawnAfter(atMs)`) that the current balances no longer hold.
+ */
 const liveTotalAt = ({
 	state,
 	featureOf,
 	feature,
 	atMs,
+	drawnAfter,
 }: {
 	state: SubjectState;
 	featureOf: (internalFeatureId: string) => string | undefined;
 	feature: string;
 	atMs: number;
+	drawnAfter: (instantMs: number) => number;
 }): number => {
 	const own = state.customerEntitlements.filter(
 		(r) => featureOf(r.internal_feature_id) === feature,
@@ -988,7 +1010,7 @@ const liveTotalAt = ({
 	for (const r of own) if (isLive(r.expires_at, atMs)) total += r.balance;
 	for (const r of state.rollovers)
 		if (ids.has(r.cus_ent_id) && isLive(r.expires_at, atMs)) total += r.balance;
-	return total;
+	return total + drawnSince(drawnAfter, atMs);
 };
 
 /**
@@ -996,15 +1018,29 @@ const liveTotalAt = ({
  * `atMs`), the feature's total over every plan goes from above 0 just before it to 0 or below at it. Rows that lapse at
  * the same instant (two packs, a rollover and its grant) make one event, and a lapse that leaves other credits makes
  * none. There is no `credit.low` on a lapse. Opt-in by being called: `lapseEvent` makes the same `credit.expired`
- * events with or without it, so a cron that never calls this gets what it always got. Judged on `state` as the cron
- * found the lapse (the state it gives `lapsedRows`, before it books anything later). Idempotent on the holder key, the
+ * events with or without it, so a cron that never calls this gets what it always got. Idempotent on the holder key, the
  * feature and the instant, so a second run on the same state books nothing new.
+ *
+ * The state holds the balances now, not at the lapse, and records no draw times, so a cron that runs late would judge
+ * a past instant on credits the family has since drawn from another live row (grant A holds 10 and lapses at t1, grant
+ * B holds 5 with no expiry, the family draws 5 from B at t2 > t1: the truth at t1 is 15 down to 5, no event, but the
+ * state shows 0). `drawnAfter(instantMs)` closes that: it returns the units of this feature the holder drew after
+ * `instantMs` and up to `atMs`, which the cron reads from its ledger or journal, and each instant is judged with that
+ * many units added back to the current balances. It is required, not defaulted, because a default of 0 would keep the
+ * bug for a caller that did not think of it. Only draws count: a refund take-back, a reset or an admin edit after the
+ * instant is not added back unless the caller folds it into the number. A negative return counts as 0 and one that is
+ * not a finite number throws. `() => 0` is right only when `state` is as of the lapse (the state the cron gave
+ * `lapsedRows`, before it books anything later); on a later state it gives the wrong answer described above.
+ *
+ * The `credit.depleted` shares its `eventMs` with the `credit.expired` events of the same instant (`lapseEvent`), so
+ * book it with a `revision` after theirs: with the same time and revision their order is a hash tie.
  */
 export const lapseAlertEvents = ({
 	state,
 	featureOf,
 	feature,
 	atMs,
+	drawnAfter,
 	key,
 	school,
 	tz,
@@ -1016,6 +1052,8 @@ export const lapseAlertEvents = ({
 	featureOf: (internalFeatureId: string) => string | undefined;
 	feature: string;
 	atMs: number;
+	/** The units of `feature` the holder drew after this instant and up to `atMs` (draws only; see above). */
+	drawnAfter: (instantMs: number) => number;
 	key: string;
 	school: string;
 	tz: string;
@@ -1033,8 +1071,15 @@ export const lapseAlertEvents = ({
 			featureOf,
 			feature,
 			atMs: instant - 1,
+			drawnAfter,
 		});
-		const after = liveTotalAt({ state, featureOf, feature, atMs: instant });
+		const after = liveTotalAt({
+			state,
+			featureOf,
+			feature,
+			atMs: instant,
+			drawnAfter,
+		});
 		if (before <= 0 || after > 0) continue;
 		events.push(
 			buildEvent({

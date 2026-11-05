@@ -1452,7 +1452,8 @@ export type WebhookDeps = {
 	/**
 	 * The Stripe mode this endpoint receives, part of the subject key it writes (`<school>|<env>|family:<id>`). Default
 	 * `"live"`. A school with both a test and a live endpoint passes it so the two do not share a subject; build the
-	 * context's catalog with the same `env`. Anything else throws.
+	 * context's catalog with the same `env`. Anything else throws. A test-mode endpoint must pass `"test"`: an event whose
+	 * boolean `livemode` disagrees with `env` is refused with 422 `livemode_mismatch`, before any claim, and writes nothing.
 	 */
 	env?: AtmEnv;
 	/**
@@ -1481,8 +1482,9 @@ export type WebhookRequest = {
 
 /**
  * What the handler did with a delivery; `handleStripeWebhook`'s header lists the status for each. Among them:
- * `school_mismatch` (422) is an event for a school other than `WebhookDeps.schoolId`; `ambiguous_payment` (422) is a
- * refund or dispute whose payment intent and charge were indexed under different subjects.
+ * `school_mismatch` (422) is an event for a school other than `WebhookDeps.schoolId`; `livemode_mismatch` (422) is an
+ * event whose `livemode` disagrees with `WebhookDeps.env`; `ambiguous_payment` (422) is a refund or dispute whose
+ * payment intent and charge were indexed under different subjects.
  */
 export type WebhookOutcome =
 	| "applied"
@@ -1495,6 +1497,7 @@ export type WebhookOutcome =
 	| "unmatched_invoice"
 	| "unknown_school"
 	| "school_mismatch"
+	| "livemode_mismatch"
 	| "ambiguous_payment"
 	| "stale_revision"
 	| "refused";

@@ -1,7 +1,9 @@
 /**
  * The quantity raise as two pure functions, so a caller that has no `GrantsState` reuses the rule instead of copying it:
  * `prorationPair` reads Stripe's pair of proration lines, `raiseUnits` turns a raise into the units to grant.
- * `invoiceToCommands` calls both; there is one copy of the rule.
+ * `invoiceToCommands` calls the unchecked cores (`prorationPairUnchecked`, `raiseUnitsUnchecked`), so the webhook path never
+ * throws on a malformed Stripe value; the public checked functions are the ones `src/index.ts` exports. There is one copy
+ * of the rule.
  */
 import type {
 	BillingPolicy,
@@ -68,8 +70,14 @@ const assertOptionalInstant = (
 	);
 };
 
-/** Checks the arguments, and each proration line `isTierPrice` accepts; any other line is ignored, never validated. */
-const assertPairInput = <Line extends ProrationLine>(
+/** The lines of the tier's price that are prorations: the ones the selection looks at. */
+const acceptedLines = <Line extends ProrationLine>(
+	lines: readonly Line[],
+	isTierPrice: (line: Line) => boolean,
+): Line[] => lines.filter((l) => l.proration && isTierPrice(l));
+
+/** Checks the two arguments. */
+const assertPairArguments = <Line extends ProrationLine>(
 	lines: readonly Line[],
 	isTierPrice: (line: Line) => boolean,
 ): void => {
@@ -81,27 +89,87 @@ const assertPairInput = <Line extends ProrationLine>(
 		throw new Error(
 			`prorationPair: isTierPrice must be a function, got ${String(isTierPrice)}`,
 		);
-	for (const [index, line] of lines.entries()) {
-		if (!line.proration || !isTierPrice(line)) continue;
-		if (!(isFiniteNumber(line.quantity) && Number.isInteger(line.quantity)))
-			throw new Error(
-				`prorationPair: lines[${index}].quantity must be an integer, got ${String(line.quantity)}`,
-			);
-		if (!isFiniteNumber(line.amount))
+};
+
+const assertQuantity = (index: number, line: ProrationLine): void => {
+	if (!(isFiniteNumber(line.quantity) && Number.isInteger(line.quantity)))
+		throw new Error(
+			`prorationPair: lines[${index}].quantity must be an integer, got ${String(line.quantity)}`,
+		);
+};
+
+/**
+ * Checks what the selection compares on every accepted line: `amount` (its sign) and `periodStart` (which starts last).
+ * A line whose amount is not a number cannot be told from the raise, so its quantity is checked too, before the amount.
+ */
+const assertSelectionInput = <Line extends ProrationLine>(
+	lines: readonly Line[],
+	isTierPrice: (line: Line) => boolean,
+): void => {
+	for (const line of acceptedLines(lines, isTierPrice)) {
+		const index = lines.indexOf(line);
+		if (!isFiniteNumber(line.amount)) {
+			assertQuantity(index, line);
 			throw new Error(
 				`prorationPair: lines[${index}].amount must be a finite number, got ${String(line.amount)}`,
 			);
+		}
 		assertOptionalInstant(index, "periodStart", line.periodStart);
-		assertOptionalInstant(index, "periodEnd", line.periodEnd);
-		if (
-			line.periodStart !== undefined &&
-			line.periodEnd !== undefined &&
-			line.periodEnd < line.periodStart
-		)
-			throw new Error(
-				`prorationPair: lines[${index}].periodEnd (${line.periodEnd}) is before periodStart (${line.periodStart})`,
-			);
 	}
+};
+
+/** Checks what the result is built from on one chosen line (the charge, or the credit it paired with). */
+const assertChosenLine = (index: number, line: ProrationLine): void => {
+	assertQuantity(index, line);
+	assertOptionalInstant(index, "periodEnd", line.periodEnd);
+	if (
+		line.periodStart !== undefined &&
+		line.periodEnd !== undefined &&
+		line.periodEnd < line.periodStart
+	)
+		throw new Error(
+			`prorationPair: lines[${index}].periodEnd (${line.periodEnd}) is before periodStart (${line.periodStart})`,
+		);
+};
+
+/** The raise's charge line and the credit line that starts with it (if any). */
+const choosePair = <Line extends ProrationLine>(
+	lines: readonly Line[],
+	isTierPrice: (line: Line) => boolean,
+): { charge: Line; credit: Line | undefined } | null => {
+	const charge = raiseLine(lines, isTierPrice);
+	if (!charge) return null;
+	const credits = lines.filter(
+		(l) => l.proration && l.amount < 0 && isTierPrice(l),
+	);
+	const credit =
+		charge.periodStart === undefined
+			? credits[0]
+			: credits.find((l) => l.periodStart === charge.periodStart);
+	return { charge, credit };
+};
+
+const pairOf = (
+	charge: ProrationLine,
+	credit?: ProrationLine,
+): ProrationPair => ({
+	oldQuantity: credit ? credit.quantity : null,
+	newQuantity: charge.quantity,
+	start: charge.periodStart ?? null,
+	end: charge.periodEnd ?? null,
+});
+
+/**
+ * `prorationPair` without the input checks: what 0.3.0 did, for a caller on a path that must not throw (the webhook
+ * engine reads Stripe's data through this, and a throw there makes Stripe retry the same event for days). Garbage in
+ * gives the same garbage out as before.
+ */
+export const prorationPairUnchecked = <Line extends ProrationLine>(
+	lines: readonly Line[],
+	isTierPrice: (line: Line) => boolean,
+): ProrationPair | null => {
+	const chosen = choosePair(lines, isTierPrice);
+	return chosen ? pairOf(chosen.charge, chosen.credit) : null;
 };
 
 /**
@@ -118,31 +186,26 @@ const assertPairInput = <Line extends ProrationLine>(
  * `raiseUnits`: after a decrease that waits for the renewal, Stripe's count is lower than the one the credits still
  * reflect. Pass the quantity your credits reflect.
  *
- * Throws an `Error` naming the problem when `lines` is not an array, `isTierPrice` is not a function, or a proration line
- * `isTierPrice` accepts has a `quantity` that is not an integer, an `amount` that is not a finite number, a
- * `periodStart` or `periodEnd` that is neither undefined nor a finite number, or a `periodEnd` before its `periodStart`.
- * Lines that are not prorations, or that `isTierPrice` rejects, are ignored and never validated.
+ * Throws an `Error` naming the problem when `lines` is not an array or `isTierPrice` is not a function; when a proration
+ * line `isTierPrice` accepts has an `amount` that is not a finite number or a `periodStart` that is neither undefined
+ * nor a finite number (the selection compares those, on every such line); or when the line the result is built from (the
+ * charge, and the credit paired with it) has a `quantity` that is not an integer, a `periodEnd` that is neither
+ * undefined nor a finite number, or a `periodEnd` before its `periodStart`. An older pair that is not chosen is checked
+ * only for the first two, so a stale pair with a bad quantity or `periodEnd` does not make a valid raise throw. Lines
+ * that are not prorations, or that `isTierPrice` rejects, are ignored and never validated.
  */
 export const prorationPair = <Line extends ProrationLine>(
 	lines: readonly Line[],
 	isTierPrice: (line: Line) => boolean,
 ): ProrationPair | null => {
-	assertPairInput(lines, isTierPrice);
-	const charge = raiseLine(lines, isTierPrice);
-	if (!charge) return null;
-	const credits = lines.filter(
-		(l) => l.proration && l.amount < 0 && isTierPrice(l),
-	);
-	const credit =
-		charge.periodStart === undefined
-			? credits[0]
-			: credits.find((l) => l.periodStart === charge.periodStart);
-	return {
-		oldQuantity: credit ? credit.quantity : null,
-		newQuantity: charge.quantity,
-		start: charge.periodStart ?? null,
-		end: charge.periodEnd ?? null,
-	};
+	assertPairArguments(lines, isTierPrice);
+	assertSelectionInput(lines, isTierPrice);
+	const chosen = choosePair(lines, isTierPrice);
+	if (!chosen) return null;
+	assertChosenLine(lines.indexOf(chosen.charge), chosen.charge);
+	if (chosen.credit)
+		assertChosenLine(lines.indexOf(chosen.credit), chosen.credit);
+	return pairOf(chosen.charge, chosen.credit);
 };
 
 /** Two instants of one clock differ by far less than this factor; seconds against milliseconds differ by 1000. */
@@ -202,6 +265,27 @@ const assertRaiseInput = (input: RaiseUnitsInput): void => {
 };
 
 /**
+ * `raiseUnits` without the input checks: what 0.3.0 did, for the webhook engine, which must not throw on what Stripe
+ * sends. Garbage in gives the same garbage out as before.
+ */
+export const raiseUnitsUnchecked = ({
+	perUnit,
+	oldQuantity,
+	newQuantity,
+	at,
+	cycleStart,
+	cycleEnd,
+	policy,
+}: RaiseUnitsInput): number =>
+	upgradeUnits({
+		diff: (newQuantity - oldQuantity) * perUnit,
+		policy,
+		at,
+		start: cycleStart,
+		end: cycleEnd,
+	});
+
+/**
  * The units a raise of the quantity grants: (new - old) x `perUnit` x the share of the cycle left at `at`, rounded up,
  * per `policy.upgradeGrant` (`prorated`: the share; `full`: all of the difference; `none`: 0). The same count or a
  * decrease gives 0. Without a cycle (either end null, or an empty one) the whole difference is granted; a raise at or
@@ -217,20 +301,5 @@ const assertRaiseInput = (input: RaiseUnitsInput): void => {
  */
 export const raiseUnits = (input: RaiseUnitsInput): number => {
 	assertRaiseInput(input);
-	const {
-		perUnit,
-		oldQuantity,
-		newQuantity,
-		at,
-		cycleStart,
-		cycleEnd,
-		policy,
-	} = input;
-	return upgradeUnits({
-		diff: (newQuantity - oldQuantity) * perUnit,
-		policy,
-		at,
-		start: cycleStart,
-		end: cycleEnd,
-	});
+	return raiseUnitsUnchecked(input);
 };

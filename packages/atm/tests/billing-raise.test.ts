@@ -361,6 +361,56 @@ describe("prorationPair", () => {
 		});
 	});
 
+	test("an older pair that is not the raise is not validated beyond what the selection compares", () => {
+		const earlier = TEN_DAYS_IN - 3 * DAY;
+		const stale = [
+			credit(Number.NaN, {
+				amount: -4000,
+				periodStart: earlier,
+				periodEnd: Number.NaN,
+			}),
+			charge(2.5, { periodStart: earlier, periodEnd: earlier - DAY }),
+		];
+		const wanted = {
+			oldQuantity: 2,
+			newQuantity: 3,
+			start: TEN_DAYS_IN,
+			end: CYCLE_END,
+		};
+		expect(prorationPair([...stale, credit(2), charge(3)], isShine)).toEqual(
+			wanted,
+		);
+		expect(prorationPair([credit(2), charge(3), ...stale], isShine)).toEqual(
+			wanted,
+		);
+	});
+
+	test("the chosen charge and the credit paired with it are validated; a stale line's periodStart and amount still are, because the selection compares them", () => {
+		const earlier = TEN_DAYS_IN - 3 * DAY;
+		expect(() => prorationPair([credit(2.5), charge(4)], isShine)).toThrow(
+			/lines\[0\]\.quantity/,
+		);
+		expect(() =>
+			prorationPair([credit(2, { periodEnd: Number.NaN }), charge(4)], isShine),
+		).toThrow(/lines\[0\]\.periodEnd/);
+		expect(() =>
+			prorationPair(
+				[credit(4, { periodStart: Number.NaN }), credit(2), charge(3)],
+				isShine,
+			),
+		).toThrow(/lines\[0\]\.periodStart/);
+		expect(() =>
+			prorationPair(
+				[
+					credit(4, { periodStart: earlier, amount: Number.NaN }),
+					credit(2),
+					charge(3),
+				],
+				isShine,
+			),
+		).toThrow(/lines\[0\]\.amount/);
+	});
+
 	test("takes lines a caller built from raw Stripe, not only InvoiceLine", () => {
 		type RawLine = ProrationLine & { priceId: string };
 		const raw: RawLine[] = [
@@ -549,6 +599,84 @@ describe("invoiceToCommands grants what the two functions say", () => {
 			const result = changeTo(4);
 			expect(result.state.quantity).toBe(4);
 			expect(visitUnits(result)).toEqual([6]);
+		});
+	});
+
+	describe("the webhook engine never throws on a malformed proration (the public checks are not on its path)", () => {
+		const created = invoiceToCommands({
+			invoice: invoice("in_1", "subscription_create", CYCLE_START, [
+				tierLine({ amount: 4000 }),
+			]),
+			menu,
+			policy: DEFAULT_POLICY,
+			state: EMPTY_GRANTS_STATE,
+			now: CYCLE_START,
+			menuVersion: 1,
+			policyVersion: 1,
+		});
+		const raiseWith = (chargeOver: Partial<InvoiceLine>) => {
+			const lines = [
+				tierLine({
+					proration: true,
+					quantity: 2,
+					amount: -2000,
+					periodStart: TEN_DAYS_IN,
+				}),
+				tierLine({
+					proration: true,
+					quantity: 4,
+					amount: 4000,
+					periodStart: TEN_DAYS_IN,
+					...chargeOver,
+				}),
+			];
+			const run = () =>
+				invoiceToCommands({
+					invoice: invoice("in_2", "subscription_update", TEN_DAYS_IN, lines),
+					menu,
+					policy: DEFAULT_POLICY,
+					state: created.state,
+					now: TEN_DAYS_IN,
+					menuVersion: 1,
+					policyVersion: 1,
+				});
+			return { lines, run };
+		};
+
+		test("a charge line with a quantity that is not an integer", () => {
+			const { lines, run } = raiseWith({ quantity: 2.5 });
+			expect(() => prorationPair(lines, (l) => l.kind === "tier")).toThrow(
+				/quantity/,
+			);
+			expect(run).not.toThrow();
+		});
+
+		test("a charge line whose periodEnd is before its periodStart", () => {
+			const { lines, run } = raiseWith({ periodEnd: CYCLE_START });
+			expect(() => prorationPair(lines, (l) => l.kind === "tier")).toThrow(
+				/before periodStart/,
+			);
+			expect(run).not.toThrow();
+		});
+
+		test("a charge line whose periodStart is in seconds against a cycle in milliseconds", () => {
+			const { run } = raiseWith({ periodStart: TEN_DAYS_IN / 1000 });
+			expect(run).not.toThrow();
+		});
+
+		test("a well-formed raise still grants what raiseUnits says", () => {
+			const { run } = raiseWith({});
+			expect(run().state.invoices.in_2?.granted.map((g) => g.units)).toEqual([
+				raiseUnits({
+					perUnit: 2,
+					oldQuantity: 2,
+					newQuantity: 4,
+					at: TEN_DAYS_IN,
+					cycleStart: CYCLE_START,
+					cycleEnd: CYCLE_END,
+					policy: DEFAULT_POLICY,
+				}),
+			]);
 		});
 	});
 });
