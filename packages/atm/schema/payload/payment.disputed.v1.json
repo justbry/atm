@@ -1,0 +1,21 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://b4uni.com/_schema/payload/payment.disputed.v1.json",
+	"title": "payment.disputed payload v1",
+	"description": "A Stripe dispute opened.",
+	"type": "object",
+	"required": ["id", "amount"],
+	"properties": {
+		"id": {
+			"type": "string",
+			"minLength": 1
+		},
+		"amount": {
+			"type": "integer",
+			"minimum": 1
+		},
+		"reason": {
+			"type": "string"
+		}
+	}
+}

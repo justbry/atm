@@ -1,0 +1,22 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://b4uni.com/_schema/payload/payout.paid.v1.json",
+	"title": "payout.paid payload v1",
+	"description": "A Stripe payout.",
+	"type": "object",
+	"required": ["id", "amount"],
+	"properties": {
+		"id": {
+			"type": "string",
+			"minLength": 1
+		},
+		"amount": {
+			"type": "integer",
+			"minimum": 1
+		},
+		"currency": {
+			"type": "string",
+			"minLength": 1
+		}
+	}
+}

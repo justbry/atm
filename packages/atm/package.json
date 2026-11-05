@@ -22,11 +22,14 @@
 		"atm": "bun ./src/bin.ts",
 		"build": "bun ./build.ts",
 		"test": "bun test tests",
-		"ts": "tsc --noEmit"
+		"ts": "tsc --noEmit",
+		"fixtures": "bun ./fixtures/generate.ts",
+		"schema": "bun ./schema/build.ts"
 	},
 	"dependencies": {
 		"@autumn/balance-engine": "workspace:*",
-		"commander": "14.0.3"
+		"commander": "14.0.3",
+		"ajv": "8.20.0"
 	},
 	"devDependencies": {
 		"@types/bun": "1.4.2",

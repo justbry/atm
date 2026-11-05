@@ -26,6 +26,17 @@ const decision: AtmCheckResult = runEngineCommand({ subject, command }); // comm
 - The result type follows `command.type`: `AtmCheckResult` for `check`, `AtmMutation` (row changes guarded by `revision.before`) for `finalize` and `confirmExpiredLock`, `AtmMutation | null` for `reset` and `updateBalance` (null when nothing moves), `AtmMutation` for `track` and `deleteBalance`.
 - Inside this workspace, Bun imports the source (`exports` condition `bun`); anywhere else, the built files.
 
+## Billing
+
+Pure rules for a school's menu, its Stripe facts, credit grants and storage rows. No I/O, no clock: every function takes its time and state as arguments, so the family service only does I/O around them (read rows, call Stripe, write rows) and the same input always gives the same output.
+
+- Policy: `DEFAULT_POLICY`, `resolvePolicy` (a school's overrides over the defaults).
+- Menu: `validateMenu`, `publishProblems`, `publicMenu`, `validTimeZone`, `MAX_TIERS`, `MAX_ADDONS`, `MAX_FEATURES`.
+- Menu to Stripe: `menuToStripe` (idempotent steps that make Stripe match a menu), `checkoutParams`, `withPriceIds`, `toStripeForm`, `lookupKeyOf`.
+- Stripe events to facts: `normalize`, `mappingFor`, `mappingLabels`, `MAPPINGS` (declarative mappings in `schema/mapping/`, bundled; regenerate the index with `bun schema/mapping/build.ts`), `resolveLines`, `resolveInvoice`, `redactPersonal`, `subscriptionStatus`.
+- Facts to credits: `menuCatalogRows`, `invoiceToCommands`, `refundToCommands`, `disputeToCommands`, `EMPTY_GRANTS_STATE`, then `runOnState` to run the commands (an invoice makes an `applyBillingPlan`, which `runEngineCommand` does not run).
+- Storage rows: `subjectKey`, `subjectFromRows`, `rowChangesFromMutation`, `applyRowChanges`, `stateFromRows`, `rowsFromState`, `ROW_TABLES`, `assertRevision`, `StaleRevision`.
+
 ## Build
 
 ```bash
@@ -35,9 +46,17 @@ bun run --cwd packages/atm build   # or: bun build.ts <outDir>
 | File | What |
 |---|---|
 | `dist/atm.js` | the CLI, one file, engine bundled (about 2 MB) |
-| `dist/index.js` | the library, one ESM file, engine bundled; runs under Bun and Node with no `node_modules` |
+| `dist/index.js` | the library (about 2.3 MB), one ESM file, engine, ajv and the JSON schemas and mappings bundled; runs under Bun and Node with no `node_modules` |
 | `dist/index.d.ts`, `dist/types.d.ts` | the library's types; they import nothing else (the build fails if they would) |
 
 The public types (`src/types.ts`) are atm's own JSON shapes, not the engine's zod types, so a consumer needs no engine, zod or `@autumn/shared` types. `tests/types.test.ts` stops compiling if the engine's types stop fitting them; `tests/dist.test.ts` builds into an empty directory and typechecks and runs the result there.
 
-Next, from the B4 Uni ledger spec: `journal`, `parity`, `replay`, `verify`, `plans push`, `inbox check`, `load`. Provenance and changes to upstream: `../../UPSTREAM.md`.
+## Ledger (slices 1-5)
+
+- `atm journal --root <folder> --school <id> --month YYYY-MM`: events under `<folder>/schools/<id>/events/` to `ledger/b4u/YYYY-MM.journal`, `ledger/accounts.journal`, `main.journal`, `ledger/build.json`; a file is rewritten only if its bytes change.
+- Library: `mutationToEvents`, `ledgerEvent`, `lapsedRows`/`lapseEvent`, `validateEvent`, `replayEvents`, `buildJournal`.
+- `schema/`: `envelope.v1.json`, `payload/<event_type>.v1.json`, `duckdb/envelope.v1.sql` (regenerate with `bun run schema`).
+- `fixtures/`: a seeded year of one member (`bun run fixtures -- --seed 1 --out <dir>`); `fixtures/vibes-year` is seed 1.
+- The engine reads the process time zone for rollover expiry; ledger runs pin UTC around each engine call.
+
+Next, from the B4 Uni ledger spec: `parity`, `verify`, `plans push`, `inbox check`, `load`. Provenance and changes to upstream: `../../UPSTREAM.md`.

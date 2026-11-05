@@ -1,0 +1,40 @@
+{
+	"source": {
+		"eventId": "evt_in_p",
+		"mapping": "stripe-2026-10-28@1",
+		"stripeApiVersion": "2026-10-28"
+	},
+	"id": "in_p",
+	"customerId": "cus_1",
+	"subscriptionId": "sub_1",
+	"reason": "subscription_create",
+	"currency": "usd",
+	"amountPaid": 44000,
+	"paidAt": 1768500005000,
+	"periodStart": 1768500000000,
+	"periodEnd": 1771178400000,
+	"lines": [
+		{
+			"kind": "tier",
+			"tierId": "sparkle-2",
+			"interval": "month",
+			"quantity": 1,
+			"proration": false,
+			"amount": 26000,
+			"periodStart": 1768500000000,
+			"periodEnd": 1771178400000
+		},
+		{
+			"kind": "addon",
+			"addonId": "pack",
+			"interval": null,
+			"quantity": 2,
+			"proration": false,
+			"amount": 18000
+		}
+	],
+	"metadata": {
+		"b4u_school": "sch_vol",
+		"family_id": "fam_8k2"
+	}
+}

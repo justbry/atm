@@ -1,0 +1,51 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://b4uni.com/_schema/payload/credit.forfeited.v1.json",
+	"title": "credit.forfeited payload v1",
+	"description": "A hold forfeited (no-show, late cancel). held is the units the lock held, for an expired lock whose mutation does not say.",
+	"type": "object",
+	"required": ["command", "mutation"],
+	"properties": {
+		"command": {
+			"type": "object",
+			"required": ["type", "commandId", "occurredAt"],
+			"properties": {
+				"type": {
+					"type": "string",
+					"minLength": 1
+				},
+				"commandId": {
+					"type": "string",
+					"minLength": 1
+				},
+				"occurredAt": {
+					"type": "integer"
+				}
+			}
+		},
+		"mutation": {
+			"type": "object",
+			"required": ["id", "revision", "changes", "result"],
+			"properties": {
+				"id": {
+					"type": "string",
+					"minLength": 1
+				},
+				"revision": {
+					"type": "object",
+					"required": ["before", "after"]
+				},
+				"changes": {
+					"type": "array"
+				},
+				"result": {
+					"type": "object"
+				}
+			}
+		},
+		"held": {
+			"type": "integer",
+			"minimum": 1
+		}
+	}
+}

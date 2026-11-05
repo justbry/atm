@@ -1,0 +1,149 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://b4uni.com/_schema/envelope.v1.json",
+	"title": "School ledger event, envelope v1",
+	"type": "object",
+	"additionalProperties": false,
+	"required": [
+		"v",
+		"id",
+		"school",
+		"source",
+		"event_type",
+		"event_time",
+		"ingest_time",
+		"date",
+		"tz",
+		"key",
+		"labels",
+		"idem",
+		"text",
+		"postings",
+		"payload"
+	],
+	"properties": {
+		"v": {
+			"const": 1
+		},
+		"id": {
+			"type": "string",
+			"pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$",
+			"description": "A ULID; the hledger transaction code."
+		},
+		"school": {
+			"type": "string",
+			"minLength": 1
+		},
+		"source": {
+			"type": "string",
+			"minLength": 1,
+			"description": "family, stripe, zeffy, cron, admin, ..."
+		},
+		"event_type": {
+			"enum": [
+				"payment.succeeded",
+				"payment.refunded",
+				"payment.disputed",
+				"dispute.closed",
+				"payout.paid",
+				"plan.attached",
+				"plan.changed",
+				"plan.canceled",
+				"credit.granted",
+				"credit.held",
+				"credit.released",
+				"credit.spent",
+				"credit.refunded",
+				"credit.forfeited",
+				"credit.expired",
+				"credit.adjusted",
+				"fundraise.received",
+				"fundraise.paid_out",
+				"subject.erased",
+				"share.charged",
+				"referral.qualified",
+				"referral.rewarded",
+				"catalog.published"
+			]
+		},
+		"event_time": {
+			"type": "string",
+			"format": "date-time",
+			"description": "UTC instant, ISO 8601 with Z."
+		},
+		"ingest_time": {
+			"type": "string",
+			"format": "date-time"
+		},
+		"date": {
+			"type": "string",
+			"format": "date",
+			"description": "event_time in tz, set once at write."
+		},
+		"tz": {
+			"type": "string",
+			"minLength": 1,
+			"description": "IANA zone."
+		},
+		"key": {
+			"type": "string",
+			"minLength": 1,
+			"description": "The timeline: the Autumn customer id."
+		},
+		"labels": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "string"
+			}
+		},
+		"idem": {
+			"type": "string",
+			"minLength": 1,
+			"description": "Unique per school."
+		},
+		"cause": {
+			"type": "string",
+			"pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+		},
+		"text": {
+			"type": "string"
+		},
+		"postings": {
+			"type": "array",
+			"items": {
+				"$ref": "#/$defs/posting"
+			}
+		},
+		"payload": {
+			"type": "object"
+		},
+		"redacted": {
+			"type": "object"
+		}
+	},
+	"$defs": {
+		"decimal": {
+			"type": "string",
+			"format": "decimal",
+			"description": "A decimal string, never a float."
+		},
+		"posting": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": ["account", "amount", "commodity"],
+			"properties": {
+				"account": {
+					"type": "string",
+					"pattern": "^[a-z]+(:[A-Za-z0-9_@.\\-]+)+$"
+				},
+				"amount": {
+					"$ref": "#/$defs/decimal"
+				},
+				"commodity": {
+					"type": "string",
+					"pattern": "^[A-Z]+$"
+				}
+			}
+		}
+	}
+}

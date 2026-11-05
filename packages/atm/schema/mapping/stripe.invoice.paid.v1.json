@@ -1,0 +1,87 @@
+{
+	"v": 1,
+	"source": "stripe",
+	"event": "invoice.paid",
+	"target": "BillingInvoice",
+	"stripeApiVersion": "2025-10-29.clover",
+	"fields": {
+		"id": { "path": "$.data.object.id", "type": "string" },
+		"customerId": { "path": "$.data.object.customer", "type": "string" },
+		"subscriptionId": {
+			"path": "$.data.object.parent.subscription_details.subscription",
+			"type": "string",
+			"optional": true,
+			"default": null
+		},
+		"reason": {
+			"path": "$.data.object.billing_reason",
+			"type": "string",
+			"values": {
+				"subscription_create": "subscription_create",
+				"subscription_cycle": "subscription_cycle",
+				"subscription_update": "subscription_update",
+				"manual": "manual"
+			},
+			"fallback": "other"
+		},
+		"currency": { "path": "$.data.object.currency", "type": "string" },
+		"amountPaid": { "path": "$.data.object.amount_paid", "type": "int" },
+		"paidAt": {
+			"path": "$.data.object.status_transitions.paid_at",
+			"type": "seconds"
+		},
+		"periodStart": { "path": "$.data.object.period_start", "type": "seconds" },
+		"periodEnd": { "path": "$.data.object.period_end", "type": "seconds" },
+		"metadata": { "path": "$.data.object.metadata", "type": "map" }
+	},
+	"lines": {
+		"path": "$.data.object.lines.data",
+		"fields": {
+			"lookupKey": {
+				"path": "$.price.lookup_key",
+				"type": "string",
+				"optional": true,
+				"default": null
+			},
+			"priceId": {
+				"path": "$.pricing.price_details.price",
+				"type": "string",
+				"optional": true,
+				"default": null
+			},
+			"interval": {
+				"path": "$.price.recurring.interval",
+				"type": "string",
+				"optional": true,
+				"default": null,
+				"values": { "month": "month", "year": "year" },
+				"fallback": null
+			},
+			"quantity": { "path": "$.quantity", "type": "int" },
+			"proration": { "path": "$.proration", "type": "bool" },
+			"amount": { "path": "$.amount", "type": "int" },
+			"periodStart": {
+				"path": "$.period.start",
+				"type": "seconds",
+				"optional": true
+			},
+			"periodEnd": {
+				"path": "$.period.end",
+				"type": "seconds",
+				"optional": true
+			}
+		}
+	},
+	"personal": [
+		"$.data.object.customer_email",
+		"$.data.object.customer_name",
+		"$.data.object.customer_address",
+		"$.data.object.customer_phone",
+		"$.data.object.customer_shipping",
+		"$.data.object.customer_tax_ids",
+		"$.data.object.customer.email",
+		"$.data.object.customer.name",
+		"$.data.object.customer.address",
+		"$.data.object.customer.phone"
+	]
+}

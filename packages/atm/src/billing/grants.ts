@@ -1,0 +1,1021 @@
+/**
+ * Which paid invoice grants what credits, and when credits go away: the B4 Uni rules ("Default billing rules" in
+ * the tiers spec) as pure functions. Facts in (a normalized invoice, refund or dispute, the menu, the policy, a
+ * small JSON `GrantsState`), engine commands out. No I/O, no clock: every command carries its own `occurredAt`.
+ *
+ * The engine owns the credits' life: a tier's grant is a customer entitlement with a reset interval and a
+ * rollover; a cycle's invoice runs the engine's own `reset` (refill, carry over within `max`, rollover expiry
+ * counted from the cycle that ended). A renewal paid late or after retries still resets from the invoice's period
+ * start, so the next boundary and the rollover expiry never drift. One-off grants (gifts, one-time add-ons) are
+ * rows with an `expires_at`.
+ *
+ * Run the commands in order through `runOnState` (or the family service's equivalent) against a catalog made by
+ * `menuCatalogRows` from the same menu; every command carries `${source.eventId}:${step}` as `commandId` and
+ * `requestId`, so the ledger event it makes can name the input event as its cause.
+ *
+ * The one date calculation here is `addUtcMonths`, for the `expires_at` of a one-off grant (the engine takes that
+ * instant as input; its own month arithmetic is for resets and rollovers).
+ */
+import type {
+	BillingDispute,
+	BillingInvoice,
+	BillingPolicy,
+	BillingRefund,
+	FactSource,
+	GrantCommand,
+	GrantedRow,
+	GrantLabels,
+	GrantResult,
+	GrantsState,
+	Interval,
+	InvoiceGrantInput,
+	InvoiceLine,
+	InvoiceRecord,
+	Menu,
+	MenuGrant,
+	GrantRemovalInput as RemovalInput,
+	GrantVersions as Versions,
+} from "./types.js";
+
+export const EMPTY_GRANTS_STATE: GrantsState = {
+	v: 1,
+	identity: null,
+	subscriptionId: null,
+	tierId: null,
+	interval: null,
+	anchor: null,
+	cycleStart: null,
+	cycleEnd: null,
+	addonIds: [],
+	rows: {},
+	invoices: {},
+};
+
+const ORG = {
+	config: {
+		reverse_deduction_order: false,
+		block_overdue_entitlements: false,
+		include_past_due: true,
+	},
+};
+
+// ---------------------------------------------------------------------------------------------------------------
+// Names: one place for every id the catalog and the commands share.
+// ---------------------------------------------------------------------------------------------------------------
+
+const featId = (feature: string) => `feat_${feature}`;
+const tierProductId = (tierId: string, interval: Interval) =>
+	`tier_${tierId}_${interval}`;
+const addonProductId = (addonId: string, every: string) =>
+	`addon_${addonId}_${every}`;
+const internalProduct = (productId: string) => `prod_${productId}`;
+const entId = (productId: string, feature: string, interval: string) =>
+	`ent_${productId}_${feature}_${interval}`;
+const giftEntId = (feature: string) => `ent_gift_${feature}`;
+const onceEntId = (addonId: string, feature: string) =>
+	`ent_addon_${addonId}_once_${feature}`;
+const tierRowId = (feature: string, interval: string) =>
+	`ce_tier_${feature}_${interval}`;
+const addonRowId = (addonId: string, feature: string, interval: string) =>
+	`ce_addon_${addonId}_${feature}_${interval}`;
+const TIER_CP = "cp_tier";
+const addonCp = (addonId: string) => `cp_addon_${addonId}`;
+const customerInternal = (customerId: string) => `cus_${customerId}`;
+
+/**
+ * What one grant is on a plan billed `plan`: a yearly payment carries the whole year of a monthly grant (12 x,
+ * reset yearly); a yearly grant on a monthly plan is a yearly row.
+ */
+const effective = (
+	plan: Interval,
+	g: MenuGrant,
+): { interval: Interval; amount: number } =>
+	plan === "year" && g.every === "month"
+		? { interval: "year", amount: g.amount * 12 }
+		: { interval: g.every, amount: g.amount };
+
+type RowSpec = {
+	rowId: string;
+	entId: string;
+	productId: string;
+	feature: string;
+	interval: Interval;
+	amount: number;
+	rollover: MenuGrant["rollover"];
+	/** The plan's billing interval. A row on a different interval is refilled by its own reset, not the cycle's. */
+	plan: Interval;
+};
+
+const specsOf = ({
+	grants,
+	plan,
+	productId,
+	rowId,
+}: {
+	grants: MenuGrant[];
+	plan: Interval;
+	productId: string;
+	rowId: (feature: string, interval: Interval) => string;
+}): RowSpec[] => {
+	const byKey = new Map<string, RowSpec>();
+	for (const g of grants) {
+		const e = effective(plan, g);
+		const key = `${g.featureId}|${e.interval}`;
+		const have = byKey.get(key);
+		if (have) {
+			have.amount += e.amount;
+			continue;
+		}
+		byKey.set(key, {
+			rowId: rowId(g.featureId, e.interval),
+			entId: entId(productId, g.featureId, e.interval),
+			productId,
+			feature: g.featureId,
+			interval: e.interval,
+			amount: e.amount,
+			rollover: g.rollover,
+			plan,
+		});
+	}
+	return [...byKey.values()];
+};
+
+const tierOf = (menu: Menu, tierId: string) => {
+	const t = menu.tiers.find((x) => x.id === tierId);
+	if (!t) throw new Error(`tier ${JSON.stringify(tierId)} is not on the menu`);
+	return t;
+};
+const addonOf = (menu: Menu, addonId: string) => {
+	const a = menu.addons.find((x) => x.id === addonId);
+	if (!a)
+		throw new Error(`add-on ${JSON.stringify(addonId)} is not on the menu`);
+	return a;
+};
+
+const tierSpecs = (menu: Menu, tierId: string, interval: Interval) =>
+	specsOf({
+		grants: tierOf(menu, tierId).grants,
+		plan: interval,
+		productId: tierProductId(tierId, interval),
+		rowId: tierRowId,
+	});
+
+/** A recurring add-on is billed on its own interval; its grants follow the same rule as a tier's. */
+const addonSpecs = (menu: Menu, addonId: string) => {
+	const addon = addonOf(menu, addonId);
+	const every = addon.price.every;
+	if (every === "once") return [];
+	return specsOf({
+		grants: addon.grants,
+		plan: every,
+		productId: addonProductId(addonId, every),
+		rowId: (feature, interval) => addonRowId(addonId, feature, interval),
+	});
+};
+
+// ---------------------------------------------------------------------------------------------------------------
+// The catalog the commands refer to.
+// ---------------------------------------------------------------------------------------------------------------
+
+type CatalogRowOut = { table: string; row: Record<string, unknown> };
+
+const rolloverConfig = (r: MenuGrant["rollover"]) =>
+	r
+		? {
+				...(r.max !== undefined ? { max: r.max } : {}),
+				duration: "month",
+				length: r.months,
+			}
+		: null;
+
+/**
+ * The engine catalog rows (features, products, entitlements) for a menu: one product per tier and price
+ * interval, one per recurring add-on, and the entitlements the commands name. Pass it to `toCatalog`.
+ */
+export const menuCatalogRows = ({
+	menu,
+	school,
+	createdAt = 0,
+}: {
+	menu: Menu;
+	school: string;
+	createdAt?: number;
+}): CatalogRowOut[] => {
+	const rows: CatalogRowOut[] = [];
+	const ent = (
+		id: string,
+		product: string | null,
+		feature: string,
+		allowance: number,
+		interval: string,
+		rollover: unknown,
+	) =>
+		rows.push({
+			table: "entitlements",
+			row: {
+				id,
+				created_at: createdAt,
+				internal_feature_id: featId(feature),
+				internal_product_id: product === null ? null : internalProduct(product),
+				is_custom: false,
+				allowance_type: "fixed",
+				allowance,
+				interval,
+				interval_count: 1,
+				org_id: school,
+				usage_limit: null,
+				rollover,
+			},
+		});
+	const product = (id: string, name: string, isAddOn: boolean) =>
+		rows.push({
+			table: "products",
+			row: {
+				id,
+				name,
+				description: null,
+				is_add_on: isAddOn,
+				is_default: false,
+				version: 1,
+				version_slug: "v1",
+				active: true,
+				deleted_at: null,
+				previous_version_slug: null,
+				group: isAddOn ? "addon" : "membership",
+				env: "live",
+				internal_id: internalProduct(id),
+				org_id: school,
+				created_at: createdAt,
+				base_variant_id: null,
+				archived: false,
+				config: { ignore_past_due: false },
+				metadata: {},
+			},
+		});
+	for (const f of menu.features) {
+		rows.push({
+			table: "features",
+			row: {
+				internal_id: featId(f.id),
+				org_id: school,
+				created_at: createdAt,
+				env: "live",
+				id: f.id,
+				name: f.name,
+				type: "metered",
+				config: {},
+				archived: false,
+				event_names: [],
+			},
+		});
+		// Gift certificate: a one-off row with its own expiry, no cycle.
+		ent(giftEntId(f.id), null, f.id, 1, "lifetime", null);
+	}
+	for (const tier of menu.tiers) {
+		for (const price of tier.prices) {
+			const pid = tierProductId(tier.id, price.interval);
+			product(pid, tier.name, false);
+			for (const s of tierSpecs(menu, tier.id, price.interval))
+				ent(
+					s.entId,
+					pid,
+					s.feature,
+					s.amount,
+					s.interval,
+					rolloverConfig(s.rollover),
+				);
+		}
+	}
+	for (const addon of menu.addons) {
+		if (addon.price.every === "once") {
+			for (const g of addon.grants)
+				ent(
+					onceEntId(addon.id, g.featureId),
+					null,
+					g.featureId,
+					g.amount,
+					"lifetime",
+					null,
+				);
+			continue;
+		}
+		const pid = addonProductId(addon.id, addon.price.every);
+		product(pid, addon.name, true);
+		for (const s of addonSpecs(menu, addon.id))
+			ent(
+				s.entId,
+				pid,
+				s.feature,
+				s.amount,
+				s.interval,
+				rolloverConfig(s.rollover),
+			);
+	}
+	return rows;
+};
+
+// ---------------------------------------------------------------------------------------------------------------
+// Small helpers.
+// ---------------------------------------------------------------------------------------------------------------
+
+/** `ms` plus whole months on the UTC calendar, the day clamped to the end of a shorter month. */
+export const addUtcMonths = (ms: number, months: number): number => {
+	const d = new Date(ms);
+	const target = d.getUTCMonth() + months;
+	const daysIn = new Date(
+		Date.UTC(d.getUTCFullYear(), target + 1, 0),
+	).getUTCDate();
+	return Date.UTC(
+		d.getUTCFullYear(),
+		target,
+		Math.min(d.getUTCDate(), daysIn),
+		d.getUTCHours(),
+		d.getUTCMinutes(),
+		d.getUTCSeconds(),
+		d.getUTCMilliseconds(),
+	);
+};
+
+const labelsOf = (source: FactSource, v: Versions): GrantLabels => ({
+	menu_version: String(v.menuVersion),
+	policy_version: String(v.policyVersion),
+	mapping: source.mapping,
+});
+
+const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
+
+/** Units of an upgrade: `diff` x share of the cycle left, rounded up (integer math; never negative). */
+const upgradeUnits = ({
+	diff,
+	policy,
+	at,
+	start,
+	end,
+}: {
+	diff: number;
+	policy: BillingPolicy;
+	at: number;
+	start: number | null;
+	end: number | null;
+}): number => {
+	if (diff <= 0 || policy.upgradeGrant === "none") return 0;
+	if (policy.upgradeGrant === "full" || start === null || end === null)
+		return diff;
+	const span = end - start;
+	if (span <= 0) return diff;
+	const left = Math.min(Math.max(end - at, 0), span);
+	return Math.floor((diff * left + span - 1) / span);
+};
+
+type Op = Record<string, unknown>;
+
+class Builder {
+	readonly commands: GrantCommand[] = [];
+	constructor(
+		private readonly source: FactSource,
+		private readonly identity: {
+			orgId: string;
+			customerId: string;
+		},
+	) {}
+	get ident() {
+		return {
+			orgId: this.identity.orgId,
+			env: "live",
+			customerId: this.identity.customerId,
+			entityId: null,
+		};
+	}
+	private base(type: string, occurredAt: number) {
+		const step = this.commands.length + 1;
+		const id = `${this.source.eventId}:${step}`;
+		return {
+			schemaVersion: 1,
+			type,
+			org: ORG,
+			commandId: id,
+			requestId: id,
+			identity: this.ident,
+			occurredAt,
+		};
+	}
+	plan(occurredAt: number, ops: Op[]) {
+		if (ops.length === 0) return;
+		this.commands.push({
+			...this.base("applyBillingPlan", occurredAt),
+			entityIds: [],
+			expiringPooledBalanceIds: [],
+			ops,
+		});
+	}
+	reset(occurredAt: number) {
+		this.commands.push(this.base("reset", occurredAt));
+	}
+	add(occurredAt: number, feature: string, rowId: string, units: number) {
+		this.commands.push({
+			...this.base("updateBalance", occurredAt),
+			featureId: feature,
+			internalFeatureId: featId(feature),
+			customerEntitlementFilters: { cusEntIds: [rowId] },
+			addToBalance: units,
+		});
+	}
+}
+
+const customerRow = (customerId: string) => ({
+	internal_id: customerInternal(customerId),
+	id: customerId,
+	config: null,
+	spend_limits: null,
+	overage_allowed: null,
+	usage_limits: null,
+	usage_alerts: null,
+	processor: null,
+});
+
+const productOp = (
+	cpId: string,
+	productId: string,
+	customerId: string,
+	t: number,
+): Op => ({
+	op: "insert",
+	table: "customerProducts",
+	row: {
+		id: cpId,
+		internal_customer_id: customerInternal(customerId),
+		internal_product_id: internalProduct(productId),
+		internal_entity_id: null,
+		status: "active",
+		options: [],
+		quantity: 1,
+		created_at: t,
+		starts_at: t,
+		access_starts_at: null,
+		ended_at: null,
+		customer_license_link_id: null,
+	},
+});
+
+const rowOp = ({
+	rowId,
+	cpId,
+	entitlementId,
+	feature,
+	customerId,
+	balance,
+	nextResetAt,
+	expiresAt,
+	t,
+}: {
+	rowId: string;
+	cpId: string | null;
+	entitlementId: string;
+	feature: string;
+	customerId: string;
+	balance: number;
+	nextResetAt: number | null;
+	expiresAt: number | null;
+	t: number;
+}): Op => ({
+	op: "insert",
+	table: "customerEntitlements",
+	row: {
+		id: rowId,
+		customer_product_id: cpId,
+		entitlement_id: entitlementId,
+		internal_customer_id: customerInternal(customerId),
+		internal_entity_id: null,
+		internal_feature_id: featId(feature),
+		balance,
+		adjustment: 0,
+		additional_balance: 0,
+		unlimited: false,
+		usage_allowed: false,
+		next_reset_at: nextResetAt,
+		reset_cycle_anchor: null,
+		expires_at: expiresAt,
+		external_id: null,
+		created_at: t,
+	},
+});
+
+const stopRefill = (rowId: string): Op => ({
+	op: "update",
+	table: "customerEntitlements",
+	id: rowId,
+	set: { next_reset_at: null },
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// Invoice -> commands
+// ---------------------------------------------------------------------------------------------------------------
+
+const identityFrom = (
+	invoice: BillingInvoice,
+	state: GrantsState,
+): { orgId: string; customerId: string } => {
+	if (state.identity) return state.identity;
+	const orgId = invoice.metadata.b4u_school;
+	const family = invoice.metadata.family_id;
+	if (!orgId || !family)
+		throw new Error(
+			`invoice ${invoice.id} has no b4u_school/family_id metadata to name the holder`,
+		);
+	return { orgId, customerId: `family:${family}` };
+};
+
+/**
+ * The engine commands one paid invoice calls for, in order, and the state after them.
+ *
+ * - `subscription_create`: the customer, the tier's product and its credit rows (the whole allowance, next reset
+ *   at the period end), recurring add-ons, and one-time add-ons.
+ * - `subscription_cycle`: if the tier changed since (a downgrade took effect) the plan moves to it first, sessions
+ *   kept; then the engine's `reset` at the period start (the policy's anchor): refill, rollover within `max`.
+ *   Nothing is granted for an unpaid cycle because nothing runs for it.
+ * - `subscription_update` with a positive proration line for another tier (an upgrade): the allowance
+ *   difference x share of the cycle left, rounded up, per `policy.upgradeGrant`. A lower tier grants nothing.
+ * - Session gift certificate (`metadata.gift === "sessions"`, optional `gift_feature`): one-off row with
+ *   `expires_at` = `policy.giftSessionMonths` after `paidAt`. A dollar gift grants no credits.
+ *
+ * A replayed invoice (already in `state.invoices`) gives no commands.
+ */
+export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
+	const { invoice, menu, policy, now } = input;
+	const labels = labelsOf(invoice.source, input);
+	if (input.state.invoices[invoice.id])
+		return { commands: [], labels, state: input.state };
+	const state = clone(input.state);
+	const who = identityFrom(invoice, state);
+	const b = new Builder(invoice.source, who);
+	const record: InvoiceRecord = {
+		paidAt: invoice.paidAt,
+		granted: [],
+		removed: false,
+	};
+	const lines = invoice.lines.filter((l: InvoiceLine) => l.kind !== "unknown");
+	const tierLine = lines.find(
+		(l) => l.kind === "tier" && !l.proration && l.tierId && l.interval,
+	);
+	const upLine = lines.find(
+		(l) =>
+			l.kind === "tier" &&
+			l.proration &&
+			l.tierId &&
+			l.interval &&
+			l.amount > 0,
+	);
+	const recurring = lines.filter(
+		(l) => l.kind === "addon" && !l.proration && l.addonId && l.interval,
+	);
+	const once = lines.filter(
+		(l) => l.kind === "addon" && !l.proration && l.addonId && !l.interval,
+	);
+	// The engine refills rows whose reset is strictly before the command's time, so the reset runs 1 ms after the anchor.
+	const anchorAt =
+		(policy.cycleFromPeriodStart
+			? invoice.periodStart
+			: Math.max(now, invoice.periodStart + 1)) +
+		(policy.cycleFromPeriodStart ? 1 : 0);
+	const ops: Op[] = [];
+	let needReset = false;
+	let created = false;
+
+	const grantRow = (s: RowSpec, units: number) => {
+		record.granted.push({
+			rowId: s.rowId,
+			feature: s.feature,
+			units,
+			epoch: state.rows[s.rowId] ?? 1,
+		});
+	};
+	/** Insert a plan's row: full allowance now when its cycle is the invoice's, else seeded and refilled by `reset`. */
+	const insertSpec = (
+		s: RowSpec,
+		cpId: string,
+		balance: number,
+		cycleEnd: number,
+		seedAt: number,
+		quantity = 1,
+	) => {
+		const matches = s.interval === s.plan;
+		const full = s.amount * quantity;
+		ops.push(
+			rowOp({
+				rowId: s.rowId,
+				cpId,
+				entitlementId: s.entId,
+				feature: s.feature,
+				customerId: who.customerId,
+				balance: matches ? balance : 0,
+				nextResetAt: matches ? cycleEnd : seedAt,
+				expiresAt: null,
+				t: now,
+			}),
+		);
+		state.rows[s.rowId] = 1;
+		if (matches) {
+			if (balance > 0) grantRow(s, balance);
+		} else {
+			needReset = true;
+			grantRow(s, full);
+		}
+	};
+	const attachAddon = (line: InvoiceLine, share: "full" | "prorate") => {
+		const addonId = line.addonId as string;
+		const specs = addonSpecs(menu, addonId);
+		const addon = addonOf(menu, addonId);
+		if (addon.price.every === "once") return;
+		const pid = addonProductId(addonId, addon.price.every);
+		const end = line.periodEnd ?? invoice.periodEnd;
+		ops.push(productOp(addonCp(addonId), pid, who.customerId, now));
+		for (const s of specs) {
+			const full = s.amount * (line.quantity || 1);
+			const units =
+				share === "full"
+					? full
+					: upgradeUnits({
+							diff: full,
+							policy,
+							at: line.periodStart ?? invoice.paidAt,
+							start: state.cycleStart,
+							end: state.cycleEnd,
+						});
+			insertSpec(
+				s,
+				addonCp(addonId),
+				units,
+				end,
+				invoice.periodStart,
+				line.quantity || 1,
+			);
+		}
+		if (!state.addonIds.includes(addonId)) state.addonIds.push(addonId);
+	};
+
+	// ---- the tier --------------------------------------------------------------------------------------------
+	const isCreate =
+		tierLine !== undefined &&
+		(invoice.reason === "subscription_create" || state.tierId === null);
+	if (isCreate && tierLine) {
+		const tierId = tierLine.tierId as string;
+		const interval = tierLine.interval as Interval;
+		const end = tierLine.periodEnd ?? invoice.periodEnd;
+		created = true;
+		if (state.identity === null)
+			ops.push({
+				op: "insert",
+				table: "customer",
+				row: customerRow(who.customerId),
+			});
+		ops.push(
+			productOp(TIER_CP, tierProductId(tierId, interval), who.customerId, now),
+		);
+		for (const s of tierSpecs(menu, tierId, interval))
+			insertSpec(s, TIER_CP, s.amount, end, invoice.periodStart);
+		state.tierId = tierId;
+		state.interval = interval;
+		state.subscriptionId = invoice.subscriptionId;
+		state.anchor = invoice.periodStart;
+		state.cycleStart = invoice.periodStart;
+		state.cycleEnd = end;
+		for (const l of recurring) attachAddon(l, "full");
+	} else if (
+		tierLine &&
+		invoice.reason === "subscription_cycle" &&
+		state.tierId
+	) {
+		const tierId = tierLine.tierId as string;
+		const interval = tierLine.interval as Interval;
+		const end = tierLine.periodEnd ?? invoice.periodEnd;
+		if (tierId !== state.tierId || interval !== state.interval) {
+			moveTier({
+				menu,
+				state,
+				to: { tierId, interval },
+				ops,
+				insert: (s) =>
+					insertSpec(s, TIER_CP, s.amount, end, invoice.periodStart),
+				units: () => 0,
+			});
+		}
+		// Rows on the plan's own interval are refilled by this cycle; add-on rows too.
+		const want = new Set(recurring.map((l) => l.addonId as string));
+		for (const id of state.addonIds) {
+			if (!want.has(id)) {
+				for (const s of addonSpecs(menu, id)) {
+					ops.push(stopRefill(s.rowId));
+					delete state.rows[s.rowId];
+				}
+			}
+		}
+		for (const l of recurring) {
+			if (!state.addonIds.includes(l.addonId as string)) attachAddon(l, "full");
+		}
+		state.addonIds = state.addonIds.filter((id) => want.has(id));
+		for (const s of [
+			...tierSpecs(menu, tierId, interval),
+			...state.addonIds.flatMap((id) => addonSpecs(menu, id)),
+		]) {
+			if (s.interval !== s.plan) continue;
+			if (!(s.rowId in state.rows)) continue;
+			const fresh = record.granted.some((g) => g.rowId === s.rowId);
+			if (!fresh) {
+				state.rows[s.rowId] = (state.rows[s.rowId] ?? 0) + 1;
+				record.granted.push({
+					rowId: s.rowId,
+					feature: s.feature,
+					units: s.amount,
+					epoch: state.rows[s.rowId] as number,
+				});
+			}
+		}
+		needReset = true;
+		state.cycleStart = invoice.periodStart;
+		state.cycleEnd = end;
+	} else if (
+		upLine &&
+		invoice.reason === "subscription_update" &&
+		state.tierId
+	) {
+		const tierId = upLine.tierId as string;
+		const interval = upLine.interval as Interval;
+		if (tierId !== state.tierId || interval !== state.interval) {
+			const at = upLine.periodStart ?? invoice.paidAt;
+			const newEnd =
+				interval === state.interval
+					? (state.cycleEnd ?? invoice.periodEnd)
+					: (upLine.periodEnd ?? invoice.periodEnd);
+			const oldSpecs = tierSpecs(
+				menu,
+				state.tierId,
+				state.interval as Interval,
+			);
+			const oldAmount = new Map(oldSpecs.map((s) => [s.rowId, s.amount]));
+			const adds: { s: RowSpec; units: number }[] = [];
+			moveTier({
+				menu,
+				state,
+				to: { tierId, interval },
+				ops,
+				insert: (s) => {
+					const units = upgradeUnits({
+						diff: s.amount,
+						policy,
+						at,
+						start: state.cycleStart,
+						end: state.cycleEnd,
+					});
+					insertSpec(s, TIER_CP, units, newEnd, at);
+				},
+				units: (s) => {
+					const diff = s.amount - (oldAmount.get(s.rowId) ?? 0);
+					const units = upgradeUnits({
+						diff,
+						policy,
+						at,
+						start: state.cycleStart,
+						end: state.cycleEnd,
+					});
+					if (units > 0) adds.push({ s, units });
+					return units;
+				},
+			});
+			b.plan(now, ops.splice(0));
+			for (const { s, units } of adds) {
+				b.add(now, s.feature, s.rowId, units);
+				record.granted.push({
+					rowId: s.rowId,
+					feature: s.feature,
+					units,
+					epoch: state.rows[s.rowId] ?? 1,
+				});
+			}
+			if (interval !== state.interval) {
+				state.cycleStart = invoice.periodStart;
+				state.cycleEnd = invoice.periodEnd;
+			}
+			state.tierId = tierId;
+			state.interval = interval;
+			if (needReset) b.reset(at + 1);
+			needReset = false;
+		}
+	} else if (state.tierId && invoice.reason === "subscription_update") {
+		// Add-ons bought mid-cycle.
+		for (const l of lines.filter(
+			(x) => x.kind === "addon" && x.addonId && x.interval && x.amount > 0,
+		)) {
+			if (!state.addonIds.includes(l.addonId as string))
+				attachAddon(l, "prorate");
+		}
+	}
+
+	// ---- one-time add-ons and gifts, on any invoice ----------------------------------------------------------
+	if (
+		state.identity === null &&
+		!created &&
+		(once.length > 0 || invoice.metadata.gift === "sessions")
+	) {
+		ops.push({
+			op: "insert",
+			table: "customer",
+			row: customerRow(who.customerId),
+		});
+	}
+	for (const l of once) {
+		const addon = addonOf(menu, l.addonId as string);
+		for (const g of addon.grants) {
+			const rowId = `ce_once_${invoice.id}_${addon.id}_${g.featureId}`;
+			const units = g.amount * (l.quantity || 1);
+			ops.push(
+				rowOp({
+					rowId,
+					cpId: null,
+					entitlementId: onceEntId(addon.id, g.featureId),
+					feature: g.featureId,
+					customerId: who.customerId,
+					balance: units,
+					nextResetAt: null,
+					expiresAt: g.rollover
+						? addUtcMonths(invoice.paidAt, g.rollover.months)
+						: null,
+					t: now,
+				}),
+			);
+			record.granted.push({ rowId, feature: g.featureId, units, epoch: 1 });
+			state.rows[rowId] = 1;
+		}
+	}
+	if (invoice.metadata.gift === "sessions") {
+		const feature = invoice.metadata.gift_feature ?? menu.features[0]?.id;
+		if (!feature || !menu.features.some((f) => f.id === feature))
+			throw new Error(
+				`gift invoice ${invoice.id} names no feature on the menu`,
+			);
+		const units = Math.max(
+			1,
+			invoice.lines
+				.filter((l) => !l.proration)
+				.reduce((n, l) => n + (l.quantity || 0), 0),
+		);
+		const rowId = `ce_gift_${invoice.id}_${feature}`;
+		ops.push(
+			rowOp({
+				rowId,
+				cpId: null,
+				entitlementId: giftEntId(feature),
+				feature,
+				customerId: who.customerId,
+				balance: units,
+				nextResetAt: null,
+				expiresAt: addUtcMonths(invoice.paidAt, policy.giftSessionMonths),
+				t: now,
+			}),
+		);
+		record.granted.push({ rowId, feature, units, epoch: 1 });
+		state.rows[rowId] = 1;
+	}
+
+	b.plan(now, ops);
+	if (needReset) b.reset(anchorAt);
+	if (b.commands.length > 0 && state.identity === null) state.identity = who;
+	state.invoices[invoice.id] = record;
+	return { commands: b.commands, labels, state };
+};
+
+/**
+ * Moves the subscription to another tier in the plan ops: the product changes, rows with the same feature and
+ * interval keep their balance and point at the new entitlement, new rows are inserted, rows the new tier lacks
+ * stop refilling (what is left stays). `units(spec)` is called for each kept row and `insert(spec)` for each new one.
+ */
+const moveTier = ({
+	menu,
+	state,
+	to,
+	ops,
+	insert,
+	units,
+}: {
+	menu: Menu;
+	state: GrantsState;
+	to: { tierId: string; interval: Interval };
+	ops: Op[];
+	insert: (s: RowSpec) => void;
+	units: (s: RowSpec) => number;
+}) => {
+	const oldSpecs = tierSpecs(
+		menu,
+		state.tierId as string,
+		state.interval as Interval,
+	);
+	const newSpecs = tierSpecs(menu, to.tierId, to.interval);
+	ops.push({
+		op: "update",
+		table: "customerProducts",
+		id: TIER_CP,
+		set: {
+			internal_product_id: internalProduct(
+				tierProductId(to.tierId, to.interval),
+			),
+		},
+	});
+	const oldIds = new Set(oldSpecs.map((s) => s.rowId));
+	for (const s of newSpecs) {
+		if (oldIds.has(s.rowId)) {
+			ops.push({
+				op: "update",
+				table: "customerEntitlements",
+				id: s.rowId,
+				set: { entitlement_id: s.entId },
+			});
+			units(s);
+		} else insert(s);
+	}
+	const newIds = new Set(newSpecs.map((s) => s.rowId));
+	for (const s of oldSpecs) {
+		if (!newIds.has(s.rowId)) {
+			ops.push(stopRefill(s.rowId));
+			delete state.rows[s.rowId];
+		}
+	}
+	state.tierId = to.tierId;
+	state.interval = to.interval;
+};
+
+// ---------------------------------------------------------------------------------------------------------------
+// Refund and dispute -> commands
+// ---------------------------------------------------------------------------------------------------------------
+
+const removeInvoice = ({
+	invoiceId,
+	source,
+	input,
+}: {
+	invoiceId: string | null;
+	source: FactSource;
+	input: RemovalInput;
+}): GrantResult => {
+	const labels = labelsOf(source, input);
+	const record = invoiceId ? input.state.invoices[invoiceId] : undefined;
+	if (!record || record.removed || !input.state.identity)
+		return { commands: [], labels, state: input.state };
+	const state = clone(input.state);
+	const b = new Builder(
+		source,
+		state.identity as { orgId: string; customerId: string },
+	);
+	for (const g of record.granted) {
+		// A row refilled since holds a later cycle's credits: this invoice's unused ones are carried over, not here.
+		if ((state.rows[g.rowId] ?? 1) !== g.epoch) continue;
+		const have = input.available?.[g.rowId] ?? g.units;
+		const units = Math.min(g.units, Math.max(0, have));
+		if (units > 0) b.add(input.now, g.feature, g.rowId, -units);
+	}
+	(state.invoices[invoiceId as string] as InvoiceRecord).removed = true;
+	return { commands: b.commands, labels, state };
+};
+
+/** A full refund (policy.removeOnFullRefund) takes back that invoice's unused credits; a partial refund changes nothing. */
+export const refundToCommands = (
+	input: RemovalInput & { refund: BillingRefund },
+): GrantResult => {
+	const { refund, policy } = input;
+	if (!refund.full || !policy.removeOnFullRefund)
+		return {
+			commands: [],
+			labels: labelsOf(refund.source, input),
+			state: input.state,
+		};
+	return removeInvoice({
+		invoiceId: refund.invoiceId,
+		source: refund.source,
+		input,
+	});
+};
+
+/** A lost dispute (policy.removeOnLostDispute) is a full refund; open and won disputes change nothing. */
+export const disputeToCommands = (
+	input: RemovalInput & { dispute: BillingDispute },
+): GrantResult => {
+	const { dispute, policy } = input;
+	if (dispute.status !== "lost" || !policy.removeOnLostDispute)
+		return {
+			commands: [],
+			labels: labelsOf(dispute.source, input),
+			state: input.state,
+		};
+	return removeInvoice({
+		invoiceId: dispute.invoiceId,
+		source: dispute.source,
+		input,
+	});
+};
+
+export type {
+	GrantCommand,
+	GrantLabels,
+	GrantResult,
+	GrantedRow,
+	GrantsState,
+	InvoiceRecord,
+};

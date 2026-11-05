@@ -1,0 +1,13 @@
+{
+	"source": {
+		"eventId": "evt_re_1",
+		"mapping": "stripe-2026-10-28@1",
+		"stripeApiVersion": "2026-10-28"
+	},
+	"id": "re_1",
+	"invoiceId": "in_1",
+	"chargeId": "ch_1",
+	"amount": 26000,
+	"full": true,
+	"at": 1768903200000
+}
