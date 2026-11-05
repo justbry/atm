@@ -40,6 +40,7 @@ import {
 	subscriptionToCommands,
 } from "./grants.js";
 import {
+	describeNormalizeError,
 	mappingFor,
 	normalize,
 	resolveInvoice,
@@ -496,12 +497,12 @@ export const handleStripeEvent = (
 		return refuse("bad_event", "the event has no type or api_version");
 	const mapping = mappingFor(type, apiVersion);
 	if (!mapping.ok)
-		return refuse("unknown_mapping", JSON.stringify(mapping.error));
+		return refuse("unknown_mapping", describeNormalizeError(mapping.error));
 	const normalized = normalize(input.event, mapping.value, {
 		eventId: input.eventId,
 	});
 	if (!normalized.ok)
-		return refuse("bad_event", JSON.stringify(normalized.error));
+		return refuse("bad_event", describeNormalizeError(normalized.error));
 
 	try {
 		return decideAndRun(input, mapping.value.target, normalized.value);

@@ -1,9 +1,11 @@
 import type { WorkerFullSubject } from "@autumn/balance-engine";
+import * as adopt from "./billing/adopt.js";
 import * as grants from "./billing/grants.js";
 import * as handle from "./billing/handle.js";
 import * as menu from "./billing/menu.js";
 import * as normalizer from "./billing/normalize.js";
 import * as policy from "./billing/policy.js";
+import * as raise from "./billing/raise.js";
 import * as rows from "./billing/rows.js";
 import * as status from "./billing/status.js";
 import * as stripeMenu from "./billing/stripe-menu.js";
@@ -49,6 +51,8 @@ import type {
 	BillingPolicy,
 	BillingRefund,
 	BillingRow,
+	CallerRowsImport,
+	CallerRowsInput,
 	CheckoutInput,
 	CheckoutParams,
 	CheckoutParamsWithPrices,
@@ -67,8 +71,13 @@ import type {
 	MenuToStripeInput,
 	MenuValidation,
 	NormalizeContext,
+	NormalizeError,
 	NormalizeResult,
+	PortalConfigIds,
+	ProrationLine,
+	ProrationPair,
 	R2StoreOptions,
+	RaiseUnitsInput,
 	RowChanges,
 	RowTable,
 	SignatureVerdict,
@@ -239,6 +248,24 @@ export const menuCatalogRows = (input: {
 export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult =>
 	grants.invoiceToCommands(input);
 
+/**
+ * Stripe's proration pair for a raise of the quantity: the credit line holds the OLD quantity, the charge line the NEW
+ * total. With several pairs the positive line that starts last is the raise. `isTierPrice` picks the lines of the tier's
+ * price. Null when there is no such charge line. Pure; `invoiceToCommands` reads a raise through it.
+ */
+export const prorationPair = <Line extends ProrationLine>(
+	lines: readonly Line[],
+	isTierPrice: (line: Line) => boolean,
+): ProrationPair | null => raise.prorationPair(lines, isTierPrice);
+
+/**
+ * The units a raise grants: (new - old) x `perUnit` x the share of the cycle left at `at`, rounded up, following
+ * `policy.upgradeGrant` (`prorated`, `full`, `none`); a decrease or the same count gives 0. `oldQuantity` is the count
+ * the credits reflect, not Stripe's credit line. Pure; `invoiceToCommands` grants a raise through it.
+ */
+export const raiseUnits = (input: RaiseUnitsInput): number =>
+	raise.raiseUnits(input);
+
 /** A full refund takes back that invoice's unused credits (per policy); a partial refund changes nothing. */
 export const refundToCommands = (
 	input: GrantRemovalInput & { refund: BillingRefund },
@@ -319,6 +346,17 @@ export const toStripeForm = (
 	params: Record<string, unknown>,
 ): Record<string, string> => stripeMenu.toStripeForm(params);
 
+/**
+ * The form fields for `POST /v1/billing_portal/configurations` that let a family change the quantity of a tier sold in
+ * `quantities`: a raise billed at once (`always_invoice`, so its paid invoice grants the extra units), a decrease at the
+ * renewal. Null when no public tier has several quantities (or none has its product and a price published): the school's default
+ * portal applies. Pass the id of the configuration it makes as `configuration` on every portal session.
+ */
+export const portalConfigOf = (
+	menu: Menu,
+	ids: PortalConfigIds,
+): Record<string, string> | null => stripeMenu.portalConfigOf(menu, ids);
+
 /** The lookup key that names a Stripe price for life. */
 export const lookupKeyOf = (
 	schoolId: string,
@@ -338,6 +376,13 @@ export const normalize = (
 	mapping: Mapping,
 	ctx: NormalizeContext,
 ): NormalizeResult<BillingFact> => normalizer.normalize(event, mapping, ctx);
+
+/**
+ * A sentence for a `NormalizeError`. An event from another Stripe API version says which version the endpoint is on and
+ * the fix: recreate the endpoint with the version atm reads (`handleStripeEvent` refuses it with this as the message).
+ */
+export const describeNormalizeError = (error: NormalizeError): string =>
+	normalizer.describeNormalizeError(error);
 
 /** The mapping for an event type and Stripe API version; an unknown pair is refused. */
 export const mappingFor = (
@@ -415,6 +460,18 @@ export const rowsFromState = (state: AtmSubjectState): BillingRow[] =>
 /** Rows back to a state; no rows is null. */
 export const stateFromRows = (input: SubjectRows): AtmSubjectState | null =>
 	rows.stateFromRows(input) as unknown as AtmSubjectState | null;
+
+/**
+ * A caller that grants on its own (B4 Uni's family service: `school_memberships` and `school_credit_lots`) moves onto
+ * `handleStripeEvent` by writing what this returns for each member once: the engine rows (the lots as refilling credit
+ * rows and rollovers) and the `atm_grants` row (`state`, which remembers every invoice the lots name, so replaying one
+ * grants nothing again), under one revision. It is not `stateFromRows`, which turns atm's own rows into an engine state.
+ * Throws, naming each problem, when the rows name a tier, add-on or feature the menu lacks or cannot be placed on atm's
+ * rows; it does not guess. See UPGRADING.md ("Moving an existing caller onto handleStripeEvent").
+ */
+export const grantsStateFromCallerRows = (
+	input: CallerRowsInput,
+): CallerRowsImport => adopt.grantsStateFromCallerRows(input);
 
 /** The engine's subject for a command: the rows joined with the catalog. Throws when there are no rows. */
 export const subjectFromRows = (
