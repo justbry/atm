@@ -48,3 +48,50 @@ Full reports, raw results and scripts: `docs/spikes/usage/`. Question: can atm h
   - **Decimals and units:** the engine's deduction uses `decimal.js` and is exact (`0.1` ten times from 1 gives exactly 0; 1000 x 0.137 from 1000 gives 863, where a float sum leaves 137.00000000000043), but the stored balance is a JS double: `1e-6` from `1e12` returns `applied` and the balance stays `1e12` (the deduction is silently lost); `1e-21` from 1 is `rejected` (below `CREDIT_RATE_EPSILON` 1e-10); integers are exact to 2^53; NaN and Infinity are rejected by the schema; negative values refund; zero is a no-op; ledger postings reject non-integers. Recommendation: track WHOLE units (for example 1 credit = 1,000 tokens), round up per call (or per batch for large counts), keep every balance under 2^53, and keep the exact token counts in the R2 usage events.
   - **Not measured:** Linux fsync or NVMe; a remote or async store (D1, Postgres, a Durable Object; only a simulated 1 ms window); a multi-thread engine; a quiet machine; reset end to end through the handler; outbox growth, WAL checkpoints and vacuum over a long run; entity-scoped or multi-feature holders; rate cards or credit-system pricing.
 - **Design decisions already taken for the R2 layer** (2026-11-05, from the agentlake and Tares comparison; measured in spike 2): typed quantities as real columns for the hot fields (holder, time, idem, model, usage_feature, the token counts) with the rest as JSON; a manifest written beside the data (envelope and payload schema versions, mapping name and version, DDL, file hashes) so a reader with only the folder and `duckdb` can understand it. The redacted raw layer is the punted item above.
+
+## Gateway write path (decision, 2026-11-05)
+
+Decided: each gateway worker writes usage events to a LOCAL APPEND-ONLY FILE, not to SQLite, and uploads finished files straight to R2; the credit outbox (low volume) stays as it is, and the family database stays out of the usage path. Reasons: the same durability as a SQLite buffer without its `idem` index (the outbox insert rate fell to about 24k a second once a million rows deep, see spike 2), nothing to prune, and no usage rows in the database Litestream replicates (an unpruned outbox grows about 6.9 GB a day at 10M events a day).
+
+**The rule**
+- Append each event as one JSONL line to the worker's open file. The gateway acknowledges the call once the line is appended and fsynced (group commit: fsync after each appended batch of events, for example every 100 events or every 50 ms, whichever comes first; the exact interval is open, see below).
+- Close the file and upload it when it holds about 1,000 to 5,000 events or when it is about 60 seconds old, whichever comes first.
+- Upload with a create-only PUT (`If-None-Match: *`) to an object name made from the writer id, a sequence number and a hash of the file's first `idem`, so a retried upload of the same file is a harmless no-op. Delete the local file only after the PUT succeeded.
+- On start, upload any file left on disk, oldest first, before accepting new events. Files are never edited after they are closed.
+- The daily job reads the small objects, dedupes by `idem` (see "Dedupe on read" below), writes the day's Parquet with typed columns and the manifest, and may then delete the small objects (`docs/spikes/usage/02-pipeline-spike.md`, "Recommended layout and daily job").
+
+**What each failure loses**
+
+| Failure | Loses |
+|---|---|
+| The gateway process crashes or restarts | nothing that was fsynced; the leftover file is uploaded on start |
+| The host or its disk dies | the events in files not yet uploaded: up to about 60 seconds of that worker's events (the open file plus any file waiting for R2) |
+| R2 or the network is unavailable | nothing, while the disk has room: files queue locally and drain later; set a disk and age alarm |
+| The upload succeeds but the delete is lost | a duplicate object on the next start; the read-time dedupe removes it |
+
+A 60 second window on a host loss is the price of the long flush interval. Shorten it, or add a replicated queue in front, if a minute of lost usage is too much; the provider reconciliation below is how a loss is found.
+
+**Cost at 60 seconds** (R2 list prices from `docs/spikes/usage/02-pipeline-spike.md`'s sources: Class A writes $4.50 per million, 1M free a month; the arithmetic is mine, not measured)
+- Uploads a month = workers x 1,440 x 30 when the time trigger fires: 10 workers about 432k (inside the free tier), 100 workers about 4.3M (about $19 at list price, $15 after the free tier), 1,000 workers about 43M (about $194).
+- The event trigger only matters for a busy worker: 1,000 events in 60 seconds is about 17 events a second per worker. At 10M events a day (about 116 a second) spread over 10 workers, every file closes on the 60 second timer with about 700 events.
+- Objects are small: about 0.3 to 2.3 MB raw (456 bytes a line), about 45 to 320 KB zstd-compressed. Compaction into daily Parquet is what keeps reads fast.
+- Storage after compaction is as in spike 2: about 14 GB a month of Parquet for 300M events, about $0.20 for each month retained.
+- Many small workers make time-triggered uploads the cost driver; if the worker count grows, have workers hand their files to one uploader (or lengthen the timer) rather than each calling R2.
+
+**Dedupe on read** (a decision the daily job must carry out)
+- Delivery is at least once: an overlapping or rebuilt file, or a re-upload after a lost delete, can repeat events.
+- The pipeline spike's dedupe keeps the earliest ingest for an `idem`. For a streaming response that is wrong (the mapping spike's case: one response id logged three times with 1, 120 and 480 output tokens would bill 1). Either the mapping's `id.onRepeat: max` rule runs in the gateway before the line is written (needs a stream-complete signal), or the daily job takes the maximum per response id. Pick one and test it.
+
+**Other points to carry**
+- The gateway's R2 credential is write-only and scoped to a prefix; rotate it.
+- Record the writer's own ingest time on each line and use only that to decide "late"; a gateway clock is not trusted for the event time.
+- A Worker-hosted gateway cannot run `ajv`; validate in the daily job and quarantine bad lines.
+- Reconcile hourly against the provider's own usage report, so a lost event is detected, not assumed.
+- Immutable objects make erasure a rewrite; keep person identifiers pseudonymous in the events.
+- Per-key write limits: never reuse an object name (the limit on writes to one key is, I recall, about one a second; verify on Cloudflare's pages).
+
+**Not measured, to verify before relying on it**
+- R2 PUT latency from a gateway, and the contract suite against a real R2 bucket (never run; roadmap).
+- fsync cost on the production disk (the `track` spike measured macOS APFS only) and the best group-commit interval.
+- The real size of a closed file and the compaction time over thousands of small objects on real R2 (the spike used local files).
+- The per-key and per-bucket write limits.

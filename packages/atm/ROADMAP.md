@@ -90,6 +90,7 @@ What exists (#41 to #49, on `dev`, not released) is in `CHANGELOG.md` (Unrelease
 - 2026-11-05: PII stripping and a raw input store for usage events are punted; atm stores no raw usage payload and no redacted copy. (docs/usage-metering.md#usage-events-as-a-ledger-source-spike-2026-11-05-decision-pending-on-whether-to-build)
 - 2026-11-05: a usage ledger event is an allowlist of the mapping's declared fields (no prompt or message text); `personal` stays a denylist backstop plus the drift check. (same section)
 - 2026-11-05: the R2 layer for usage events uses typed quantities as real columns for the hot fields and a manifest written beside the data. (same section)
+- 2026-11-05: usage events are written by each gateway worker to a local append-only file (fsynced, not SQLite), closed at about 1,000 to 5,000 events or about 60 seconds, uploaded with a create-only PUT and deleted after success; the daily job dedupes by `idem` and writes Parquet. (detail: docs/usage-metering.md#gateway-write-path-decision-2026-11-05)
 
 ## Possible directions, not planned
 
