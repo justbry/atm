@@ -95,8 +95,8 @@
  *   409 unmatched_invoice  an invoice_payment.paid whose invoice is not indexed (its invoice.paid is not handled yet)
  *   409 stale_revision     3 attempts lost the revision race
  *   409 refused            `unmatched_invoice`, `unknown_subscription`: the cause may arrive on its own, retry
- *   422 refused            `unmatched_line`, `missing_metadata`, `unknown_mapping`, `bad_event`, `rejected`;
- *                          and 422 `unknown_school` when `context` returns null: a human has to fix something
+ *   422 refused            `unmatched_line`, `missing_metadata`, `addon_only_subscription`, `unknown_mapping`,
+ *                          `bad_event`, `rejected`; and 422 `unknown_school` when `context` returns null: a human has to fix something
  *   422 school_mismatch    the event's school is not `deps.schoolId`
  *   422 livemode_mismatch  the event's `livemode` disagrees with `deps.env` (a test-mode event to a live handler, or a
  *                          live one to `env: "test"`); refused before any claim, nothing written. An event with no
@@ -392,7 +392,7 @@ const locateSubject = (
 	if (!first)
 		return {
 			kind: "unmatched_payment",
-			message: `${event.id}: no handled invoice is linked to ${refs.join(", ") || "any payment"}; retry once its invoice and its invoice_payment.paid are handled`,
+			message: `${event.id}: no handled invoice is linked to ${refs.join(", ") || "any payment"}; retry once its invoice and its invoice_payment.paid are handled (an invoice.paid answered 422 stays unhandled until its cause is fixed in Stripe and the event is re-sent)`,
 		};
 	const subjects = new Set(hits.map((hit) => hit.subject_key));
 	if (subjects.size > 1)
@@ -761,7 +761,7 @@ const settlePayment = (
 	if (recorded.kind === "unmatched_invoice")
 		return reply(409, "unmatched_invoice", {
 			stripeEventId: event.id,
-			message: `${event.id}: invoice ${recorded.invoiceId} is not indexed; retry once its invoice.paid is handled`,
+			message: `${event.id}: invoice ${recorded.invoiceId} is not indexed; retry once its invoice.paid is handled (one answered 422 stays unhandled until its cause is fixed in Stripe and the event is re-sent)`,
 		});
 	if (recorded.kind === "school_mismatch")
 		return schoolMismatch(deps, event.id, recorded.school);

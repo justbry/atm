@@ -677,6 +677,65 @@ export const invoiceHolder = (
 	identityFrom(invoice, EMPTY_GRANTS_STATE);
 
 /**
+ * The paid recurring add-on lines of an invoice that `invoiceToCommands` would not grant, with why: an invoice with no
+ * tier line whose add-on is not on the holder's own tier subscription. A recurring add-on is attached only from that
+ * subscription's own create or renewal invoice (which carry the tier line) or its mid-cycle `subscription_update`
+ * invoice; an invoice for a subscription that holds only an add-on reaches none of these, and the membership follows one
+ * subscription, so cancelling it would never retire the add-on's rows either. Empty when nothing is lost: an invoice
+ * with a tier line, one-time add-ons and gifts, lines of no amount (a paused or removed add-on, a negative proration
+ * line), and an invoice of a subscription that has ended (nothing more is granted for it, whatever arrives).
+ * Pure; the webhook path refuses an invoice with a non-empty answer, before `invoiceToCommands` records it as decided.
+ */
+export const ungrantedRecurringAddons = ({
+	invoice,
+	state,
+}: {
+	invoice: BillingInvoice;
+	state: GrantsState;
+}): { lines: InvoiceLine[]; why: string } => {
+	const none = { lines: [], why: "" };
+	const live =
+		state.endedAt === null || invoice.subscriptionId !== state.subscriptionId;
+	if (!live) return none;
+	const lines = invoice.lines.filter(
+		(l: InvoiceLine) => l.kind !== "unknown" && l.quantity >= 1,
+	);
+	if (
+		lines.some(
+			(l) => l.kind === "tier" && !l.proration && l.tierId && l.interval,
+		)
+	)
+		return none;
+	const isUpdate = invoice.reason === "subscription_update";
+	// What `invoiceToCommands` would attach, by the same lines: a mid-cycle purchase may be a proration line, any other
+	// invoice attaches only its plain recurring lines.
+	const paid = lines.filter(
+		(l) =>
+			l.kind === "addon" &&
+			l.addonId &&
+			l.interval &&
+			l.amount > 0 &&
+			(isUpdate || !l.proration),
+	);
+	if (paid.length === 0) return none;
+	const own =
+		state.subscriptionId !== null &&
+		invoice.subscriptionId === state.subscriptionId;
+	if (own && state.tierId && isUpdate) return none;
+	if (state.tierId === null)
+		return { lines: paid, why: "this member has no tier subscription yet" };
+	if (!own)
+		return {
+			lines: paid,
+			why: `this member's tier subscription is ${state.subscriptionId}`,
+		};
+	return {
+		lines: paid,
+		why: `it is this member's tier subscription ${state.subscriptionId}, but this invoice (${invoice.reason}) carries no tier line`,
+	};
+};
+
+/**
  * The engine commands one paid invoice calls for, in order, and the state after them.
  *
  * A tier's grants are per unit: its tier line's `quantity` (Stripe's) multiplies every one, and `state.quantity` keeps
