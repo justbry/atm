@@ -104,6 +104,8 @@ export type AtmEventType =
 	| "credit.expired"
 	| "credit.adjusted"
 	| "credit.expiration_changed"
+	| "credit.low"
+	| "credit.depleted"
 	| "fundraise.received"
 	| "fundraise.paid_out"
 	| "subject.erased"
@@ -179,6 +181,19 @@ export type AtmEventContext = {
 	payload?: Record<string, unknown>;
 	/** Prefix of `idem` (default `engine`). */
 	idemPrefix?: string;
+	/**
+	 * Turns on `credit.low` and `credit.depleted`; without it neither is made. Units of the feature at or under which a
+	 * draw makes `credit.low`: the balance goes from above this to at most this (and above 0); 0 makes only
+	 * `credit.depleted`. Written into `credit.low`'s payload, so a replay reads it back. Both events need `before`: without
+	 * the state, the balance before the mutation is not known.
+	 */
+	lowCreditThreshold?: number;
+	/**
+	 * The changes that make up the feature's balance movement, when the caller cuts one mutation into several calls (a
+	 * feature with credits from several plans): give the whole feature's changes to ONE call and `[]` to the others, so
+	 * the low and depleted events judge the feature's total once. Default: the mutation's own changes.
+	 */
+	featureChanges?: AtmMutation["changes"];
 };
 
 /** Inputs of the events that are not engine mutations (payments, payouts, plan changes, ...). */
@@ -366,6 +381,12 @@ export type BillingPolicy = {
 	 * `commandOrg(policy)`, which the caller puts on every `track` and `check` it runs.
 	 */
 	deductionOrder: "expiry" | "engine";
+	/**
+	 * A draw that takes a family's balance of a feature from above this many credits to this many or fewer (and not to
+	 * zero) makes a `credit.low` event, for the family service's "N visits left" notice. Whole credits; 0 turns the event
+	 * off. Reaching zero is always `credit.depleted`, whatever this is.
+	 */
+	lowCreditThreshold: number;
 };
 
 /**

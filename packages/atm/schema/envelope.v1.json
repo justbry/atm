@@ -58,6 +58,8 @@
 				"credit.expired",
 				"credit.adjusted",
 				"credit.expiration_changed",
+				"credit.low",
+				"credit.depleted",
 				"fundraise.received",
 				"fundraise.paid_out",
 				"subject.erased",

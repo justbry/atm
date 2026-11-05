@@ -2,55 +2,59 @@
 import envelope from "../../schema/envelope.v1.json";
 import p0 from "../../schema/payload/catalog.published.v1.json";
 import p1 from "../../schema/payload/credit.adjusted.v1.json";
-import p2 from "../../schema/payload/credit.expiration_changed.v1.json";
-import p3 from "../../schema/payload/credit.expired.v1.json";
-import p4 from "../../schema/payload/credit.forfeited.v1.json";
-import p5 from "../../schema/payload/credit.granted.v1.json";
-import p6 from "../../schema/payload/credit.held.v1.json";
-import p7 from "../../schema/payload/credit.refunded.v1.json";
-import p8 from "../../schema/payload/credit.released.v1.json";
-import p9 from "../../schema/payload/credit.spent.v1.json";
-import p10 from "../../schema/payload/dispute.closed.v1.json";
-import p11 from "../../schema/payload/fundraise.paid_out.v1.json";
-import p12 from "../../schema/payload/fundraise.received.v1.json";
-import p13 from "../../schema/payload/payment.disputed.v1.json";
-import p14 from "../../schema/payload/payment.refunded.v1.json";
-import p15 from "../../schema/payload/payment.succeeded.v1.json";
-import p16 from "../../schema/payload/payout.paid.v1.json";
-import p17 from "../../schema/payload/plan.attached.v1.json";
-import p18 from "../../schema/payload/plan.canceled.v1.json";
-import p19 from "../../schema/payload/plan.changed.v1.json";
-import p20 from "../../schema/payload/policy.published.v1.json";
-import p21 from "../../schema/payload/referral.qualified.v1.json";
-import p22 from "../../schema/payload/referral.rewarded.v1.json";
-import p23 from "../../schema/payload/share.charged.v1.json";
-import p24 from "../../schema/payload/subject.erased.v1.json";
+import p2 from "../../schema/payload/credit.depleted.v1.json";
+import p3 from "../../schema/payload/credit.expiration_changed.v1.json";
+import p4 from "../../schema/payload/credit.expired.v1.json";
+import p5 from "../../schema/payload/credit.forfeited.v1.json";
+import p6 from "../../schema/payload/credit.granted.v1.json";
+import p7 from "../../schema/payload/credit.held.v1.json";
+import p8 from "../../schema/payload/credit.low.v1.json";
+import p9 from "../../schema/payload/credit.refunded.v1.json";
+import p10 from "../../schema/payload/credit.released.v1.json";
+import p11 from "../../schema/payload/credit.spent.v1.json";
+import p12 from "../../schema/payload/dispute.closed.v1.json";
+import p13 from "../../schema/payload/fundraise.paid_out.v1.json";
+import p14 from "../../schema/payload/fundraise.received.v1.json";
+import p15 from "../../schema/payload/payment.disputed.v1.json";
+import p16 from "../../schema/payload/payment.refunded.v1.json";
+import p17 from "../../schema/payload/payment.succeeded.v1.json";
+import p18 from "../../schema/payload/payout.paid.v1.json";
+import p19 from "../../schema/payload/plan.attached.v1.json";
+import p20 from "../../schema/payload/plan.canceled.v1.json";
+import p21 from "../../schema/payload/plan.changed.v1.json";
+import p22 from "../../schema/payload/policy.published.v1.json";
+import p23 from "../../schema/payload/referral.qualified.v1.json";
+import p24 from "../../schema/payload/referral.rewarded.v1.json";
+import p25 from "../../schema/payload/share.charged.v1.json";
+import p26 from "../../schema/payload/subject.erased.v1.json";
 
 export const envelopeSchema: Record<string, unknown> = envelope;
 export const payloadSchemas: Record<string, Record<string, unknown>> = {
 	"catalog.published": p0,
 	"credit.adjusted": p1,
-	"credit.expiration_changed": p2,
-	"credit.expired": p3,
-	"credit.forfeited": p4,
-	"credit.granted": p5,
-	"credit.held": p6,
-	"credit.refunded": p7,
-	"credit.released": p8,
-	"credit.spent": p9,
-	"dispute.closed": p10,
-	"fundraise.paid_out": p11,
-	"fundraise.received": p12,
-	"payment.disputed": p13,
-	"payment.refunded": p14,
-	"payment.succeeded": p15,
-	"payout.paid": p16,
-	"plan.attached": p17,
-	"plan.canceled": p18,
-	"plan.changed": p19,
-	"policy.published": p20,
-	"referral.qualified": p21,
-	"referral.rewarded": p22,
-	"share.charged": p23,
-	"subject.erased": p24,
+	"credit.depleted": p2,
+	"credit.expiration_changed": p3,
+	"credit.expired": p4,
+	"credit.forfeited": p5,
+	"credit.granted": p6,
+	"credit.held": p7,
+	"credit.low": p8,
+	"credit.refunded": p9,
+	"credit.released": p10,
+	"credit.spent": p11,
+	"dispute.closed": p12,
+	"fundraise.paid_out": p13,
+	"fundraise.received": p14,
+	"payment.disputed": p15,
+	"payment.refunded": p16,
+	"payment.succeeded": p17,
+	"payout.paid": p18,
+	"plan.attached": p19,
+	"plan.canceled": p20,
+	"plan.changed": p21,
+	"policy.published": p22,
+	"referral.qualified": p23,
+	"referral.rewarded": p24,
+	"share.charged": p25,
+	"subject.erased": p26,
 };

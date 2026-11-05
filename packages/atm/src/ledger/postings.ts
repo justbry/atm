@@ -154,6 +154,16 @@ const adjustedLines = (r: CreditRule, signed: number): [string, number][] => [
 
 type CreditType = keyof typeof creditRules | "credit.adjusted";
 
+/** Credit events that say something about a balance without moving it: no postings. */
+type BookkeepingOnly =
+	| "credit.expiration_changed"
+	| "credit.low"
+	| "credit.depleted";
+const isBookkeepingOnly = (type: string): type is BookkeepingOnly =>
+	type === "credit.expiration_changed" ||
+	type === "credit.low" ||
+	type === "credit.depleted";
+
 const creditPostings = (
 	type: CreditType,
 	r: CreditRule,
@@ -428,6 +438,67 @@ const expiryMoves = (m: SubjectStateMutation): ExpiryMove[] => {
 	return moves;
 };
 
+type AvailableAround = { before: number; after: number };
+
+/**
+ * The feature's available balance before and after a draw, summed over all its credit rows as `balancesOf` counts it
+ * (balance rows and rollovers not yet past their expiry at the time of the command). `changes` are the changes of the
+ * one feature; `before` is the state they were computed against. Null when nothing is drawn (the balance does not go
+ * down), when no state is given, or when the changes touch no balance row.
+ */
+const availableAround = (
+	m: SubjectStateMutation,
+	changes: SubjectStateMutation["changes"],
+	before: SubjectState | null | undefined,
+	atMs: number,
+): AvailableAround | null => {
+	if (!before) return null;
+	const { delta } = balanceMoves(
+		{ ...m, changes } as SubjectStateMutation,
+		before,
+		atMs,
+	);
+	if (delta >= 0) return null;
+	const internalOf = new Map<string, string>();
+	for (const r of before.customerEntitlements)
+		internalOf.set(r.id, r.internal_feature_id);
+	for (const c of changes)
+		if (c.table === "customerEntitlements" && c.op === "insert")
+			internalOf.set(
+				(c.row as Row).id as string,
+				(c.row as Row).internal_feature_id as string,
+			);
+	const owners = new Map<string, string>();
+	for (const r of before.rollovers) owners.set(r.id, r.cus_ent_id);
+	const features = new Set<string>();
+	for (const c of changes) {
+		if (c.table === "customerEntitlements") {
+			const id = c.op === "insert" ? ((c.row as Row).id as string) : c.id;
+			const internal = internalOf.get(id);
+			if (internal) features.add(internal);
+		} else if (c.table === "rollovers") {
+			const owner =
+				c.op === "insert"
+					? ((c.row as Row).cus_ent_id as string)
+					: owners.get(c.id);
+			const internal = owner ? internalOf.get(owner) : undefined;
+			if (internal) features.add(internal);
+		}
+	}
+	if (features.size === 0) return null;
+	const rowIds = new Set<string>();
+	let total = 0;
+	for (const r of before.customerEntitlements) {
+		if (!features.has(r.internal_feature_id)) continue;
+		rowIds.add(r.id);
+		if (isLive(r.expires_at, atMs)) total += r.balance;
+	}
+	for (const r of before.rollovers)
+		if (rowIds.has(r.cus_ent_id) && isLive(r.expires_at, atMs))
+			total += r.balance;
+	return { before: total, after: total + delta };
+};
+
 const bookingOf = (m: SubjectStateMutation): string | undefined => {
 	const lockInsert = m.changes.find(
 		(c) => c.table === "locks" && c.op === "insert",
@@ -475,7 +546,7 @@ export const mutationToEvents = ({
 	};
 	const made: AtmEvent[] = [];
 	const emit = (
-		type: CreditType | "credit.expiration_changed",
+		type: CreditType | BookkeepingOnly,
 		suffix: string,
 		units: number,
 		text: string,
@@ -506,10 +577,9 @@ export const mutationToEvents = ({
 				idem: `${context.idemPrefix ?? "engine"}:${mutationId}:${suffix}`,
 				cause: context.cause,
 				text,
-				postings:
-					type === "credit.expiration_changed"
-						? []
-						: creditPostings(type, rule, extra.signed),
+				postings: isBookkeepingOnly(type)
+					? []
+					: creditPostings(type, rule, extra.signed),
 				payload: {
 					command: mutation.command,
 					mutation: mutationWithoutCommand,
@@ -719,6 +789,49 @@ export const mutationToEvents = ({
 				},
 			},
 		);
+	}
+	// A reset that lowers the balance only lets the last cycle's leftovers go as the new cycle fills: not a draw.
+	// The alerts are opt-in: a caller that gives no `lowCreditThreshold` gets the events it always got.
+	const threshold = context.lowCreditThreshold;
+	const around =
+		command.type === "reset" || threshold === undefined
+			? null
+			: availableAround(
+					mutation,
+					(context.featureChanges as unknown as
+						| SubjectStateMutation["changes"]
+						| undefined) ?? mutation.changes,
+					context.before as unknown as SubjectState | null | undefined,
+					atMs,
+				);
+	if (around && threshold !== undefined) {
+		const alertPayload = (limit: number | null) => ({
+			feature,
+			available: around.after,
+			threshold: limit,
+			previous_available: around.before,
+		});
+		if (around.before > 0 && around.after <= 0) {
+			emit(
+				"credit.depleted",
+				`depleted:${feature}`,
+				0,
+				`${feature} credits used up`,
+				{ payload: alertPayload(null) },
+			);
+		} else if (
+			around.before > threshold &&
+			around.after > 0 &&
+			around.after <= threshold
+		) {
+			emit(
+				"credit.low",
+				`low:${feature}`,
+				0,
+				`${around.after} ${feature} left`,
+				{ payload: alertPayload(threshold) },
+			);
+		}
 	}
 	void commodity;
 	return made;

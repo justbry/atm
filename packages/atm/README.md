@@ -61,6 +61,8 @@ So a gift that lapses before the tier's next reset is spent first under `expiry`
 
 `credit.expiration_changed` says a row's credits stay but their end date moved (a cancelled plan's rows stop refilling and lapse at the last cycle's end plus the rollover months). It carries the row, `previous_expires_at`, `expires_at` and `refills_ended`, has no postings, and is emitted only when the date changes without a balance change in the same write.
 
+`credit.low` ("N visits left") and `credit.depleted` ("pack used up") say a draw took a holder's available balance of a feature across a line. atm emits them; the family service delivers the mails. `credit.depleted` is a balance that goes from above 0 to 0; `credit.low` is one that goes from above `policy.lowCreditThreshold` (default 2; 0 turns it off) to at most it, and not to 0 (a draw straight from 5 to 0 is only `credit.depleted`). Each is made once per crossing, never while the balance stays below, and never when it does not go down (a grant, a refund, a reset). The balance is the sum over all the feature's rows and rollovers, so a pack on top of a tier counts. The payload is `feature`, `available`, `threshold` (null on `credit.depleted`) and `previous_available`, beside the command and mutation; there are no postings; the idem is `<prefix>:<mutation id>:low:<feature>` or `...:depleted:<feature>`. `mutationToEvents` makes them only when the context has `lowCreditThreshold` and the `before` state (`handleStripeEvent` passes the policy's); a lapse by the clock (`lapseEvent`) does not make them yet.
+
 ### Membership status
 
 `incomplete` means the first payment is not finished (Stripe `incomplete`); the other values are `active`, `past_due`, `ended` and `inactive` (`status.ts`).

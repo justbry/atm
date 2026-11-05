@@ -45,6 +45,7 @@ import {
 	resolveInvoice,
 	resolveSubscriptionPlan,
 } from "./normalize.js";
+import { DEFAULT_POLICY } from "./policy.js";
 import {
 	applyRowChanges,
 	diffRows,
@@ -424,6 +425,15 @@ const eventsOf = ({
 					labels,
 					idemPrefix,
 					before: before as never,
+					// A policy stored before the field existed has none: the default. The feature's whole balance move goes to
+					// the first call of the feature, the others judge nothing, so a feature with several plans is judged once.
+					lowCreditThreshold:
+						input.policy.lowCreditThreshold ??
+						DEFAULT_POLICY.lowCreditThreshold,
+					featureChanges:
+						groups.findIndex((g) => g.feature === group.feature) === index
+							? mutation.changes.filter((c) => featureOf(c) === group.feature)
+							: [],
 				},
 			}),
 		);

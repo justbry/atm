@@ -108,7 +108,17 @@ describe("the fixture year, replayed from its inputs", () => {
 	});
 
 	test("the credit events equal the fixture's own: grants, rollovers, the gifts, the refund, the expiries", () => {
-		expect(sorted(replay.credit)).toEqual(sorted(inputs.expectedCredit));
+		// The fixture year is the generator's: it books no low-credit alerts. The decisions book one, a `credit.depleted`
+		// when the refund takes the family's last visit; it moves nothing, so it is checked on its own.
+		const isAlert = (e: AtmEvent) =>
+			e.event_type === "credit.low" || e.event_type === "credit.depleted";
+		expect(sorted(replay.credit.filter((e) => !isAlert(e)))).toEqual(
+			sorted(inputs.expectedCredit),
+		);
+		const alerts = replay.credit.filter(isAlert);
+		expect(alerts.map((e) => [e.event_type, e.date, e.postings])).toEqual([
+			["credit.depleted", "2026-10-18", []],
+		]);
 	});
 
 	test("the final balances equal expected.json", () => {

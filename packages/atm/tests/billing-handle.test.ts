@@ -330,7 +330,11 @@ describe("handleStripeEvent", () => {
 		const s = store();
 		create(s);
 		const r = s.handle(refundOf("in_1"), T1);
-		expect(r.events.map((e) => e.event_type)).toEqual(["credit.adjusted"]);
+		// By design: the clawback takes the family's last visits, so the balance crosses to zero.
+		expect(r.events.map((e) => e.event_type)).toEqual([
+			"credit.adjusted",
+			"credit.depleted",
+		]);
 		expect(r.events[0]?.cause).toBe(inputEventId("evt_re_1", T1));
 		expect(r.events[0]?.labels.mapping).toBe("stripe/charge.refunded@v1");
 		expect(s.avail(T0 + 1)).toBe(0);
@@ -365,7 +369,10 @@ describe("handleStripeEvent", () => {
 		expect(s.handle(dispute("won", "a"), T1).rowChanges).toBeNull();
 		expect(s.avail(T0 + 1)).toBe(2);
 		const lost = s.handle(dispute("lost", "b"), T1);
-		expect(lost.events.map((e) => e.event_type)).toEqual(["credit.adjusted"]);
+		expect(lost.events.map((e) => e.event_type)).toEqual([
+			"credit.adjusted",
+			"credit.depleted",
+		]);
 		expect(s.avail(T0 + 1)).toBe(0);
 	});
 
