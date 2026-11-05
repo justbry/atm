@@ -18,8 +18,10 @@ on:
     paths:
       - "packages/atm/**"
       - "packages/balance-engine/**"
+      - "packages/ksuid/**"
       - "shared/**"
       - "package.json"
+      - "biome.json"
       - "bun.lock"
       - ".bun-version"
       - ".github/workflows/atm-tests.yml"
@@ -28,8 +30,10 @@ on:
     paths:
       - "packages/atm/**"
       - "packages/balance-engine/**"
+      - "packages/ksuid/**"
       - "shared/**"
       - "package.json"
+      - "biome.json"
       - "bun.lock"
       - ".bun-version"
       - ".github/workflows/atm-tests.yml"
