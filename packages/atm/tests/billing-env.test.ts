@@ -341,6 +341,50 @@ describe("a bad env throws, naming the field", () => {
 		expect(db.all("SELECT * FROM atm_event_claims")).toEqual([]);
 	});
 
+	// A bad env is resolved once at the entry point. It must not reach the per-event holder lookup, whose catch would
+	// answer it as a family with no metadata (a 422 `missing_metadata`) instead of throwing.
+	test.each(BAD_ENVS)(
+		"handleStripeWebhook throws, not missing_metadata, for an event with half the holder metadata: %p",
+		(value) => {
+			const { db, deps } = harness();
+			// biome-ignore lint/suspicious/noExplicitAny: plain JavaScript passing a bad value
+			const bad = { ...deps, env: value as any };
+			const half = structuredClone(invoiceEvent);
+			half.data.object.metadata = {};
+			half.data.object.parent.subscription_details.metadata = {
+				b4u_school: SCHOOL,
+			};
+			const payload = JSON.stringify(half);
+			expect(() =>
+				handleStripeWebhook(bad, {
+					payload,
+					signatureHeader: signStripePayload({
+						payload,
+						secret: SECRET,
+						timestampSeconds: half.created + 1,
+					}),
+				}),
+			).toThrow(/^env must be "live" or "test"/);
+			expect(db.all("SELECT * FROM atm_event_claims")).toEqual([]);
+			expect(db.all("SELECT * FROM atm_rows")).toEqual([]);
+		},
+	);
+
+	test.each(BAD_ENVS)(
+		"handleStripeEvent throws on %p before its other checks run",
+		(value) => {
+			// An unusable eventId would otherwise be refused as bad_event: the env check comes first.
+			expect(() =>
+				handleStripeEvent({
+					...stripeEventInput(),
+					eventId: "not-a-ulid",
+					// biome-ignore lint/suspicious/noExplicitAny: plain JavaScript passing a bad value
+					env: value as any,
+				}),
+			).toThrow(/^env must be "live" or "test"/);
+		},
+	);
+
 	test("the error is an Error, and says what it got", () => {
 		let caught: unknown;
 		try {

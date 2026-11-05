@@ -120,6 +120,7 @@ import { type BillingRow, StaleRevision, subjectKey } from "../billing/rows.js";
 import { deterministicUlid } from "../ledger/ids.js";
 import { canonicalize } from "../ledger/util.js";
 import type {
+	AtmEnv,
 	BillingInvoice,
 	InvoicePaymentFact,
 	RowChanges,
@@ -305,7 +306,11 @@ const holderMetadata = (event: StripeEvent): JsonObject => {
 
 const HOLDER_KEYS = ["b4u_school", "family_id"] as const;
 
-const locateHolder = (deps: WebhookDeps, event: StripeEvent): Located => {
+const locateHolder = (
+	deps: WebhookDeps,
+	env: AtmEnv,
+	event: StripeEvent,
+): Located => {
 	const metadata = holderMetadata(event);
 	// Not a family's product at all: nothing of ours to decide, and nothing a retry could change.
 	if (!HOLDER_KEYS.some((key) => key in metadata)) return { kind: "ignored" };
@@ -318,7 +323,7 @@ const locateHolder = (deps: WebhookDeps, event: StripeEvent): Located => {
 		try {
 			key = subjectKey({
 				orgId: school,
-				env: resolveEnv(deps.env),
+				env,
 				customerId: `family:${family}`,
 				entityId: null,
 			});
@@ -333,12 +338,16 @@ const locateHolder = (deps: WebhookDeps, event: StripeEvent): Located => {
 	return { kind: "subject", subjectKey: key, invoiceIds: {} };
 };
 
-const locateSubject = (deps: WebhookDeps, event: StripeEvent): Located => {
+const locateSubject = (
+	deps: WebhookDeps,
+	env: AtmEnv,
+	event: StripeEvent,
+): Located => {
 	if (
 		event.type === "invoice.paid" ||
 		event.type.startsWith(SUBSCRIPTION_EVENT_PREFIX)
 	)
-		return locateHolder(deps, event);
+		return locateHolder(deps, env, event);
 	const refs = paymentRefsOf(event);
 	// payment ref -> invoice (written by invoice_payment.paid) -> subject (written by invoice.paid)
 	const hits =
@@ -514,11 +523,13 @@ const writeRows = (db: SqlDatabase, changes: RowChanges): void => {
 
 const applyOnce = ({
 	deps,
+	env,
 	event,
 	located,
 	claim,
 }: {
 	deps: WebhookDeps;
+	env: AtmEnv;
 	event: StripeEvent;
 	located: Extract<Located, { kind: "subject" }>;
 	claim: Claim;
@@ -549,7 +560,7 @@ const applyOnce = ({
 		now: event.created * 1000,
 		priceIds: context.priceIds,
 		invoiceIds: located.invoiceIds,
-		env: deps.env,
+		env,
 	});
 	if (result.refused) {
 		releaseClaim(deps, event.id, claim);
@@ -607,6 +618,7 @@ const answerForRefusal = (
 
 const settle = (
 	deps: WebhookDeps,
+	env: AtmEnv,
 	event: StripeEvent,
 	claim: Claim,
 	located: Extract<Located, { kind: "subject" }>,
@@ -615,7 +627,7 @@ const settle = (
 		let applied: Applied;
 		try {
 			applied = deps.db.transaction(() =>
-				applyOnce({ deps, event, located, claim }),
+				applyOnce({ deps, env, event, located, claim }),
 			);
 		} catch (error) {
 			if (error instanceof StaleRevision) continue;
@@ -759,11 +771,10 @@ const schoolMismatch = (
  * older hand-built fixture).
  */
 const livemodeMismatch = (
-	deps: WebhookDeps,
+	env: AtmEnv,
 	event: StripeEvent,
 ): WebhookResponse | null => {
 	const livemode = isObject(event.raw) ? event.raw.livemode : undefined;
-	const env = resolveEnv(deps.env);
 	if (typeof livemode !== "boolean" || livemode === (env === "live"))
 		return null;
 	return reply(422, "livemode_mismatch", {
@@ -800,7 +811,7 @@ export const handleStripeWebhook = (
 	request: WebhookRequest,
 ): WebhookResponse => {
 	// Before anything is verified or claimed: a bad env is the caller's code, and every delivery would hit it.
-	resolveEnv(deps.env);
+	const env = resolveEnv(deps.env);
 	const verdict = verifyStripeSignature({
 		payload: request.payload,
 		header: request.signatureHeader,
@@ -817,7 +828,7 @@ export const handleStripeWebhook = (
 				"the body is not a Stripe event (id, type, created, data.object)",
 		});
 	if (!HANDLED_TYPES.has(event.type)) return ignoreUnmapped(event);
-	const mismatched = livemodeMismatch(deps, event);
+	const mismatched = livemodeMismatch(env, event);
 	if (mismatched) return mismatched;
 
 	if (event.type === INVOICE_PAYMENT_EVENT) {
@@ -829,7 +840,7 @@ export const handleStripeWebhook = (
 		return settlePayment(deps, event, claimed.claim);
 	}
 
-	const located = locateSubject(deps, event);
+	const located = locateSubject(deps, env, event);
 	if (located.kind === "ignored") return ignoreForeign(deps, event);
 	if (located.kind === "school_mismatch")
 		return schoolMismatch(deps, event.id, located.school);
@@ -855,5 +866,5 @@ export const handleStripeWebhook = (
 		return reply(200, "duplicate", { stripeEventId: event.id });
 	if (claimed.kind === "busy")
 		return reply(409, "busy", { stripeEventId: event.id });
-	return settle(deps, event, claimed.claim, located);
+	return settle(deps, env, event, claimed.claim, located);
 };
