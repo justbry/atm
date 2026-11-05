@@ -47,6 +47,7 @@ Ledger event types include `credit.expiration_changed` (a row's credits stay but
 - `credit.low` and `credit.depleted` fire only for draws by `track` or `finalize`, that is customer activity (holds and spends). A refund or dispute clawback and an admin edit do not raise them.
 - They are judged on availability including holds, so a hold can take a family under the threshold before any visit is spent.
 - atm does not remember that it already alerted. The family service should dedupe its notices per holder, feature and grant or cycle.
+- They are opt-in per call. `handleStripeEvent` never makes them (it runs only billing commands). The family service passes `policy.lowCreditThreshold` as `lowCreditThreshold` in the context it gives `mutationToEvents` for its own `track` and `finalize` mutations. Without it no alert is made at all; a threshold of 0 makes `credit.depleted` only.
 
 ### What surprised us on real Stripe data
 
