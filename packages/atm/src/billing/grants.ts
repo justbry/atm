@@ -19,7 +19,12 @@
 
 import type { AtmEnv } from "../types.js";
 import { resolveEnv } from "./env.js";
-import { prorationPair, raiseLine, raiseUnits, upgradeUnits } from "./raise.js";
+import {
+	prorationPairUnchecked,
+	raiseLine,
+	raiseUnitsUnchecked,
+	upgradeUnits,
+} from "./raise.js";
 import { subscriptionStatus } from "./status.js";
 import type {
 	AtmSubject,
@@ -499,9 +504,9 @@ class Builder {
 			orgId: string;
 			customerId: string;
 		},
-		env?: AtmEnv,
+		env: AtmEnv,
 	) {
-		this.env = resolveEnv(env);
+		this.env = env;
 	}
 	get ident() {
 		return {
@@ -682,7 +687,8 @@ export const invoiceHolder = (
  * - `subscription_update` with a positive proration line for another tier (an upgrade), or for the same tier at a
  *   higher quantity (a raise): the difference of allowance x quantity (the charge line's the new total, the old one is
  *   what the credits reflect, `state.quantity`, not Stripe's credit line) x share of the cycle left, rounded up, per
- *   `policy.upgradeGrant`: `prorationPair` and `raiseUnits`, which a caller without the state reuses. A lower tier, or the
+ *   `policy.upgradeGrant`: `prorationPair` and `raiseUnits`, which a caller without the state reuses. The engine calls their
+ *   unchecked cores, so a malformed Stripe value never throws here (the webhook is "throws, not refuses"). A lower tier, or the
  *   same tier at no more units than the credits reflect (a raise after a decrease that waits for the renewal), grants
  *   nothing.
  * - Gift certificate (an add-on with `gift`, or a line whose Stripe price says so): `sessions` is a one-off row per
@@ -692,6 +698,7 @@ export const invoiceHolder = (
  * A replayed invoice (already in `state.invoices`) gives no commands.
  */
 export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
+	const env = resolveEnv(input.env);
 	const { invoice, menu, policy, now } = input;
 	const labels = labelsOf(invoice.source, input);
 	if (input.state.invoices[invoice.id])
@@ -699,7 +706,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 	const state = clone(input.state);
 	const who = identityFrom(invoice, state);
 	state.holder ??= who;
-	const b = new Builder(invoice.source, who, input.env);
+	const b = new Builder(invoice.source, who, env);
 	const record: InvoiceRecord = {
 		paidAt: invoice.paidAt,
 		granted: [],
@@ -722,7 +729,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 	const isTierLine = (l: InvoiceLine) =>
 		l.kind === "tier" && Boolean(l.tierId) && Boolean(l.interval);
 	const upLine = live ? raiseLine(lines, isTierLine) : undefined;
-	const pair = live ? prorationPair(lines, isTierLine) : null;
+	const pair = live ? prorationPairUnchecked(lines, isTierLine) : null;
 	const recurring = live
 		? lines.filter(
 				(l) => l.kind === "addon" && !l.proration && l.addonId && l.interval,
@@ -1021,7 +1028,7 @@ export const invoiceToCommands = (input: InvoiceGrantInput): GrantResult => {
 			 */
 			const keepSameTier = (s: RowSpec) => {
 				if (s.interval !== s.plan) return;
-				const units = raiseUnits({
+				const units = raiseUnitsUnchecked({
 					perUnit: s.amount,
 					oldQuantity,
 					newQuantity,
@@ -1265,10 +1272,12 @@ const removeInvoice = ({
 	invoiceId,
 	source,
 	input,
+	env,
 }: {
 	invoiceId: string | null;
 	source: FactSource;
 	input: RemovalInput;
+	env: AtmEnv;
 }): GrantResult => {
 	const labels = labelsOf(source, input);
 	const record = invoiceId ? input.state.invoices[invoiceId] : undefined;
@@ -1281,7 +1290,7 @@ const removeInvoice = ({
 		(state.invoices[invoiceId as string] as InvoiceRecord).removed = true;
 		return { commands: [], labels, state };
 	}
-	const b = new Builder(source, state.identity, input.env);
+	const b = new Builder(source, state.identity, env);
 	const held = heldOf(input.subject);
 	const cut = new Map<string, number>();
 	const ops: Op[] = [];
@@ -1349,6 +1358,7 @@ const removeInvoice = ({
 export const subscriptionEndedToCommands = (
 	input: SubscriptionEndInput,
 ): GrantResult => {
+	const env = resolveEnv(input.env);
 	const { subscription: fact, menu, state: prior, now } = input;
 	const labels = labelsOf(fact.source, input);
 	const none = { commands: [], labels, state: prior };
@@ -1402,7 +1412,7 @@ export const subscriptionEndedToCommands = (
 			set: { expires_at: rolloverExpiry(rollover, boundary) ?? boundary },
 		});
 	}
-	const b = new Builder(fact.source, prior.identity, input.env);
+	const b = new Builder(fact.source, prior.identity, env);
 	b.plan(now, ops);
 	return { commands: b.commands, labels, state };
 };
@@ -1521,6 +1531,7 @@ const supersedes = (
 export const refundToCommands = (
 	input: RemovalInput & { refund: BillingRefund },
 ): GrantResult => {
+	const env = resolveEnv(input.env);
 	const { refund, policy } = input;
 	if (!refund.full || !policy.removeOnFullRefund)
 		return {
@@ -1532,6 +1543,7 @@ export const refundToCommands = (
 		invoiceId: refund.invoiceId ?? null,
 		source: refund.source,
 		input,
+		env,
 	});
 };
 
@@ -1539,6 +1551,7 @@ export const refundToCommands = (
 export const disputeToCommands = (
 	input: RemovalInput & { dispute: BillingDispute },
 ): GrantResult => {
+	const env = resolveEnv(input.env);
 	const { dispute, policy } = input;
 	if (dispute.status !== "lost" || !policy.removeOnLostDispute)
 		return {
@@ -1550,6 +1563,7 @@ export const disputeToCommands = (
 		invoiceId: dispute.invoiceId ?? null,
 		source: dispute.source,
 		input,
+		env,
 	});
 };
 
