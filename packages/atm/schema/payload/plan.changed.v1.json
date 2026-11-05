@@ -42,6 +42,10 @@
 					"type": "object"
 				}
 			}
+		},
+		"complete": {
+			"type": "boolean",
+			"description": "Written by a handler that logs every engine command it runs (after atm 0.3.0), so a revision with no event in the log was a write of the grants row alone. Absent on what 0.3.0 wrote, which did not log some commands."
 		}
 	}
 }

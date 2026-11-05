@@ -275,6 +275,12 @@ export type AtmReplayResult = {
 	asOf: string | null;
 	applied: number;
 	lastEventId: string | null;
+	/**
+	 * Subjects whose last handler command in the log was written by atm 0.3.0, which did not log every command: a
+	 * command it ran after the last one logged (the cycle-end update after a renewal) is not in the log, so their replayed
+	 * rows may lack it. Absent when there are none.
+	 */
+	lossySubjects?: string[];
 };
 
 export type AtmValidationError = { path: string; message: string };
@@ -1410,3 +1416,30 @@ export type WebhookResponse = {
 		wroteRows?: boolean;
 	};
 };
+
+/** Thrown by `replayEvents` where the engine disagrees with the log; `eventId` names the event. */
+export interface ReplayErrorType extends Error {
+	readonly eventId: string;
+}
+export interface ReplayErrorConstructor {
+	new (eventId: string, message: string): ReplayErrorType;
+	readonly prototype: ReplayErrorType;
+}
+
+/**
+ * Thrown by `replayEvents` at a log written by atm 0.3.0 that has revisions with no event: an engine command that
+ * writer did not log, or a write of the grants row alone (the two cannot be told apart). `prefix` is the replay of
+ * everything before the gap.
+ */
+export interface ReplayGapErrorType extends ReplayErrorType {
+	readonly gap: { subject: string; after: number; before: number };
+	readonly prefix: AtmReplayResult;
+}
+export interface ReplayGapErrorConstructor {
+	new (
+		eventId: string,
+		gap: { subject: string; after: number; before: number },
+		prefix: AtmReplayResult,
+	): ReplayGapErrorType;
+	readonly prototype: ReplayGapErrorType;
+}

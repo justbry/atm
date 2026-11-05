@@ -426,6 +426,8 @@ const eventsOf = ({
 					cause: input.eventId,
 					labels,
 					idemPrefix,
+					// the write logs every command it ran, so a replay may step over a revision gap in the log (a write of the grants row alone)
+					payload: { complete: true },
 					// The payload keeps the whole mutation (a replay runs the whole command); the events are made from this cut.
 					// A mutation with one group has nothing to cut.
 					...(groups.length > 1 ? { slice } : {}),
@@ -467,7 +469,7 @@ const planChangedOf = ({
 		cause: input.eventId,
 		labels,
 		text: `${command.type} moved no credits`,
-		payload: { command, mutation: decided },
+		payload: { command, mutation: decided, complete: true },
 		revision: mutation.revision.after,
 	});
 };

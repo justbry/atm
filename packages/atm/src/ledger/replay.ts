@@ -12,6 +12,7 @@ import type {
 	AtmSnapshot,
 	AtmSubjectState,
 } from "../types.js";
+import { ULID_PATTERN } from "./ids.js";
 import { mutationToEvents } from "./postings.js";
 import { runOnState, toCatalog } from "./run.js";
 import { canonicalize, isoInstant } from "./util.js";
@@ -23,6 +24,26 @@ export class ReplayError extends Error {
 	) {
 		super(`event ${eventId}: ${message}`);
 		this.name = "ReplayError";
+	}
+}
+
+/**
+ * The log has a hole the replay cannot step over: engine commands between two revisions of a subject that no event
+ * records, in a log a writer that did not log every command (atm 0.3.0) wrote. A write of the grants row alone leaves the
+ * same gap and is harmless, but the two cannot be told apart, and a lost command (the cycle-end update after a renewal)
+ * changes rows. `prefix` is the replay of everything before the gap, so a caller can read the state it reached.
+ */
+export class ReplayGapError extends ReplayError {
+	constructor(
+		eventId: string,
+		readonly gap: { subject: string; after: number; before: number },
+		readonly prefix: AtmReplayResult,
+	) {
+		super(
+			eventId,
+			`the log has no event for revisions ${gap.after + 1} to ${gap.before} of ${gap.subject}: an engine command the writer did not log (atm 0.3.0 did not log the cycle-end update after a renewal) or a write of the grants row alone, and the two cannot be told apart. The log was written by 0.3.0 and cannot be rebuilt past this point; the replay up to it is the error's prefix`,
+		);
+		this.name = "ReplayGapError";
 	}
 }
 
@@ -203,7 +224,87 @@ export const replayOrder = (events: readonly AtmEvent[]): AtmEvent[] => {
 	);
 };
 
-type Cached = { mutation: SubjectStateMutation; before: SubjectState | null };
+/** What the handler writes names its command `<ULID of the stored input event>:<step>`; the family service's own commands do not. */
+const HANDLER_COMMAND = new RegExp(`${ULID_PATTERN.slice(0, -1)}:\\d+$`);
+
+type RecordedMutation = {
+	id: string;
+	revision: MutationRevision;
+	changes: unknown[];
+} & Record<string, unknown>;
+
+/**
+ * The mutation of each command as the log holds it: the changes of every event that names the same `mutation.id`, put
+ * together. atm 0.3.0 booked a mutation as one event per feature and plan, each recording only its own changes (and a
+ * mutation that moved no credits in none), so the whole mutation may be more than the log holds; an event with a
+ * `payload.slice` is the current shape, which records it whole.
+ */
+const recordedMutations = (events: readonly AtmEvent[]) => {
+	const byMutation = new Map<
+		string,
+		{ mutation: RecordedMutation; sliced: boolean }
+	>();
+	for (const e of events) {
+		const mutation = (e.payload as { mutation?: RecordedMutation }).mutation;
+		if (!mutation || typeof mutation.id !== "string") continue;
+		const id = `${e.key}\u0000${mutation.id}`;
+		const sliced = Array.isArray((e.payload as { slice?: unknown }).slice);
+		const known = byMutation.get(id);
+		if (!known) {
+			byMutation.set(id, {
+				mutation: { ...mutation, changes: [...mutation.changes] },
+				sliced,
+			});
+			continue;
+		}
+		known.sliced ||= sliced;
+		const have = new Set(known.mutation.changes.map((c) => canonicalize(c)));
+		for (const change of mutation.changes)
+			if (!have.has(canonicalize(change))) known.mutation.changes.push(change);
+	}
+	return byMutation;
+};
+
+/** `same`: the changes are the decided ones; `partial`: some of them (an old log's booking); `differs`: not. */
+const compareChanges = (
+	decided: readonly unknown[],
+	recorded: readonly unknown[],
+): "same" | "partial" | "differs" => {
+	const want = decided.map((c) => canonicalize(c));
+	const got = recorded.map((c) => canonicalize(c));
+	if (got.length === want.length)
+		return got.every((c, i) => c === want[i]) ? "same" : "differs";
+	if (got.length > want.length) return "differs";
+	const left = [...want];
+	for (const c of got) {
+		const at = left.indexOf(c);
+		if (at < 0) return "differs";
+		left.splice(at, 1);
+	}
+	return "partial";
+};
+
+/** Where an event's own changes sit in the decided mutation's: the cut an old booking was made from. */
+const positionsIn = (
+	decided: readonly unknown[],
+	own: readonly unknown[],
+): number[] => {
+	const taken = new Set<number>();
+	const want = decided.map((c) => canonicalize(c));
+	return own.map((c) => {
+		const key = canonicalize(c);
+		const at = want.findIndex((w, i) => w === key && !taken.has(i));
+		taken.add(at);
+		return at;
+	});
+};
+
+type Cached = {
+	mutation: SubjectStateMutation;
+	before: SubjectState | null;
+	/** The log holds some of the mutation's changes, not all (an old booking's own cut). */
+	partial: boolean;
+};
 
 /**
  * Events back through the engine. Starting from `snapshot` (or nothing), in `replayOrder` (each subject's commands in
@@ -240,12 +341,39 @@ export const replayEvents = ({
 	const fromPlace = from === null ? -1 : placeOf(from);
 	const stopPlace = lastEventId === undefined ? -1 : placeOf(lastEventId);
 	const cache = new Map<string, Cached>();
+	const whole = recordedMutations(events);
+	/** Subjects whose latest handler command was written by a writer that did not log every command (0.3.0). */
+	const lossy = new Set<string>();
+	const noteWriter = (e: AtmEvent) => {
+		const command = (e.payload as { command?: { commandId?: string } }).command;
+		if (!command?.commandId || !HANDLER_COMMAND.test(command.commandId)) return;
+		if ((e.payload as { complete?: unknown }).complete === true)
+			lossy.delete(e.key);
+		else lossy.add(e.key);
+	};
 	let applied = 0;
 	let last: AtmEvent | null = null;
+	const result = (): AtmReplayResult => {
+		const asOfMs = asOf
+			? Date.parse(asOf)
+			: last
+				? Date.parse(last.event_time)
+				: 0;
+		return {
+			snapshot: { states, holds, lastEventId: last ? last.id : from },
+			balances: balancesOf({ states, holds, catalog, asOfMs }),
+			asOf: asOf ?? (last ? last.event_time : null),
+			applied,
+			lastEventId: last ? last.id : from,
+			...(lossy.size > 0 ? { lossySubjects: [...lossy].sort() } : {}),
+		};
+	};
 
 	for (const [place, e] of ordered.entries()) {
-		if (from !== null && (fromPlace >= 0 ? place <= fromPlace : e.id <= from))
+		if (from !== null && (fromPlace >= 0 ? place <= fromPlace : e.id <= from)) {
+			noteWriter(e);
 			continue;
+		}
 		if (
 			lastEventId !== undefined &&
 			(stopPlace >= 0 ? place > stopPlace : e.id > lastEventId)
@@ -290,9 +418,12 @@ export const replayEvents = ({
 			if (cmd.identity.entityId !== null)
 				throw new ReplayError(e.id, "entity-level states are not replayed yet");
 			const key = cmd.identity.customerId;
-			const recorded = payload.mutation as {
-				revision: MutationRevision;
-			} & Record<string, unknown>;
+			const own = payload.mutation as RecordedMutation;
+			const gathered = whole.get(`${e.key}\u0000${own.id}`) ?? {
+				mutation: own,
+				sliced: false,
+			};
+			const recorded = gathered.mutation;
 			let entry = cache.get(cmd.commandId);
 			const current =
 				(states[key] as unknown as SubjectState | undefined) ?? null;
@@ -300,9 +431,26 @@ export const replayEvents = ({
 				!entry &&
 				(current === null || current.revision < recorded.revision.after)
 			) {
-				// A write that moved no engine rows (a grants-only write) still moved the stored revision on; the engine ran at that one.
+				// Revisions the log has no command for: a write of the grants row alone moved the stored revision on with no
+				// engine command, and that is all a writer that logs every command can leave. A log from one that did not
+				// (0.3.0) leaves the same gap where a command changed rows, so it is not stepped over.
+				const gap =
+					current !== null && current.revision < recorded.revision.before;
+				const loggedAll =
+					!HANDLER_COMMAND.test(cmd.commandId) || payload.complete === true;
+				if (current !== null && gap && (lossy.has(key) || !loggedAll))
+					throw new ReplayGapError(
+						e.id,
+						{
+							subject: key,
+							after: current.revision,
+							before: recorded.revision.before,
+						},
+						result(),
+					);
+				// the engine ran at the stored revision
 				const start =
-					current && current.revision < recorded.revision.before
+					current && gap
 						? { ...current, revision: recorded.revision.before }
 						: current;
 				const before = start ? clone(start) : null;
@@ -325,22 +473,55 @@ export const replayEvents = ({
 					string,
 					unknown
 				>;
-				if (canonicalize(decided) !== canonicalize(recorded)) {
+				const fit = compareChanges(
+					decided.changes as unknown[],
+					recorded.changes,
+				);
+				const sameRest =
+					canonicalize({ ...decided, changes: null }) ===
+					canonicalize({ ...recorded, changes: null });
+				// Fewer changes than the engine decides are an old booking's own cut, never one of the current shape (whole, or sliced).
+				if (
+					!sameRest ||
+					fit === "differs" ||
+					(fit === "partial" && gathered.sliced)
+				) {
 					throw new ReplayError(
 						e.id,
 						"the engine decides differently from the recorded mutation",
 					);
 				}
 				states[key] = run.state as unknown as AtmSubjectState;
-				entry = { mutation: run.mutation, before };
+				entry = {
+					mutation: run.mutation,
+					before,
+					partial: fit === "partial",
+				};
 				cache.set(cmd.commandId, entry);
 			}
 			if (entry && !e.event_type.startsWith("plan.")) {
+				const context = contextFromEvent(e, entry.before);
+				const cut = entry.partial
+					? positionsIn(entry.mutation.changes, own.changes)
+					: undefined;
 				const derived = mutationToEvents({
 					mutation: entry.mutation,
-					context: contextFromEvent(e, entry.before),
+					context: cut ? { ...context, slice: cut } : context,
 				});
-				const match = derived.find((d) => d.idem === e.idem);
+				const made = derived.find((d) => d.idem === e.idem);
+				// An old booking recorded its own cut as its mutation, and no `slice` beside it.
+				const match =
+					made && cut
+						? {
+								...made,
+								payload: {
+									...Object.fromEntries(
+										Object.entries(made.payload).filter(([k]) => k !== "slice"),
+									),
+									mutation: own,
+								},
+							}
+						: made;
 				if (!match || canonicalize(match) !== canonicalize(e)) {
 					throw new ReplayError(
 						e.id,
@@ -348,6 +529,7 @@ export const replayEvents = ({
 					);
 				}
 			}
+			noteWriter(e);
 			if (e.event_type === "credit.held") {
 				const lock = (
 					recorded.changes as {
@@ -378,16 +560,5 @@ export const replayEvents = ({
 		last = e;
 	}
 
-	const asOfMs = asOf
-		? Date.parse(asOf)
-		: last
-			? Date.parse(last.event_time)
-			: 0;
-	return {
-		snapshot: { states, holds, lastEventId: last ? last.id : from },
-		balances: balancesOf({ states, holds, catalog, asOfMs }),
-		asOf: asOf ?? (last ? last.event_time : null),
-		applied,
-		lastEventId: last ? last.id : from,
-	};
+	return result();
 };

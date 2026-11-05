@@ -1,0 +1,438 @@
+[
+	{
+		"command": {
+			"schemaVersion": 1,
+			"type": "applyBillingPlan",
+			"org": {
+				"config": {
+					"reverse_deduction_order": false,
+					"block_overdue_entitlements": false,
+					"include_past_due": true
+				}
+			},
+			"commandId": "01KGAKCQ0G0000130YHE8YRFXX:1",
+			"requestId": "01KGAKCQ0G0000130YHE8YRFXX:1",
+			"identity": {
+				"orgId": "sch_vol",
+				"env": "live",
+				"customerId": "family:fam_old",
+				"entityId": null
+			},
+			"occurredAt": 1769882410000,
+			"entityIds": [],
+			"expiringPooledBalanceIds": [],
+			"ops": [
+				{
+					"op": "insert",
+					"table": "customer",
+					"row": {
+						"internal_id": "cus_family:fam_old",
+						"id": "family:fam_old",
+						"config": null,
+						"spend_limits": null,
+						"overage_allowed": null,
+						"usage_limits": null,
+						"usage_alerts": null,
+						"processor": null
+					}
+				},
+				{
+					"op": "insert",
+					"table": "customerProducts",
+					"row": {
+						"id": "cp_tier",
+						"internal_customer_id": "cus_family:fam_old",
+						"internal_product_id": "prod_tier_sparkle-2_month",
+						"internal_entity_id": null,
+						"status": "active",
+						"options": [],
+						"quantity": 1,
+						"created_at": 1769882410000,
+						"starts_at": 1769882410000,
+						"access_starts_at": null,
+						"ended_at": null,
+						"customer_license_link_id": null
+					}
+				},
+				{
+					"op": "insert",
+					"table": "customerEntitlements",
+					"row": {
+						"id": "ce_tier_visit_month",
+						"customer_product_id": "cp_tier",
+						"entitlement_id": "ent_tier_sparkle-2_month_visit_month",
+						"internal_customer_id": "cus_family:fam_old",
+						"internal_entity_id": null,
+						"internal_feature_id": "feat_visit",
+						"balance": 2,
+						"adjustment": 0,
+						"additional_balance": 0,
+						"unlimited": false,
+						"usage_allowed": false,
+						"next_reset_at": 1772301600000,
+						"reset_cycle_anchor": null,
+						"expires_at": null,
+						"external_id": null,
+						"created_at": 1769882410000
+					}
+				}
+			]
+		},
+		"mutation": {
+			"schemaVersion": 1,
+			"type": "mutation",
+			"id": "01KGAKCQ0G0000130YHE8YRFXX:1",
+			"identity": {
+				"orgId": "sch_vol",
+				"env": "live",
+				"customerId": "family:fam_old",
+				"entityId": null
+			},
+			"revision": {
+				"before": 0,
+				"after": 1
+			},
+			"command": {
+				"schemaVersion": 1,
+				"requestId": "01KGAKCQ0G0000130YHE8YRFXX:1",
+				"identity": {
+					"orgId": "sch_vol",
+					"env": "live",
+					"customerId": "family:fam_old",
+					"entityId": null
+				},
+				"occurredAt": 1769882410000,
+				"commandId": "01KGAKCQ0G0000130YHE8YRFXX:1",
+				"type": "applyBillingPlan",
+				"entityIds": [],
+				"ops": [
+					{
+						"op": "insert",
+						"table": "customer",
+						"row": {
+							"id": "family:fam_old",
+							"internal_id": "cus_family:fam_old",
+							"processor": null,
+							"spend_limits": null,
+							"usage_limits": null,
+							"usage_alerts": null,
+							"overage_allowed": null,
+							"config": null
+						}
+					},
+					{
+						"op": "insert",
+						"table": "customerProducts",
+						"row": {
+							"id": "cp_tier",
+							"internal_product_id": "prod_tier_sparkle-2_month",
+							"internal_customer_id": "cus_family:fam_old",
+							"internal_entity_id": null,
+							"created_at": 1769882410000,
+							"status": "active",
+							"starts_at": 1769882410000,
+							"access_starts_at": null,
+							"ended_at": null,
+							"options": [],
+							"quantity": 1,
+							"customer_license_link_id": null
+						}
+					},
+					{
+						"op": "insert",
+						"table": "customerEntitlements",
+						"row": {
+							"id": "ce_tier_visit_month",
+							"internal_customer_id": "cus_family:fam_old",
+							"internal_entity_id": null,
+							"internal_feature_id": "feat_visit",
+							"customer_product_id": "cp_tier",
+							"entitlement_id": "ent_tier_sparkle-2_month_visit_month",
+							"created_at": 1769882410000,
+							"unlimited": false,
+							"balance": 2,
+							"additional_balance": 0,
+							"usage_allowed": false,
+							"reset_cycle_anchor": null,
+							"next_reset_at": 1772301600000,
+							"adjustment": 0,
+							"expires_at": null,
+							"external_id": null
+						}
+					}
+				],
+				"expiringPooledBalanceIds": [],
+				"org": {
+					"config": {
+						"reverse_deduction_order": false,
+						"block_overdue_entitlements": false,
+						"include_past_due": true
+					}
+				}
+			},
+			"changes": [
+				{
+					"table": "customer",
+					"op": "insert",
+					"row": {
+						"id": "family:fam_old",
+						"internal_id": "cus_family:fam_old",
+						"processor": null,
+						"spend_limits": null,
+						"usage_limits": null,
+						"usage_alerts": null,
+						"overage_allowed": null,
+						"config": null
+					}
+				},
+				{
+					"table": "customerProducts",
+					"op": "insert",
+					"row": {
+						"id": "cp_tier",
+						"internal_product_id": "prod_tier_sparkle-2_month",
+						"internal_customer_id": "cus_family:fam_old",
+						"internal_entity_id": null,
+						"created_at": 1769882410000,
+						"status": "active",
+						"starts_at": 1769882410000,
+						"access_starts_at": null,
+						"ended_at": null,
+						"options": [],
+						"quantity": 1,
+						"customer_license_link_id": null
+					}
+				},
+				{
+					"table": "customerEntitlements",
+					"op": "insert",
+					"row": {
+						"id": "ce_tier_visit_month",
+						"internal_customer_id": "cus_family:fam_old",
+						"internal_entity_id": null,
+						"internal_feature_id": "feat_visit",
+						"customer_product_id": "cp_tier",
+						"entitlement_id": "ent_tier_sparkle-2_month_visit_month",
+						"created_at": 1769882410000,
+						"unlimited": false,
+						"balance": 2,
+						"additional_balance": 0,
+						"usage_allowed": false,
+						"reset_cycle_anchor": null,
+						"next_reset_at": 1772301600000,
+						"adjustment": 0,
+						"expires_at": null,
+						"external_id": null
+					}
+				}
+			],
+			"result": {
+				"type": "applyBillingPlan"
+			}
+		}
+	},
+	{
+		"command": {
+			"schemaVersion": 1,
+			"type": "reset",
+			"org": {
+				"config": {
+					"reverse_deduction_order": false,
+					"block_overdue_entitlements": false,
+					"include_past_due": true
+				}
+			},
+			"commandId": "01KJJPGV0G00000KP6RC8F2BCW:1",
+			"requestId": "01KJJPGV0G00000KP6RC8F2BCW:1",
+			"identity": {
+				"orgId": "sch_vol",
+				"env": "live",
+				"customerId": "family:fam_old",
+				"entityId": null
+			},
+			"occurredAt": 1772301600001
+		},
+		"mutation": {
+			"schemaVersion": 1,
+			"type": "mutation",
+			"id": "01KJJPGV0G00000KP6RC8F2BCW:1",
+			"identity": {
+				"orgId": "sch_vol",
+				"env": "live",
+				"customerId": "family:fam_old",
+				"entityId": null
+			},
+			"subject": {
+				"internalCustomerId": "cus_family:fam_old",
+				"internalEntityId": null
+			},
+			"revision": {
+				"before": 1,
+				"after": 2
+			},
+			"command": {
+				"schemaVersion": 1,
+				"requestId": "01KJJPGV0G00000KP6RC8F2BCW:1",
+				"identity": {
+					"orgId": "sch_vol",
+					"env": "live",
+					"customerId": "family:fam_old",
+					"entityId": null
+				},
+				"occurredAt": 1772301600001,
+				"commandId": "01KJJPGV0G00000KP6RC8F2BCW:1",
+				"type": "reset",
+				"org": {
+					"config": {
+						"reverse_deduction_order": false,
+						"block_overdue_entitlements": false,
+						"include_past_due": true,
+						"usage_alerts": [],
+						"sandbox_usage_alerts": [],
+						"persist_free_overage": false
+					}
+				}
+			},
+			"changes": [
+				{
+					"table": "customerEntitlements",
+					"op": "update",
+					"id": "ce_tier_visit_month",
+					"before": {
+						"next_reset_at": 1772301600000,
+						"balance": 2,
+						"additional_balance": 0,
+						"adjustment": 0
+					},
+					"after": {
+						"balance": 2,
+						"additional_balance": 0,
+						"adjustment": 0,
+						"usage_attribution": {},
+						"next_reset_at": 1774720800000
+					}
+				},
+				{
+					"table": "rollovers",
+					"op": "insert",
+					"row": {
+						"id": "roll_01KJJPGV0G00000KP6RC8F2BCW:1_1",
+						"cus_ent_id": "ce_tier_visit_month",
+						"balance": 2,
+						"usage": 0,
+						"expires_at": 1774720800000,
+						"entities": {}
+					}
+				}
+			],
+			"result": {
+				"type": "reset",
+				"rows": [
+					{
+						"customerEntitlementId": "ce_tier_visit_month",
+						"featureId": "visit",
+						"cycleEndedAt": 1772301600000,
+						"nextResetAt": 1774720800000
+					}
+				]
+			}
+		}
+	},
+	{
+		"command": {
+			"schemaVersion": 1,
+			"type": "applyBillingPlan",
+			"org": {
+				"config": {
+					"reverse_deduction_order": false,
+					"block_overdue_entitlements": false,
+					"include_past_due": true
+				}
+			},
+			"commandId": "01KJJPGV0G00000KP6RC8F2BCW:2",
+			"requestId": "01KJJPGV0G00000KP6RC8F2BCW:2",
+			"identity": {
+				"orgId": "sch_vol",
+				"env": "live",
+				"customerId": "family:fam_old",
+				"entityId": null
+			},
+			"occurredAt": 1772301600001,
+			"entityIds": [],
+			"expiringPooledBalanceIds": [],
+			"ops": [
+				{
+					"op": "update",
+					"table": "customerEntitlements",
+					"id": "ce_tier_visit_month",
+					"set": {
+						"next_reset_at": 1774980000000
+					}
+				}
+			]
+		},
+		"mutation": {
+			"schemaVersion": 1,
+			"type": "mutation",
+			"id": "01KJJPGV0G00000KP6RC8F2BCW:2",
+			"identity": {
+				"orgId": "sch_vol",
+				"env": "live",
+				"customerId": "family:fam_old",
+				"entityId": null
+			},
+			"revision": {
+				"before": 2,
+				"after": 3
+			},
+			"command": {
+				"schemaVersion": 1,
+				"requestId": "01KJJPGV0G00000KP6RC8F2BCW:2",
+				"identity": {
+					"orgId": "sch_vol",
+					"env": "live",
+					"customerId": "family:fam_old",
+					"entityId": null
+				},
+				"occurredAt": 1772301600001,
+				"commandId": "01KJJPGV0G00000KP6RC8F2BCW:2",
+				"type": "applyBillingPlan",
+				"entityIds": [],
+				"ops": [
+					{
+						"op": "update",
+						"table": "customerEntitlements",
+						"id": "ce_tier_visit_month",
+						"set": {
+							"next_reset_at": 1774980000000
+						}
+					}
+				],
+				"expiringPooledBalanceIds": [],
+				"org": {
+					"config": {
+						"reverse_deduction_order": false,
+						"block_overdue_entitlements": false,
+						"include_past_due": true
+					}
+				}
+			},
+			"changes": [
+				{
+					"table": "customerEntitlements",
+					"op": "update",
+					"id": "ce_tier_visit_month",
+					"before": {
+						"next_reset_at": 1774720800000
+					},
+					"after": {
+						"next_reset_at": 1774980000000
+					}
+				}
+			],
+			"result": {
+				"type": "applyBillingPlan"
+			}
+		}
+	}
+]

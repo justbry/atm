@@ -45,12 +45,15 @@ export const createStore = ({
 	family,
 	menuVersion = 1,
 	policyVersion = 1,
+	start,
 }: {
 	menu: Menu;
 	school: string;
 	family: string;
 	menuVersion?: number;
 	policyVersion?: number;
+	/** The stored rows and revision to carry on from (a subject written earlier). */
+	start?: { rows: BillingRow[]; revision: number };
 }) => {
 	const holder = `family:${family}`;
 	const identity = {
@@ -65,8 +68,8 @@ export const createStore = ({
 		[...menuLineItems(school, menu).keys()].map((key) => [key, priceIdOf(key)]),
 	);
 	const invoiceIds: Record<string, string> = {};
-	let rows: BillingRow[] = [];
-	let revision = 0;
+	let rows: BillingRow[] = start?.rows ?? [];
+	let revision = start?.revision ?? 0;
 	let spends = 0;
 	const events: AtmEvent[] = [];
 	const results: StripeEventResult[] = [];

@@ -21,7 +21,12 @@ import {
 	ledgerEvent as ledgerEventImpl,
 	mutationToEvents as mutationToEventsImpl,
 } from "./ledger/postings.js";
-import { replayEvents as replayEventsImpl } from "./ledger/replay.js";
+import {
+	ReplayError as ReplayErrorImpl,
+	ReplayGapError as ReplayGapErrorImpl,
+	replayEvents as replayEventsImpl,
+} from "./ledger/replay.js";
+
 import { runOnState as runOnStateImpl, toCatalog } from "./ledger/run.js";
 import { validateEvent as validateEventImpl } from "./ledger/validate.js";
 import * as folderStore from "./store/folder-store.js";
@@ -78,6 +83,8 @@ import type {
 	ProrationPair,
 	R2StoreOptions,
 	RaiseUnitsInput,
+	ReplayErrorConstructor,
+	ReplayGapErrorConstructor,
 	RowChanges,
 	RowTable,
 	SignatureVerdict,
@@ -189,6 +196,14 @@ export const replayEvents = (input: {
 	lastEventId?: string;
 	asOf?: string;
 }): AtmReplayResult => replayEventsImpl(input);
+
+/** Thrown by `replayEvents` where the engine disagrees with the log; `eventId` names the event. */
+export const ReplayError: ReplayErrorConstructor = ReplayErrorImpl;
+export type ReplayError = InstanceType<ReplayErrorConstructor>;
+
+/** Thrown at a log written by atm 0.3.0 that has revisions with no event (see `UPGRADING.md`, "Replaying a log"); `prefix` is the replay up to the gap. */
+export const ReplayGapError: ReplayGapErrorConstructor = ReplayGapErrorImpl;
+export type ReplayGapError = InstanceType<ReplayGapErrorConstructor>;
 
 /** A school's hledger files for one month, built from its events. Paths are under the school's prefix; no clock is read. */
 export const buildJournal = (input: {
