@@ -142,13 +142,13 @@ const toBig = (n: number): bigint => {
 
 const roundShare = (n: number): number => Math.round(n * 10_000) / 10_000;
 
-const quarterOf = (period: string): string => {
+export const quarterOf = (period: string): string => {
 	const [year, month] = period.split("-") as [string, string];
 	return `${year}-Q${Math.floor((Number(month) - 1) / 3) + 1}`;
 };
 
 /** What the two tests say about one cell's shares: the first failing reason, else null. */
-const testShares = ({
+export const testShares = ({
 	shares,
 	total,
 	rules,
@@ -205,7 +205,7 @@ const baseOf = (spec: KpiSpec, rows: readonly KpiRow[]): BaseValues => {
 	return out;
 };
 
-const aggregateShares = ({
+export const aggregateShares = ({
 	contributions,
 	spec,
 	months,

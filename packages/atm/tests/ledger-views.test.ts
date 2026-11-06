@@ -7,6 +7,7 @@ import { readEvents } from "../src/ledger/files.js";
 import { readEventsFromStore } from "../src/ledger/read.js";
 import {
 	buildViews,
+	contributionsKey,
 	manifestKey,
 	memberIndexKey,
 	memberViewKey,
@@ -60,7 +61,17 @@ describe("buildViews", () => {
 		).toBeGreaterThan(0);
 	});
 
-	test("money is the month's payments in cents: gross less refunds and fees is net", async () => {
+	test("the month view holds no money: the books are the finance month view's", async () => {
+		const views = await build();
+		for (const month of Object.values(views.months))
+			expect(Object.keys(month).sort()).toEqual([
+				"activeHolders",
+				"counts",
+				"credits",
+			]);
+	});
+
+	test("finance money is the month's payments in cents: gross less refunds and fees is net", async () => {
 		const events = await loadEvents();
 		const views = await build();
 		const gross = events
@@ -73,9 +84,9 @@ describe("buildViews", () => {
 						.reduce((s, p) => s + Math.round(Number(p.amount) * 100), 0),
 				0,
 			);
-		const money = Object.values(views.months)
-			.map((month) => month.money)
-			.filter((m) => m !== undefined);
+		const money = Object.values(views.finance.months).map(
+			(month) => month.money,
+		);
 		expect(money.reduce((s, m) => s + m.grossCents, 0)).toBe(gross);
 		for (const m of money)
 			expect(m.netCents).toBe(m.grossCents - m.refundedCents - m.feeCents);
@@ -168,10 +179,13 @@ describe("writeViews", () => {
 		await withStore(async (store) => {
 			const views = await build();
 			const first = await writeViews(store, "sch_multi", views);
-			// the months, the members, the member index and the manifest
+			// the months, the members, the member index, the finance months and members, the contributions and the manifest
 			expect(first.created.length).toBe(
 				Object.keys(views.months).length +
 					Object.keys(views.members).length +
+					Object.keys(views.finance.months).length +
+					Object.keys(views.finance.members).length +
+					Object.keys(views.contributions).length +
 					2,
 			);
 			expect(first.stale).toBe(false);
@@ -333,8 +347,8 @@ describe("writeViews: objects are content only, the manifest is the generation",
 						?.id,
 					eventCount: events.length,
 				},
-				// one month, one member, the index
-				objectCount: 3,
+				// one month, one member, the index, one finance month, one finance member, one contributions month
+				objectCount: 6,
 				objects: Object.fromEntries(
 					await Promise.all(
 						result.created
@@ -355,7 +369,7 @@ describe("writeViews: objects are content only, the manifest is the generation",
 			const { store, writes } = watched(inner);
 			await writeViews(store, "sch_hand", viewsAt(later));
 			expect(writes.at(-1)).toBe(manifestKey("sch_hand"));
-			expect(writes.length).toBe(4);
+			expect(writes.length).toBe(7);
 		});
 	});
 
@@ -385,7 +399,7 @@ describe("writeViews: objects are content only, the manifest is the generation",
 			expect(writes).toEqual([]);
 			expect(second.created).toEqual([]);
 			expect(second.replaced).toEqual([]);
-			expect(second.unchanged.length).toBe(4);
+			expect(second.unchanged.length).toBe(7);
 		});
 	});
 
@@ -438,7 +452,7 @@ describe("writeViews: objects are content only, the manifest is the generation",
 			await withStore(async (alone) => {
 				await writeViews(alone, "sch_hand", newest);
 				const listed = await alone.list({ prefix: "schools/sch_hand/views/" });
-				expect(listed.objects.length).toBe(4);
+				expect(listed.objects.length).toBe(7);
 				for (const { key } of listed.objects)
 					expect(await textOf(inner, key)).toBe(await textOf(alone, key));
 			});
@@ -452,8 +466,9 @@ describe("writeViews: objects are content only, the manifest is the generation",
 			const old = viewsAt(first);
 			await writeViews(inner, "sch_hand", old);
 			const manifestBefore = await textOf(inner, manifestKey("sch_hand"));
-			const memberKey = memberViewKey("sch_hand", "family:fam_hand");
-			const memberBefore = await textOf(inner, memberKey);
+			// the one object between the two runs that changes and sorts first: the month's contributions
+			const landedKey = contributionsKey("sch_hand", HAND_MONTH);
+			const landedBefore = await textOf(inner, landedKey);
 			let failures = 0;
 			const { store, writes } = watched(inner, {
 				beforeWrite: (_key, written) => {
@@ -468,20 +483,21 @@ describe("writeViews: objects are content only, the manifest is the generation",
 				writeViews(store, "sch_hand", viewsAt(later)),
 			).rejects.toThrow(/store went away/);
 			expect(failures).toBe(1);
-			expect(writes).toEqual([memberKey]);
+			expect(writes).toEqual([landedKey]);
 			expect(await textOf(inner, manifestKey("sch_hand"))).toBe(manifestBefore);
 			expect((await manifestOf(inner)).asOf).toBe(old.asOf);
 			// the object that landed is newer than the manifest: not rolled back, and a reader sees it
-			expect(await textOf(inner, memberKey)).not.toBe(memberBefore);
+			expect(await textOf(inner, landedKey)).not.toBe(landedBefore);
 			const reader = await openReader(inner);
-			expect(await reader.member("family:fam_hand")).toEqual({
+			expect(await reader.contributions(HAND_MONTH)).toEqual({
 				ok: false,
 				error: "view-mismatch",
-				key: memberKey,
+				key: landedKey,
 			});
 			// the objects the run never reached still match the old manifest
 			expect((await reader.month(HAND_MONTH)).ok).toBe(true);
 			expect((await reader.membersIndex()).ok).toBe(true);
+			expect((await reader.member("family:fam_hand")).ok).toBe(true);
 		});
 	});
 

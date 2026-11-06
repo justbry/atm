@@ -29,7 +29,7 @@ import {
 	membersOf,
 	readEventsFromStore,
 	readViewsFromStore,
-	writeViews,
+	runViews,
 } from "./${DIST_MODULE}";
 
 const json = (body, status = 200) =>
@@ -46,20 +46,23 @@ export default {
 			const events = await readEventsFromStore(store, school);
 			const members = membersOf(events, asOf, { catalog });
 			const built = buildViews(events, { school, asOf, catalog });
-			const written = await writeViews(store, school, built.views);
+			const run = await runViews(store, school, asOf, { catalog });
 			const reader = await readViewsFromStore(store, school);
 			const reads = reader.ok
 				? [
 						await reader.membersIndex(),
 						...(await Promise.all(Object.keys(built.views.months).map((month) => reader.month(month)))),
 						...(await Promise.all(Object.keys(built.views.members).map((key) => reader.member(key)))),
+						...(await Promise.all(Object.keys(built.views.finance.months).map((month) => reader.financeMonth(month)))),
+						...(await Promise.all(Object.keys(built.views.finance.members).map((key) => reader.financeMember(key)))),
+						...(await Promise.all(Object.keys(built.views.contributions).map((month) => reader.contributions(month)))),
 					]
 				: [];
 			return json({
 				eventCount: events.length,
 				members,
 				views: built.views,
-				created: written.created.length,
+				created: run.written.created.length,
 				opened: reader.ok,
 				objectCount: reader.ok ? reader.manifest.objectCount : null,
 				checked: reads.length,
@@ -136,6 +139,9 @@ describe("the built dist/worker.js in workerd", () => {
 		const objects =
 			Object.keys(built.views.months).length +
 			Object.keys(built.views.members).length +
+			Object.keys(built.views.finance.months).length +
+			Object.keys(built.views.finance.members).length +
+			Object.keys(built.views.contributions).length +
 			1;
 		expect(body.created).toBe(objects + 1);
 		expect(body.opened).toBe(true);

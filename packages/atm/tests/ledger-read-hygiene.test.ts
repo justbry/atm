@@ -22,6 +22,11 @@ const ENTRIES = [
 	"src/ledger/views.ts",
 	"src/ledger/kpi-document.ts",
 	"src/scenario/suppress-core.ts",
+	"src/ledger/finance.ts",
+	"src/ledger/contributions.ts",
+	"src/ledger/ledger-rows.ts",
+	"src/ledger/catalog.ts",
+	"src/ledger/run-views.ts",
 ];
 
 const FORBIDDEN = [
@@ -115,9 +120,26 @@ describe("the Worker read path's import graph", () => {
 		for (const file of [
 			"src/scenario/kpis.ts",
 			"src/scenario/suppress.ts",
-			"src/scenario/channels/atm.ts",
+			"src/ledger/report.ts",
+			"src/ledger/files.ts",
 		])
-			expect(files.has(file)).toBe(false);
+			expect(files.has(file), file).toBe(false);
+		// of the KPI channels only the atm fold (the contributions view runs it), which is plain TypeScript; the hledger and DuckDB ones spawn or load binaries
+		expect(
+			[...files].filter((file) => file.startsWith("src/scenario/channels/")),
+		).toEqual(["src/scenario/channels/atm.ts"]);
+	});
+
+	test("worker.ts reaches the finance, contributions, ledger-rows, catalog and run-views modules", () => {
+		const { files } = reachFrom("src/worker.ts");
+		for (const module of [
+			"finance",
+			"contributions",
+			"ledger-rows",
+			"catalog",
+			"run-views",
+		])
+			expect(files.has(`src/ledger/${module}.ts`)).toBe(true);
 	});
 
 	test("kpi-document.ts imports nothing from the UI package", () => {

@@ -6,7 +6,7 @@ import {
 	type BaseValues,
 	isBase,
 	type KpiChannel,
-} from "../kpis.js";
+} from "../kpi-evaluate.js";
 
 const USD = "USD";
 
@@ -30,7 +30,8 @@ const matchesEvent = (event: AtmEvent, where: BaseKpi["compute"]["where"]) => {
 	return true;
 };
 
-export const atmChannel: KpiChannel = {
+/** Synchronous: the fold needs no engine, so a Worker can run it inside a pure function (`satisfies`, not `: KpiChannel`, keeps the return type `BaseValues`). */
+export const atmChannel = {
 	name: "atm",
 	base: ({ events, spec, periods }) => {
 		const known = new Set(periods);
@@ -127,4 +128,4 @@ export const atmChannel: KpiChannel = {
 		}
 		return out;
 	},
-};
+} satisfies KpiChannel;
