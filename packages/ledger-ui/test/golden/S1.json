@@ -1,0 +1,1558 @@
+{
+	"slice": "S1",
+	"notes": [
+		"Routes: #/<school>/dashboard?preset=&viewer=&grain=&view=&month=, month a document period (YYYY-MM or YYYY-Qn). Every school's Dashboard shows the Before University mart documents; the viewer is set by the hash only; the viewer chip in the top bar follows the school's role, as the mockup's #kview does.",
+		"root.dataset.route is set only after the Dashboard has rendered the document of that route.",
+		"Every rendered KPI cell carries data-kpi, data-period and data-cell (cellKind of src/data/kpi-document.ts: number, lt or the hidden kind), and its text is exactly the cell: money with Intl.NumberFormat('en-US', { style: 'currency', currency }) from minor units, integers with en-US grouping, percents with Intl percent and one decimal, lt as <N, a hidden kind as its cell-rules label. Labels, captions and the 'derived, demo only' note sit outside the cell element.",
+		"kpi-card is one of the mockup's cards (5 Money, 4 Members, 4 Risk); its value element is kpi-value with the card KPI's data-kpi. Dispute cost shows disputes_lost and dispute_fees as two cells (the UI derives nothing, so no sum). MRR and ARR (Money), churned members and credits outstanding (Members) render as cells outside the card row.",
+		"empty: a document with every payments_count cell 0 or open_period shows dash-empty in place of the cards and charts (mockup line 725); C4 then requires no KPI.",
+		"dash-view buttons carry data-view, preset-option buttons data-preset, dash-step buttons data-step (-1 or 1); the selected view, month and preset buttons carry the mockup's class 'on'. Clicking one navigates by hash."
+	],
+	"hooks": [
+		"dash-view",
+		"dash-month",
+		"dash-step",
+		"preset-option",
+		"kpi-card",
+		"kpi-label",
+		"kpi-value",
+		"dash-badge",
+		"dash-note",
+		"dash-empty",
+		"dash-flag",
+		"demo-note",
+		"stale-banner",
+		"verified-badge",
+		"viewer-chip"
+	],
+	"views": {
+		"money": [
+			"gross_collected",
+			"refunds",
+			"refund_rate",
+			"stripe_fees",
+			"net_income",
+			"payouts",
+			"revenue_by_tier:*",
+			"mrr",
+			"arr"
+		],
+		"members": [
+			"paying_members",
+			"new_paying_members",
+			"arpa",
+			"credits_consumed",
+			"credits_granted",
+			"credits_expired",
+			"churned_members",
+			"credits_outstanding"
+		],
+		"risk": [
+			"refund_rate",
+			"refunds",
+			"disputes_opened",
+			"disputes_lost",
+			"dispute_fees",
+			"net_income"
+		]
+	},
+	"matrix": {
+		"view": [
+			"money",
+			"members",
+			"risk"
+		],
+		"viewer": [
+			"owner",
+			"finance",
+			"admin",
+			"locked",
+			"demo"
+		],
+		"grain": [
+			"month",
+			"quarter"
+		]
+	},
+	"entries": [
+		{
+			"id": "matrix-money-owner-month",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, money: card labels, the three .kt badges, the view and month buttons; values from documents.json monthly-members.owner.month at 2026-06, formatted per cell-rules",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=owner&grain=month&view=money&month=2026-06&theme=light",
+			"covers": {
+				"view": "money",
+				"viewer": "owner",
+				"grain": "month"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Money",
+					"[data-test=dash-month].on": "Jun",
+					"[data-test=preset-option].on": "Monthly members",
+					"[data-test=kpi-value][data-kpi=\"gross_collected\"]": "$623.00",
+					"[data-test=kpi-value][data-kpi=\"refunds\"]": "$6.00",
+					"[data-test=kpi-value][data-kpi=\"stripe_fees\"]": "$24.96",
+					"[data-test=kpi-value][data-kpi=\"net_income\"]": "$592.04",
+					"[data-test=kpi-value][data-kpi=\"payouts\"]": "$598.04"
+				},
+				"count": {
+					"[data-test=kpi-card]": 5,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 11,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Gross collected",
+						"Refunds",
+						"Payment fees",
+						"Net income",
+						"Paid out"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-members-owner-month",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, members: card labels, the three .kt badges, the view and month buttons; values from documents.json monthly-members.owner.month at 2026-06, formatted per cell-rules",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=owner&grain=month&view=members&month=2026-06&theme=light",
+			"covers": {
+				"view": "members",
+				"viewer": "owner",
+				"grain": "month"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Members",
+					"[data-test=dash-month].on": "Jun",
+					"[data-test=preset-option].on": "Monthly members",
+					"[data-test=kpi-value][data-kpi=\"paying_members\"]": "23",
+					"[data-test=kpi-value][data-kpi=\"new_paying_members\"]": "0",
+					"[data-test=kpi-value][data-kpi=\"arpa\"]": "$27.09",
+					"[data-test=kpi-value][data-kpi=\"credits_consumed\"]": "19"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 11,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Paying members",
+						"New paying",
+						"Avg per paying member",
+						"Credits used"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-risk-owner-month",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, risk: card labels, the three .kt badges, the view and month buttons; values from documents.json monthly-members.owner.month at 2026-06, formatted per cell-rules",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=owner&grain=month&view=risk&month=2026-06&theme=light",
+			"covers": {
+				"view": "risk",
+				"viewer": "owner",
+				"grain": "month"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Risk",
+					"[data-test=dash-month].on": "Jun",
+					"[data-test=preset-option].on": "Monthly members",
+					"[data-test=kpi-value][data-kpi=\"refund_rate\"]": "1.0%",
+					"[data-test=kpi-value][data-kpi=\"disputes_opened\"]": "0",
+					"[data-test=kpi-value][data-kpi=\"net_income\"]": "$592.04"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 11,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Refund rate",
+						"Disputes opened",
+						"Dispute cost",
+						"Net income"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-money-owner-quarter",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, money: card labels, the three .kt badges, the view and month buttons; values from documents.json monthly-members.owner.quarter at 2026-Q2, formatted per cell-rules",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=owner&grain=quarter&view=money&month=2026-Q2&theme=light",
+			"covers": {
+				"view": "money",
+				"viewer": "owner",
+				"grain": "quarter"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Money",
+					"[data-test=dash-month].on": "Q2",
+					"[data-test=preset-option].on": "Monthly members",
+					"[data-test=kpi-value][data-kpi=\"gross_collected\"]": "$1,869.00",
+					"[data-test=kpi-value][data-kpi=\"refunds\"]": "$18.00",
+					"[data-test=kpi-value][data-kpi=\"stripe_fees\"]": "$74.88",
+					"[data-test=kpi-value][data-kpi=\"net_income\"]": "$1,776.12",
+					"[data-test=kpi-value][data-kpi=\"payouts\"]": "$1,803.98"
+				},
+				"count": {
+					"[data-test=kpi-card]": 5,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 4,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Gross collected",
+						"Refunds",
+						"Payment fees",
+						"Net income",
+						"Paid out"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-members-owner-quarter",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, members: card labels, the three .kt badges, the view and month buttons; values from documents.json monthly-members.owner.quarter at 2026-Q2, formatted per cell-rules",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=owner&grain=quarter&view=members&month=2026-Q2&theme=light",
+			"covers": {
+				"view": "members",
+				"viewer": "owner",
+				"grain": "quarter"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Members",
+					"[data-test=dash-month].on": "Q2",
+					"[data-test=preset-option].on": "Monthly members",
+					"[data-test=kpi-value][data-kpi=\"paying_members\"]": "Not computed",
+					"[data-test=kpi-value][data-kpi=\"new_paying_members\"]": "0",
+					"[data-test=kpi-value][data-kpi=\"arpa\"]": "Not computed",
+					"[data-test=kpi-value][data-kpi=\"credits_consumed\"]": "76"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 4,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Paying members",
+						"New paying",
+						"Avg per paying member",
+						"Credits used"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-risk-owner-quarter",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, risk: card labels, the three .kt badges, the view and month buttons; values from documents.json monthly-members.owner.quarter at 2026-Q2, formatted per cell-rules",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=owner&grain=quarter&view=risk&month=2026-Q2&theme=light",
+			"covers": {
+				"view": "risk",
+				"viewer": "owner",
+				"grain": "quarter"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Risk",
+					"[data-test=dash-month].on": "Q2",
+					"[data-test=preset-option].on": "Monthly members",
+					"[data-test=kpi-value][data-kpi=\"refund_rate\"]": "1.0%",
+					"[data-test=kpi-value][data-kpi=\"disputes_opened\"]": "0",
+					"[data-test=kpi-value][data-kpi=\"net_income\"]": "$1,776.12"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 4,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Refund rate",
+						"Disputes opened",
+						"Dispute cost",
+						"Net income"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-money-finance-month",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, money: card labels, the three .kt badges, the view and month buttons; this viewer's values are checked by C4",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=finance&grain=month&view=money&month=2026-06&theme=light",
+			"covers": {
+				"view": "money",
+				"viewer": "finance",
+				"grain": "month"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Money",
+					"[data-test=dash-month].on": "Jun",
+					"[data-test=preset-option].on": "Monthly members"
+				},
+				"count": {
+					"[data-test=kpi-card]": 5,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 11,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Gross collected",
+						"Refunds",
+						"Payment fees",
+						"Net income",
+						"Paid out"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-members-finance-month",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, members: card labels, the three .kt badges, the view and month buttons; this viewer's values are checked by C4",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=finance&grain=month&view=members&month=2026-06&theme=light",
+			"covers": {
+				"view": "members",
+				"viewer": "finance",
+				"grain": "month"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Members",
+					"[data-test=dash-month].on": "Jun",
+					"[data-test=preset-option].on": "Monthly members"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 11,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Paying members",
+						"New paying",
+						"Avg per paying member",
+						"Credits used"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-risk-finance-month",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, risk: card labels, the three .kt badges, the view and month buttons; this viewer's values are checked by C4",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=finance&grain=month&view=risk&month=2026-06&theme=light",
+			"covers": {
+				"view": "risk",
+				"viewer": "finance",
+				"grain": "month"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Risk",
+					"[data-test=dash-month].on": "Jun",
+					"[data-test=preset-option].on": "Monthly members"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 11,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Refund rate",
+						"Disputes opened",
+						"Dispute cost",
+						"Net income"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-money-finance-quarter",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, money: card labels, the three .kt badges, the view and month buttons; this viewer's values are checked by C4",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=finance&grain=quarter&view=money&month=2026-Q2&theme=light",
+			"covers": {
+				"view": "money",
+				"viewer": "finance",
+				"grain": "quarter"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Money",
+					"[data-test=dash-month].on": "Q2",
+					"[data-test=preset-option].on": "Monthly members"
+				},
+				"count": {
+					"[data-test=kpi-card]": 5,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 4,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Gross collected",
+						"Refunds",
+						"Payment fees",
+						"Net income",
+						"Paid out"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-members-finance-quarter",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, members: card labels, the three .kt badges, the view and month buttons; this viewer's values are checked by C4",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=finance&grain=quarter&view=members&month=2026-Q2&theme=light",
+			"covers": {
+				"view": "members",
+				"viewer": "finance",
+				"grain": "quarter"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Members",
+					"[data-test=dash-month].on": "Q2",
+					"[data-test=preset-option].on": "Monthly members"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 4,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Paying members",
+						"New paying",
+						"Avg per paying member",
+						"Credits used"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-risk-finance-quarter",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, risk: card labels, the three .kt badges, the view and month buttons; this viewer's values are checked by C4",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=finance&grain=quarter&view=risk&month=2026-Q2&theme=light",
+			"covers": {
+				"view": "risk",
+				"viewer": "finance",
+				"grain": "quarter"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Risk",
+					"[data-test=dash-month].on": "Q2",
+					"[data-test=preset-option].on": "Monthly members"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 4,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Refund rate",
+						"Disputes opened",
+						"Dispute cost",
+						"Net income"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-money-admin-month",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, money: card labels, the three .kt badges, the view and month buttons; this viewer's values are checked by C4",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=admin&grain=month&view=money&month=2026-06&theme=light",
+			"covers": {
+				"view": "money",
+				"viewer": "admin",
+				"grain": "month"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Money",
+					"[data-test=dash-month].on": "Jun",
+					"[data-test=preset-option].on": "Monthly members"
+				},
+				"count": {
+					"[data-test=kpi-card]": 5,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 11,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Gross collected",
+						"Refunds",
+						"Payment fees",
+						"Net income",
+						"Paid out"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-members-admin-month",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, members: card labels, the three .kt badges, the view and month buttons; this viewer's values are checked by C4",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=admin&grain=month&view=members&month=2026-06&theme=light",
+			"covers": {
+				"view": "members",
+				"viewer": "admin",
+				"grain": "month"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Members",
+					"[data-test=dash-month].on": "Jun",
+					"[data-test=preset-option].on": "Monthly members"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 11,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Paying members",
+						"New paying",
+						"Avg per paying member",
+						"Credits used"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-risk-admin-month",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, risk: card labels, the three .kt badges, the view and month buttons; this viewer's values are checked by C4",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=admin&grain=month&view=risk&month=2026-06&theme=light",
+			"covers": {
+				"view": "risk",
+				"viewer": "admin",
+				"grain": "month"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Risk",
+					"[data-test=dash-month].on": "Jun",
+					"[data-test=preset-option].on": "Monthly members"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 11,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Refund rate",
+						"Disputes opened",
+						"Dispute cost",
+						"Net income"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-money-admin-quarter",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, money: card labels, the three .kt badges, the view and month buttons; this viewer's values are checked by C4",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=admin&grain=quarter&view=money&month=2026-Q2&theme=light",
+			"covers": {
+				"view": "money",
+				"viewer": "admin",
+				"grain": "quarter"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Money",
+					"[data-test=dash-month].on": "Q2",
+					"[data-test=preset-option].on": "Monthly members"
+				},
+				"count": {
+					"[data-test=kpi-card]": 5,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 4,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Gross collected",
+						"Refunds",
+						"Payment fees",
+						"Net income",
+						"Paid out"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-members-admin-quarter",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, members: card labels, the three .kt badges, the view and month buttons; this viewer's values are checked by C4",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=admin&grain=quarter&view=members&month=2026-Q2&theme=light",
+			"covers": {
+				"view": "members",
+				"viewer": "admin",
+				"grain": "quarter"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Members",
+					"[data-test=dash-month].on": "Q2",
+					"[data-test=preset-option].on": "Monthly members"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 4,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Paying members",
+						"New paying",
+						"Avg per paying member",
+						"Credits used"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-risk-admin-quarter",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, risk: card labels, the three .kt badges, the view and month buttons; this viewer's values are checked by C4",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=admin&grain=quarter&view=risk&month=2026-Q2&theme=light",
+			"covers": {
+				"view": "risk",
+				"viewer": "admin",
+				"grain": "quarter"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Risk",
+					"[data-test=dash-month].on": "Q2",
+					"[data-test=preset-option].on": "Monthly members"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 4,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Refund rate",
+						"Disputes opened",
+						"Dispute cost",
+						"Net income"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-money-locked-month",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, money: card labels, the three .kt badges, the view and month buttons; this viewer's values are checked by C4",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=locked&grain=month&view=money&month=2026-06&theme=light",
+			"covers": {
+				"view": "money",
+				"viewer": "locked",
+				"grain": "month"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Money",
+					"[data-test=dash-month].on": "Jun",
+					"[data-test=preset-option].on": "Monthly members"
+				},
+				"count": {
+					"[data-test=kpi-card]": 5,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 11,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Gross collected",
+						"Refunds",
+						"Payment fees",
+						"Net income",
+						"Paid out"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-members-locked-month",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, members: card labels, the three .kt badges, the view and month buttons; this viewer's values are checked by C4",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=locked&grain=month&view=members&month=2026-06&theme=light",
+			"covers": {
+				"view": "members",
+				"viewer": "locked",
+				"grain": "month"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Members",
+					"[data-test=dash-month].on": "Jun",
+					"[data-test=preset-option].on": "Monthly members"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 11,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Paying members",
+						"New paying",
+						"Avg per paying member",
+						"Credits used"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-risk-locked-month",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, risk: card labels, the three .kt badges, the view and month buttons; this viewer's values are checked by C4",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=locked&grain=month&view=risk&month=2026-06&theme=light",
+			"covers": {
+				"view": "risk",
+				"viewer": "locked",
+				"grain": "month"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Risk",
+					"[data-test=dash-month].on": "Jun",
+					"[data-test=preset-option].on": "Monthly members"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 11,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Refund rate",
+						"Disputes opened",
+						"Dispute cost",
+						"Net income"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-money-locked-quarter",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, money: card labels, the three .kt badges, the view and month buttons; this viewer's values are checked by C4",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=locked&grain=quarter&view=money&month=2026-Q2&theme=light",
+			"covers": {
+				"view": "money",
+				"viewer": "locked",
+				"grain": "quarter"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Money",
+					"[data-test=dash-month].on": "Q2",
+					"[data-test=preset-option].on": "Monthly members"
+				},
+				"count": {
+					"[data-test=kpi-card]": 5,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 4,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Gross collected",
+						"Refunds",
+						"Payment fees",
+						"Net income",
+						"Paid out"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-members-locked-quarter",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, members: card labels, the three .kt badges, the view and month buttons; this viewer's values are checked by C4",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=locked&grain=quarter&view=members&month=2026-Q2&theme=light",
+			"covers": {
+				"view": "members",
+				"viewer": "locked",
+				"grain": "quarter"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Members",
+					"[data-test=dash-month].on": "Q2",
+					"[data-test=preset-option].on": "Monthly members"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 4,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Paying members",
+						"New paying",
+						"Avg per paying member",
+						"Credits used"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-risk-locked-quarter",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, risk: card labels, the three .kt badges, the view and month buttons; this viewer's values are checked by C4",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=locked&grain=quarter&view=risk&month=2026-Q2&theme=light",
+			"covers": {
+				"view": "risk",
+				"viewer": "locked",
+				"grain": "quarter"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Risk",
+					"[data-test=dash-month].on": "Q2",
+					"[data-test=preset-option].on": "Monthly members"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 4,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Refund rate",
+						"Disputes opened",
+						"Dispute cost",
+						"Net income"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-money-demo-month",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, money: card labels, the three .kt badges, the view and month buttons; this viewer's values are checked by C4",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=demo&grain=month&view=money&month=2026-06&theme=light",
+			"covers": {
+				"view": "money",
+				"viewer": "demo",
+				"grain": "month"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Money",
+					"[data-test=dash-month].on": "Jun",
+					"[data-test=preset-option].on": "Monthly members"
+				},
+				"count": {
+					"[data-test=kpi-card]": 5,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 11,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Gross collected",
+						"Refunds",
+						"Payment fees",
+						"Net income",
+						"Paid out"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-members-demo-month",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, members: card labels, the three .kt badges, the view and month buttons; this viewer's values are checked by C4",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=demo&grain=month&view=members&month=2026-06&theme=light",
+			"covers": {
+				"view": "members",
+				"viewer": "demo",
+				"grain": "month"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Members",
+					"[data-test=dash-month].on": "Jun",
+					"[data-test=preset-option].on": "Monthly members"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 11,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Paying members",
+						"New paying",
+						"Avg per paying member",
+						"Credits used"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-risk-demo-month",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, risk: card labels, the three .kt badges, the view and month buttons; this viewer's values are checked by C4",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=demo&grain=month&view=risk&month=2026-06&theme=light",
+			"covers": {
+				"view": "risk",
+				"viewer": "demo",
+				"grain": "month"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Risk",
+					"[data-test=dash-month].on": "Jun",
+					"[data-test=preset-option].on": "Monthly members"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 11,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Refund rate",
+						"Disputes opened",
+						"Dispute cost",
+						"Net income"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-money-demo-quarter",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, money: card labels, the three .kt badges, the view and month buttons; this viewer's values are checked by C4",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=demo&grain=quarter&view=money&month=2026-Q2&theme=light",
+			"covers": {
+				"view": "money",
+				"viewer": "demo",
+				"grain": "quarter"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Money",
+					"[data-test=dash-month].on": "Q2",
+					"[data-test=preset-option].on": "Monthly members"
+				},
+				"count": {
+					"[data-test=kpi-card]": 5,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 4,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Gross collected",
+						"Refunds",
+						"Payment fees",
+						"Net income",
+						"Paid out"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-members-demo-quarter",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, members: card labels, the three .kt badges, the view and month buttons; this viewer's values are checked by C4",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=demo&grain=quarter&view=members&month=2026-Q2&theme=light",
+			"covers": {
+				"view": "members",
+				"viewer": "demo",
+				"grain": "quarter"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Members",
+					"[data-test=dash-month].on": "Q2",
+					"[data-test=preset-option].on": "Monthly members"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 4,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Paying members",
+						"New paying",
+						"Avg per paying member",
+						"Credits used"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-risk-demo-quarter",
+			"source": "mockup e2d561e74 dashboard() on b4u, Monthly members, risk: card labels, the three .kt badges, the view and month buttons; this viewer's values are checked by C4",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=demo&grain=quarter&view=risk&month=2026-Q2&theme=light",
+			"covers": {
+				"view": "risk",
+				"viewer": "demo",
+				"grain": "quarter"
+			},
+			"expect": {
+				"text": {
+					"[data-test=dash-view].on": "Risk",
+					"[data-test=dash-month].on": "Q2",
+					"[data-test=preset-option].on": "Monthly members"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-month]": 4,
+					"[data-test=preset-option]": 15
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Refund rate",
+						"Disputes opened",
+						"Dispute cost",
+						"Net income"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented",
+						"Owners and admins only"
+					]
+				}
+			}
+		},
+		{
+			"id": "smoke-b4u-june-money",
+			"source": "smoke.mjs 'b4u jun gross' $623.00 and 'b4u jun net' $592.04 (mockup b4u opens on Jun, dm=5); rows monthly-members gross_collected 2026-06 = 62300, net_income = 59204",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=owner&grain=month&view=money&month=2026-06&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=kpi-value][data-kpi=\"gross_collected\"]": "$623.00",
+					"[data-test=kpi-value][data-kpi=\"net_income\"]": "$592.04",
+					"[data-test=kpi-value][data-kpi=\"stripe_fees\"]": "$24.96",
+					"[data-test=kpi-value][data-kpi=\"payouts\"]": "$598.04"
+				}
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "document.querySelector('#sw').click();document.querySelector('[data-sc=b4u]').click();document.querySelector('.tab[data-p=dash]').click();document.querySelector('#dash [data-dsc=monthly-members]').click();document.querySelector('#dash [data-dv=money]').click();document.querySelector('#dash .kmonths [data-dm=\"5\"]').click()"
+			}
+		},
+		{
+			"id": "smoke-b4u-june-paying",
+			"source": "smoke.mjs 'b4u members paying 23'; rows monthly-members paying_members 2026-06 = 23",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=owner&grain=month&view=members&month=2026-06&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=kpi-value][data-kpi=\"paying_members\"]": "23"
+				}
+			}
+		},
+		{
+			"id": "smoke-disputes-flags",
+			"source": "smoke.mjs 'disputes flags' (at least 5); mockup 'Needs a look' flags a month when refund rate > 10% or disputes >= 3 ('3 disputes', 'Show ›'); the owner's disputes document flags 5 months (Mar, Apr, May, Jun, Sep, as the mockup)",
+			"route": "#/b4u/dashboard?preset=disputes&viewer=owner&grain=month&view=risk&month=2026-06&theme=light",
+			"expect": {
+				"count": {
+					"[data-test=dash-flag]": 5
+				},
+				"contains": {
+					"[data-test=dash-flag]": [
+						"Mar",
+						"3 disputes",
+						"May",
+						"5 disputes",
+						"Sep",
+						"4 disputes",
+						"Show ›"
+					]
+				},
+				"text": {
+					"[data-test=kpi-value][data-kpi=\"disputes_opened\"]": "3",
+					"[data-test=kpi-value][data-kpi=\"refund_rate\"]": "2.4%"
+				}
+			}
+		},
+		{
+			"id": "risk-disputes-finance",
+			"source": "the finance viewer on Disputes, Risk, Jun: the screen for the shot; its cells (most disputes hidden by the cell rules) are checked by C4, so the entry holds copy only",
+			"route": "#/b4u/dashboard?preset=disputes&viewer=finance&grain=month&view=risk&month=2026-06&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=preset-option].on": "Disputes"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Refund rate",
+						"Disputes opened",
+						"Dispute cost",
+						"Net income"
+					]
+				}
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "document.querySelector('#sw').click();document.querySelector('[data-sc=b4u]').click();document.querySelector('.tab[data-p=dash]').click();document.querySelector('#dash [data-dsc=disputes]').click();document.querySelector('#dash [data-dv=risk]').click();document.querySelector('#dash .kmonths [data-dm=\"5\"]').click()"
+			}
+		},
+		{
+			"id": "smoke-annual-note",
+			"source": "smoke.mjs 'annual note' and 'annual jan gross' $5,735.00; mockup .note copy for annual-prepay; rows annual-prepay gross_collected 2026-01 = 573500",
+			"route": "#/b4u/dashboard?preset=annual-prepay&viewer=owner&grain=month&view=money&month=2026-01&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=dash-note]": "Cash basis: a yearly payer counts in the month paid, so every month after January looks empty. MRR and churn are not computed.",
+					"[data-test=kpi-value][data-kpi=\"gross_collected\"]": "$5,735.00",
+					"[data-test=kpi-value][data-kpi=\"net_income\"]": "$5,501.48",
+					"[data-test=preset-option].on": "Annual prepay"
+				}
+			}
+		},
+		{
+			"id": "no-note-on-monthly",
+			"source": "mockup: the .note shows for annual-prepay only",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=owner&grain=month&view=money&month=2026-06&theme=light",
+			"expect": {
+				"count": {
+					"[data-test=dash-note]": 0
+				}
+			}
+		},
+		{
+			"id": "month-step",
+			"source": "smoke.mjs 'month step': [data-dstep=-1] moves the month back one; mockup .kmonths ‹ › buttons",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=owner&grain=month&view=money&month=2026-06&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=dash-step][data-step=\"-1\"]"
+				}
+			],
+			"expect": {
+				"hash": "month=2026-05",
+				"text": {
+					"[data-test=dash-month].on": "May",
+					"[data-test=kpi-value][data-kpi=\"payouts\"]": "$586.04"
+				}
+			}
+		},
+		{
+			"id": "view-switch",
+			"source": "mockup [data-dv] buttons switch Money, Members, Risk",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=owner&grain=month&view=money&month=2026-06&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=dash-view][data-view=members]"
+				}
+			],
+			"expect": {
+				"hash": "view=members",
+				"text": {
+					"[data-test=dash-view].on": "Members"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4
+				}
+			}
+		},
+		{
+			"id": "preset-switch",
+			"source": "mockup [data-dsc] switcher: the mockup's four labels; the mart's 15 presets",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=owner&grain=month&view=money&month=2026-06&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=preset-option][data-preset=disputes]"
+				}
+			],
+			"expect": {
+				"hash": "preset=disputes",
+				"text": {
+					"[data-test=preset-option].on": "Disputes",
+					"[data-test=kpi-value][data-kpi=\"gross_collected\"]": "$501.00"
+				},
+				"contains": {
+					"[data-test=preset-option]": [
+						"Monthly members",
+						"Annual prepay",
+						"Disputes",
+						"Heavy refunds"
+					]
+				}
+			}
+		},
+		{
+			"id": "month-buttons-stop-at-the-clock",
+			"source": "protocol §3: periods after the clock's month are not in the document (the mockup draws Dec); quarters read Q1 to Q4",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=owner&grain=quarter&view=money&month=2026-Q4&theme=light",
+			"expect": {
+				"count": {
+					"[data-test=dash-month]": 4
+				},
+				"contains": {
+					"[data-test=dash-month]": [
+						"Q1",
+						"Q2",
+						"Q3",
+						"Q4"
+					]
+				},
+				"text": {
+					"[data-test=dash-month].on": "Q4"
+				}
+			}
+		},
+		{
+			"id": "empty-free-only",
+			"source": "mockup dashboard() empty state (smoke.mjs 'nw empty'): free-only has no payment in any closed period, so the cards give way to the notice",
+			"route": "#/b4u/dashboard?preset=free-only&viewer=owner&grain=month&view=money&month=2026-06&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=dash-empty]": "No payments yet. This dashboard fills in after the first payment."
+				},
+				"count": {
+					"[data-test=kpi-card]": 0
+				}
+			}
+		},
+		{
+			"id": "non-usd-euro",
+			"source": "bundle non-usd params.currency eur; mockup badge 'Cash basis · ' plus the currency symbol (s.cur), here the document currency's. atm skips non-USD payments (bundle stats.skipped.non_usd 260), so the preset has no money and shows the empty state",
+			"route": "#/b4u/dashboard?preset=non-usd&viewer=owner&grain=month&view=money&month=2026-06&theme=light",
+			"expect": {
+				"contains": {
+					"[data-test=dash-badge]": [
+						"Cash basis · €"
+					]
+				},
+				"count": {
+					"[data-test=dash-empty]": 1
+				},
+				"absent": [
+					"Cash basis · $"
+				]
+			}
+		},
+		{
+			"id": "stale-banner",
+			"source": "mockup: Maple Pilates is 26 min behind; S0's shell banner, now hooked (spec v3: stale banner when lagMinutes > 15)",
+			"route": "#/map/dashboard?theme=light",
+			"expect": {
+				"text": {
+					"[data-test=stale-banner]": "Data is 26 min behind: the shipper may be stuck. Recent events can be missing."
+				}
+			}
+		},
+		{
+			"id": "no-stale-banner",
+			"source": "the documents' lagMinutes is 2 and B4 Uni's is 3: no banner",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=owner&grain=month&view=money&month=2026-06&theme=light",
+			"expect": {
+				"count": {
+					"[data-test=stale-banner]": 0
+				}
+			}
+		},
+		{
+			"id": "verified-badge",
+			"source": "spec v3 'Manifest and integrity': a verified badge for the owner and admins; documents.json verified: true",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=owner&grain=month&view=money&month=2026-06&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=verified-badge]": "Verified"
+				}
+			}
+		},
+		{
+			"id": "scope-badge",
+			"source": "mockup e2d561e74 (PR #113): the third .kt badge 'Owners and admins only' with its title",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=owner&grain=month&view=money&month=2026-06&theme=light",
+			"expect": {
+				"count": {
+					"[data-test=dash-badge][title=\"Members never see the dashboard; they get the member portal\"]": 1
+				}
+			}
+		},
+		{
+			"id": "viewer-chip-admin",
+			"source": "mockup e2d561e74 (PR #113) renderHead(): #kview 'You see all members' with the role note as its title; B4 Uni's role is admin",
+			"route": "#/b4u/dashboard?theme=light",
+			"expect": {
+				"text": {
+					"[data-test=viewer-chip]": "You see all members"
+				},
+				"count": {
+					"[data-test=viewer-chip][title=\"You are an admin in B4 Uni. Owners and admins own the dashboard and see everyone's data. Members see only themselves and their family.\"]": 1
+				}
+			}
+		},
+		{
+			"id": "viewer-chip-owner",
+			"source": "mockup e2d561e74 (PR #113) renderHead(): Vibes of Light's role is owner",
+			"route": "#/vol/dashboard?theme=light",
+			"expect": {
+				"text": {
+					"[data-test=viewer-chip]": "You see all members"
+				},
+				"count": {
+					"[data-test=viewer-chip][title=\"You are an owner in Vibes of Light. Owners and admins own the dashboard and see everyone's data. Members see only themselves and their family.\"]": 1
+				}
+			}
+		},
+		{
+			"id": "viewer-chip-all-schools",
+			"source": "mockup e2d561e74 renderHead(): #kview is hidden on All schools",
+			"route": "#/all/all?theme=light",
+			"expect": {
+				"count": {
+					"[data-test=viewer-chip]": 0
+				}
+			}
+		},
+		{
+			"id": "demo-only-shown",
+			"source": "cell-rules demo-only: MRR, ARR (12 x MRR) and churned members from bundle.mrr, shown with the label 'derived, demo only' to the demo viewer",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=demo&grain=month&view=money&month=2026-06&theme=light",
+			"expect": {
+				"text": {
+					"[data-kpi=\"mrr\"][data-period=\"2026-06\"]": "$623.00",
+					"[data-kpi=\"arr\"][data-period=\"2026-06\"]": "$7,476.00"
+				},
+				"contains": {
+					"[data-test=demo-note]": [
+						"derived, demo only"
+					]
+				}
+			}
+		},
+		{
+			"id": "demo-only-hidden",
+			"source": "cell-rules demo-only: every other viewer gets it in notComputed and renders not_computed, without the demo label",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=owner&grain=month&view=money&month=2026-06&theme=light",
+			"expect": {
+				"text": {
+					"[data-kpi=\"mrr\"][data-period=\"2026-06\"]": "Not computed",
+					"[data-kpi=\"arr\"][data-period=\"2026-06\"]": "Not computed"
+				},
+				"count": {
+					"[data-test=demo-note]": 0
+				}
+			}
+		},
+		{
+			"id": "credits-outstanding-blocked",
+			"source": "cell-rules credits_outstanding: blocked for every viewer, with its label",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=owner&grain=month&view=members&month=2026-06&theme=light",
+			"expect": {
+				"text": {
+					"[data-kpi=\"credits_outstanding\"][data-period=\"2026-06\"]": "Blocked: atm does not post renewal resets yet, so this balance goes negative",
+					"[data-kpi=\"churned_members\"][data-period=\"2026-06\"]": "Not computed"
+				}
+			}
+		},
+		{
+			"id": "open-period-owner",
+			"source": "cell-rules owner openPeriod shown: the clock's month (Nov) is in the document and the owner sees it",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=owner&grain=month&view=money&month=2026-11&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=kpi-value][data-kpi=\"gross_collected\"]": "$517.00"
+				}
+			}
+		},
+		{
+			"id": "admin-members-quarter",
+			"source": "the admin viewer on Members by quarter, Q2: the screen for the shot; its cells (banded counts, locked amounts, distinct counts not computed per quarter) are checked by C4, so the entry holds copy only. The mockup has no quarter state: its closest screen is Members on Jun",
+			"route": "#/b4u/dashboard?preset=monthly-members&viewer=admin&grain=quarter&view=members&month=2026-Q2&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=dash-month].on": "Q2"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Paying members",
+						"New paying",
+						"Avg per paying member",
+						"Credits used"
+					]
+				}
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "document.querySelector('#sw').click();document.querySelector('[data-sc=b4u]').click();document.querySelector('.tab[data-p=dash]').click();document.querySelector('#dash [data-dsc=monthly-members]').click();document.querySelector('#dash [data-dv=members]').click();document.querySelector('#dash .kmonths [data-dm=\"5\"]').click()"
+			}
+		}
+	]
+}
