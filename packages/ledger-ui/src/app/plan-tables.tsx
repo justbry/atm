@@ -12,7 +12,6 @@ import { formatMoney } from "./money.ts";
 import {
 	audienceName,
 	grantText,
-	monthlyAmount,
 	type PlanKind,
 	type PlansView,
 	priceText,
@@ -36,19 +35,22 @@ export function Withheld({ text }: { text: string }): JSX.Element {
 	);
 }
 
+/** The Monthly figure is the server's (`PlanTierCount.monthlyMinor`, at the prices the members bought); a tier the
+ * server has no figure for shows a dash, never 0. */
+const noMonthlyText = "—";
+
 /** A membership's Members and Monthly cells for the audience (mockup `cntC`, `revC`): exact for owner and finance
- * admins, banded for governance, withheld below. Monthly is the draft's monthly price times the active units. */
+ * admins, banded for governance, withheld below. */
 function tierFigures(
 	view: PlansView,
 	menu: Menu,
-	tier: MenuTier,
 	count: PlanTierCount,
 	onMembers: () => void,
 ): { members: JSX.Element; monthly: JSX.Element } {
-	const monthly = formatMoney(
-		(monthlyAmount(tier) ?? 0) * count.activeUnits,
-		menu.currency,
-	);
+	const monthly =
+		count.monthlyMinor === null
+			? noMonthlyText
+			: formatMoney(count.monthlyMinor, menu.currency);
 	if (view.finance)
 		return {
 			members: (
@@ -191,7 +193,7 @@ function TierRow({
 	count: PlanTierCount;
 	onMembers: () => void;
 }): JSX.Element {
-	const { members, monthly } = tierFigures(view, menu, tier, count, onMembers);
+	const { members, monthly } = tierFigures(view, menu, count, onMembers);
 	const audience = tierAudience(tier);
 	return (
 		<tr

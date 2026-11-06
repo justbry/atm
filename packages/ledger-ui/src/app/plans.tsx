@@ -1,5 +1,11 @@
 import type { JSX } from "preact";
-import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import {
+	useEffect,
+	useId,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from "preact/hooks";
 import { type Menu, planLimits } from "../data/plans.ts";
 import type { Reader } from "../data/reader.ts";
 import type { Clock, School } from "../data/types.ts";
@@ -28,6 +34,7 @@ import {
 	plansViewOf,
 	problems,
 	slug,
+	stripeFactsOf,
 	tierCount,
 	withDraft,
 } from "./plans-menu.ts";
@@ -40,6 +47,8 @@ type Mode = "edit" | "preview" | "code";
 
 const savedToast = "Saved to the draft. Nothing is live until you publish.";
 const saveFailedToast = "Could not save the draft. Try again.";
+const saveFirstToast =
+	"The draft is not saved yet. Retry the save, then publish.";
 const publishFailedToast = "Could not publish. Try again.";
 /** The route parameters only the Plans tab reads: left behind when a link goes to another tab. */
 const planParameters = ["mode", "show", "billing"];
@@ -86,7 +95,6 @@ async function loadSession(
 		draft,
 		summary,
 		yamlText: null,
-		hasChanges: diffMenus(live, draft).length > 0,
 	};
 }
 
@@ -95,16 +103,24 @@ const modeOf = (query: URLSearchParams): Mode => {
 	return asked === "preview" || asked === "code" ? asked : "edit";
 };
 
-/** Mockup `#prev`'s title: why Review and publish is off, or nothing when it is on. */
-function reviewTitle(facts: {
+/** Whether the draft's last `saveMenu` has been taken by the server. */
+type SaveStatus = "saved" | "saving" | "failed";
+
+/** Mockup `#prev`'s title: why Review and publish is off, or nothing when it is on. The pane shows it as text next to
+ * the button, and the button is described by it. */
+function reviewReason(facts: {
 	preview: boolean;
 	problemCount: number;
 	stripeConnected: boolean;
+	saveStatus: SaveStatus;
 	changeCount: number;
 }): string | undefined {
 	if (facts.preview) return exitPreviewTitle;
 	if (facts.problemCount > 0) return "Fix the problems first";
 	if (!facts.stripeConnected) return "Connect Stripe first";
+	if (facts.saveStatus === "saving") return "Saving the draft…";
+	if (facts.saveStatus === "failed")
+		return "The draft could not be saved. Retry the save first";
 	return facts.changeCount > 0 ? undefined : "Nothing to publish";
 }
 
@@ -159,6 +175,8 @@ export function Plans({
 	} | null>(null);
 	const [reviewing, setReviewing] = useState(false);
 	const [publishing, setPublishing] = useState(false);
+	const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
+	const reasonId = useId();
 	const loaded = session !== undefined;
 	useEffect(() => {
 		if (loaded) return;
@@ -181,8 +199,26 @@ export function Plans({
 		latest.current = next;
 		onSession(school.id, next);
 	};
+	/** The newest save, settled to whether the server took it. Saves go one after another, so the last to start is the
+	 * last the server has; Publish waits for it. */
+	const lastSave = useRef<Promise<boolean>>(Promise.resolve(true));
+	const savesStarted = useRef(0);
 	const save = (menu: Menu): void => {
-		writer.saveMenu(school.id, menu).catch(() => onToast(saveFailedToast));
+		savesStarted.current += 1;
+		const mine = savesStarted.current;
+		setSaveStatus("saving");
+		const attempt = lastSave.current
+			.then(() => writer.saveMenu(school.id, menu))
+			.then(
+				() => true,
+				() => false,
+			);
+		lastSave.current = attempt;
+		attempt.then((saved) => {
+			if (!saved) onToast(saveFailedToast);
+			if (mine === savesStarted.current)
+				setSaveStatus(saved ? "saved" : "failed");
+		});
 	};
 	/** Makes `menu` the draft; a draft with problems stays on screen, unsaved. */
 	const changeDraft = (menu: Menu): void => {
@@ -205,11 +241,14 @@ export function Plans({
 	const defaultShow: PreviewSource = changes.length > 0 ? "draft" : "live";
 	const show =
 		askedShow === "live" || askedShow === "draft" ? askedShow : defaultShow;
-	const canPublish =
-		changes.length > 0 &&
-		problemList.length === 0 &&
-		summary.stripeConnected &&
-		!view.preview;
+	const reason = reviewReason({
+		preview: view.preview,
+		problemCount: problemList.length,
+		stripeConnected: summary.stripeConnected,
+		saveStatus,
+		changeCount: changes.length,
+	});
+	const canPublish = reason === undefined;
 	const writeTitle = view.preview ? exitPreviewTitle : undefined;
 
 	const chooseMode = (chosen: Mode): void =>
@@ -224,8 +263,16 @@ export function Plans({
 	const open = (kind: PlanKind, id: string | null): void =>
 		setEditing({ kind, id });
 
-	const publish = async (): Promise<void> => {
+	/** Publishes once the last save has settled. The family PIN is typed in the review and handed over here and goes no
+	 * further: the Writer contract has no PIN parameter (buzz-school checks it on the session). S8 hand-off: open the
+	 * session with `_pin` before the `publishMenu` call below. */
+	const publish = async (_pin: string): Promise<void> => {
 		setPublishing(true);
+		if (!(await lastSave.current)) {
+			setPublishing(false);
+			onToast(saveFirstToast);
+			return;
+		}
 		try {
 			await writer.publishMenu(school.id);
 		} catch {
@@ -233,17 +280,23 @@ export function Plans({
 			onToast(publishFailedToast);
 			return;
 		}
+		const version = (latest.current?.version ?? 0) + 1;
+		const published = await reader
+			.menuVersion(school.id, version)
+			.catch(() => undefined);
 		const current = latest.current;
 		if (current) {
 			const moves = audienceMoves(current.live, current.draft, clock.today);
 			if (Object.keys(moves).length > 0) onAudienceMoves(school.id, moves);
-			const version = current.version + 1;
 			commit({
 				...current,
 				version,
 				live: current.draft,
+				stripe:
+					published && published.publishedAt !== null
+						? published.stripe
+						: stripeFactsOf(current.draft, current.stripe),
 				yamlText: null,
-				hasChanges: false,
 			});
 			onToast(`Published v${version}. The Stripe prices are being updated.`);
 		}
@@ -385,18 +438,25 @@ export function Plans({
 						type="button"
 						class="btn p"
 						data-test="plan-review"
-						title={reviewTitle({
-							preview: view.preview,
-							problemCount: problemList.length,
-							stripeConnected: summary.stripeConnected,
-							changeCount: changes.length,
-						})}
+						title={reason}
+						aria-describedby={reason ? reasonId : undefined}
 						disabled={!canPublish}
 						onClick={() => setReviewing(true)}
 					>
 						<Icon name="upload" />
 						Review and publish
 					</button>
+					{reason && (
+						<span class="mut" id={reasonId}>
+							{reason}
+						</span>
+					)}
+					{saveStatus === "failed" && problemList.length === 0 && (
+						<button type="button" class="btn s" onClick={() => save(draft)}>
+							<Icon name="undo" />
+							Retry save
+						</button>
+					)}
 				</div>
 				{problemList.length > 0 && mode !== "code" && (
 					<div class="note">
@@ -432,6 +492,8 @@ export function Plans({
 				)}
 				{mode === "preview" && (
 					<PlanPreview
+						reader={reader}
+						schoolId={school.id}
 						schoolName={school.name}
 						version={session.version}
 						live={live}
@@ -451,6 +513,8 @@ export function Plans({
 					<PlanCode
 						school={school}
 						session={session}
+						changes={changes}
+						problemList={problemList}
 						owner={owner}
 						preview={view.preview}
 						onType={yaml.type}

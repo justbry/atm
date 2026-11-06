@@ -51,8 +51,6 @@ export type PlansSession = {
 	summary: PlanSummary;
 	/** The Code text as typed, kept while it differs from the layout or does not parse; null: the draft's own layout. */
 	yamlText: string | null;
-	/** The draft differs from the live menu (the Plans tab's draft badge). */
-	hasChanges: boolean;
 };
 
 /** A tier whose audience a publish changed: what its members read from then on, and the day it moved. */
@@ -97,7 +95,31 @@ export function withDraft(
 		...session,
 		draft,
 		yamlText,
-		hasChanges: diffMenus(session.live, draft).length > 0,
+	};
+}
+
+/** What Stripe holds for a menu just published: a product for every membership on sale and every pack, and a price
+ * for each interval it charges. Used when the server's own facts for the new version are not there to read. */
+export function stripeFactsOf(
+	menu: Menu,
+	before: MenuVersionBody["stripe"],
+): MenuVersionBody["stripe"] {
+	const products = new Set(before.products);
+	const prices = new Set(before.prices);
+	for (const tier of menu.tiers) {
+		if (!tier.public) continue;
+		products.add(`t:${tier.id}`);
+		for (const { interval } of tier.prices)
+			prices.add(`t:${tier.id}:${interval}`);
+	}
+	for (const addon of menu.addons) {
+		products.add(`a:${addon.id}`);
+		prices.add(`a:${addon.id}:${addon.price.every}`);
+	}
+	return {
+		products: [...products],
+		prices: [...prices],
+		portal: before.portal,
 	};
 }
 

@@ -128,3 +128,17 @@
 .bookings-note {
 	margin-top: 10px;
 }
+.pcard button.ed {
+	background: none;
+	border: 0;
+	padding: 0;
+	cursor: pointer;
+	line-height: 0;
+}
+.pcard button.ed:focus-visible {
+	outline: 2px solid var(--ring);
+	outline-offset: 2px;
+}
+.promo-code-field {
+	width: 120px;
+}

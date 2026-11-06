@@ -18,7 +18,8 @@ type PlanPublishDialogProps = {
 	owner: boolean;
 	/** `publishMenu` is pending: the dialog stays until it resolves. */
 	pending: boolean;
-	onPublish: () => void;
+	/** Called with the family PIN typed; the pane's handler keeps it (see `Plans`'s `publish`). */
+	onPublish: (pin: string) => void;
 	onCancel: () => void;
 };
 
@@ -80,7 +81,7 @@ export function PlanPublishDialog({
 							{affectedMembers} current member
 							{affectedMembers === 1 ? "" : "s"}
 						</b>{" "}
-						keep the version they bought.
+						{affectedMembers === 1 ? "keeps" : "keep"} the version they bought.
 					</>
 				) : (
 					"No current members are affected."
@@ -124,7 +125,7 @@ export function PlanPublishDialog({
 					data-test="plan-publish-go"
 					title={owner ? undefined : "Owners publish"}
 					disabled={!publishEnabled}
-					onClick={onPublish}
+					onClick={() => onPublish(pin)}
 				>
 					<Icon name="upload" />
 					{pending ? "Publishing…" : `Publish v${fromVersion + 1}`}

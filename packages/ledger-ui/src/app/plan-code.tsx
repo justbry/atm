@@ -2,7 +2,7 @@ import type { JSX } from "preact";
 import { useId, useRef } from "preact/hooks";
 import type { School } from "../data/types.ts";
 import { Icon, type IconName } from "./icon.tsx";
-import { diffMenus, type PlansSession, problems } from "./plans-menu.ts";
+import type { PlanChange, PlansSession } from "./plans-menu.ts";
 import { emitMenu, type ParsedMenu, parseMenu } from "./plans-yaml.ts";
 import { exitPreviewTitle } from "./viewing.ts";
 
@@ -12,6 +12,9 @@ const linesAboveJump = 3;
 type PlanCodeProps = {
 	school: School;
 	session: PlansSession;
+	/** The draft against the live menu, and the draft's problems: worked out once by the pane. */
+	changes: PlanChange[];
+	problemList: string[];
 	/** Owners edit plans; everyone reads and copies. */
 	owner: boolean;
 	/** An audience other than your own is shown: Format, Reset and the text are read-only. */
@@ -29,6 +32,8 @@ type PlanCodeProps = {
 export function PlanCode({
 	school,
 	session,
+	changes,
+	problemList,
 	owner,
 	preview,
 	onType,
@@ -53,9 +58,7 @@ export function PlanCode({
 		version: session.version,
 		previous: session.draft,
 	});
-	const found = problems(session.draft);
-	const changes = diffMenus(session.live, session.draft);
-	const located = found.map((problem) => ({
+	const located = problemList.map((problem) => ({
 		problem,
 		line: parsed.ok ? lineOf(problem, parsed) : null,
 	}));
@@ -65,7 +68,7 @@ export function PlanCode({
 			: [parsed.line],
 	);
 	const writable = owner && !preview;
-	const pill = statusPill(parsed, found.length);
+	const pill = statusPill(parsed, problemList.length);
 
 	const jumpTo = (line: number): void => {
 		const area = textarea.current;
@@ -138,7 +141,7 @@ export function PlanCode({
 								? exitPreviewTitle
 								: "Replace the draft with what is published"
 						}
-						disabled={!(writable && session.hasChanges)}
+						disabled={!(writable && changes.length > 0)}
 						onClick={onReset}
 					>
 						<Icon name="undo" />
@@ -196,7 +199,7 @@ export function PlanCode({
 				<div class="kmsg" aria-live="polite" data-test="plan-yaml-message">
 					{!parsed.ok ? (
 						<>
-							<div class="err" role="alert">
+							<div class="err">
 								<Icon name="xCircle" /> Line {parsed.line}: {parsed.message}{" "}
 								{jumpButton(parsed.line)}
 							</div>

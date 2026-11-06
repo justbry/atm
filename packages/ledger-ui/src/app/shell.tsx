@@ -15,7 +15,11 @@ import type { Writer } from "../data/writer.ts";
 import { CoreIcon, type CoreIconName } from "./core-icon.tsx";
 import type { PaneName } from "./panes.tsx";
 import { parsePeriod, snapPeriod } from "./period.ts";
-import type { AudienceMove, PlansSession } from "./plans-menu.ts";
+import {
+	type AudienceMove,
+	diffMenus,
+	type PlansSession,
+} from "./plans-menu.ts";
 import type { Change } from "./portal-format.ts";
 import {
 	allSchools,
@@ -309,11 +313,13 @@ export function Shell({
 				>
 					{schoolTabs.map((tab) => {
 						const selected = tab === route.tab;
+						const planSession = planSessions[school.id];
 						const badge = tabBadge(
 							tab,
 							school,
-							planSessions[school.id]?.hasChanges ??
-								school.tabBadges.plansDraft,
+							planSession
+								? diffMenus(planSession.live, planSession.draft).length > 0
+								: school.tabBadges.plansDraft,
 						);
 						return (
 							<button

@@ -1,6 +1,8 @@
 import type { JSX } from "preact";
 import { useState } from "preact/hooks";
+import type { Promo } from "../data/ledger.ts";
 import type { Menu, MenuGrant } from "../data/plans.ts";
+import type { Reader } from "../data/reader.ts";
 import { Icon } from "./icon.tsx";
 import { formatMoney } from "./money.ts";
 import {
@@ -11,10 +13,15 @@ import {
 	slug,
 	yearlyAmount,
 } from "./plans-menu.ts";
+import { useLoaded } from "./use-loaded.ts";
+import { useViewing } from "./viewing.ts";
 
 export type PreviewSource = "live" | "draft";
 
 type PlanPreviewProps = {
+	/** Reads the school's promo codes, for the Promo code field. */
+	reader: Reader;
+	schoolId: string;
 	schoolName: string;
 	/** The live version's number; 0 before the first publish. */
 	version: number;
@@ -47,14 +54,23 @@ type CardModel = {
 	inLive: boolean;
 };
 
+const percentBase = 100;
+/** A price after `percent` off, rounded to whole cents as the mockup's `money` rounds it. */
+const discounted = (cents: number, percent: number): number =>
+	Math.round((cents * (percentBase - percent)) / percentBase);
+
 const chooseToast = "Preview only. Members would continue to Stripe Checkout.";
 const liveEmpty =
 	"Nothing is published yet. Switch to Draft to see what you've set up, or add a plan in Edit.";
 const draftEmpty = "No plans yet. Switch to Edit to add a membership.";
 
 /** The purchase page as members see it (mockup `planPreview`): the live plans or the draft, monthly or yearly, each
- * plan a card that opens its editor. Choose is a preview only. The sizes picked are this view's own. */
+ * plan a card with a button that opens its editor. Choose is a preview only. The sizes picked and the promo code applied
+ * are this view's own. A code is checked against the school's active member promos and takes its percent off the
+ * memberships' prices as shown here: the editor's own draft prices, so this is presentation, not a books figure. */
 export function PlanPreview({
+	reader,
+	schoolId,
 	schoolName,
 	version,
 	live,
@@ -68,6 +84,21 @@ export function PlanPreview({
 	onToast,
 }: PlanPreviewProps): JSX.Element {
 	const [sizes, setSizes] = useState<Record<string, number>>({});
+	const [typedCode, setTypedCode] = useState("");
+	const [appliedCode, setAppliedCode] = useState("");
+	const { option } = useViewing();
+	const [loadedPromos] = useLoaded(`${schoolId}|${option.audience}`, () =>
+		reader.promos({ school: schoolId, audience: option.audience }),
+	);
+	const promo: Promo | undefined = loadedPromos?.promos.find(
+		({ type, status, code }) =>
+			type === "member" && status === "active" && code === appliedCode,
+	);
+	const applyCode = (): void => {
+		const code = typedCode.trim().toUpperCase();
+		setTypedCode(code);
+		setAppliedCode(code);
+	};
 	const showingLive = show === "live";
 	const menu = showingLive ? live : draft;
 	const tiers = menu.tiers.filter((tier) => !showingLive || tier.public);
@@ -117,37 +148,38 @@ export function PlanPreview({
 		const size = model.quantities
 			? (sizes[model.id] ?? model.quantities[0] ?? 1)
 			: 1;
-		const price = model.amount * size;
+		const listPrice = model.amount * size;
+		const price =
+			promo && model.kind === "tiers"
+				? discounted(listPrice, promo.value)
+				: listPrice;
 		const publishedPrice =
 			model.publishedAmount === undefined ? null : model.publishedAmount * size;
 		const changed = !showingLive && changedIds.has(model.id);
 		const showWas =
-			changed && publishedPrice !== null && publishedPrice !== price;
+			changed && publishedPrice !== null && publishedPrice !== listPrice;
 		const open = (): void => onEdit(model.kind, model.id);
 		return (
-			// biome-ignore lint/a11y/useSemanticElements: the card holds buttons of its own (sizes, Choose), which a <button> cannot
+			// biome-ignore lint/a11y/noStaticElementInteractions: a click anywhere on the card is a shortcut for the Edit button inside it, which is the keyboard and screen-reader way in
+			// biome-ignore lint/a11y/useKeyWithClickEvents: the Edit button inside the card takes the keys
 			<div
 				key={`${model.kind}:${model.id}`}
 				class={`pcard${changed ? " chg" : ""}${model.hidden ? " ghost" : ""}`}
-				role="button"
-				tabIndex={0}
-				aria-label={`Edit ${model.name}`}
 				data-test="plan-card"
 				data-plan={model.id}
 				onClick={open}
-				onKeyDown={(event) => {
-					if (
-						event.target === event.currentTarget &&
-						(event.key === "Enter" || event.key === " ")
-					) {
-						event.preventDefault();
-						open();
-					}
-				}}
 			>
-				<span class="ed">
+				<button
+					type="button"
+					class="ed"
+					aria-label={`Edit ${model.name}`}
+					onClick={(event) => {
+						event.stopPropagation();
+						open();
+					}}
+				>
 					<Icon name="edit" />
-				</span>
+				</button>
 				<div class="pn">{model.name}</div>
 				<div class="pvh">
 					{changed && (
@@ -167,6 +199,9 @@ export function PlanPreview({
 						<s data-test="plan-card-was">
 							{formatMoney(publishedPrice, menu.currency)}
 						</s>
+					)}
+					{price !== listPrice && (
+						<s>{formatMoney(listPrice, menu.currency)}</s>
 					)}
 					<span data-test="plan-card-price">
 						{formatMoney(price, menu.currency)}
@@ -216,7 +251,6 @@ export function PlanPreview({
 				<button
 					type="button"
 					class="btn p go"
-					tabIndex={-1}
 					data-test="plan-choose"
 					onClick={(event) => {
 						event.stopPropagation();
@@ -283,6 +317,34 @@ export function PlanPreview({
 						Yearly
 					</button>
 				</div>
+				<input
+					type="text"
+					placeholder="Promo code"
+					aria-label="Promo code"
+					class="promo-code-field"
+					value={typedCode}
+					onInput={(event) => setTypedCode(event.currentTarget.value)}
+					onKeyDown={(event) => {
+						if (event.key !== "Enter") return;
+						event.preventDefault();
+						applyCode();
+					}}
+				/>
+				<button type="button" class="btn s promo-apply" onClick={applyCode}>
+					Apply
+				</button>
+				<output class={`msg ${promo ? "ok" : "no"}`}>
+					{appliedCode !== "" && promo && (
+						<>
+							<Icon name="check" /> {promo.code}: {promo.value}% off memberships
+						</>
+					)}
+					{appliedCode !== "" && loadedPromos && !promo && (
+						<>
+							<Icon name="xCircle" /> Not a valid code here
+						</>
+					)}
+				</output>
 			</div>
 			{!showingLive && changes.length > 0 && (
 				<div class="note">

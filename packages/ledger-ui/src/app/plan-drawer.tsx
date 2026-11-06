@@ -1,6 +1,11 @@
 import type { JSX } from "preact";
 import { useEffect, useId, useRef, useState } from "preact/hooks";
 import {
+	applyOverride,
+	type DisclosureGrain,
+	kpiRule,
+} from "../data/disclosure.ts";
+import {
 	type Menu,
 	type MenuAddon,
 	type MenuAudience,
@@ -25,10 +30,17 @@ import {
 	withTier,
 	yearlyAmount,
 } from "./plans-menu.ts";
-import { exitPreviewTitle } from "./viewing.ts";
+import { exitPreviewTitle, useViewing } from "./viewing.ts";
 
-const audienceHint =
-	"What members of this plan see of the school's books. Member: quarters, money rounded, totals and categories. Governance: months, exact, with plan and fund breakdowns and how gifts spread, but no names. Public: nothing beyond what anyone sees. A governance plan is usually hidden (not for sale) and given by the owner. Finance and Owner are never a tier's audience. Access moves at once for current members, with a notice.";
+/** Mockup `GR_PL`: a grain as the plural the hint writes. */
+const grainPlural: Record<DisclosureGrain, string> = {
+	year: "years",
+	quarter: "quarters",
+	month: "months",
+	day: "days",
+};
+const audienceHint = (memberGrain: string): string =>
+	`What members of this plan see of the school's books. Member: ${memberGrain}, money rounded, totals and categories. Governance: months, exact, with plan and fund breakdowns and how gifts spread, but no names. Public: nothing beyond what anyone sees. A governance plan is usually hidden (not for sale) and given by the owner. Finance and Owner are never a tier's audience. Access moves at once for current members, with a notice.`;
 const centsPerUnit = 100;
 const defaultGrantAmount = 8;
 const audienceChoices: Array<[MenuAudience, string]> = [
@@ -218,6 +230,16 @@ export function PlanDrawer({
 }: PlanDrawerProps): JSX.Element {
 	const [form, setForm] = useState(() => formOf(item, kind, menu));
 	const tier = kind === "tiers";
+	const { disclosure } = useViewing();
+	/** Mockup `rule(discOf(s), "member", "gross_collected").every`: the grain a Member's income figures come in. */
+	const memberGrainRule = kpiRule(
+		applyOverride(disclosure.file, disclosure.override),
+		"member",
+		"gross_collected",
+	);
+	const memberGrain = memberGrainRule
+		? grainPlural[memberGrainRule.every]
+		: "periods";
 	const drawer = useRef<HTMLElement>(null);
 	const nameField = useRef<HTMLInputElement>(null);
 	const ids = {
@@ -353,7 +375,7 @@ export function PlanDrawer({
 						))}
 					</select>
 					<div class="kbhint" data-test="plan-drawer-hint">
-						{audienceHint}
+						{audienceHint(memberGrain)}
 					</div>
 				</div>
 			)}
