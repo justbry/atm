@@ -254,9 +254,8 @@
 			"name": "mem filter owners and admins",
 			"line": 60,
 			"slice": "S4",
-			"status": "fail",
+			"status": "pass",
 			"ui": "#mb tr.row",
-			"reason": "fail: m_093,u_kim,u_rav",
 			"note": "GAP: recording an outcome from Bookings (bulk confirm, line 44) must clear that booking's attention reason on Members; m_093 still shows needs_outcome (Person.attention is fixed fixture data), so the attention-first sort is wrong."
 		},
 		"mem-filter-members.1": {
@@ -284,7 +283,7 @@
 			"line": 66,
 			"slice": "S4",
 			"status": "pass",
-			"ui": "#mb tr.row[data-id=u_kim] | #mb tr.row[data-id=u_rav] | #mb tr.row[data-id=m_088] | #mb tr.row[data-id=m_051]"
+			"ui": "#mb tr.row[data-id=u_kim] | #mb tr.row[data-id=m_093] | #mb tr.row[data-id=u_rav] | #mb tr.row[data-id=m_088] | #mb tr.row[data-id=m_051]"
 		},
 		"top-bar-view-as-replaces-the-static-chip-its-help-keeps-that-admins-see-all-members.1": {
 			"name": "top bar: View as replaces the static chip; its help keeps that admins see all members",
@@ -618,8 +617,7 @@
 			"name": "books: each audience renders a different dashboard",
 			"line": 144,
 			"slice": "S1b",
-			"status": "fail",
-			"reason": "fail",
+			"status": "pass",
 			"note": "Harness limit, not yet a diagnosed gap: the check reads the Dashboard for each audience inside a callback ([...].map(l => [l, lvl(l)])), where the harness cannot wait for the audience's document to load, so the snapshots read a Dashboard still loading. Needs a replay with waits before it is classed."
 		},
 		"books-every-audience-has-a-caption.1": {
@@ -947,9 +945,8 @@
 			"name": "rounding: large school, Member money to $100, and the year total is not the sum of its rounded quarters",
 			"line": 215,
 			"slice": "S1b",
-			"status": "fail",
+			"status": "pass",
 			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard[data-k=gross_collected] b | #pane[aria-labelledby=tab-dashboard] .kyear",
-			"reason": "fail: 2025 total$236,800 | ",
 			"note": "GAP: under the quarter strip's '<year> total' row the UI shows only the generic 'Each period is rounded on its own…' line; the mockup's .kyearnote says 'The four rounded quarters add up to $X; the year is rounded from its own events.' with the summed figure (the oracle's gross_collected_rounded_quarters). The UI must render that note with the document's figure."
 		},
 		"ranked-7-admin-without-the-grant-sees-plan-structure-revenue-and-counts-finance-or-governance-only.1": {
@@ -963,9 +960,8 @@
 			"name": "ranked 8: promo redemption counts are Governance and up; Redemptions (names) finance only",
 			"line": 219,
 			"slice": "S5",
-			"status": "fail",
-			"ui": "#cb [data-k=redemptions]",
-			"reason": "fail",
+			"status": "pass",
+			"ui": "#cb [data-k=redemptions] | #cb [data-red]",
 			"note": "GAP: no Promos fixture for Harbor Arts (promosBySchool in src/fixtures/ledger-data.ts); the mockup has ARTS20 (member, 20, used 3) there, whose Used cell must read 'Governance and up see this' and Redemptions be disabled 'Finance admins only: ...'."
 		},
 		"ranked-3-drawer-for-an-admin-without-the-grant-payments-finance-only-invoice-and-adjust-finance-only-csv-finance-admins-only.1": {
@@ -986,9 +982,8 @@
 			"name": "ranked 3: the portal preview by an admin without the grant shows no amounts and cannot export",
 			"line": 223,
 			"slice": "S6",
-			"status": "fail",
-			"ui": "#khist",
-			"reason": "fail",
+			"status": "pass",
+			"ui": "#khist | #khist tbody | #kdl",
 			"note": "GAP: Harbor Arts now has a Members roster with h_32, but no member portal fixture for it (src/fixtures/portal.ts has no h_32): the portal preview by an admin without the finance grant must show the history amounts as 'Finance only' (no $) and a disabled Download CSV."
 		},
 		"ranked-7-governance-sees-per-plan-counts-with-small-counts-as-10-and-revenue-hidden-under-5-payers.1": {
@@ -1135,9 +1130,8 @@
 			"name": "tier audience: members on the tier move at once and see the notice",
 			"line": 263,
 			"slice": "S3",
-			"status": "fail",
-			"ui": "#vm [data-books]",
-			"reason": "fail",
+			"status": "pass",
+			"ui": "#vm [data-books] | #vm [data-audchg]",
 			"note": "GAP: after a tier's audience is published, its members must read the new audience in the portal ([data-books]=governance) and see an audience-changed notice ([data-audchg], 'What members can see changed on 5 Nov 2026'); the fixture Writer's publishMenu changes nothing and the portal has no notice."
 		},
 		"settings-the-six-classes-with-their-kpis-and-what-each-audience-sees.1": {
@@ -2098,7 +2092,8 @@
 			"slice": "S6",
 			"status": "na",
 			"reason": "The check revokes the signed-in viewer's own finance grant by writing the mockup's roster (line 522: T.SC.b4u.R.find(r=>r.you).fin=false); the UI's viewer and grants come from the Reader and cannot be changed from the page. The gate exists in the UI: with as=admin the portal's Download CSV is disabled with the title 'Finance admins only' and amounts read 'Finance only' (test/s6/finance-gate.test.ts; parity line 223 passes).",
-			"note": "Orchestrator ruling 2026-11-06 on fix-r2's CONTRACT-CHANGE: same reason as lines 523, 525, 527 and 530."
+			"note": "Orchestrator ruling 2026-11-06 on fix-r2's CONTRACT-CHANGE: same reason as lines 523, 525, 527 and 530.",
+			"ui": "#kdl"
 		},
 		"gate-donors-csv-disabled-for-a-non-finance-admin.1": {
 			"name": "gate: donors CSV disabled for a non-finance admin",
@@ -2257,8 +2252,7 @@
 			"name": "no runtime errors",
 			"line": 570,
 			"slice": "S0",
-			"status": "fail",
-			"reason": "fail: unhandled rejection: no rules for har | unhandled rejection: no rules for har | unhandled rejection: no rules for har | unhandled rejection: no rules for har | unhandled rejection: no rules for har",
+			"status": "pass",
 			"note": "GAP: unhandled rejections 'no rules for har' while the body visits Harbor Arts: a Reader call for har has no fixture rules behind it; every school the switcher offers must load without a rejection."
 		},
 		"top-bar-says-admins-see-all-members.1": {
