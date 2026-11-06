@@ -1,0 +1,27 @@
+{
+	"scores": {
+		"testability": 6,
+		"convergence": 7,
+		"antiGaming": 6,
+		"simplicity": 8,
+		"cost": 8
+	},
+	"overall": 6,
+	"blockers": [
+		"no-digit rule breaks lt; add orchestrator null-cell probe document",
+		"package.json/tsconfig/vite config unprotected; invoke gates by file path; orchestrator-owned gates tsconfig"
+	],
+	"mustFix": [
+		"texts substring/denylist; need exact scoped compare",
+		"no completeness rule for viewer x view",
+		"loop pseudocode does not branch: gate red falls to panel; objection re-score not re-checked; union mustFix after revert ping-pongs; draft PR opens late so close errors",
+		"biome path machine-specific; size caps invented not S0-measured",
+		"no cap on shot matrix; no timeouts on delegates/preview"
+	],
+	"wouldChange": [
+		"reviewers in shared W can mutate; require clean tree after",
+		"slice tests in test/s<k>/, protect rest of test/",
+		"golden steps: fill and key"
+	],
+	"note": "condensed; full JSON in delegate thread"
+}
