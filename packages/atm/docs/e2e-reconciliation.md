@@ -69,7 +69,7 @@ How to read the table: dollars; `-` is zero; **bold `a / b`** is where the books
 
 ## Discrepancies
 
-Product bugs are reported here, not fixed. `K1` and `K2` were found by the first version of this matrix and are fixed on `dev` since; their sections stay, as the record of what the matrix pinned and what replaced it. `D1` to `D3`, `D5`, `D6` and `D7` are open.
+Product bugs are reported here, not fixed. `K1` and `K2` were found by the first version of this matrix and are fixed on `dev` since; their sections stay, as the record of what the matrix pinned and what replaced it. `D1`, `D2`, `D5`, `D6` and `D7` are open (`D3` and `D4` are fixed).
 
 ### K1 (KNOWN, resolved by #66): a dispute moved no money in the books, and its fee was never booked
 
