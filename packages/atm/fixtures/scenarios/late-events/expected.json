@@ -1,0 +1,57 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 52000,
+				"income:membership:sparkle-1": 13000,
+				"refunds": 3000,
+				"fees": 1975,
+				"stripe": 60025,
+				"net": 60025,
+				"avail:family:fam_8k2:visit": 2,
+				"avail:family:fam_b2:visit": 2,
+				"avail:family:fam_c3:visit": 1
+			},
+			"reconcile": {
+				"2026-01": []
+			}
+		}
+	],
+	"notes": [
+		"The runner journals and reconciles once, after every step, so January's books here are the final ones (day.jsonl plus late-*); the 'as closed' numbers are in the hand comment only.",
+		"Without the late events: income 26,000 + 13,000 = 39,000; fees 784 + 407 = 1,191; net 39,000 - 1,191 = 37,809. With them: +26,000 income, +784 fee, -3,000 refund = +22,216: 60,025.",
+		"The late refund is of the third family's 130.00 payment (13,000), partial, so no credits are taken back."
+	]
+}

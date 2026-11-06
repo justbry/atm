@@ -1,0 +1,23 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"avail:family:fam_8k2:visit": 2
+			},
+			"reconcile": {
+				"2026-01": []
+			}
+		}
+	],
+	"notes": [
+		"nothing was paid, so nothing is booked; the member still gets the two visits the tier grants"
+	]
+}

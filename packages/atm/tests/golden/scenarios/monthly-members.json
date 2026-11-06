@@ -23,11 +23,15 @@
     "usageRate": 0.6,
     "currency": "usd",
     "feePercent": 2.9,
-    "feeFixedCents": 30
+    "feeFixedCents": 30,
+    "childShare": 0,
+    "tierCounts": {},
+    "yearlyCount": 0,
+    "refundCount": 0
   },
-  "fixtureHash": "53c124e97bf838e753953b8927246f787f4906f5938c50c71189c0591a6f62d8",
-  "kpisHash": "b41c905c29085eb85751a560daa640c76a6645b56440af8d144ff10057ed0fdf",
-  "events": 1512,
+  "fixtureHash": "53bf717957317f494cf662e1308274c7192b81e51d64a787fce69921a4ed7725",
+  "kpisHash": "1d4ca82500b478f78978212fcfdd3173e6ebc81a8dd0c83aab821d1b4e8027fb",
+  "events": 1534,
   "periods": 12,
   "summary": {
     "gross_collected": 721800,
@@ -41,9 +45,9 @@
     "refunds_count": 8,
     "disputes_opened": 0,
     "new_paying_members": 24,
-    "credits_granted": 292,
+    "credits_granted": 1124,
     "credits_consumed": 262,
-    "credits_expired": 80,
+    "credits_expired": 457,
     "paying_members_last_period": 20
   },
   "skippedNonUsd": 0

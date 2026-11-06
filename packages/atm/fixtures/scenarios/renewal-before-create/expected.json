@@ -1,0 +1,57 @@
+{
+	"verdict": "DISCREPANCY",
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			422,
+			"refused",
+			"rejected"
+		],
+		[
+			409,
+			"unmatched_invoice"
+		],
+		[
+			422,
+			"refused",
+			"rejected"
+		],
+		[
+			409,
+			"unmatched_invoice"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 52000,
+				"fees": 1568,
+				"stripe": 50432,
+				"net": 50432,
+				"avail:family:fam_8k2:visit": 4
+			},
+			"pinned": {
+				"avail:family:fam_8k2:visit": 2
+			},
+			"reconcile": {
+				"2026-01": [],
+				"2026-02": []
+			}
+		}
+	],
+	"discrepancies": [
+		"D7"
+	],
+	"notes": [
+		"Money: 26,000 x 2 = 52,000 income, 784 x 2 = 1,568 fees, 52,000 - 1,568 = 50,432 in Stripe's balance. The refused create invoice still books its payment, so reconcile is clean.",
+		"Credits by hand: January's 2 visits, the renewal's refill to 2 and the 2 carried over (cap 2) = 4, as in the in-order story. The handler gives 2: the renewal became the holder's first invoice and the create is refused for good."
+	]
+}

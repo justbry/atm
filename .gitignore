@@ -215,3 +215,6 @@ scripts/ops/.backfill_neon_done
 
 # Experiment outputs (plans, benchmark JSON) — regenerated on demand
 server/experiments/*/out/
+
+# readable stage snapshots of scenario bundles: `atm scenario check --snapshots` writes them, only to print a diff
+packages/atm/fixtures/scenarios/*/stages/

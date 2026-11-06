@@ -1,0 +1,78 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"duplicate"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			409,
+			"unmatched_payment"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 43100,
+				"income:addon:gift-dollars": 5000,
+				"refunds": 2000,
+				"fees": 1485,
+				"stripe": 44615,
+				"net": 44615,
+				"avail:family:fam_8k2:visit": 2,
+				"avail:family:fam_c3:visit": 2
+			},
+			"reconcile": {
+				"2026-01": [],
+				"2026-02": []
+			},
+			"monthly": true,
+			"handMonthly": {
+				"Jan": {
+					"income:membership:sparkle-2": 22100,
+					"income:addon:gift-dollars": 5000,
+					"fees": 846
+				},
+				"Feb": {
+					"income:membership:sparkle-2": 21000,
+					"refunds": 2000,
+					"fees": 639
+				}
+			}
+		}
+	],
+	"notes": [
+		"A discount never changes what an invoice grants: the lines are gross, the books take amount_paid.",
+		"A dollar gift certificate books its price as income when sold and grants no credits; the coupon it makes lowers a later invoice's amount_paid, which is what that invoice books.",
+		"A refund that arrives before its payment is linked answers 409 and is applied on the retry."
+	]
+}

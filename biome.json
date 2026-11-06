@@ -12,6 +12,7 @@
 			"!**/dist",
 			"!**/packages/atm/fixtures/vibes-year",
 			"!**/packages/atm/fixtures/vibes-multi",
+			"!**/packages/atm/fixtures/scenarios",
 			"!**/packages/atm/tests/golden"
 		]
 	},

@@ -249,6 +249,10 @@ export const hledgerChannel: KpiChannel = {
 								set(kpi.id, month, Number(n) * c.sign);
 						continue;
 					}
+					const withoutAccount = [
+						...whereQueries({ ...c.where, account: undefined }),
+						c.commodity === "usd" ? `cur:^${USD}$` : `not:cur:^${USD}$`,
+					];
 					const groups = new Map<string, string[]>();
 					for (const account of used) {
 						const dim = dimensionOf(c.by.pattern, account);
@@ -272,7 +276,9 @@ export const hledgerChannel: KpiChannel = {
 												...columns,
 												"-O",
 												"json",
-												...filters,
+												// not the KPI's own `acct:` (hledger ORs queries of one type, which would
+												// pull in every account it matches): the accounts are the ones listed here
+												...withoutAccount,
 												`acct:^(${accounts.map(literal).join("|")})$`,
 											]),
 										) as MultiBalance

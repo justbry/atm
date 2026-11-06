@@ -1,0 +1,188 @@
+{
+	"id": "recorded-dispute-won",
+	"school": "spike-school",
+	"title": "recorded: dispute opened and won, the fee not returned",
+	"path": "recorded dispute-won: charge.dispute.created before its invoice, .closed (won)",
+	"order": 38,
+	"env": "test",
+	"fees": {
+		"in_1UYPRcScrubTest0bbF1HWHx": 784
+	},
+	"priceIds": {
+		"b4u_spike-sc_t_sparkle_month_13000_usd": "price_1UYPJxScrubTest0EYBVBJbo",
+		"b4u_spike-sc_t_sparkle_year_144000_usd": "price_1UYPJxScrubTest02foNcKrl",
+		"b4u_spike-sc_t_shine_month_18000_usd": "price_1UYPJyScrubTest0IpPYbAa2",
+		"b4u_spike-sc_t_shine_year_204000_usd": "price_1UYPJyScrubTest0SukAw2MQ",
+		"b4u_spike-sc_t_radiate_month_26000_usd": "price_1UYPJzScrubTest0qoMkIKqd",
+		"b4u_spike-sc_t_radiate_year_288000_usd": "price_1UYPJzScrubTest00HKA0J5y",
+		"b4u_spike-sc_a_pack_once_9000_usd": "price_1UYPK0ScrubTest0vkjDTmcV",
+		"b4u_spike-sc_a_glow_month_5000_usd": "price_1UYPK0ScrubTest0H6KqkLxU",
+		"b4u_spike-sc_a_gift-visit_once_gift-sessions_13000_usd": "price_1UYPQGScrubTest0GF3Opc1T",
+		"b4u_spike-sc_a_gift-dollars_once_gift-dollars_5000_usd": "price_1UYPQGScrubTest0oj3pRNgB"
+	},
+	"menu": {
+		"currency": "usd",
+		"timeZone": "America/Denver",
+		"features": [
+			{
+				"id": "visit",
+				"name": "Visit",
+				"unit": {
+					"one": "visit",
+					"other": "visits"
+				}
+			}
+		],
+		"tiers": [
+			{
+				"id": "sparkle",
+				"name": "Sparkle",
+				"blurb": "90-minute deep tissue massage, per session a month",
+				"public": true,
+				"prices": [
+					{
+						"interval": "month",
+						"amount": 13000
+					},
+					{
+						"interval": "year",
+						"amount": 144000
+					}
+				],
+				"grants": [
+					{
+						"featureId": "visit",
+						"amount": 1,
+						"every": "month",
+						"rollover": {
+							"max": 1,
+							"months": 1
+						}
+					}
+				],
+				"quantities": [
+					1,
+					2,
+					4
+				]
+			},
+			{
+				"id": "shine",
+				"name": "Shine",
+				"blurb": "Massage, light therapy and energy work, per session a month",
+				"public": true,
+				"prices": [
+					{
+						"interval": "month",
+						"amount": 18000
+					},
+					{
+						"interval": "year",
+						"amount": 204000
+					}
+				],
+				"grants": [
+					{
+						"featureId": "visit",
+						"amount": 1,
+						"every": "month"
+					}
+				],
+				"quantities": [
+					1,
+					2,
+					4
+				]
+			},
+			{
+				"id": "radiate",
+				"name": "Radiate",
+				"blurb": "2-hour massage, light therapy and energy work, per session a month",
+				"public": true,
+				"prices": [
+					{
+						"interval": "month",
+						"amount": 26000
+					},
+					{
+						"interval": "year",
+						"amount": 288000
+					}
+				],
+				"grants": [
+					{
+						"featureId": "visit",
+						"amount": 1,
+						"every": "month"
+					}
+				],
+				"quantities": [
+					1,
+					2,
+					4
+				]
+			}
+		],
+		"addons": [
+			{
+				"id": "pack",
+				"name": "Pack",
+				"price": {
+					"amount": 9000,
+					"every": "once"
+				},
+				"grants": [
+					{
+						"featureId": "visit",
+						"amount": 1,
+						"every": "month",
+						"rollover": {
+							"months": 3
+						}
+					}
+				]
+			},
+			{
+				"id": "glow",
+				"name": "Glow",
+				"price": {
+					"amount": 5000,
+					"every": "month"
+				},
+				"grants": [
+					{
+						"featureId": "visit",
+						"amount": 1,
+						"every": "month"
+					}
+				]
+			},
+			{
+				"id": "gift-visit",
+				"name": "Gift visit",
+				"price": {
+					"amount": 13000,
+					"every": "once"
+				},
+				"grants": [
+					{
+						"featureId": "visit",
+						"amount": 1,
+						"every": "month"
+					}
+				],
+				"gift": "sessions"
+			},
+			{
+				"id": "gift-dollars",
+				"name": "Gift card",
+				"price": {
+					"amount": 5000,
+					"every": "once"
+				},
+				"grants": [],
+				"gift": "dollars"
+			}
+		]
+	}
+}

@@ -1,0 +1,34 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			422,
+			"refused",
+			"unmatched_line"
+		],
+		[
+			422,
+			"refused",
+			"unmatched_line"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:other": 26000,
+				"fees": 784,
+				"stripe": 25216,
+				"net": 25216
+			},
+			"reconcile": {
+				"2026-01": []
+			}
+		}
+	],
+	"notes": [
+		"Stripe retries a minute later and the menu is still wrong: the same answer, and the payment is not booked again",
+		"the family paid 260.00 and Stripe kept 7.84: that is in the books although the credits are refused (none are",
+		"granted, so no visits); a person still has to fix the menu for the credits"
+	]
+}

@@ -1,0 +1,47 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 26000,
+				"fees": 784,
+				"clearing": 25216,
+				"net": 25216,
+				"avail:family:fam_8k2:visit": 2
+			},
+			"reconcile": {
+				"2026-01": [],
+				"2026-02": []
+			},
+			"monthly": true,
+			"handMonthly": {
+				"Jan": {
+					"income:membership:sparkle-2": 26000,
+					"fees": 784
+				},
+				"Feb": {}
+			}
+		}
+	],
+	"notes": [
+		"the payout is not in the income statement: January has the payment, February nothing",
+		"by the end of the books: 260.00 - 7.84 paid out. The monthly balance sheet shows the 252.16 still in Stripe's",
+		"balance at the end of January and in the clearing account at the end of February",
+		"Stripe dates the payout 30 January, the log 2 February: reconcile pairs the payout by id and does not call it a shift"
+	]
+}

@@ -1,0 +1,72 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"duplicate"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 78000,
+				"income:membership:sparkle-1": 26000,
+				"fees": 3166,
+				"stripe": 100834,
+				"net": 100834,
+				"avail:family:fam_8k2:visit": 2,
+				"avail:family:fam_b2:visit": 1
+			},
+			"reconcile": {
+				"2026-01": [],
+				"2026-02": [],
+				"2026-03": []
+			},
+			"monthly": true,
+			"handMonthly": {
+				"Jan": {
+					"income:membership:sparkle-2": 26000,
+					"income:membership:sparkle-1": 13000,
+					"fees": 1191
+				},
+				"Feb": {
+					"income:membership:sparkle-2": 26000,
+					"income:membership:sparkle-1": 13000,
+					"fees": 1191
+				},
+				"Mar": {
+					"income:membership:sparkle-2": 26000,
+					"fees": 784
+				},
+				"Apr": {}
+			}
+		}
+	],
+	"notes": [
+		"credits granted 8 (A 2+2+2, B 1+1), credits expired 5 (A 2 by the cron at 15 March 18:00, before the renewal, + 2 by the cron on 16 April; B 1 by the cron on 16 March), 3 left",
+		"KPI by month (school time, Denver): credits_granted Jan 3, Feb 3, Mar 2, Apr 0; credits_expired Mar 3 (A 2 and B 1, all lapsed 15 March), Apr 2",
+		"breakage_rate: Mar 3/2 = 1.5 (expired in a month with fewer grants), Apr 0 (no grants: the ratio is 0 by definition)",
+		"the duplicate delivery of in_2 books nothing; the second cron run on 16 March books nothing"
+	]
+}

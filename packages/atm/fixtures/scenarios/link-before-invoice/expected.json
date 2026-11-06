@@ -1,0 +1,37 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			409,
+			"unmatched_invoice"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 26000,
+				"refunds": 5000,
+				"fees": 784,
+				"stripe": 20216,
+				"net": 20216,
+				"avail:family:fam_8k2:visit": 2
+			},
+			"reconcile": {
+				"2026-01": []
+			}
+		}
+	]
+}

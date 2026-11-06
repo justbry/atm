@@ -1,0 +1,21 @@
+{
+	"sch_vol": {
+		"invoices": [
+			{
+				"id": "in_1",
+				"status": "paid",
+				"amount_paid": 0,
+				"currency": "usd",
+				"created": 1768499940,
+				"livemode": true,
+				"status_transitions": {
+					"paid_at": 1768500000
+				}
+			}
+		],
+		"refunds": [],
+		"disputes": [],
+		"payouts": [],
+		"balanceTransactions": []
+	}
+}

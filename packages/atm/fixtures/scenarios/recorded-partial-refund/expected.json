@@ -1,0 +1,40 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "spike-school",
+			"hand": {
+				"income:membership:sparkle": 26000,
+				"refunds": 5000,
+				"fees": 784,
+				"stripe": 20216,
+				"net": 20216,
+				"avail:family:fam_E2b:visit": 2
+			},
+			"reconcile": {
+				"2026-11": []
+			}
+		}
+	],
+	"notes": [
+		"260.00 - 50.00 - 7.84 = 202.16; the two visits stay"
+	]
+}

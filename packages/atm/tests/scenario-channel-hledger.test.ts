@@ -8,6 +8,8 @@ import { describe, expect, test } from "bun:test";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { readEvents } from "../src/ledger/files.js";
+import { loadScenarioBundle } from "../src/scenario/bundle.js";
+import { runBundle } from "../src/scenario/bundle-run.js";
 import { atmChannel } from "../src/scenario/channels/atm.js";
 import { hledgerChannel } from "../src/scenario/channels/hledger.js";
 import {
@@ -138,6 +140,63 @@ describe.skipIf(!hasHledger)(
 					"2026-12",
 				),
 			).toBe(8);
+		});
+	},
+);
+
+describe.skipIf(!hasHledger)(
+	"a dimension of several accounts does not pull in the accounts of the KPI's own filter",
+	() => {
+		test("revenue by kind counts the membership of two tiers without the gift add-on beside it", async () => {
+			const bundle = await loadScenarioBundle(
+				join(import.meta.dir, "../fixtures/scenarios/codes"),
+			);
+			const run = await runBundle(bundle, { channels: [] });
+			try {
+				const school = run.schools[0] as (typeof run.schools)[number];
+				// the same month holds sparkle-2 membership, a gift add-on and (renamed here) a second membership account
+				let renamed = false;
+				const events = school.events.map((event) => {
+					if (renamed || event.event_type !== "payment.succeeded") return event;
+					if (
+						!event.postings.some(
+							(p) => p.account === "income:billing:membership:sparkle-2",
+						)
+					)
+						return event;
+					renamed = true;
+					return {
+						...event,
+						postings: event.postings.map((p) =>
+							p.account === "income:billing:membership:sparkle-2"
+								? { ...p, account: "income:billing:membership:sparkle-1" }
+								: p,
+						),
+					};
+				});
+				expect(renamed).toBe(true);
+				expect(
+					events.some((event) =>
+						event.postings.some((p) =>
+							p.account.startsWith("income:billing:addon:"),
+						),
+					),
+				).toBe(true);
+				const periods = school.periods;
+				const [atm, hledger] = await Promise.all(
+					[atmChannel, hledgerChannel].map((channel) =>
+						rowsOf(channel, events, periods),
+					),
+				);
+				expect(
+					diffKpis(
+						{ name: "atm", rows: atm as KpiRow[] },
+						{ name: "hledger", rows: hledger as KpiRow[] },
+					),
+				).toEqual([]);
+			} finally {
+				await run.dispose();
+			}
 		});
 	},
 );

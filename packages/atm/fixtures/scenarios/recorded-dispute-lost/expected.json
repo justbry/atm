@@ -1,0 +1,59 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			409,
+			"unmatched_invoice"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			409,
+			"unmatched_payment"
+		],
+		[
+			409,
+			"unmatched_payment"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "spike-school",
+			"hand": {
+				"income:membership:sparkle": 26000,
+				"disputes": 26000,
+				"fees": 784,
+				"disputeFees": 1500,
+				"stripe": -2284,
+				"net": -2284
+			},
+			"reconcile": {
+				"2026-11": []
+			}
+		}
+	],
+	"notes": [
+		"Stripe's recorded withdrawal is 26,000 with a fee of 1,500 (net -27,500), listed on the opening and again on",
+		"the closing: it is booked once, as assets:stripe -275.00, disputes +260.00, dispute fees +15.00. Lost: the",
+		"income stays, the close books nothing and the two visits are taken back.",
+		"Net 260.00 - 260.00 - 7.84 - 15.00 = -22.84; cash 252.16 - 275.00 = -22.84."
+	]
+}

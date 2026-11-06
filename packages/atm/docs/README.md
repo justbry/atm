@@ -13,5 +13,7 @@ Reference material, findings and detail that used to sit in `ROADMAP.md`. The ro
 - `pricing-and-positioning.md`: how atm could be priced and positioned next to open and proprietary competitors, a worked example, and the decision to wait on usage events.
 - `comparisons.md`: credit ledger depth and the comparison with open-source billing systems.
 - `scenarios.md`: seeded school fixtures (the demo school Before University), ad-hoc scenarios, the fixture hash, the KPI spec and its parity across the atm fold, hledger and DuckDB, the goldens and the `kpis.json`/`kpis.parquet` export; what was dropped and why.
+- `scenario-bundles.md`: the portable e2e scenario bundles (`fixtures/scenarios/<id>/`: menu, Stripe deliveries in order, Stripe's side, hand numbers, hashes), the H1 to H8 hash checkpoints and `atm scenario check`, how to author a bundle, and how a consumer replays them.
+- `suppression-report.md`: which KPI cells the dashboard suppression rules (spec v3) hide in every preset, and why.
 - `simulate-from-inputs.md`: design (the next release (number not yet chosen); built on `dev`) for storing each handled Stripe input and shipping them like events and replaying them through the grant rules with a candidate menu or policy (`atm simulate --inputs`): what is stored and why, the tables, shipping and erasure, replay fidelity, the interfaces, the PR split, owner decisions, the test plan.
 - `releasing.md`: how a release is made and checked.

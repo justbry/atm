@@ -57,6 +57,19 @@ const goldenOf = (
 	skippedNonUsd: fixture.stats.skipped.non_usd ?? 0,
 });
 
+/** The school-wide credits outstanding at each month's end, straight from the postings: available plus held, every holder, every feature. */
+const outstandingFrom = (
+	events: readonly AtmEvent[],
+	periods: readonly string[],
+): number[] =>
+	periods.map((period) =>
+		events
+			.filter((e) => e.date.slice(0, 7) <= period)
+			.flatMap((e) => e.postings)
+			.filter((p) => /^credits:(avail|held):/.test(p.account))
+			.reduce((n, p) => n + Number(p.amount), 0),
+	);
+
 const SHIPPED_AT = 1_700_000_000_000;
 
 /** The events as the books will read them: appended to an outbox, shipped to a folder, read back. */
@@ -95,6 +108,17 @@ const check = async (input: unknown) => {
 			`channels disagree:\n${parity.mismatches.slice(0, 20).join("\n")}`,
 		);
 	expect(parity.equal).toBe(true);
+	// credits_outstanding: one school-wide number a month (never a holder or an account), equal to the postings' sum in every channel
+	const expected = outstandingFrom(events, fixture.periods);
+	for (const run of ran) {
+		const outstanding = run.rows.filter((r) =>
+			r.kpiId.startsWith("credits_outstanding"),
+		);
+		expect(outstanding.map((r) => r.kpiId)).toEqual(
+			fixture.periods.map(() => "credits_outstanding"),
+		);
+		expect(outstanding.map((r) => r.value)).toEqual(expected);
+	}
 	const rows = (ran[0] as Extract<(typeof ran)[number], { status: "ok" }>).rows;
 	const doc = `${JSON.stringify(goldenOf(fixture, rows), null, 2)}\n`;
 	const path = join(GOLDEN, `${fixture.scenario.name}.json`);

@@ -1,0 +1,49 @@
+{
+	"spike-school": {
+		"invoices": [
+			{
+				"id": "in_1UYPRcScrubTest085FbRtAI",
+				"status": "paid",
+				"amount_paid": 26000,
+				"currency": "usd",
+				"created": 1793880363,
+				"livemode": true,
+				"status_transitions": {
+					"paid_at": 1793880423
+				}
+			}
+		],
+		"refunds": [],
+		"disputes": [
+			{
+				"id": "du_1UYPRdScrubTest0ILJimACb",
+				"amount": 26000,
+				"currency": "usd",
+				"created": 1793880426,
+				"status": "lost",
+				"livemode": true
+			}
+		],
+		"payouts": [],
+		"balanceTransactions": [
+			{
+				"id": "txn_in_1UYPRcScrubTest085FbRtAI",
+				"type": "charge",
+				"amount": 26000,
+				"fee": 784,
+				"net": 25216,
+				"currency": "usd",
+				"created": 1793880423
+			},
+			{
+				"id": "txn_du_1UYPRdScrubTest0ILJimACb",
+				"type": "adjustment",
+				"amount": -26000,
+				"fee": 1500,
+				"net": -27500,
+				"currency": "usd",
+				"created": 1793880426
+			}
+		]
+	}
+}

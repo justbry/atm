@@ -1,0 +1,53 @@
+{
+	"verdict": "DISCREPANCY",
+	"discrepancies": [
+		"D2"
+	],
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 26000,
+				"refunds": 8000,
+				"fees": 784,
+				"stripe": 17216,
+				"net": 17216,
+				"avail:family:fam_8k2:visit": 2
+			},
+			"pinned": {
+				"refunds": 13000,
+				"stripe": 12216,
+				"net": 12216
+			},
+			"reconcile": {
+				"2026-01": [
+					"amount_differs refund re_b",
+					"amount_differs net -"
+				]
+			}
+		}
+	],
+	"notes": [
+		"50.00 and 30.00 were refunded: 80.00",
+		"DISCREPANCY: D2 the second event is booked at the charge's running total, 80.00, not at its own 30.00",
+		"DISCREPANCY: D2"
+	]
+}

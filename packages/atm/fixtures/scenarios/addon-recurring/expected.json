@@ -1,0 +1,38 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 26000,
+				"income:addon:glow": 3387,
+				"fees": 912,
+				"stripe": 28475,
+				"net": 28475,
+				"avail:family:fam_8k2:visit": 3
+			},
+			"reconcile": {
+				"2026-01": []
+			}
+		}
+	],
+	"notes": [
+		"glow is 5,000 a month: 21/31 of it remains, 3,387",
+		"260.00 + 33.87 income; fees 7.84 + 1.28 (3,387 x 2.9% = 98 + 30); cash 293.87 - 9.12 = 284.75",
+		"credits: 2 visits, and glow's 1 visit prorated 21/31 and rounded up = 1: 3"
+	]
+}

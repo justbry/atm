@@ -3254,3 +3254,198 @@ export interface HledgerErrorConstructor {
 	new (message?: string): Error;
 	readonly prototype: Error;
 }
+
+// ---- Scenario bundles and hash checkpoints (`loadScenarioBundles`, `src/ledger/checkpoints.ts`) ----
+
+/** What the handler answered: the HTTP status, the outcome, and the refusal's reason when there is one. */
+export type BundleAnswer = [status: number, outcome: string, reason?: string];
+
+/** One line of a bundle's `deliveries.jsonl`, in delivery order. */
+export type BundleStep =
+	| {
+			kind?: "deliver";
+			/** The clock of the delivery (ms); the event carries its own `created`. */
+			atMs: number;
+			/** A whole Stripe event, as Stripe sent it. */
+			event: Record<string, unknown>;
+			/** The endpoint that receives it (a school's own); default the bundle's `school`. */
+			school?: string;
+			/** The caller's fee lookup throws for this delivery (Stripe answers 5xx and retries). */
+			feeFails?: boolean;
+	  }
+	| {
+			/** The family service records an erasure after the payments: `subject.erased`, naming the payment objects. */
+			kind: "erase";
+			atMs: number;
+			school?: string;
+			family: string;
+	  }
+	| {
+			/** The shipper runs: unshipped outbox rows become batches. `late` puts them in `late-*` files beside a combined day. */
+			kind: "ship";
+			atMs: number;
+			school?: string;
+			late?: boolean;
+	  }
+	| {
+			/** A day's batches are combined into its `day.jsonl` (what the log's combiner does); later shipments for it are `late-*`. */
+			kind: "combine";
+			atMs: number;
+			school?: string;
+			date: string;
+	  }
+	| {
+			/** The cron books the expiry of every lot of `feature` that has lapsed by `atMs` for the family, once. */
+			kind: "lapse";
+			atMs: number;
+			school?: string;
+			family: string;
+			feature: string;
+	  }
+	| {
+			/** `atm journal` runs for the month at this point in the story (a closed month a later event must reopen). */
+			kind: "journal";
+			atMs: number;
+			school?: string;
+			month: string;
+	  };
+
+export type BundleVerdict = "OK" | "KNOWN" | "DISCREPANCY";
+
+/** `scenario.json`: who and what. A generated profile names `profile`, `seed` and `params` instead of deliveries. */
+export type BundleScenario = {
+	id: string;
+	/** The school the deliveries go to unless a step names another. */
+	school: string;
+	menu: Menu;
+	profile?: string;
+	seed?: number;
+	params?: Record<string, unknown>;
+	title?: string;
+	/** Which handler path it walks (the matrix doc's column). */
+	path?: string;
+	/** The environment the events were made in (recorded sandbox deliveries: `test`); default `live`. */
+	env?: "test" | "live";
+	/** The caller's fee lookup by invoice id; left out, the endpoint has no `paymentFee` at all. */
+	fees?: Record<string, number | null>;
+	/** Stripe price ids by lookup key, when the events carry ids the generated ones do not. */
+	priceIds?: Record<string, string>;
+	/** Strings no shipped file or journal may hold (a parent's name and email). */
+	personal?: string[];
+	/** The books to read when a bundle serves several schools; default `[school]`. */
+	schools?: string[];
+	/** Where the case sits in the matrix doc's listing (`matrix.csv`); bundles without one come after, by id. */
+	order?: number;
+};
+
+/** Cents (USD) or credit units, by name (`income:<kind>`, `refunds`, `fees`, `net`, `avail:<holder>:<feature>`, …). A name left out is zero. */
+export type BundleNumbers = Record<string, number>;
+
+export type BundleBookExpected = {
+	school: string;
+	/** Written by hand: what the school's books must say. */
+	hand: BundleNumbers;
+	/** Today's behaviour where it differs from `hand`: asserted exactly, and must differ from `hand` (it is a discrepancy). */
+	pinned?: BundleNumbers;
+	/** Expected reconcile differences per month ("kind object id"); a month listed here is reconciled. */
+	reconcile: Record<string, string[]>;
+	/** The `money.skipped` markers the log holds, by reason, per month. */
+	skipped?: Record<string, Record<string, number>>;
+	/** Also print the monthly income statement (a case that crosses a month). */
+	monthly?: boolean;
+	handMonthly?: Record<string, BundleNumbers>;
+	/** What Stripe's lists hold that is not this school's (another product's invoice on a shared account). */
+	foreign?: { balance: number; fees: number };
+};
+
+/** `expected.json`: hand-written numbers, never computed. */
+export type BundleExpected = {
+	verdict: BundleVerdict;
+	/** The ids of the matrix doc's discrepancies this bundle pins (empty for OK). */
+	discrepancies?: string[];
+	/** The handler's answer to each `deliver` step, in order. */
+	answers: BundleAnswer[];
+	books: BundleBookExpected[];
+	/** How the hand numbers were worked out, and which discrepancy each pin marks: prose for a reader, never compared. */
+	notes?: string[];
+};
+
+export type CheckpointStage =
+	| "H1"
+	| "H2"
+	| "H3"
+	| "H4"
+	| "H5"
+	| "H6"
+	| "H7"
+	| "H8";
+
+/** A stage's golden: one hash, or one per KPI channel (H6, H7). */
+export type StageHash = string | Record<string, string>;
+
+/** `hashes.json`. Internal to tests, CI and the job: never shown to a viewer. */
+export type BundleHashes = { version: 1 } & Partial<
+	Record<CheckpointStage, StageHash>
+>;
+
+export type ScenarioBundle = {
+	id: string;
+	dir: string;
+	scenario: BundleScenario;
+	steps: BundleStep[];
+	stripeSide: Record<string, ReconcileStripe>;
+	expected: BundleExpected;
+	hashes: BundleHashes;
+};
+
+/** A canonical text and its sha256: what a checkpoint is compared by, and what a diff is read from. */
+export type Checkpoint = { canonical: string; hash: string };
+
+/** A bundle step as the H1 canonicalizer reads it; only the clock (`atMs`, written out as an ISO instant) is touched. */
+export type CheckpointStep = { atMs: number } & Record<string, unknown>;
+
+export type MutationCheckpointInput = {
+	/** What the handler answered to each delivery, in order: `[status, outcome, reason?]`. */
+	answers: readonly unknown[];
+	/** The stored input of each delivery in the order it was applied (event id, type, outcome, revisions, fee). */
+	decisions: readonly unknown[];
+	/** Every engine row the handler wrote, in order (subject, table, row id, operation, data). */
+	mutations: readonly unknown[];
+};
+
+export type OutboxCheckpointRow = {
+	id: string;
+	idem: string;
+	date: string;
+	/** The event's canonical line, as the outbox stores it. */
+	body: string;
+};
+
+/** A school's folder as `{ path relative to schools/<school>: text }`. */
+export type FileTree = Readonly<Record<string, string>>;
+
+/** A KPI channel's base aggregates: each base KPI id (`<id>` or `<id>:<dimension>`) to its whole-number value per period. */
+export type ChannelReport = Readonly<
+	Record<string, Readonly<Record<string, number>>>
+>;
+
+export type CheckpointKpiRow = {
+	kpiId: string;
+	period: string;
+	value: number;
+};
+
+/** What `atm reconcile` found for one month, as `reconcile` returns it (only the fields that carry a verdict are read). */
+export type ReconcileVerdictInput = {
+	differences: readonly {
+		kind: string;
+		object: string;
+		id: string | null;
+		period: string;
+		stripe: unknown;
+		log: unknown;
+	}[];
+	counts: unknown;
+	ignored: unknown;
+	skipped: unknown;
+};

@@ -1,0 +1,41 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 26000,
+				"income:membership:sparkle-4": 17613,
+				"fees": 1325,
+				"stripe": 42288,
+				"net": 42288,
+				"avail:family:fam_8k2:visit": 4,
+				"avail:family:fam_8k2:retreat": 1
+			},
+			"reconcile": {
+				"2026-01": []
+			}
+		}
+	],
+	"notes": [
+		"21 of 31 days left: the unused sparkle-2 is credited 26,000 x 21/31 = 17,613 (rounded) and sparkle-4 charged",
+		"52,000 x 21/31 = 35,226; the member pays the difference, 17,613",
+		"income: 260.00 for sparkle-2 (never reduced by the credit line: only the 176.13 paid is booked) and 176.13 for",
+		"sparkle-4; fees 7.84 + 5.41 (17,613 x 2.9% = 511 + 30); cash 436.13 - 13.25 = 422.88",
+		"credits: 2 visits, and 4 - 2 = 2 more, prorated 21/31 and rounded up = 2: 4 visits, plus sparkle-4's retreat"
+	]
+}

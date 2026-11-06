@@ -1,0 +1,50 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 156000,
+				"fees": 4584,
+				"stripe": 151416,
+				"net": 151416,
+				"avail:family:fam_8k2:visit": 8
+			},
+			"reconcile": {
+				"2026-01": [],
+				"2026-02": []
+			},
+			"monthly": true,
+			"handMonthly": {
+				"Jan": {
+					"income:membership:sparkle-2": 104000,
+					"fees": 3046
+				},
+				"Feb": {
+					"income:membership:sparkle-2": 52000,
+					"fees": 1538
+				}
+			}
+		}
+	],
+	"notes": [
+		"the member lowers the count to two with no proration: Stripe sends the subscription change, no invoice",
+		"1,040.00 for four units, then 520.00 for two: 1,560.00; fees 30.46 (104,000 x 2.9% = 3,016 + 30) and 15.38;",
+		"cash 1,560.00 - 45.84 = 1,514.16",
+		"credits: 8 visits for four units; the renewal grants 2 units x 2 = 4 and keeps what fits the new cap, 2 x 2 = 4"
+	]
+}

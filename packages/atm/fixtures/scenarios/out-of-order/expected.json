@@ -1,0 +1,89 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			409,
+			"unmatched_invoice"
+		],
+		[
+			409,
+			"unmatched_payment"
+		],
+		[
+			409,
+			"unmatched_payment"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"duplicate"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"duplicate"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"duplicate"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 52000,
+				"refunds": 8000,
+				"fees": 1568,
+				"stripe": 42432,
+				"net": 42432,
+				"avail:family:fam_8k2:visit": 4
+			},
+			"reconcile": {
+				"2026-01": [],
+				"2026-02": []
+			},
+			"monthly": true,
+			"handMonthly": {
+				"Jan": {
+					"income:membership:sparkle-2": 26000,
+					"fees": 784
+				},
+				"Feb": {
+					"income:membership:sparkle-2": 26000,
+					"refunds": 8000,
+					"fees": 784
+				}
+			}
+		}
+	],
+	"notes": [
+		"The story is the in-order one (create, link, renewal, link, two partial refunds); only the order of delivery differs.",
+		"Answers by the handler's contract: a link whose invoice is not indexed is 409 unmatched_invoice; a refund whose payment is not linked is 409 unmatched_payment; neither claims the event, so Stripe's retry is a first delivery and answers 200 applied; an event id already done is 200 duplicate.",
+		"The refund of 30.00 (charge total 80.00, previous 50.00) is applied before the refund of 50.00 (total 50.00, previous 0): each is worth its total less its previous_attributes, so the two add up to 80.00 in either order.",
+		"Income: 26,000 x 2 = 52,000. Fees: 784 x 2 = 1,568 (2.9% of 26,000 = 754, plus 30). Refunds: 5,000 + 3,000 = 8,000. Stripe's balance and net: 52,000 - 8,000 - 1,568 = 42,432.",
+		"Months: January 26,000 income and 784 fee; February 26,000 income, 784 fee and 8,000 refunds (the refund events are dated 19:00 and 20:00 UTC on 15 February, Denver time 12:00 and 13:00)."
+	]
+}

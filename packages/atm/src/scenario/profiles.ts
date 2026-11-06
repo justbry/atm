@@ -1,5 +1,6 @@
 /** Named, seeded scenarios: each is a seed and knobs over `DEFAULT_PARAMS`, nothing written by hand. */
 import {
+	checkResolvedParams,
 	checkScenarioInput,
 	DEFAULT_PARAMS,
 	type ScenarioInput,
@@ -80,6 +81,80 @@ export const PROFILES: readonly Profile[] = [
 		seed: 108,
 		params: { members: 40, months: 6, churnRate: 0.25 },
 	},
+	{
+		name: "one-payer-tier",
+		summary:
+			"Twenty families, nobody leaves: the fellow tier has exactly one payer, the other three tiers have several (6, 8 and 5).",
+		seed: 109,
+		params: {
+			members: 20,
+			months: 6,
+			churnRate: 0,
+			tierCounts: { audit: 6, scholar: 8, seminar: 5, fellow: 1 },
+		},
+	},
+	{
+		name: "tiny-school",
+		summary: "Four families, six months: every cell has at most four holders.",
+		seed: 110,
+		params: { members: 4, months: 6 },
+	},
+	{
+		name: "single-refund-month",
+		summary:
+			"Exactly one refund in the whole run, so one month holds a refund and every other month holds none.",
+		seed: 111,
+		params: { months: 6, refundCount: 1, disputeRate: 0 },
+	},
+	{
+		name: "yearly-solo",
+		summary:
+			"Exactly one family pays yearly (a one-month spike in the money); everyone else pays monthly.",
+		seed: 112,
+		params: {
+			members: 10,
+			tierMix: { audit: 3, scholar: 4, fellow: 1 },
+			yearlyCount: 1,
+			addonRate: 0,
+			refundRate: 0,
+			disputeRate: 0,
+		},
+	},
+	{
+		name: "fee-oracle",
+		summary:
+			"Every payment is the same amount on one tier, with no add-ons, refunds, disputes or free invoices: Stripe's fees total exactly the payment count times the fee on one payment.",
+		seed: 113,
+		params: {
+			members: 12,
+			months: 6,
+			tierMix: { scholar: 1 },
+			addonRate: 0,
+			refundRate: 0,
+			disputeRate: 0,
+		},
+	},
+	{
+		name: "seminar-quantities",
+		summary:
+			"Everyone is on the seminar tier, sold in 1, 2 or 4 seats: payments of three sizes, so a month's total is a subset-sum puzzle.",
+		seed: 114,
+		params: {
+			members: 12,
+			months: 6,
+			tierMix: { seminar: 1 },
+			addonRate: 0,
+			refundRate: 0,
+			disputeRate: 0,
+		},
+	},
+	{
+		name: "child-only",
+		summary:
+			"Every membership is a child's own profile (holder `profile:prof_NNN`, never `family:`), across all four tiers.",
+		seed: 115,
+		params: { members: 12, months: 6, childShare: 1 },
+	},
 ];
 
 export const PROFILE_NAMES = PROFILES.map((p) => p.name);
@@ -109,6 +184,7 @@ export const resolveScenario = (raw: unknown): ResolvedScenario => {
 		...(input.params ?? {}),
 	} as ScenarioParams;
 	// a tier mix named in part replaces the preset's whole (a missing tier has weight 0)
+	checkResolvedParams(params);
 	return {
 		profile: input.profile ?? null,
 		name: input.name ?? input.profile ?? "ad-hoc",

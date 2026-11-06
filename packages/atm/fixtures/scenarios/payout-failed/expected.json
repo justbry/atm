@@ -1,0 +1,41 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 26000,
+				"fees": 784,
+				"stripe": 25216,
+				"net": 25216,
+				"avail:family:fam_8k2:visit": 2
+			},
+			"reconcile": {
+				"2026-01": []
+			}
+		}
+	],
+	"notes": [
+		"the bank refused the transfer: Stripe has the 252.16 back in its balance and nothing is in the clearing account;",
+		"the fee was never the payout's, so it stays: net income is still 260.00 - 7.84",
+		"Stripe lists the payout as failed (reconcile does not compare it), with the payout and its failure on the balance"
+	]
+}

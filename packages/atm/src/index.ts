@@ -20,6 +20,7 @@ import {
 } from "./handler/schema.js";
 import * as signature from "./handler/stripe-signature.js";
 import * as webhook from "./handler/stripe-webhook.js";
+import * as checkpoints from "./ledger/checkpoints.js";
 import { duckdbDdl as duckdbDdlImpl } from "./ledger/duckdb.js";
 import {
 	journalMonth as journalMonthImpl,
@@ -46,7 +47,6 @@ import {
 	ReplayGapError as ReplayGapErrorImpl,
 	replayEvents as replayEventsImpl,
 } from "./ledger/replay.js";
-
 import {
 	HledgerError as HledgerErrorImpl,
 	REPORT_NAMES as REPORT_NAMES_IMPL,
@@ -75,6 +75,7 @@ import {
 	localDate as localDateImpl,
 } from "./ledger/util.js";
 import { validateEvent as validateEventImpl } from "./ledger/validate.js";
+import * as bundles from "./scenario/bundle.js";
 import * as folderStore from "./store/folder-store.js";
 import * as r2Store from "./store/r2-store.js";
 import * as store from "./store/store.js";
@@ -115,15 +116,20 @@ import type {
 	BookingResult,
 	CallerRowsImport,
 	CallerRowsInput,
+	ChannelReport,
 	CheckoutInput,
 	CheckoutParams,
 	CheckoutParamsWithPrices,
 	CheckoutResult,
+	Checkpoint,
+	CheckpointKpiRow,
+	CheckpointStep,
 	CreateSessionGiftCodeInput,
 	CreateSessionGiftCodeResult,
 	DollarGiftInput,
 	DollarGiftResult,
 	ExpiredHold,
+	FileTree,
 	FolderStoreOptions,
 	GrantCommand,
 	GrantRemovalInput,
@@ -149,6 +155,7 @@ import type {
 	MenuTier,
 	MenuToStripeInput,
 	MenuValidation,
+	MutationCheckpointInput,
 	NormalizeContext,
 	NormalizedStripeEvent,
 	NormalizeError,
@@ -158,6 +165,7 @@ import type {
 	OneTimeCheckoutParamsWithPrices,
 	OneTimeCheckoutResult,
 	OutboxBatch,
+	OutboxCheckpointRow,
 	OutboxRow,
 	OutboxStatus,
 	OutboxStatusInput,
@@ -169,6 +177,7 @@ import type {
 	RaiseUnitsInput,
 	ReconcileInput,
 	ReconcileResult,
+	ReconcileVerdictInput,
 	RecordEngineCommandInput,
 	RecordedEvents,
 	RecordInputArgs,
@@ -185,6 +194,7 @@ import type {
 	ReportRun,
 	RowChanges,
 	RowTable,
+	ScenarioBundle,
 	SettleBookingInput,
 	SettleInputErasuresResult,
 	ShareStatement,
@@ -1170,3 +1180,60 @@ export const appendToOutbox = (
 	events: readonly AtmEvent[],
 	env: AtmEnv,
 ): number => appendToOutboxImpl(db, events, env);
+
+// ---- Scenario bundles and hash checkpoints ----
+
+/**
+ * The committed end-to-end scenario bundles (`fixtures/scenarios/<id>/`), plain data: each holds the school's menu, the
+ * Stripe events in delivery order, Stripe's side for reconcile, the hand-written numbers and the golden hashes. Replay a
+ * bundle's `steps` through your own handler, take the checkpoints below from what it wrote, and compare them with `hashes`.
+ * `directory` defaults to the package's own `fixtures/scenarios`.
+ */
+export const loadScenarioBundles = (
+	directory?: string,
+): Promise<ScenarioBundle[]> => bundles.loadScenarioBundles(directory);
+
+/** One bundle from its folder (the five files; a missing `hashes.json` reads as no goldens yet). */
+export const loadScenarioBundle = (
+	directory: string,
+): Promise<ScenarioBundle> => bundles.loadScenarioBundle(directory);
+
+/**
+ * The checkpoint canonicalizers, one per stage: H1 deliveries, H2 mutations and decisions, H3 outbox, H4 ledger file tree,
+ * H5 journal, H6 reports and H7 KPI doc (per channel), H8 reconcile verdict. Each returns the canonical text (keys sorted,
+ * whole minor units, ISO UTC instants, volatile fields such as `shippedAt` and run ids left out) and its sha256. For tests,
+ * CI and the export job only: never put one of these hashes in anything a viewer can read.
+ */
+export const canonicalDeliveries = (
+	steps: readonly CheckpointStep[],
+): Checkpoint => checkpoints.canonicalDeliveries(steps);
+
+export const canonicalMutations = (
+	perSchool: Readonly<Record<string, MutationCheckpointInput>>,
+): Checkpoint => checkpoints.canonicalMutations(perSchool);
+
+export const canonicalOutbox = (
+	perSchool: Readonly<Record<string, readonly OutboxCheckpointRow[]>>,
+): Checkpoint => checkpoints.canonicalOutbox(perSchool);
+
+export const canonicalLedgerTree = (
+	perSchool: Readonly<Record<string, FileTree>>,
+): Checkpoint => checkpoints.canonicalLedgerTree(perSchool);
+
+export const canonicalJournal = (
+	perSchool: Readonly<Record<string, FileTree>>,
+): Checkpoint => checkpoints.canonicalJournal(perSchool);
+
+export const canonicalReports = (
+	perChannel: Readonly<Record<string, ChannelReport>>,
+): Record<string, Checkpoint> => checkpoints.canonicalReports(perChannel);
+
+export const canonicalKpis = (
+	perChannel: Readonly<Record<string, readonly CheckpointKpiRow[]>>,
+): Record<string, Checkpoint> => checkpoints.canonicalKpis(perChannel);
+
+export const canonicalReconcile = (
+	perSchool: Readonly<
+		Record<string, Readonly<Record<string, ReconcileVerdictInput>>>
+	>,
+): Checkpoint => checkpoints.canonicalReconcile(perSchool);

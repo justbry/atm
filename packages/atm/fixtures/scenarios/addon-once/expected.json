@@ -1,0 +1,27 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:addon:pack": 9000,
+				"fees": 291,
+				"stripe": 8709,
+				"net": 8709,
+				"avail:family:fam_8k2:visit": 1
+			},
+			"reconcile": {
+				"2026-01": []
+			}
+		}
+	],
+	"notes": [
+		"90.00 in, fee 2.91 (9,000 x 2.9% = 261 + 30): 87.09; one visit"
+	]
+}

@@ -1,0 +1,51 @@
+{
+  "profile": "seminar-quantities",
+  "seed": 114,
+  "params": {
+    "months": 6,
+    "start": "2026-01",
+    "members": 12,
+    "newMembersPerMonth": 0,
+    "tierMix": {
+      "seminar": 1
+    },
+    "yearlyShare": 0,
+    "addonRate": 0,
+    "freeShare": 0,
+    "churnRate": 0.03,
+    "refundRate": 0,
+    "partialRefundShare": 0.5,
+    "disputeRate": 0,
+    "disputeLostShare": 0.6,
+    "usageRate": 0.6,
+    "currency": "usd",
+    "feePercent": 2.9,
+    "feeFixedCents": 30,
+    "childShare": 0,
+    "tierCounts": {},
+    "yearlyCount": 0,
+    "refundCount": 0
+  },
+  "fixtureHash": "9398295f52d7804306184224cffaa13e40343311ff9c6f84d50870baa34cf162",
+  "kpisHash": "f10a53bec6b6eb9f979b14206fdfd3cc45fdfbc1ddec7147eb9f5d8b03df9ff6",
+  "events": 340,
+  "periods": 6,
+  "summary": {
+    "gross_collected": 117000,
+    "refunds": 0,
+    "disputes_lost": 0,
+    "dispute_fees": 0,
+    "stripe_fees": 5420,
+    "net_income": 111580,
+    "payouts": 94400,
+    "payments_count": 68,
+    "refunds_count": 0,
+    "disputes_opened": 0,
+    "new_paying_members": 12,
+    "credits_granted": 260,
+    "credits_consumed": 45,
+    "credits_expired": 176,
+    "paying_members_last_period": 11
+  },
+  "skippedNonUsd": 0
+}

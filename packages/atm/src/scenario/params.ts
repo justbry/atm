@@ -24,13 +24,18 @@ export type ScenarioParams = {
 	currency: "usd" | "eur" | "gbp" | "cad";
 	feePercent: number;
 	feeFixedCents: number;
+	childShare: number;
+	tierCounts: Record<string, number>;
+	yearlyCount: number;
+	refundCount: number;
 };
 
 type Def =
 	| { kind: "int" | "number"; min: number; max: number; doc: string }
 	| { kind: "string"; pattern: string; example: string; doc: string }
 	| { kind: "enum"; values: readonly string[]; doc: string }
-	| { kind: "weights"; keys: readonly string[]; doc: string };
+	| { kind: "weights"; keys: readonly string[]; doc: string }
+	| { kind: "counts"; keys: readonly string[]; max: number; doc: string };
 
 export const TIER_IDS = BEFORE_UNIVERSITY_MENU.tiers.map((t) => t.id);
 
@@ -135,6 +140,30 @@ export const PARAMS: { [K in keyof ScenarioParams]: Def } = {
 		max: 100,
 		doc: "Stripe's fixed fee on a payment, cents.",
 	},
+	childShare: {
+		kind: "number",
+		min: 0,
+		max: 1,
+		doc: "Share of families whose membership is a child's own profile: the holder is `profile:prof_NNN` instead of `family:fam_NNN`, and the invoice metadata carries `profile_id` beside `family_id`. Drawn from a stream of its own, so 0 changes nothing else.",
+	},
+	tierCounts: {
+		kind: "counts",
+		keys: TIER_IDS,
+		max: 200,
+		doc: "Exact number of families on a tier, instead of the weighted draw. Which families get them is a seeded shuffle of all families. A tier named here (even at 0) is left out of `tierMix` for the families not named, so the count is exact; the rest draw from `tierMix` over the other tiers (which then needs a weight above 0). The counts must not add up to more than the families (members + newMembersPerMonth x (months - 1)). A family moved to a tier without a yearly price pays monthly; with no quantities, buys none. Families on a free invoice still count: set `freeShare` 0 to make them payers.",
+	},
+	yearlyCount: {
+		kind: "int",
+		min: 0,
+		max: 200,
+		doc: "Exact number of families that pay yearly, chosen by a seeded shuffle among those whose tier has a yearly price; every other family pays monthly and `yearlyShare` is ignored. 0 = use `yearlyShare`.",
+	},
+	refundCount: {
+		kind: "int",
+		min: 0,
+		max: 200,
+		doc: "Exact number of refunds in the whole run, each on a different paid invoice that is not disputed, chosen by a seeded shuffle among those whose refund falls inside the run; `refundRate` is ignored. 0 = use `refundRate`.",
+	},
 };
 
 export const DEFAULT_PARAMS: ScenarioParams = {
@@ -155,6 +184,10 @@ export const DEFAULT_PARAMS: ScenarioParams = {
 	currency: "usd",
 	feePercent: 2.9,
 	feeFixedCents: 30,
+	childShare: 0,
+	tierCounts: {},
+	yearlyCount: 0,
+	refundCount: 0,
 };
 
 /** A scenario to run: a preset (optional), a seed (optional) and knobs that override the preset's. */
@@ -189,6 +222,17 @@ const jsonSchemaOf = (def: Def): Record<string, unknown> => {
 					def.keys.map((k) => [
 						k,
 						{ type: "number", minimum: 0, maximum: 1000 },
+					]),
+				),
+			};
+		case "counts":
+			return {
+				type: "object",
+				additionalProperties: false,
+				properties: Object.fromEntries(
+					def.keys.map((k) => [
+						k,
+						{ type: "integer", minimum: 0, maximum: def.max },
 					]),
 				),
 			};
@@ -263,6 +307,8 @@ const allowed = (def: Def): string => {
 			return `one of ${def.values.join(", ")}`;
 		case "weights":
 			return `an object of weights, keys from: ${def.keys.join(", ")}`;
+		case "counts":
+			return `an object of whole numbers from 0 to ${def.max}, keys from: ${def.keys.join(", ")}`;
 	}
 };
 
@@ -348,6 +394,41 @@ export const checkScenarioInput = (
 	return input as ScenarioInput;
 };
 
+/** Families a scenario creates: the founding ones, then `newMembersPerMonth` in each later month. */
+export const familyCountOf = (
+	params: Pick<ScenarioParams, "members" | "newMembersPerMonth" | "months">,
+): number => params.members + params.newMembersPerMonth * (params.months - 1);
+
+/**
+ * The rules between knobs that no schema can say, checked on the knobs a scenario resolved to. Throws
+ * `ScenarioInputError` with one line per problem (knob, what was given, what is allowed, the fix).
+ */
+export const checkResolvedParams = (params: ScenarioParams): void => {
+	const problems: string[] = [];
+	const families = familyCountOf(params);
+	const counted = Object.values(params.tierCounts).reduce((n, c) => n + c, 0);
+	if (counted > families)
+		problems.push(
+			`tierCounts=${JSON.stringify(params.tierCounts)} puts ${counted} families on tiers but the scenario has ${families} (members ${params.members} + newMembersPerMonth ${params.newMembersPerMonth} x ${params.months - 1} later months). Lower the counts or raise members.`,
+		);
+	else if (counted < families) {
+		const open = TIER_IDS.filter((id) => !(id in params.tierCounts));
+		if (!open.some((id) => (params.tierMix[id] ?? 0) > 0))
+			problems.push(
+				`tierCounts=${JSON.stringify(params.tierCounts)} places ${counted} of ${families} families, and the other families draw from tierMix over the tiers tierCounts does not name (${open.join(", ") || "none"}), where no weight is above 0 (tierMix=${JSON.stringify(params.tierMix)}). Name every family in tierCounts, or give an unnamed tier a weight.`,
+			);
+	}
+	if (params.yearlyCount > families)
+		problems.push(
+			`yearlyCount=${params.yearlyCount} is more than the ${families} families. Lower it or raise members.`,
+		);
+	if (params.refundCount > 0 && params.disputeRate >= 1)
+		problems.push(
+			`refundCount=${params.refundCount} needs paid invoices that are not disputed, and disputeRate=${params.disputeRate} disputes every one. Lower disputeRate.`,
+		);
+	if (problems.length > 0) throw new ScenarioInputError(problems);
+};
+
 const hintFor = (key: string, value: unknown, def: Def): string => {
 	if (
 		def.kind === "number" &&
@@ -360,7 +441,11 @@ const hintFor = (key: string, value: unknown, def: Def): string => {
 		const near = nearest(value, def.values);
 		return near ? ` Did you mean "${near}"?` : "";
 	}
-	if (def.kind === "weights" && typeof value === "object" && value !== null) {
+	if (
+		(def.kind === "weights" || def.kind === "counts") &&
+		typeof value === "object" &&
+		value !== null
+	) {
 		const bad = Object.keys(value).filter((k) => !def.keys.includes(k));
 		return bad.length
 			? ` Unknown tier(s) ${bad.map((b) => `"${b}"${nearest(b, def.keys) ? ` (did you mean "${nearest(b, def.keys)}"?)` : ""}`).join(", ")}.`

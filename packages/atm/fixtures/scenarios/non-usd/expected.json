@@ -1,0 +1,45 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			200,
+			"non_usd"
+		],
+		[
+			200,
+			"non_usd"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"avail:family:fam_8k2:visit": 2
+			},
+			"reconcile": {
+				"2026-01": [
+					"missing_in_log invoice in_eur",
+					"not_in_log payout -"
+				]
+			},
+			"skipped": {
+				"2026-01": {
+					"non_usd": 2
+				}
+			},
+			"foreign": {
+				"balance": 5216,
+				"fees": 784
+			}
+		}
+	],
+	"notes": [
+		"The books are in dollars: a euro invoice and a euro payout make no money line, so every money number is 0 and",
+		"the report says nothing of the 260.00 EUR. What the handler does instead is answer 200 `non_usd`, grant the",
+		"invoice's credits (two visits, as for a USD invoice) and leave one `money.skipped` marker for each of the two",
+		"lines it left out: reconcile's count of them is 2 in January (the invoice on the 15th, the payout on the 17th).",
+		"Stripe's side holds what the books do not: 260.00 EUR charged with a 7.84 fee, 200.00 EUR paid out, which",
+		"leaves 52.16 EUR in its balance; that is the count of 2 skipped lines explaining the two differences below.",
+		"the euro invoice and payout are in Stripe's lists and not in the dollar books, which the `skipped` count says"
+	]
+}

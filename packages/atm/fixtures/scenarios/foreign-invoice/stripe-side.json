@@ -1,0 +1,31 @@
+{
+	"sch_vol": {
+		"invoices": [
+			{
+				"id": "in_other",
+				"status": "paid",
+				"amount_paid": 5000,
+				"currency": "usd",
+				"created": 1768499940,
+				"livemode": true,
+				"status_transitions": {
+					"paid_at": 1768500000
+				}
+			}
+		],
+		"refunds": [],
+		"disputes": [],
+		"payouts": [],
+		"balanceTransactions": [
+			{
+				"id": "txn_in_other",
+				"type": "charge",
+				"amount": 5000,
+				"fee": 175,
+				"net": 4825,
+				"currency": "usd",
+				"created": 1768500000
+			}
+		]
+	}
+}

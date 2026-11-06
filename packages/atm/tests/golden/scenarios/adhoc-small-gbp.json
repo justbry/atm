@@ -20,10 +20,14 @@
     "usageRate": 0.6,
     "currency": "gbp",
     "feePercent": 2.9,
-    "feeFixedCents": 30
+    "feeFixedCents": 30,
+    "childShare": 0,
+    "tierCounts": {},
+    "yearlyCount": 0,
+    "refundCount": 0
   },
-  "fixtureHash": "a50208301b2a284b48c3ddfb73c3f53062deff02006473c933b242b1a64c66d5",
-  "kpisHash": "cf78cc8ff36d8bc32b793d14ccd1d2ef63552106a6302f6ed38f6a2d09822a6c",
+  "fixtureHash": "a9cd35d7faf7978ea4b860a843e3663da460cea5b028d134c3c6f54b900df352",
+  "kpisHash": "eafe12545f6b729d072e91329217baa5268f46939b802e27d85cd3027e28cae0",
   "events": 64,
   "periods": 3,
   "summary": {
@@ -38,7 +42,7 @@
     "refunds_count": 0,
     "disputes_opened": 0,
     "new_paying_members": 0,
-    "credits_granted": 21,
+    "credits_granted": 66,
     "credits_consumed": 9,
     "credits_expired": 0,
     "paying_members_last_period": 0

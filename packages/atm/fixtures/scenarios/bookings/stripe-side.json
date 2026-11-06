@@ -1,0 +1,109 @@
+{
+	"sch_vol": {
+		"invoices": [],
+		"refunds": [
+			{
+				"id": "re_bk_3",
+				"amount": 5000,
+				"currency": "usd",
+				"charge": "ch_bk_3",
+				"payment_intent": "pi_bk_3",
+				"created": 1772712000,
+				"status": "succeeded"
+			},
+			{
+				"id": "re_bk_4",
+				"amount": 500,
+				"currency": "usd",
+				"charge": "ch_bk_4",
+				"payment_intent": "pi_bk_4",
+				"created": 1773046800,
+				"status": "succeeded"
+			}
+		],
+		"disputes": [],
+		"payouts": [],
+		"paymentIntents": [
+			{
+				"id": "pi_bk_1",
+				"status": "succeeded",
+				"amount": 3000,
+				"currency": "usd",
+				"created": 1772463600,
+				"livemode": true,
+				"metadata": {
+					"booking_id": "bk_1"
+				}
+			},
+			{
+				"id": "pi_bk_3",
+				"status": "succeeded",
+				"amount": 5000,
+				"currency": "usd",
+				"created": 1772708400,
+				"livemode": true,
+				"metadata": {
+					"booking_id": "bk_3"
+				}
+			},
+			{
+				"id": "pi_bk_4",
+				"status": "succeeded",
+				"amount": 2000,
+				"currency": "usd",
+				"created": 1773043200,
+				"livemode": true,
+				"metadata": {
+					"booking_id": "bk_4"
+				}
+			}
+		],
+		"balanceTransactions": [
+			{
+				"id": "txn_bk_1",
+				"type": "charge",
+				"amount": 3000,
+				"fee": 117,
+				"net": 2883,
+				"currency": "usd",
+				"created": 1772463600
+			},
+			{
+				"id": "txn_bk_3",
+				"type": "charge",
+				"amount": 5000,
+				"fee": 175,
+				"net": 4825,
+				"currency": "usd",
+				"created": 1772708400
+			},
+			{
+				"id": "txn_bk_4",
+				"type": "charge",
+				"amount": 2000,
+				"fee": 88,
+				"net": 1912,
+				"currency": "usd",
+				"created": 1773043200
+			},
+			{
+				"id": "txn_re_bk_3",
+				"type": "refund",
+				"amount": -5000,
+				"fee": 0,
+				"net": -5000,
+				"currency": "usd",
+				"created": 1772712000
+			},
+			{
+				"id": "txn_re_bk_4",
+				"type": "refund",
+				"amount": -500,
+				"fee": 0,
+				"net": -500,
+				"currency": "usd",
+				"created": 1773046800
+			}
+		]
+	}
+}

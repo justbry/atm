@@ -1,0 +1,47 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			409,
+			"unmatched_invoice"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			409,
+			"unmatched_payment"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "spike-school",
+			"hand": {
+				"income:membership:sparkle": 26000,
+				"refunds": 26000,
+				"fees": 784,
+				"stripe": -784,
+				"net": -784
+			},
+			"reconcile": {
+				"2026-11": []
+			}
+		}
+	],
+	"notes": [
+		"260.00 paid and all of it refunded; Stripe keeps its 7.84; the two visits (the tier is sparkle at 2 units) are taken back"
+	]
+}

@@ -1,0 +1,34 @@
+{
+	"verdict": "DISCREPANCY",
+	"discrepancies": [
+		"D5"
+	],
+	"answers": [
+		[
+			200,
+			"ignored"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {},
+			"reconcile": {
+				"2026-01": [
+					"missing_in_log invoice in_other",
+					"not_in_log fees -",
+					"amount_differs net -"
+				]
+			},
+			"foreign": {
+				"balance": 4825,
+				"fees": 175
+			}
+		}
+	],
+	"notes": [
+		"not the school's money: its books stay empty. Stripe's side: 50.00 charged, fee 1.75 (5,000 x 2.9% = 145, plus",
+		"30), 48.25 left in its balance",
+		"DISCREPANCY: D5 reconcile cannot tell another product's payment from a missing one"
+	]
+}
