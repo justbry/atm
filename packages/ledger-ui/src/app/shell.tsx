@@ -16,7 +16,6 @@ import { CoreIcon, type CoreIconName } from "./core-icon.tsx";
 import { DialogSlot, useSlotOpener } from "./dialog-slot.tsx";
 import type { Change as RosterChange } from "./members-model.ts";
 import type { PaneName } from "./panes.tsx";
-import { parsePeriod, snapPeriod } from "./period.ts";
 import type { AudienceMove, PlansSession } from "./plans-menu.ts";
 import type { Change } from "./portal-format.ts";
 import {
@@ -30,7 +29,7 @@ import {
 import { SettingsDrawer } from "./settings-drawer.tsx";
 import { TopBar } from "./top-bar.tsx";
 import { keepLoading } from "./use-loaded.ts";
-import { ViewingContext } from "./viewing.ts";
+import { opensOnTabs, ViewingContext, viewedPeriod } from "./viewing.ts";
 
 const toastMilliseconds = 4600;
 const tabs: Record<SchoolTab, { label: string; icon: CoreIconName }> = {
@@ -258,8 +257,10 @@ export function Shell({
 			menus && disclosure ? menus.resolveViewing(disclosure, asked) : null,
 		[menus, disclosure, asked],
 	);
-	const period = snapPeriod(
-		parsePeriod(route.query.get("month"), clock.today),
+	const period = viewedPeriod(
+		route.query.get("month"),
+		clock.today,
+		opensOnTabs.has(route.tab) ? (school?.dashboardOpensOn ?? null) : null,
 		viewing?.view ?? null,
 	);
 	const theme = themeOf(route.query);

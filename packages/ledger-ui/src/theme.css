@@ -691,6 +691,13 @@ tr.tot td {
 	color: var(--muted-foreground);
 	font-size: 18px;
 }
+.x:focus-visible {
+	outline: 2px solid var(--ring);
+	outline-offset: 2px;
+}
+.x[data-pointer-focus]:focus {
+	outline: 0;
+}
 .acts {
 	display: flex;
 	gap: 6px;
