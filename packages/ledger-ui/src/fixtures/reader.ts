@@ -161,7 +161,18 @@ export function createFixtureReader(options: { clock: Clock }): Reader {
 		planSummary: async (schoolId) => plansOf(schoolId).summary,
 		kpiDocument: async (query) => documents[documentKey(query)],
 		members: async ({ schoolId, status }) => {
-			const { page } = membersOf(schoolId);
+			const fixture = membersOf(schoolId).page;
+			// The mockup's balance line reads "rollover 0" for every member: nothing rolls over in its data.
+			const page = {
+				...fixture,
+				members: fixture.members.map((member) => ({
+					...member,
+					balances: member.balances.map((balance) => ({
+						...balance,
+						rolledOver: 0,
+					})),
+				})),
+			};
 			return status === undefined
 				? page
 				: {

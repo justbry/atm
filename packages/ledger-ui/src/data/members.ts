@@ -53,6 +53,9 @@ export type MemberBalance = {
 	expiresAt: number | null;
 	/** Not in brief A: the credits granted for the current period, the bar's whole width and the "of N". */
 	granted: number;
+	/** Not in brief A: the credits carried into this period from the last ("rollover N" on the drawer's balance
+	 * line). Absent until a route provides it (an S8 gap); the UI then leaves the clause out, never "rollover 0". */
+	rolledOver?: number;
 };
 
 export type MembershipStatus =
