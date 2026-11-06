@@ -613,6 +613,15 @@ const skippedLines = (events: readonly AtmEvent[]): string[] =>
 				`${String(payload.kind)} ${String(payload.id)} ${String(payload.amount)} ${String(payload.currency)}`,
 		);
 
+/** A held outbox body as an event, or null when it is not JSON: a note about the books must never fail a delivery. */
+const parsedEvent = (body: string): AtmEvent | null => {
+	try {
+		return JSON.parse(body) as AtmEvent;
+	} catch {
+		return null;
+	}
+};
+
 /**
  * The payments of a delivery that the books hold without their Stripe fee, one line each: `<invoice id> <amount paid> cents`.
  * Read from the outbox after the delivery appended its events, because the outbox keeps the first event of an idem: a payment
@@ -649,8 +658,8 @@ const feeUnknownLines = ({
 			[school, env, idem],
 		);
 		if (!held) continue;
-		const booked = JSON.parse(held.body) as AtmEvent;
-		if (booked.payload.fee_known !== false) continue;
+		const booked = parsedEvent(held.body);
+		if (booked?.payload?.fee_known !== false) continue;
 		const line = `${String(booked.payload.id)} ${String(booked.payload.amount_paid)} cents`;
 		lines.push(
 			typeof fee === "number"

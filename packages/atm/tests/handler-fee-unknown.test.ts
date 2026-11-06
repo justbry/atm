@@ -183,6 +183,17 @@ describe("the answer says a payment was booked without its fee", () => {
 		expect(warned).toHaveLength(1);
 	});
 
+	test("a held outbox row that is not JSON never fails the delivery: it is applied and says nothing about a fee", () => {
+		const h = quiet();
+		h.raw.run(
+			`INSERT INTO ledger_outbox (school_id, id, idem, date, body) VALUES (?, '01ARZ3NDEKTSV4RRFFQ69G5FAV', 'stripe:in_1', '2026-01-15', 'seeded')`,
+			[SCHOOL],
+		);
+		const response = h.deliver(paid());
+		expect(response.body.outcome).toBe("applied");
+		expect("feeUnknown" in response.body).toBe(false);
+	});
+
 	test("order does not matter: a payout before its payment books the same two lines, and the payment is still listed", () => {
 		const forward = quiet();
 		forward.deliver(paid());
@@ -349,6 +360,15 @@ describe("the books through hledger and atm report", () => {
 					format: "csv",
 				});
 				expect(run.feeUnknown).toEqual({ inMonth: 1, total: 1 });
+				// the next month has none of its own, and still reports the one in all events
+				const february = await reportMonth({
+					root,
+					school: SCHOOL,
+					month: "2026-02",
+					report: "balance-sheet",
+					format: "csv",
+				});
+				expect(february.feeUnknown).toEqual({ inMonth: 0, total: 1 });
 				expect(feeUnknownNote({ ...run, month: "2026-01" })).toBe(
 					"atm report: 1 payment(s) in 2026-01 were booked without their Stripe fee (1 in all events); expenses:billing:stripe-fees and net income are off by those fees, and assets:stripe keeps them after a payout\n",
 				);
