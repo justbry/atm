@@ -256,7 +256,7 @@ test("a held write changes nothing on screen until the Writer answers", async ()
 		"[data-test=booking-action][data-action=noshow][data-booking=bk_8zz]",
 	);
 	expect(text("[data-test=modal-preview]")).toBe(
-		"Rule: a no-show spends the sessions. 1 session are spent.",
+		"Rule: a no-show spends the sessions. 1 session is spent.",
 	);
 	await click("[data-test=modal-confirm]");
 	expect(writer.calls).toEqual([
