@@ -50,6 +50,28 @@ const { reports } = await reportMonth({ root, school: "sch_vol", month: "2026-03
 - `appendToOutbox(db, events, env)`: the one insert into `ledger_outbox` (the handler, `recordEngineCommand` and `recordLapse` all use it). For events a caller built with `ledgerEvent` (a payment or payout that is not an engine command) and wants shipped with the rest. It opens no transaction; an event whose `idem` the outbox already holds in that `env` is left alone; returns the rows inserted.
 - Not exported: `reconcileFolder` (it reads a directory of Stripe CLI files; a library caller has `readEvents` and `reconcile`) and `bunSqlite` (its declaration imports `bun:sqlite`; `SqlDatabase` is public and "Logging the family service's own commands" shows the four-method adapter for `node:sqlite` and `better-sqlite3`).
 
+### Reading the log from a Worker (`src/ledger/read.ts`, `summary.ts`, `views.ts`)
+
+The read side for a reader with no disk and no database: an admin UI in a Cloudflare Worker over R2. Everything goes through a `Store` (`R2Store` there, `FolderStore` in tests), so none of it touches `node:fs` or `node:path`. These are source modules; they are not yet exported from `atm` (the export needs its types in `types.ts`, because the built declarations must stand alone), so import them by path inside this workspace.
+
+```ts
+import { readEventsFromStore } from "./ledger/read.js";
+import { membersOf, memberSummary } from "./ledger/summary.js";
+import { buildViews, writeViews } from "./ledger/views.js";
+
+const events = await readEventsFromStore(store, "sch_vol", { from: "2026-03-01", to: "2026-03-31" }); // range optional
+const members = membersOf(events, new Date()); // { ok: true, asOf, members: { "family:fam_8k2": { plan, features: { visit: { available, held, used, nextExpiryAt } }, lastEventAt } } }
+const built = buildViews(events, { school: "sch_vol", asOf: new Date() }); // { ok: true, views: { school, asOf, months, members } }
+if (built.ok) await writeViews(store, "sch_vol", built.views); // views/months/YYYY-MM.json, views/members/<sha256>.json
+```
+
+- `readEventsFromStore(store, school, range?)`: lists `schools/<school>/events/` by day (following the store's cursor), reads each day's batches, and returns what `readEvents` returns for the same folder: a day with a `day.jsonl` is that file and its `late-*` batches, ids sort, and a repeated `idem` is dropped. `range` is an inclusive `YYYY-MM-DD` span of the `date=` partition (the school's local day).
+- `membersOf` and `memberSummary` replay the log (`replayEvents`), so they need the catalog the log was written under: pass `{ catalog }` (`menuCatalogRows`) or have a `catalog.published` event in the log, whose menu is used. A log that cannot be replayed (a 0.3.0 log with a lost command, an event the engine decides differently, no catalog) comes back as `{ ok: false, error }` with `kind` `replay-gap`, `replay` or `no-catalog`, never as a throw.
+- `used` is the net of the member's postings to `credits:spent:*` and `credits:forfeited` for the feature (a `credit.refunded` takes its units back); expired and released credits are not used. `nextExpiryAt` is the earliest expiry still ahead of `asOf` among rows that hold credits.
+- `writeViews` writes canonical JSON and only the objects whose bytes change (`Store.putIfAbsent`, then `putIfMatch` on the ETag read), so a second run with the same `asOf` writes nothing. A member's object name is `sha256(<school>\0<key>)`, which a Worker computes with Web Crypto; the body carries the key. No view holds a name or an email.
+- Not derivable from the events: the **quantity** a family bought (only the credits it granted), the **renewal date** of a subscription (no `plan.*` event carries a period end), and a booking's **start time** (the only time on a booking is `payload.command.lock.expiresAt` of its `credit.held`, when the hold lapses). Showing them needs the family service's rows or a new field on the events.
+- Runtime: `read.ts` imports nothing at run time. `summary.ts` and `views.ts` need `nodejs_compat` (a Worker flag): `ledger/ids.ts`, `ledger/util.ts` and `store/store.ts` import `node:crypto`, `ledger/run.ts` sets `process.env.TZ`, and the engine imports `node:util`. `tests/ledger-read-hygiene.test.ts` walks the import graph and fails on `node:fs`, `node:path`, `child_process`, DuckDB or Ajv; its one exception is `billing/menu.ts`, which imports Ajv for `validateMenu` and which the read path never calls (the test also checks that no schema is compiled).
+
 ## Billing
 
 Pure rules for a school's menu, its Stripe facts, credit grants and storage rows. No I/O, no clock: every function takes its time and state as arguments, so the family service only does I/O around them (read rows, call Stripe, write rows) and the same input always gives the same output.
