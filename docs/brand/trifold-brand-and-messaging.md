@@ -14,8 +14,8 @@ Status: draft, 2026-11-05. Names, domains and trademarks were checked on that da
 
 | Layer | Name | Where it appears |
 |---|---|---|
-| Customer brand and app | **Trifold** | Website, app, emails, receipts |
-| Engine and possible legal name | **Trivalance** | "Trifold, powered by the Trivalance engine"; contracts; accountant and developer material |
+| Company, customer brand and managed service | **Trifold** | Website, app, emails, receipts, contracts; the legal name |
+| Engine | **atm** | The engine Trifold maintains and runs as a managed service: "built on atm" on developer, accountant and trust pages; self-hosters run it directly |
 | Command-line tool | **`tfd`** | Docs, terminal, npm package `@trifold/cli` |
 | AI agent | **Rifo** (`@rifo`) | In the app, chat and `tfd ask`; it always cites the ledger behind each answer |
 
@@ -33,7 +33,7 @@ Rifo is the middle of tRIFOld, so the agent sounds like part of the brand. Say i
 $ tfd ask "which members renew next week?"
 ```
 
-Why two names: Trifold is warm, a real word, and speech-to-text hears it correctly. Trivalance is an invented word that is easier to own as a trademark. In a quick Whisper test, speech-to-text heard "Trivalance" as "Trivalence", so customers never need to say it.
+Why Trifold leads: it is warm, a real word, and speech-to-text hears it correctly. atm is the engine's plain product name; it is too generic to register as a trademark, so the trademark protection sits on Trifold. (An earlier draft named the engine "Trivalance"; that name was dropped on 2026-11-06.)
 
 ### What `tfd` stands for
 
@@ -241,17 +241,14 @@ As checked on 2026-11-05:
 
 | Item | Result |
 |---|---|
-| trivalance.com, .ai, .io | Free |
 | gettrifold.com | Free |
 | trifold.com, .ai, .io | Registered by others |
-| trivalence.com, .ai, .io | Registered by others |
-| npm `trivalance` | Free |
 | npm `trifold`, `tfd` | Not checked as packages; publish under `@trifold/cli` |
 | `tfd` command | No clash found on PATH or Homebrew |
-| TRIBALANCE (Reg. 4374077, TriOptima AB, class 36, live) | One letter from Trivalance. File Trivalance in classes 9 and 42 first, and get a clearance search |
-| Trivalence Technologies LLC | Plastics, class 17. Low risk |
+| Samsung Galaxy Z TriFold | Dominates search for "trifold". An SEO problem; have a lawyer check Samsung's filings |
+| Old TRIFOLD filings | A dead class 9 application (serial 77941454) and a "tri fold" class 42 filing of unknown status (77000614). Check in USPTO TSDR |
 
 Next steps:
-1. Register trivalance.com, .ai and .io, and gettrifold.com.
+1. Register gettrifold.com (and usetrifold.com to redirect).
 2. Claim the npm scope `@trifold`, the GitHub organisation and the main social handles.
-3. Get a trademark clearance search for TRIVALANCE and TRIFOLD in classes 9, 36 and 42.
+3. Get a trademark clearance search for TRIFOLD in classes 9, 36 and 42.
