@@ -1,6 +1,6 @@
-# Simulating the grant rules: stored inputs (design for atm 0.9.0)
+# Simulating the grant rules: stored inputs (design for the next release (number not yet chosen))
 
-Status: design only, every open item decided by the owner on 2026-11-05 (phase 1, revised the same day after the owner's decisions, then checked against the tree after the 0.8.0 release). No code is written by this document. The work releases as **0.9.0**: 0.8.0 (tag `atm-v0.8.0`) is out without it. Section "What changed in 0.8.0 that this design had to absorb" lists what the release changed under it. Three implementers share it: A builds the storage (the tables, the writer, the erasure hook, the SQLite reader), C builds the shipper that copies stored inputs to a folder or R2 and the reader for that copy, and B builds the replay and the `atm simulate --inputs` mode. The section "Interfaces" is the contract between them and section "The PR split" says which can run in parallel. The roadmap line it answers is "Simulation or what-if" in `ROADMAP.md`; the 0.6.0 command-level mode it extends is described in `README.md` ("What if (simulate)") and `src/ledger/simulate.ts`. (Booking addendum.) The Stripe events of a paid booking are stored too, in phase 1; the last section, "Addendum: booking events are stored", is the decided state and the spots it replaced are marked "(booking addendum)". A1, the pure refactor, is PR #85.
+Status: design only, every open item decided by the owner on 2026-11-05 (phase 1, revised the same day after the owner's decisions, then checked against the tree after the 0.8.0 release). No code is written by this document. The work releases as **the next release (number not yet chosen)**: 0.8.0 (tag `atm-v0.8.0`) is out without it, and so is 0.9.0 (the revenue share), which another session released. Section "What changed in 0.8.0 that this design had to absorb" lists what the release changed under it. Three implementers share it: A builds the storage (the tables, the writer, the erasure hook, the SQLite reader), C builds the shipper that copies stored inputs to a folder or R2 and the reader for that copy, and B builds the replay and the `atm simulate --inputs` mode. The section "Interfaces" is the contract between them and section "The PR split" says which can run in parallel. The roadmap line it answers is "Simulation or what-if" in `ROADMAP.md`; the 0.6.0 command-level mode it extends is described in `README.md` ("What if (simulate)") and `src/ledger/simulate.ts`. (Booking addendum.) The Stripe events of a paid booking are stored too, in phase 1; the last section, "Addendum: booking events are stored", is the decided state and the spots it replaced are marked "(booking addendum)". A1, the pure refactor, is PR #85.
 
 ## The problem, in one paragraph
 
@@ -443,7 +443,7 @@ Always printed, text and `--json` (`notReplayable`):
 ```
 inputs: 412 stored for school sch_x (live), 2026-11-12 to 2026-12-03; 87 holders replayed.
 not replayable: 1,340 decisions of 203 holders predate the stored inputs and were carried over unchanged. A
-what-if on the grant rules covers only history after 2026-11-12 (the first delivery handled by atm 0.9.0).
+what-if on the grant rules covers only history after 2026-11-12 (the first delivery handled by the next release (number not yet chosen)).
 ```
 
 ### Out of scope
