@@ -300,7 +300,6 @@ test("the settings drawer is a modal dialog that keeps focus inside", async () =
 	await open("#/vol/plans");
 	const drawer = element(".drawer");
 	expect(drawer.getAttribute("role")).toBe("dialog");
-	expect(drawer.getAttribute("aria-modal")).toBe("true");
 	const titleId = drawer.getAttribute("aria-labelledby") ?? "";
 	expect(text(`[id="${titleId}"]`)).toBe("Settings");
 	await click("[data-test=settings-button]");
@@ -368,4 +367,133 @@ test("Copy a prompt puts the prompt on the clipboard, and says so when it cannot
 		"Could not copy the prompt: the browser blocked the clipboard.",
 	);
 	Reflect.deleteProperty(navigator, "clipboard");
+});
+
+const listedSchools = (selector: string): Array<string | null> =>
+	[...document.querySelectorAll(selector)].map((option) =>
+		option.getAttribute("data-school"),
+	);
+const focusedSchool = (): string | null | undefined =>
+	document.activeElement?.getAttribute("data-school");
+
+test("the school switcher is a listbox after its search field, the current school selected", async () => {
+	await open("#/vol/plans");
+	const trigger = element("[data-test=school-switcher]");
+	await click("[data-test=school-switcher]");
+	const listbox = element("[role=listbox]");
+	expect(listbox.getAttribute("aria-label")).toBe("Schools");
+	expect(trigger.getAttribute("aria-haspopup")).toBe("listbox");
+	expect(trigger.getAttribute("aria-controls")).toBe(listbox.id);
+	const search = element("input[type=search]");
+	expect(listbox.contains(search)).toBe(false);
+	expect(
+		search.compareDocumentPosition(listbox) & Node.DOCUMENT_POSITION_FOLLOWING,
+	).toBeTruthy();
+	expect(listedSchools("[role=listbox] [role=option]")).toEqual(
+		listedSchools("[data-test=school-option]"),
+	);
+	expect(listedSchools("[role=option]").length).toBe(5);
+	expect(listedSchools("[role=option][aria-selected=true]")).toEqual(["vol"]);
+	expect(listedSchools("[role=option][aria-selected=false]").length).toBe(4);
+	expect(listedSchools("[role=option][tabindex='0']")).toEqual(["vol"]);
+});
+
+test("arrow keys, Home and End move between schools; Enter and Space choose", async () => {
+	await open("#/vol/plans");
+	const trigger = element("[data-test=school-switcher]");
+	await click("[data-test=school-switcher]");
+	const order = listedSchools("[role=option]");
+	const listbox = element("[role=listbox]");
+	await press(element("input[type=search]"), "ArrowDown");
+	expect(focusedSchool()).toBe("vol");
+	await press(listbox, "ArrowDown");
+	expect(focusedSchool()).toBe(order[2]);
+	await press(listbox, "ArrowUp");
+	await press(listbox, "ArrowUp");
+	expect(focusedSchool()).toBe("all");
+	await press(listbox, "ArrowUp");
+	expect(focusedSchool()).toBe("all");
+	await press(listbox, "End");
+	expect(focusedSchool()).toBe(order[order.length - 1]);
+	await press(listbox, "ArrowDown");
+	expect(focusedSchool()).toBe(order[order.length - 1]);
+	await press(listbox, "Home");
+	expect(focusedSchool()).toBe("all");
+	await press(element("[role=option][data-school=map]"), "Enter");
+	expect(window.location.hash).toBe("#/map/plans");
+	expect(document.querySelector("[role=listbox]")).toBeNull();
+	expect(document.activeElement).toBe(trigger);
+
+	await click("[data-test=school-switcher]");
+	await press(element("[role=option][data-school=b4u]"), " ");
+	expect(window.location.hash).toBe("#/b4u/plans");
+	expect(document.querySelector("[role=listbox]")).toBeNull();
+});
+
+test("the period panel is a dialog that takes focus and gives it back", async () => {
+	await open("#/vol/ledger");
+	const trigger = element("[data-test=period-button]");
+	await click("[data-test=period-button]");
+	const dialog = element("[role=dialog][aria-label=Period]");
+	expect(dialog.classList.contains("pop")).toBe(true);
+	expect(trigger.getAttribute("aria-controls")).toBe(dialog.id);
+	const focused = document.activeElement;
+	expect(dialog.contains(focused)).toBe(true);
+	expect(focused?.getAttribute("aria-current")).toBe("true");
+	expect(focused?.textContent).toContain("This month");
+	await press(focused ?? document.body, "Escape");
+	expect(document.querySelector("[role=dialog][aria-label=Period]")).toBeNull();
+	expect(document.activeElement).toBe(trigger);
+
+	await click("[data-test=period-button]");
+	await click("[data-test=brand]");
+	expect(document.querySelector("[role=dialog][aria-label=Period]")).toBeNull();
+	expect(document.activeElement).toBe(trigger);
+});
+
+test("a custom period opens the dialog on its start date", async () => {
+	await open("#/vol/ledger?month=2026-10-20..2026-10-29");
+	await click("[data-test=period-button]");
+	expect(document.activeElement).toBe(element("input[aria-label=From]"));
+});
+
+test("the custom range stops at the clock's today", async () => {
+	await open("#/vol/ledger");
+	await click("[data-test=period-button]");
+	expect(element("input[aria-label=From]").getAttribute("max")).toBe(
+		clock.today,
+	);
+	expect(element("input[aria-label=To]").getAttribute("max")).toBe(clock.today);
+	const apply = element<HTMLButtonElement>(".cus .btn");
+	await fill("input[aria-label=From]", "2026-11-06");
+	await fill("input[aria-label=To]", "2026-11-20");
+	expect(text(".cnote")).toBe("Start is after today.");
+	expect(apply.disabled).toBe(true);
+	await fill("input[aria-label=From]", clock.today);
+	expect(apply.disabled).toBe(false);
+	await fill("input[aria-label=To]", "2026-11-04");
+	expect(text(".cnote")).toBe("Start is after the end.");
+	expect(apply.disabled).toBe(true);
+});
+
+test("the open drawer is modal: its button names it, and the app behind it is inert", async () => {
+	await open("#/map/plans");
+	const settings = element("[data-test=settings-button]");
+	const drawer = element(".drawer");
+	expect(settings.getAttribute("aria-haspopup")).toBe("dialog");
+	expect(drawer.id).not.toBe("");
+	expect(settings.getAttribute("aria-controls")).toBe(drawer.id);
+	const regions = [".top", ".tabs", ".banner", "[data-test=pane]"];
+	const inertRegions = (): string[] =>
+		regions.filter((selector) => element(selector).hasAttribute("inert"));
+	expect(drawer.hasAttribute("aria-modal")).toBe(false);
+	expect(inertRegions()).toEqual([]);
+	await click("[data-test=settings-button]");
+	expect(drawer.getAttribute("aria-modal")).toBe("true");
+	expect(drawer.hasAttribute("inert")).toBe(false);
+	expect(inertRegions()).toEqual(regions);
+	await press(document.body, "Escape");
+	expect(drawer.hasAttribute("aria-modal")).toBe(false);
+	expect(inertRegions()).toEqual([]);
+	expect(document.activeElement).toBe(settings);
 });

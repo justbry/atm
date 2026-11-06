@@ -33,14 +33,10 @@ function App({
 		reader.schools().then(setSchools);
 	}, [reader]);
 
-	const route = schools
-		? parseRoute(
-				hash,
-				schools.map((school) => school.id),
-			)
-		: null;
-	const canonical = route ? formatRoute(route) : null;
-	const theme = themeOf(parseRoute(hash, []).query);
+	/** Before the schools load the route's school is a placeholder; only its query (the theme) is used then. */
+	const route = parseRoute(hash, schools?.map((school) => school.id) ?? []);
+	const canonical = schools ? formatRoute(route) : null;
+	const theme = themeOf(route.query);
 	useLayoutEffect(() => {
 		root.classList.toggle("light", theme === "light");
 		root.classList.toggle("dark", theme === "dark");
@@ -55,7 +51,7 @@ function App({
 		setHash(canonical);
 	}, [root, hash, canonical]);
 
-	if (!route || !schools) return null;
+	if (!schools) return null;
 	return (
 		<Shell route={route} schools={schools} clock={clock} navigate={navigate} />
 	);

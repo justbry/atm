@@ -12,6 +12,11 @@ type PopoverProps = {
 	};
 	label: ComponentChildren;
 	alignRight?: boolean;
+	/** The panel's role and name, when the panel itself is the popup (the period dialog). */
+	panel?: { role: "dialog"; "aria-label": string };
+	/** The id the open trigger's `aria-controls` names, when the popup sits inside the panel (the switcher's
+	 * listbox). */
+	controls?: string;
 	/** The popover's content; `close` shuts it and returns focus to the trigger. */
 	children: (close: () => void) => ComponentChildren;
 };
@@ -23,6 +28,8 @@ export function Popover({
 	trigger,
 	label,
 	alignRight = false,
+	panel,
+	controls,
 	children,
 }: PopoverProps): JSX.Element {
 	const [open, setOpen] = useState(false);
@@ -67,13 +74,13 @@ export function Popover({
 				type="button"
 				ref={button}
 				aria-expanded={open}
-				aria-controls={open ? panelId : undefined}
+				aria-controls={open ? (controls ?? panelId) : undefined}
 				onClick={() => setOpen(!open)}
 			>
 				{label}
 			</button>
 			{open && (
-				<div id={panelId} class={alignRight ? "pop r on" : "pop on"}>
+				<div {...panel} id={panelId} class={alignRight ? "pop r on" : "pop on"}>
 					{children(close)}
 				</div>
 			)}

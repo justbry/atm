@@ -1,5 +1,5 @@
 import { Fragment, type JSX } from "preact";
-import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useId, useRef, useState } from "preact/hooks";
 import type { Clock, School } from "../data/types.ts";
 import { Icon, type IconName } from "./icon.tsx";
 import { formatPeriod, parsePeriod } from "./period.ts";
@@ -101,17 +101,18 @@ type ShellProps = {
 };
 
 /** The mockup's frame (lines 261 to 282): top bar with the scope note, tabs row, stale banner, the current tab's pane, the settings
- * drawer and the toast. The panes are filled by later slices. */
+ * drawer and the toast. The panes are filled by later slices. While the drawer is open the regions behind it are inert;
+ * the toast stays out of that so it can still be announced. */
 export function Shell({
 	route,
 	schools,
 	clock,
 	navigate,
 }: ShellProps): JSX.Element {
-	const [compare, setCompare] = useState(false);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [toast, setToast] = useState<{ text: string } | null>(null);
 	const settingsButton = useRef<HTMLButtonElement>(null);
+	const drawerId = useId();
 	const closeSettings = useCallback(() => {
 		setSettingsOpen(false);
 		settingsButton.current?.focus();
@@ -185,7 +186,7 @@ export function Shell({
 
 	return (
 		<>
-			<div class="top">
+			<div class="top" inert={settingsOpen}>
 				<span class="logo" data-test="brand">
 					atm
 				</span>
@@ -214,8 +215,6 @@ export function Shell({
 							? `Times in ${school.timeZone}`
 							: "Each school's own time zone"
 					}
-					compare={compare}
-					onCompareChange={setCompare}
 					onChoose={(chosen) =>
 						navigate(
 							withQuery(route, "month", formatPeriod(chosen, clock.today)),
@@ -260,6 +259,8 @@ export function Shell({
 					data-test="settings-button"
 					title="Settings"
 					aria-label="Settings"
+					aria-haspopup="dialog"
+					aria-controls={drawerId}
 					aria-expanded={settingsOpen}
 					onClick={() => setSettingsOpen(!settingsOpen)}
 				>
@@ -269,6 +270,7 @@ export function Shell({
 			{school && (
 				<div
 					class="tabs"
+					inert={settingsOpen}
 					role="tablist"
 					aria-label={school.name}
 					onKeyDown={onTabKeyDown}
@@ -306,13 +308,14 @@ export function Shell({
 				</div>
 			)}
 			{school?.stale && (
-				<div class="banner">
+				<div class="banner" inert={settingsOpen}>
 					<Icon name="alert" /> Data is {school.lagMinutes} min behind: the
 					shipper may be stuck. Recent events can be missing.
 				</div>
 			)}
 			<section
 				class="pane on"
+				inert={settingsOpen}
 				id="pane"
 				data-test="pane"
 				role={school ? "tabpanel" : undefined}
@@ -320,6 +323,7 @@ export function Shell({
 				aria-label={school ? undefined : "All schools"}
 			/>
 			<SettingsDrawer
+				id={drawerId}
 				open={settingsOpen}
 				subtitle={school ? `You and ${school.name}` : "All schools"}
 				theme={theme}

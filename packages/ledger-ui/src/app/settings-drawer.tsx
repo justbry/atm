@@ -10,6 +10,8 @@ const themes: Array<{ theme: Theme; label: string; icon: IconName }> = [
 ];
 
 type SettingsDrawerProps = {
+	/** The id the settings button's `aria-controls` names. */
+	id: string;
 	open: boolean;
 	/** "You and <school>", or "All schools". */
 	subtitle: string;
@@ -21,10 +23,11 @@ type SettingsDrawerProps = {
 const focusableSelector =
 	"button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex='-1'])";
 
-/** The settings drawer (mockup `#set`, `settings()`), a modal dialog: Tab and Shift+Tab stay inside it and Escape
- * closes it (a popover inside catches its own Escape first). S0 has its header and Appearance; S7 adds the school's
+/** The settings drawer (mockup `#set`, `settings()`), a modal dialog while open: the shell makes the rest of the app
+ * inert, Tab and Shift+Tab stay inside it and Escape closes it (a popover inside catches its own Escape first). S0 has its header and Appearance; S7 adds the school's
  * settings. */
 export function SettingsDrawer({
+	id,
 	open,
 	subtitle,
 	theme,
@@ -61,9 +64,10 @@ export function SettingsDrawer({
 	return (
 		<aside
 			ref={drawer}
+			id={id}
 			class={open ? "drawer on" : "drawer"}
 			role="dialog"
-			aria-modal="true"
+			aria-modal={open ? "true" : undefined}
 			aria-labelledby={titleId}
 			inert={!open}
 		>
