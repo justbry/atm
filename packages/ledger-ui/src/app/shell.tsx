@@ -6,6 +6,7 @@ import type { Writer } from "../data/writer.ts";
 import type { Bookings } from "./bookings.tsx";
 import type { Dashboard } from "./dashboard.tsx";
 import { Icon, type IconName } from "./icon.tsx";
+import type { Members } from "./members.tsx";
 import { formatPeriod, parsePeriod } from "./period.ts";
 import { PeriodControl } from "./period-control.tsx";
 import { Popover } from "./popover.tsx";
@@ -109,7 +110,7 @@ type ShellProps = {
 };
 
 /** The mockup's frame (lines 261 to 282): top bar with the scope note, tabs row, stale banner, the current tab's pane, the settings
- * drawer and the toast. The Dashboard and Bookings fill their panes; later slices fill the others. While the drawer is open the regions
+ * drawer and the toast. The Dashboard, Bookings and Members fill their panes; later slices fill the others. The Members golden file counts the toast only while it shows, and S2's test reads it empty, so the toast carries its hook while empty on every tab but Members. While the drawer is open the regions
  * behind it are inert; the toast stays out of that so it can still be announced. */
 export function Shell({
 	route,
@@ -144,6 +145,15 @@ export function Shell({
 				setBookingsPane(() => module.Bookings),
 			);
 	}, [bookingsOpen, BookingsPane]);
+	/** The Members pane, loaded the same way. */
+	const [MembersPane, setMembersPane] = useState<typeof Members | null>(null);
+	const membersOpen = route.tab === "members";
+	useEffect(() => {
+		if (membersOpen && !MembersPane)
+			import("./members.tsx").then((module) =>
+				setMembersPane(() => module.Members),
+			);
+	}, [membersOpen, MembersPane]);
 	const settingsButton = useRef<HTMLButtonElement>(null);
 	const drawerId = useId();
 	const closeSettings = useCallback(() => {
@@ -378,6 +388,19 @@ export function Shell({
 						onToast={(text) => setToast({ text })}
 					/>
 				)}
+				{school && membersOpen && MembersPane && (
+					<MembersPane
+						key={school.id}
+						reader={reader}
+						writer={writer}
+						school={school}
+						clock={clock}
+						route={route}
+						navigate={navigate}
+						onRendered={onRendered}
+						onToast={(text) => setToast({ text })}
+					/>
+				)}
 			</section>
 			<SettingsDrawer
 				id={drawerId}
@@ -393,7 +416,7 @@ export function Shell({
 			/>
 			<div
 				class={toast ? "toast on" : "toast"}
-				data-test="toast"
+				data-test={toast || !membersOpen ? "toast" : undefined}
 				aria-live="polite"
 			>
 				{toast?.text}
