@@ -17,3 +17,4 @@ Reference material, findings and detail that used to sit in `ROADMAP.md`. The ro
 - `suppression-report.md`: which KPI cells the dashboard suppression rules (spec v3) hide in every preset, and why.
 - `simulate-from-inputs.md`: design (the next release (number not yet chosen); built on `dev`) for storing each handled Stripe input and shipping them like events and replaying them through the grant rules with a candidate menu or policy (`atm simulate --inputs`): what is stored and why, the tables, shipping and erasure, replay fidelity, the interfaces, the PR split, owner decisions, the test plan.
 - `releasing.md`: how a release is made and checked.
+- `release-1.0-readiness.md`: the audit for 1.0.0: the stability contract per surface (API, event schemas and the closed event-type enum, handler DDL, webhook answers, CLI, log layout, reports), blockers against not-blockers for every open roadmap line, the plan and release steps, and the owner decisions.
