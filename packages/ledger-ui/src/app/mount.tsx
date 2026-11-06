@@ -1,15 +1,17 @@
+import { keepLoading } from "./use-loaded.ts";
 import "../theme.css";
 import { type JSX, render } from "preact";
-import { useEffect, useLayoutEffect, useState } from "preact/hooks";
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useState,
+} from "preact/hooks";
 import type { Reader } from "../data/reader.ts";
 import type { Clock, School } from "../data/types.ts";
 import type { Writer } from "../data/writer.ts";
 import { formatRoute, parseRoute, type Route, themeOf } from "./route.ts";
 import { Shell } from "./shell.tsx";
-
-const navigate = (route: Route): void => {
-	window.location.hash = formatRoute(route);
-};
 
 /** Follows `location.hash`; once the schools are loaded, rewrites a hash naming an unknown school or tab to the
  * route it shows. The shell records the rendered hash in `root.dataset.route` once the route's data is on screen
@@ -32,8 +34,14 @@ function App({
 		window.addEventListener("hashchange", onHashChange);
 		return () => window.removeEventListener("hashchange", onHashChange);
 	}, []);
+	/** Writes the route's hash and takes it at once, rather than on the `hashchange` the write queues, so that what the
+	 * click chose is on screen when the click returns. */
+	const navigate = useCallback((route: Route): void => {
+		window.location.hash = formatRoute(route);
+		setHash(window.location.hash);
+	}, []);
 	useEffect(() => {
-		reader.schools().then(setSchools);
+		reader.schools().then(setSchools, keepLoading);
 	}, [reader]);
 
 	/** Before the schools load the route's school is a placeholder; only its query (the theme) is used then. */

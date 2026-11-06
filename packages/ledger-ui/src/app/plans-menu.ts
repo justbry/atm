@@ -55,6 +55,26 @@ export type PlansSession = {
 	hasChanges: boolean;
 };
 
+/** A tier whose audience a publish changed: what its members read from then on, and the day it moved. */
+export type AudienceMove = { audience: MenuAudience; on: string };
+
+/** The tiers the draft gives another audience than the live menu does (mockup `#pgo`): a tier is `member` when it
+ * names none. A tier new in the draft moves nobody. */
+export function audienceMoves(
+	live: Menu,
+	draft: Menu,
+	on: string,
+): Record<string, AudienceMove> {
+	const moves: Record<string, AudienceMove> = {};
+	for (const tier of draft.tiers) {
+		const before = live.tiers.find(({ id }) => id === tier.id);
+		const audience = tier.audience ?? "member";
+		if (before && (before.audience ?? "member") !== audience)
+			moves[tier.id] = { audience, on };
+	}
+	return moves;
+}
+
 /** A menu written the same way whatever order its keys were built in, to tell whether two menus are the same. */
 export const canonical = (menu: Menu): string =>
 	JSON.stringify(menu, (_key, value: unknown) =>

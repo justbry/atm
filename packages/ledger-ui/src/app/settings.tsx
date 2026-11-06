@@ -45,6 +45,7 @@ import { Icon, type IconName } from "./icon.tsx";
 import { LockPanel } from "./lock-panel.tsx";
 import { monthAndDay } from "./period.ts";
 import { Popover } from "./popover.tsx";
+import { keepLoading } from "./use-loaded.ts";
 import { exitPreviewTitle, type Viewing } from "./viewing.ts";
 
 const currencySymbols: Record<string, string> = { USD: "$", CAD: "C$" };
@@ -1557,7 +1558,7 @@ export function SchoolSettings({
 		let current = true;
 		reader.settings(school.id).then((loaded) => {
 			if (current) setSettings(loaded);
-		});
+		}, keepLoading);
 		return () => {
 			current = false;
 		};

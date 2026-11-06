@@ -590,22 +590,31 @@ const donorAmounts: number[] = [
 	5000,
 ];
 const twoDigits = (value: number): string => String(value).padStart(2, "0");
+/** B4 Uni's donors are the mockup's `bkMakeDonors`; Harbor Arts' are the same list with each gift twenty times larger
+ * and its ids drawn from the original amount (`bkPseudo(amount + 300)`). */
+const harborGiftScale = 20;
+const harborIdOffset = 300;
 const donorsOf = (school: string): SourceDonor[] => {
 	if (school === "vol") return volDonors;
-	if (school !== "b4u") return [];
-	return donorAmounts.map((amount, index) => ({
-		id: `d_${(((index + 1) * 40_503 + 7919) % 65_536).toString(16).padStart(4, "0")}`,
-		name: `${donorFirstNames[index % 8]} ${donorLastNames[Math.floor(index / 8) % 8]}`,
-		amountCents: amount * 100,
-		date: `2026-${twoDigits(((index * 5) % 8) + 1)}-${twoDigits(((index * 3) % 27) + 1)}`,
-		fund:
-			amount === 5000
-				? "Building fund"
-				: index % 3 === 0
-					? "Scholarships"
-					: "General",
-		...(amount === 2500 ? { anonymous: true as const } : {}),
-	}));
+	if (school !== "b4u" && school !== "har") return [];
+	const harbor = school === "har";
+	return donorAmounts.map((amount, index) => {
+		const idSeed = harbor ? amount + harborIdOffset : index;
+		const scaled = harbor ? amount * harborGiftScale : amount;
+		return {
+			id: `d_${(((idSeed + 1) * 40_503 + 7919) % 65_536).toString(16).padStart(4, "0")}`,
+			name: `${donorFirstNames[index % 8]} ${donorLastNames[Math.floor(index / 8) % 8]}`,
+			amountCents: scaled * 100,
+			date: `2026-${twoDigits(((index * 5) % 8) + 1)}-${twoDigits(((index * 3) % 27) + 1)}`,
+			fund:
+				amount === 5000
+					? "Building fund"
+					: index % 3 === 0
+						? "Scholarships"
+						: "General",
+			...(amount === 2500 ? { anonymous: true as const } : {}),
+		};
+	});
 };
 
 const donorBuckets: ReadonlyArray<

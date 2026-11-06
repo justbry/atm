@@ -15,7 +15,7 @@ import type { Writer } from "../data/writer.ts";
 import { CoreIcon, type CoreIconName } from "./core-icon.tsx";
 import type { PaneName } from "./panes.tsx";
 import { parsePeriod, snapPeriod } from "./period.ts";
-import type { PlansSession } from "./plans-menu.ts";
+import type { AudienceMove, PlansSession } from "./plans-menu.ts";
 import {
 	allSchools,
 	type Route,
@@ -26,6 +26,7 @@ import {
 } from "./route.ts";
 import { SettingsDrawer } from "./settings-drawer.tsx";
 import { TopBar } from "./top-bar.tsx";
+import { keepLoading } from "./use-loaded.ts";
 import { ViewingContext } from "./viewing.ts";
 
 const toastMilliseconds = 4600;
@@ -79,6 +80,8 @@ function useLazy<Loaded>(
 	}, [wanted, loaded, load]);
 	return loaded;
 }
+const noAudienceMoves: Record<string, AudienceMove> = {};
+const noPendingBookings: ReadonlySet<string> = new Set();
 const loadPanes = () => import("./panes.tsx");
 const loadMenus = () => import("./menus.tsx");
 const loadSettings = () => import("./settings.tsx");
@@ -132,6 +135,34 @@ export function Shell({
 			setPlanSessions((kept) => ({ ...kept, [schoolId]: session })),
 		[],
 	);
+	/** Each school's bookings with a write on their way, kept for the life of the mount so that a tab left and another
+	 * opened agree on them. */
+	const [pendingBookings, setPendingBookings] = useState<
+		Record<string, ReadonlySet<string>>
+	>({});
+	const keepPendingBookings = useCallback(
+		(
+			schoolId: string,
+			update: (before: ReadonlySet<string>) => ReadonlySet<string>,
+		) =>
+			setPendingBookings((kept) => ({
+				...kept,
+				[schoolId]: update(kept[schoolId] ?? noPendingBookings),
+			})),
+		[],
+	);
+	/** Each school's tiers a publish gave another audience, kept for the life of the mount. */
+	const [audienceMoves, setAudienceMoves] = useState<
+		Record<string, Record<string, AudienceMove>>
+	>({});
+	const keepAudienceMoves = useCallback(
+		(schoolId: string, moves: Record<string, AudienceMove>) =>
+			setAudienceMoves((kept) => ({
+				...kept,
+				[schoolId]: { ...kept[schoolId], ...moves },
+			})),
+		[],
+	);
 	/** While the member portal covers the page, the top bar and tabs behind it are out of reach. */
 	const [portalShown, setPortalShown] = useState(false);
 	const menus = useLazy(loadMenus);
@@ -161,7 +192,7 @@ export function Shell({
 		let current = true;
 		reader.disclosure(schoolId).then((disclosure) => {
 			if (current) setLoadedDisclosure(disclosure);
-		});
+		}, keepLoading);
 		return () => {
 			current = false;
 		};
@@ -337,6 +368,10 @@ export function Shell({
 							onToast={onToast}
 							session={planSessions[school.id]}
 							onSession={keepPlanSession}
+							pendingBookings={pendingBookings[school.id] ?? noPendingBookings}
+							onPendingBookings={keepPendingBookings}
+							audienceMoves={audienceMoves[school.id] ?? noAudienceMoves}
+							onAudienceMoves={keepAudienceMoves}
 							onOpenSettings={() => setSettingsOpen(true)}
 							onShownChange={setPortalShown}
 						/>

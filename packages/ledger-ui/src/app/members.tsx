@@ -70,8 +70,10 @@ import {
 	type WriteContext,
 } from "./members-writes.ts";
 import { formatMoney } from "./money.ts";
+import type { PaneProps } from "./panes.tsx";
 import { monthAndDay, type Period, periodName } from "./period.ts";
 import { type Route, withQuery } from "./route.ts";
+import { keepLoading } from "./use-loaded.ts";
 import { useViewedPeriod, useViewing } from "./viewing.ts";
 
 /** The status chips: `show=attention|canceled` (absent: all). */
@@ -342,6 +344,8 @@ type RosterProps = {
 	navigate: (route: Route) => void;
 	onRendered: () => void;
 	onToast: (text: string) => void;
+	pendingBookings: ReadonlySet<string>;
+	onPendingBookings: PaneProps["onPendingBookings"];
 };
 
 type Menu = {
@@ -364,11 +368,20 @@ function Roster({
 	navigate,
 	onRendered,
 	onToast,
+	pendingBookings,
+	onPendingBookings,
 }: RosterProps): JSX.Element {
 	const { summary, capabilities } = loaded;
 	const { unit } = summary;
 	const [details, setDetails] = useState<Record<string, MemberDetail>>({});
-	const [changes, setChanges] = useState<Change[]>([]);
+	const [ownChanges, setChanges] = useState<Change[]>([]);
+	/** What this tab wrote, and the bookings either tab has a write on the way for. */
+	const changes: Change[] = [
+		...ownChanges,
+		...[...pendingBookings].map(
+			(bookingId): Change => ({ kind: "booking", bookingId }),
+		),
+	];
 	const [search, setSearch] = useState("");
 	const [menu, setMenu] = useState<Menu | null>(null);
 	const [modal, setModal] = useState<{
@@ -398,8 +411,9 @@ function Roster({
 			requested.current.add(id);
 			reader
 				.memberDetail({ schoolId: school.id, personId: id })
-				.then((detail) =>
-					setDetails((before) => ({ ...before, [id]: detail })),
+				.then(
+					(detail) => setDetails((before) => ({ ...before, [id]: detail })),
+					keepLoading,
 				);
 		}
 	}, [reader, school.id, drawerId, menuPersonId, loaded.people]);
@@ -521,6 +535,14 @@ function Roster({
 
 	const apply = ({ changes: added, toast }: Applied): void => {
 		setChanges((before) => [...before, ...added]);
+		const bookingIds = added.flatMap((change) =>
+			change.kind === "booking" ? [change.bookingId] : [],
+		);
+		if (bookingIds.length > 0)
+			onPendingBookings(
+				school.id,
+				(before) => new Set([...before, ...bookingIds]),
+			);
 		setModal(null);
 		setBusy(null);
 		onToast(toast);
@@ -922,6 +944,8 @@ export function Members({
 	navigate,
 	onRendered,
 	onToast,
+	pendingBookings,
+	onPendingBookings,
 }: {
 	reader: Reader;
 	writer: Writer;
@@ -932,6 +956,9 @@ export function Members({
 	/** Called after each render that shows the route's roster, or its lock panel. */
 	onRendered: () => void;
 	onToast: (text: string) => void;
+	/** The school's bookings with a write on their way, kept by the shell (Bookings shows them too). */
+	pendingBookings: ReadonlySet<string>;
+	onPendingBookings: PaneProps["onPendingBookings"];
 }): JSX.Element | null {
 	const asked = route.query.get("month");
 	const period = useViewedPeriod(
@@ -974,7 +1001,7 @@ export function Members({
 					switchTiers,
 				});
 		};
-		load();
+		load().catch(keepLoading);
 		return () => {
 			current = false;
 		};
@@ -992,6 +1019,8 @@ export function Members({
 			navigate={navigate}
 			onRendered={onRendered}
 			onToast={onToast}
+			pendingBookings={pendingBookings}
+			onPendingBookings={onPendingBookings}
 		/>
 	);
 }

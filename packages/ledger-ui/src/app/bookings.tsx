@@ -25,8 +25,10 @@ import {
 } from "./bookings-period.ts";
 import { Icon, type IconName } from "./icon.tsx";
 import { LockPanel } from "./lock-panel.tsx";
+import type { PaneProps } from "./panes.tsx";
 import { addDays, monthAndDay, weekdayName } from "./period.ts";
 import { type Route, withQuery } from "./route.ts";
+import { keepLoading } from "./use-loaded.ts";
 import { exitPreviewTitle, useViewing } from "./viewing.ts";
 
 type Filter = "outcome" | "approval" | "cutoff";
@@ -299,6 +301,8 @@ export function Bookings({
 	navigate,
 	onRendered,
 	onToast,
+	pendingBookings: pending,
+	onPendingBookings,
 }: {
 	reader: Reader;
 	writer: Writer;
@@ -309,13 +313,18 @@ export function Bookings({
 	/** Called after each render that shows the list the route asks for. */
 	onRendered: () => void;
 	onToast: (text: string) => void;
+	/** The school's bookings with a write on their way, kept by the shell (Members shows them too). */
+	pendingBookings: ReadonlySet<string>;
+	onPendingBookings: PaneProps["onPendingBookings"];
 }): JSX.Element | null {
 	const { option, preview } = useViewing();
 	const view = readView(route.query);
 	const { from, to } = bookingsDays(view, clock.today);
 	const key = `${school.id}/${from}/${to}`;
 	const [loaded, setLoaded] = useState<Loaded | null>(null);
-	const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
+	const setPending = (
+		update: (before: ReadonlySet<string>) => ReadonlySet<string>,
+	): void => onPendingBookings(school.id, update);
 	const [dialog, setDialog] = useState<Dialog | null>(null);
 	useEffect(() => {
 		if (!option.admin) return;
@@ -336,7 +345,7 @@ export function Bookings({
 					before: before.bookings,
 				});
 		};
-		load();
+		load().catch(keepLoading);
 		return () => {
 			current = false;
 		};

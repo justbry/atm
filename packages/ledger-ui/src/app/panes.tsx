@@ -2,7 +2,7 @@ import "./panes.css";
 import type { ComponentType, JSX } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import type { BooksPaneProps } from "./books-pane.ts";
-import type { PlansSession } from "./plans-menu.ts";
+import type { AudienceMove, PlansSession } from "./plans-menu.ts";
 import type { SchoolTab } from "./route.ts";
 
 /** Everything a pane may be given; each takes the props it names. */
@@ -11,6 +11,20 @@ export type PaneProps = BooksPaneProps & {
 	session: PlansSession | undefined;
 	onSession: (schoolId: string, session: PlansSession) => void;
 	onOpenSettings: () => void;
+	/** The bookings this school has had an outcome or a release written for, kept by the shell: Bookings and Members
+	 * both show them as on their way until the ledger ships, whichever tab wrote them. */
+	pendingBookings: ReadonlySet<string>;
+	onPendingBookings: (
+		schoolId: string,
+		update: (before: ReadonlySet<string>) => ReadonlySet<string>,
+	) => void;
+	/** The tiers of this school a publish gave another audience, by tier id: the shell keeps them so that the member
+	 * portal reads the new audience, with a notice, until the Reader says it. */
+	audienceMoves: Record<string, AudienceMove>;
+	onAudienceMoves: (
+		schoolId: string,
+		moves: Record<string, AudienceMove>,
+	) => void;
 	/** The member portal covers the page while it is shown. */
 	onShownChange: (shown: boolean) => void;
 };

@@ -30,8 +30,9 @@ import { saveFile } from "./download.ts";
 import { saveCsv } from "./download-button.tsx";
 import { Icon, type IconName } from "./icon.tsx";
 import { LockPanel } from "./lock-panel.tsx";
-import { rosterLock } from "./members-model.ts";
+import { rosterLock, viewerOf } from "./members-model.ts";
 import { formatMoney } from "./money.ts";
+import type { AudienceMove } from "./plans-menu.ts";
 import {
 	CancelDialog,
 	EmbedDialog,
@@ -51,6 +52,7 @@ import {
 	publishedPeriod,
 } from "./portal-views.tsx";
 import { type Route, withQuery } from "./route.ts";
+import { keepLoading } from "./use-loaded.ts";
 import { useViewing } from "./viewing.ts";
 
 const defaultTab: PortalTab = "overview";
@@ -103,6 +105,8 @@ type PaneProps = {
 	/** Called after each render that shows what the route asks for. */
 	onRendered: () => void;
 	onToast: (text: string) => void;
+	/** The tiers of this school a publish gave another audience, by tier id (kept by the shell). */
+	audienceMoves: Record<string, AudienceMove>;
 	/** Says whether the portal covers the page, so the shell can put what it covers out of reach. */
 	onShownChange: (shown: boolean) => void;
 };
@@ -110,14 +114,17 @@ type PaneProps = {
 /** What takes the Members pane while `portal=` is in the route (mockup `#vm`): the member portal for the audiences that
  * see the roster, else the lock panel that stands in for it. */
 export function PortalPane(props: PaneProps): JSX.Element {
-	const { option, preview } = useViewing();
+	const viewing = useViewing();
+	const { option, preview } = viewing;
 	const { onRendered } = props;
 	useLayoutEffect(() => {
 		if (!option.admin) onRendered();
 	});
 	if (!option.admin)
 		return <LockPanel lock={rosterLock} icon="users" hooks="roster" />;
-	return <Portal {...props} preview={preview} />;
+	return (
+		<Portal {...props} preview={preview} finance={viewerOf(viewing).finance} />
+	);
 }
 
 /** The member portal (mockup `drawVM`): one person's view as the server scopes it, in the school's site theme.
@@ -134,7 +141,9 @@ function Portal({
 	onToast,
 	onShownChange,
 	preview,
-}: PaneProps & { preview: boolean }): JSX.Element | null {
+	finance,
+	audienceMoves,
+}: PaneProps & { preview: boolean; finance: boolean }): JSX.Element | null {
 	const profileId = route.query.get("portal") ?? "";
 	const tab = readTab(route.query);
 	const themeId = readTheme(route.query);
@@ -181,16 +190,26 @@ function Portal({
 			}
 			if (current) setLoaded({ key, portal, figures, publicYear });
 		};
-		load();
+		load().catch(keepLoading);
 		return () => {
 			current = false;
 		};
 	}, [reader, school.id, profileId, key]);
 	const shown = loaded?.key === key ? loaded : null;
-	const portal = shown?.portal;
-	const viewed = portal?.people.find(
+	const loadedPortal = shown?.portal;
+	const viewed = loadedPortal?.people.find(
 		(person) => person.profileId === profileId,
 	);
+	/** A publish that gave the member's tier another audience: they read it at once, before the Reader says it. A
+	 * child's books are the guardian's, so a tier's move does not reach them. */
+	const move = viewed ? audienceMoves[viewed.tierId] : undefined;
+	const portal =
+		loadedPortal && move && !loadedPortal.books.guardian
+			? {
+					...loadedPortal,
+					books: { ...loadedPortal.books, audience: move.audience },
+				}
+			: loadedPortal;
 	const visible = Boolean(portal && viewed);
 	useLayoutEffect(() => {
 		if (shown) onRendered();
@@ -329,6 +348,7 @@ function Portal({
 	};
 
 	const controls: HistoryControls = {
+		finance,
 		period,
 		expanded,
 		onPeriod: (chosen) =>
@@ -502,7 +522,15 @@ function Portal({
 								))}
 							</div>
 							{tab === "overview" && (
-								<Overview {...view} figures={shown.figures} />
+								<Overview
+									{...view}
+									figures={
+										portal.books.audience === loadedPortal?.books.audience
+											? shown.figures
+											: null
+									}
+									audienceChangedOn={move?.on ?? null}
+								/>
 							)}
 							{tab === "bookings" && <BookingsTab {...view} />}
 							{tab === "billing" && (

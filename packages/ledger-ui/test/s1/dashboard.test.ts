@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import { options } from "preact";
 import { mountApp } from "../../src/app/mount.tsx";
 import type { KpiDocument } from "../../src/data/kpi-document.ts";
 import type { Reader } from "../../src/data/reader.ts";
@@ -177,13 +178,18 @@ test("a withheld cell reads its reason with its title, and a suppressed one '—
 	expect(refunds.closest(".kcard")?.textContent).toContain(
 		"Not in this document",
 	);
+	await open("#/b4u/dashboard?as=governance&view=money&month=2026-06");
+	const cut = element(
+		'[data-kpi="revenue_by_tier:audit"][data-period="2026-06"]',
+	);
+	expect(cut.textContent).toBe("—");
+	expect(cut.title).toBe("Hidden: fewer than 5 payers");
+	expect(cut.dataset.cell).toBe("suppressed");
 	await open(
 		"#/b4u/dashboard?as=member&view=money&month=2026-04-01..2026-06-30",
 	);
-	const cut = element('[data-test=kpi-value][data-kpi="refunds"]');
-	expect(cut.textContent).toBe("—");
-	expect(cut.title).toBe("Hidden: fewer than 5 payers");
-	expect(cut.closest(".kcard")?.classList.contains("kcut")).toBe(true);
+	const rounded = element('[data-test=kpi-value][data-kpi="refunds"]');
+	expect(rounded.textContent).toBe("under $100");
 });
 
 test("Admin reads its own membership's document, with the plan breakdown as its lock panel", async () => {
@@ -293,4 +299,40 @@ test("the route is recorded only once the document of that route is on screen", 
 	await settle();
 	expect(container.dataset.route).toBe("#/b4u/dashboard?preset=disputes");
 	expect(count("[data-test=kpi-card]")).toBe(5);
+});
+
+test("the Member's year note names the year table's sum of the four rounded quarters", async () => {
+	await open(
+		"#/har/dashboard?preset=monthly-members&view=money&month=2025-10-01..2025-12-31",
+	);
+	expect(text("[data-test=year-note]")).toBe(
+		"The four rounded quarters add up to $236,700; the year is rounded from its own events.",
+	);
+	expect(
+		text('[data-kpi="gross_collected_rounded_quarters"][data-period="2025"]'),
+	).toBe("$236,700");
+});
+
+test("a document with no year note when the audience reads years", async () => {
+	await open("#/b4u/dashboard?as=public&view=money");
+	expect(count("[data-test=year-note]")).toBe(0);
+});
+
+test("picking a View as row shows that audience's Dashboard within the click", async () => {
+	await open("#/b4u/dashboard?preset=monthly-members");
+	// A person's click is drawn before it returns; the page's own scheduling would draw it a task later.
+	const scheduled = options.debounceRendering;
+	options.debounceRendering = (render) => render();
+	try {
+		const seen: string[] = [];
+		for (const audience of ["public", "member", "governance", "finance"]) {
+			element("[data-test=view-as]").click();
+			element(`[data-test=view-as-option][data-as=${audience}]`).click();
+			seen.push(text("[data-test=pane]"));
+		}
+		expect(new Set(seen).size).toBe(4);
+	} finally {
+		if (scheduled) options.debounceRendering = scheduled;
+		else delete options.debounceRendering;
+	}
 });

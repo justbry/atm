@@ -81,6 +81,30 @@ const schools: Record<string, SchoolFixture> = {
 			{ id: "pack16", name: "Big top-up pack", priceCents: 7200, grants: 16 },
 		],
 	},
+	har: {
+		unit: { one: "credit", other: "credits" },
+		menu: {
+			studio: {
+				name: "Studio",
+				unitCents: 12_000,
+				quantities: null,
+				monthlyGrant: 8,
+			},
+			ensemble: {
+				name: "Ensemble",
+				unitCents: 24_000,
+				quantities: null,
+				monthlyGrant: 16,
+			},
+			board: {
+				name: "Board",
+				unitCents: 0,
+				quantities: null,
+				monthlyGrant: 2,
+			},
+		},
+		addons: [],
+	},
 };
 
 /** One live row the school's events give a person (the mockup's `kLive`). */
@@ -279,6 +303,83 @@ const people: PersonFixture[] = [
 	},
 ];
 
+/** Harbor Arts Academy's four members (mockup `SC.har.M`; their invoices are `SC.har.E`). None is in a family. */
+const harborPeople: PersonFixture[] = [
+	{
+		school: "har",
+		profileId: "h_31",
+		name: "Rosa T.",
+		family: null,
+		tier: "studio",
+		quantity: 1,
+		status: "active",
+		periodEnds: renewal,
+		balance: { available: 5, held: 0, used: 3 },
+		audience: "member",
+		live: [
+			{
+				date: "2026-11-01",
+				description: "Invoice paid, Studio",
+				amountCents: 12_000,
+				status: "paid",
+			},
+			{
+				date: "2026-06-01",
+				description: "Invoice paid, Studio",
+				amountCents: 12_000,
+				status: "paid",
+			},
+		],
+	},
+	{
+		school: "har",
+		profileId: "h_32",
+		name: "Ben A.",
+		family: null,
+		tier: "ensemble",
+		quantity: 1,
+		status: "active",
+		periodEnds: renewal,
+		balance: { available: 9, held: 2, used: 5 },
+		audience: "member",
+		live: [
+			{
+				date: "2026-11-02",
+				description: "Invoice paid, Ensemble",
+				amountCents: 24_000,
+				status: "paid",
+			},
+		],
+	},
+	{
+		school: "har",
+		profileId: "h_33",
+		name: "Cy L.",
+		family: null,
+		tier: "studio",
+		quantity: 1,
+		status: "active",
+		periodEnds: renewal,
+		balance: { available: 2, held: 0, used: 6 },
+		audience: "member",
+		live: [],
+	},
+	{
+		school: "har",
+		profileId: "h_34",
+		name: "Dee M.",
+		family: null,
+		tier: "board",
+		quantity: 1,
+		status: "active",
+		periodEnds: renewal,
+		balance: { available: 2, held: 0, used: 0 },
+		audience: "governance",
+		live: [],
+	},
+];
+people.push(...harborPeople);
+
 type BookingFixture = Omit<PortalBooking, "state" | "paidCents">;
 const tutoring = (
 	id: string,
@@ -311,6 +412,17 @@ const bookingsBySchool: Record<string, BookingFixture[]> = {
 			hosts: [{ id: "kim", name: "Kim" }],
 			cutoffMinutes: 1440,
 			held: 1,
+		},
+	],
+	har: [
+		{
+			id: "bk_h1",
+			profileId: "h_32",
+			service: "Ensemble lesson",
+			startsAt: "2026-11-09T17:00",
+			hosts: [{ id: "ms. ode", name: "Ms. Ode" }],
+			cutoffMinutes: 1440,
+			held: 2,
 		},
 	],
 };

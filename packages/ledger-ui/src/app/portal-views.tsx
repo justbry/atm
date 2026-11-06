@@ -20,7 +20,7 @@ import { cutoffHours } from "./booking-text.ts";
 import { Icon, type IconName } from "./icon.tsx";
 import { KpiValue } from "./kpi-cell.tsx";
 import { formatMoney } from "./money.ts";
-import { monthAndDay, monthAndYear } from "./period.ts";
+import { monthAndDay, monthAndYear, monthName } from "./period.ts";
 import { count, type Plan } from "./portal-format.ts";
 
 const previewTitle = "Exit preview to act";
@@ -260,14 +260,21 @@ export const publishedPeriod = (
 ): DocumentPeriod | undefined =>
 	document.periods.filter(({ state }) => state === "shown").at(-1);
 
+/** `5 Nov 2026`. */
+const dayMonthYear = (date: string): string =>
+	`${Number(date.slice(8))} ${monthName(date)} ${date.slice(0, 4)}`;
+
 function BooksCard({
 	portal,
 	figures,
 	handlers,
+	changedOn,
 }: {
 	portal: MemberPortal;
 	figures: KpiDocument | null;
 	handlers: Handlers;
+	/** The day a publish gave this member's tier another audience. */
+	changedOn: string | null;
 }): JSX.Element {
 	const { audience, guardian } = portal.books;
 	const action = guardian ? undefined : booksActions[audience];
@@ -297,6 +304,12 @@ function BooksCard({
 					<h4>
 						<Icon name="scale" /> School books
 					</h4>
+					{changedOn && !guardian && (
+						<div class="mp-note" data-audchg>
+							<Icon name="info" /> What members can see changed on{" "}
+							{dayMonthYear(changedOn)}.
+						</div>
+					)}
 					<div class="mp-muted" data-test="books-text">
 						{guardian
 							? `Your guardian (${guardian.name}) sees school books. A child never holds a member or governance audience; the adult on the account does.`
@@ -327,16 +340,33 @@ function BooksCard({
 }
 
 export function Overview(
-	props: ViewProps & { figures: KpiDocument | null },
+	props: ViewProps & {
+		figures: KpiDocument | null;
+		audienceChangedOn: string | null;
+	},
 ): JSX.Element {
-	const { portal, viewed, plan, school, preview, handlers, figures } = props;
+	const {
+		portal,
+		viewed,
+		plan,
+		school,
+		preview,
+		handlers,
+		figures,
+		audienceChangedOn,
+	} = props;
 	return (
 		<>
 			<PlanCard {...props} />
 			{viewed.balances.map((balance) => (
 				<BalanceCard key={balance.featureId} balance={balance} plan={plan} />
 			))}
-			<BooksCard portal={portal} figures={figures} handlers={handlers} />
+			<BooksCard
+				portal={portal}
+				figures={figures}
+				handlers={handlers}
+				changedOn={audienceChangedOn}
+			/>
 			{portal.addons.length > 0 && (
 				<div class="mp-card" data-test="portal-addons">
 					<h4 style="margin-bottom:8px">
@@ -586,6 +616,9 @@ const dayText = (date: string): string =>
 	`${monthAndDay(date)}, ${date.slice(0, 4)}`;
 
 export type HistoryControls = {
+	/** Money per person is for the owner and finance admins: another admin's preview shows no amounts and cannot
+	 * export. */
+	finance: boolean;
 	period: HistoryPeriod;
 	expanded: boolean;
 	onPeriod: (period: HistoryPeriod) => void;
@@ -646,10 +679,22 @@ function HistoryCard({
 					)}
 				</td>
 				<td
-					class={row.amountCents < 0 ? "r kha neg2" : "r kha"}
+					class={
+						row.amountCents < 0 && controls.finance ? "r kha neg2" : "r kha"
+					}
 					data-test="history-amount"
 				>
-					{formatMoney(row.amountCents, row.currency)}
+					{controls.finance ? (
+						formatMoney(row.amountCents, row.currency)
+					) : (
+						<span
+							class="khid"
+							data-hid="no_grant"
+							title="Finance admins and the owner see money per person; the member sees their own"
+						>
+							Finance only
+						</span>
+					)}
 				</td>
 				<td class="khs">
 					<span class={pillTone(row.status)} data-test="history-status">
@@ -690,8 +735,12 @@ function HistoryCard({
 						type="button"
 						class="mp-btn"
 						data-test="history-download"
-						title="Download this history as CSV"
-						disabled={selected.length === 0}
+						title={
+							controls.finance
+								? "Download this history as CSV"
+								: "Finance admins only"
+						}
+						disabled={!controls.finance || selected.length === 0}
 						onClick={() => controls.onDownload(selected)}
 					>
 						<Icon name="download" />

@@ -2,7 +2,7 @@ import type { JSX } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { type Menu, planLimits } from "../data/plans.ts";
 import type { Reader } from "../data/reader.ts";
-import type { School } from "../data/types.ts";
+import type { Clock, School } from "../data/types.ts";
 import type { Writer } from "../data/writer.ts";
 import { Icon } from "./icon.tsx";
 import { LockPanel } from "./lock-panel.tsx";
@@ -18,6 +18,8 @@ import { PlanPreview, type PreviewSource } from "./plan-preview.tsx";
 import { PlanPublishDialog } from "./plan-publish-dialog.tsx";
 import { PlanTables } from "./plan-tables.tsx";
 import {
+	type AudienceMove,
+	audienceMoves,
 	changeCount,
 	diffMenus,
 	emptyMenu,
@@ -30,6 +32,7 @@ import {
 	withDraft,
 } from "./plans-menu.ts";
 import { type Route, type SchoolTab, withQuery } from "./route.ts";
+import { keepLoading } from "./use-loaded.ts";
 import { usePlanYaml } from "./use-plan-yaml.ts";
 import { exitPreviewTitle, useViewing } from "./viewing.ts";
 
@@ -114,6 +117,12 @@ type PlansProps = {
 	/** The school's session, kept by the Shell for the life of the mount; undefined until it is read. */
 	session: PlansSession | undefined;
 	onSession: (schoolId: string, session: PlansSession) => void;
+	clock: Clock;
+	/** A publish gave these tiers another audience: their members read it from now on. */
+	onAudienceMoves: (
+		schoolId: string,
+		moves: Record<string, AudienceMove>,
+	) => void;
 	/** Called after each render that shows the school's plans. */
 	onRendered: () => void;
 	onToast: (text: string) => void;
@@ -137,6 +146,8 @@ export function Plans({
 	navigate,
 	session,
 	onSession,
+	onAudienceMoves,
+	clock,
 	onRendered,
 	onToast,
 	onOpenSettings,
@@ -154,7 +165,7 @@ export function Plans({
 		let current = true;
 		loadSession(reader, school).then((read) => {
 			if (current) onSession(school.id, read);
-		});
+		}, keepLoading);
 		return () => {
 			current = false;
 		};
@@ -224,6 +235,8 @@ export function Plans({
 		}
 		const current = latest.current;
 		if (current) {
+			const moves = audienceMoves(current.live, current.draft, clock.today);
+			if (Object.keys(moves).length > 0) onAudienceMoves(school.id, moves);
 			const version = current.version + 1;
 			commit({
 				...current,

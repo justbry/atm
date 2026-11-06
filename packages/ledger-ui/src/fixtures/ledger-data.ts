@@ -394,6 +394,35 @@ export const eventsBySchool: Record<string, SourceEvent[]> = {
 		},
 	],
 	nw: [],
+	har: [
+		{
+			at: "2026-11-02T10:00",
+			type: "payment.succeeded",
+			member: "h_32",
+			text: "Invoice paid, Ensemble",
+			amountCents: 24_000,
+			source: "stripe",
+			kind: "membership",
+		},
+		{
+			at: "2026-11-01T10:00",
+			type: "payment.succeeded",
+			member: "h_31",
+			text: "Invoice paid, Studio",
+			amountCents: 12_000,
+			source: "stripe",
+			kind: "membership",
+		},
+		{
+			at: "2026-06-01T10:00",
+			type: "payment.succeeded",
+			member: "h_31",
+			text: "Invoice paid, Studio",
+			amountCents: 12_000,
+			source: "stripe",
+			kind: "membership",
+		},
+	],
 };
 
 /** Who the members are, by id (the mockup's `people`): brief A item 1's members list, joined to events by key. */
@@ -417,6 +446,7 @@ export const memberNames: Record<string, Record<string, string>> = {
 	},
 	map: { p_07: "Chloe B.", p_08: "Eli M.", p_09: "Noor A." },
 	nw: {},
+	har: { h_31: "Rosa T.", h_32: "Ben A.", h_33: "Cy L.", h_34: "Dee M." },
 };
 
 /** The mockup's `rules` per school. */
@@ -425,6 +455,7 @@ export const rulesBySchool: Record<string, SchoolRules> = {
 	b4u: { cancelCutoffHours: 48, noShow: "release", lateCancel: "release" },
 	map: { cancelCutoffHours: 24, noShow: "spend", lateCancel: "release" },
 	nw: { cancelCutoffHours: 24, noShow: "spend", lateCancel: "release" },
+	har: { cancelCutoffHours: 24, noShow: "spend", lateCancel: "release" },
 };
 
 /** The mockup's promo codes (`SC.<school>.K`), in its order; the Reader lists them newest first. */
@@ -485,6 +516,18 @@ export const promosBySchool: Record<string, SourcePromo[]> = {
 	],
 	map: [],
 	nw: [],
+	har: [
+		{
+			id: "c_h1",
+			code: "ARTS20",
+			type: "member",
+			value: 20,
+			used: 3,
+			maxUses: null,
+			expiresOn: "2026-12-31",
+			status: "active",
+		},
+	],
 };
 
 /** The mockup's named donors (`SC.vol.don`); B4 Uni's 62 are generated below, as its `bkMakeDonors` does. */
