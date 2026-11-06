@@ -11,6 +11,7 @@ import type { Reader } from "../data/reader.ts";
 import type { Clock, School } from "../data/types.ts";
 import type { Writer } from "../data/writer.ts";
 import { BookingDialog } from "./booking-dialog.tsx";
+import { cutoffHours, endSentence } from "./booking-text.ts";
 import { Icon, type IconName } from "./icon.tsx";
 import { addDays, monthAndDay, weekdayName, weekStart } from "./period.ts";
 import { type Route, withQuery } from "./route.ts";
@@ -83,15 +84,6 @@ const attendeeName = ({ attendee }: Booking): string =>
 	attendee?.name ?? "Guest";
 const plural = (count: number, noun: string): string =>
 	`${count} ${noun}${count === 1 ? "" : "s"}`;
-/** A name that ends in a full stop ("Ana P.") ends the sentence too. */
-const endSentence = (text: string): string =>
-	text.endsWith(".") ? text : `${text}.`;
-
-/** The mockup's `fmtCut`: whole hours, else one decimal. */
-function cutoffHours({ cutoffMinutes }: Booking): string {
-	const hours = cutoffMinutes / 60;
-	return Number.isInteger(hours) ? `${hours}h` : `${hours.toFixed(1)}h`;
-}
 
 type Check = (booking: Booking) => boolean;
 
@@ -149,7 +141,7 @@ function statusBadges(
 		badges.push({ text: "Needs outcome", tone: "b-bad" });
 	else if (insideCutoff(booking, clock))
 		badges.push({
-			text: `Inside ${cutoffHours(booking)} cutoff`,
+			text: `Inside ${cutoffHours(booking.cutoffMinutes)} cutoff`,
 			tone: "b-warn",
 		});
 	else if (booking.attendance)

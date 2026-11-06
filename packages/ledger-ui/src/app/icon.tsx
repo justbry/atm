@@ -20,6 +20,12 @@ const shapes = {
 			<path d="M3 10h18M8 3v4M16 3v4" />
 		</>
 	),
+	card: (
+		<>
+			<rect x="3" y="5" width="18" height="14" rx="2" />
+			<path d="M3 10h18M7 15h3" />
+		</>
+	),
 	chart: <path d="M4 20V11M10 20V5M16 20v-6M2 20h20" />,
 	check: <path d="M4 12l5 5L20 6" />,
 	chevronDown: <path d="M6 9l6 6 6-6" />,

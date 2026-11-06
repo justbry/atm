@@ -7,6 +7,7 @@ import { createLedgerReader } from "./ledger.ts";
 import documentsFile from "./mart/documents.json";
 import { membersFixtures } from "./members.ts";
 import { plansBySchool } from "./plans.ts";
+import { fixtureMemberPortal } from "./portal.ts";
 
 /** The mockup's four schools (its `SC` table), with the counts its headless run shows on 2026-11-05: attention from
  * `attN`, overdue bookings from `groups().out`, expiring promos from `expiring`, stale when `lag` is over 15 minutes.
@@ -163,5 +164,6 @@ export function createFixtureReader(options: { clock: Clock }): Reader {
 		},
 		invoiceItems: async ({ schoolId }) => membersOf(schoolId).invoiceItems,
 		switchTiers: async ({ schoolId }) => membersOf(schoolId).switchTiers,
+		memberPortal: async (query) => fixtureMemberPortal(query),
 	};
 }

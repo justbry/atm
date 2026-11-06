@@ -50,7 +50,7 @@ const monthsSpanned = ({ from, to }: Period): number =>
 /** `Nov`. */
 export const monthName = (isoDate: string): string =>
 	monthNames[Number(isoDate.slice(5, 7)) - 1] ?? "";
-const monthAndYear = (isoDate: string): string =>
+export const monthAndYear = (isoDate: string): string =>
 	`${monthName(isoDate)} ${isoDate.slice(0, 4)}`;
 /** `7 Jan 2027`. */
 export const dayMonthYear = (isoDate: string): string =>

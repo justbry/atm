@@ -2,6 +2,7 @@ import type { PromoType } from "../data/ledger.ts";
 import type { MembersWriter } from "../data/members.ts";
 import type { Writer } from "../data/writer.ts";
 import { promosBySchool } from "./ledger-data.ts";
+import { fixtureQuantityChanged } from "./portal.ts";
 
 /** The code the mockup makes for a new promo: its prefix and the lowest number of its random range. */
 const createdCodes: Record<PromoType, string> = {
@@ -89,5 +90,15 @@ export function createFixtureWriter(options: {
 				if (!promo) throw new Error(`no promo ${request.promoId}`);
 				return { ...promo, status: "disabled" as const };
 			}),
+		portalChangeQuantity: (request) =>
+			record("portalChangeQuantity", [request], () =>
+				fixtureQuantityChanged(request, request.quantity),
+			),
+		portalCancelMembership: (request) =>
+			record("portalCancelMembership", [request], () => undefined),
+		portalResumeMembership: (request) =>
+			record("portalResumeMembership", [request], () => undefined),
+		portalCancelBooking: (request) =>
+			record("portalCancelBooking", [request], () => undefined),
 	};
 }

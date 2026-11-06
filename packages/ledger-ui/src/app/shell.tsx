@@ -6,6 +6,7 @@ import type { Writer } from "../data/writer.ts";
 import type { Bookings } from "./bookings.tsx";
 import type { BooksPaneProps } from "./books-pane.ts";
 import type { Dashboard } from "./dashboard.tsx";
+import type { Download } from "./download.ts";
 import { Icon, type IconName } from "./icon.tsx";
 import type { Members } from "./members.tsx";
 import { formatPeriod, parsePeriod } from "./period.ts";
@@ -13,6 +14,7 @@ import { PeriodControl } from "./period-control.tsx";
 import type { Plans } from "./plans.tsx";
 import type { PlansSession } from "./plans-menu.ts";
 import { Popover } from "./popover.tsx";
+import type { PortalPane } from "./portal.tsx";
 import {
 	allSchools,
 	type Route,
@@ -117,10 +119,12 @@ type ShellProps = {
 	navigate: (route: Route) => void;
 	/** Called once a pane that loads data has rendered the route. */
 	onRendered: () => void;
+	/** Saves a file the app makes (the history CSV); the browser's download unless given. */
+	download?: Download | undefined;
 };
 
 /** The mockup's frame (lines 261 to 282): top bar with the scope note, tabs row, stale banner, the current tab's pane, the settings
- * drawer and the toast. The Dashboard, Bookings, Plans and Members fill their panes; later slices fill the others. The Members golden file counts the toast only while it shows, and S2's test reads it empty, so the toast carries its hook while empty on every tab but Members. While the drawer is open the regions
+ * drawer and the toast. The Dashboard, Bookings, Plans, Members, Ledger, Reports and Promos fill their panes, the member portal takes the Members pane. The Members golden file counts the toast only while it shows, and S2's test reads it empty, so the toast carries its hook while empty on every tab but Members. While the drawer is open the regions
  * behind it are inert; the toast stays out of that so it can still be announced. */
 export function Shell({
 	route,
@@ -130,6 +134,7 @@ export function Shell({
 	writer,
 	navigate,
 	onRendered,
+	download,
 }: ShellProps): JSX.Element {
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [toast, setToast] = useState<{ text: string } | null>(null);
@@ -174,7 +179,7 @@ export function Shell({
 	);
 	/** The Members pane, loaded the same way. */
 	const [MembersPane, setMembersPane] = useState<typeof Members | null>(null);
-	const membersOpen = route.tab === "members";
+	const membersOpen = route.tab === "members" && !route.query.has("portal");
 	useEffect(() => {
 		if (membersOpen && !MembersPane)
 			import("./members.tsx").then((module) =>
@@ -192,6 +197,17 @@ export function Shell({
 		if (loadBooksPane && booksPane?.tab !== tab)
 			loadBooksPane().then((Pane) => setBooksPane({ tab, Pane }));
 	}, [loadBooksPane, route.tab, booksPane]);
+	/** The member portal, loaded the same way, when the Members tab is asked for one (`portal=`). While it covers the
+	 * page, the top bar and tabs behind it are out of reach. */
+	const [Portal, setPortal] = useState<typeof PortalPane | null>(null);
+	const [portalShown, setPortalShown] = useState(false);
+	const portalOpen = route.tab === "members" && route.query.has("portal");
+	useEffect(() => {
+		if (portalOpen && !Portal)
+			import("./portal.tsx").then((module) =>
+				setPortal(() => module.PortalPane),
+			);
+	}, [portalOpen, Portal]);
 	const settingsButton = useRef<HTMLButtonElement>(null);
 	const drawerId = useId();
 	const closeSettings = useCallback(() => {
@@ -267,7 +283,7 @@ export function Shell({
 
 	return (
 		<>
-			<div class="top" inert={settingsOpen}>
+			<div class="top" inert={settingsOpen || portalShown}>
 				<span class="logo" data-test="brand">
 					atm
 				</span>
@@ -351,7 +367,7 @@ export function Shell({
 			{school && (
 				<div
 					class="tabs"
-					inert={settingsOpen}
+					inert={settingsOpen || portalShown}
 					role="tablist"
 					aria-label={school.name}
 					onKeyDown={onTabKeyDown}
@@ -397,7 +413,11 @@ export function Shell({
 				</div>
 			)}
 			{school?.stale && (
-				<div class="banner" data-test="stale-banner" inert={settingsOpen}>
+				<div
+					class="banner"
+					data-test="stale-banner"
+					inert={settingsOpen || portalShown}
+				>
 					<Icon name="alert" /> Data is {school.lagMinutes} min behind: the
 					shipper may be stuck. Recent events can be missing.
 				</div>
@@ -460,6 +480,21 @@ export function Shell({
 						navigate={navigate}
 						onRendered={onRendered}
 						onToast={(text) => setToast({ text })}
+					/>
+				)}
+				{school && portalOpen && Portal && (
+					<Portal
+						key={school.id}
+						reader={reader}
+						writer={writer}
+						school={school}
+						clock={clock}
+						route={route}
+						navigate={navigate}
+						onRendered={onRendered}
+						onToast={(text) => setToast({ text })}
+						onShownChange={setPortalShown}
+						download={download}
 					/>
 				)}
 				{school && booksPane && booksPane.tab === route.tab && (

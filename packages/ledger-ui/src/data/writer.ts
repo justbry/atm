@@ -11,6 +11,7 @@ import type {
 } from "./members.ts";
 import type { LedgerWriter } from "./ledger.ts";
 import type { PlansWriter } from "./plans.ts";
+import type { PortalWriter } from "./portal.ts";
 
 /** Both the Bookings tab (S2) and the Members tab (S4) record outcomes and cancel bookings, each with its own request
  * shape, so these two take either and answer what either needs. */
@@ -43,6 +44,7 @@ const membersOnlyWrites = [
 export type Writer = SharedWrites &
 	PlansWriter &
 	LedgerWriter &
+	PortalWriter &
 	Partial<Pick<MembersWriter, (typeof membersOnlyWrites)[number]>>;
 
 /** The Writer as a `MembersWriter`; an error when it has no Members writes. */
