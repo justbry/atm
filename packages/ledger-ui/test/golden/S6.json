@@ -13,7 +13,7 @@
 		"Writes: the dialog closes when the request is sent; while it is pending the plan card shows 'A change is on its way. It can take a few minutes.' and disables Change amount, Cancel membership and Resume membership (a booking shows 'waiting to ship' instead of its button); the toast and the change itself ('Switches to …', 'Ends <date>', Active) show when the Writer answers. Previewing an audience other than one's own (as= below one's own) disables every write and hand-off button except Open school books, title 'Exit preview to act' (mockup pvLock).",
 		"Selects (portal-theme, history-period, quantity-select) react to the input event, as the runner's fill step sends it.",
 		"moves: a text marked moves is checked again through a Reader whose moves.fields are changed by the holdout factor (protocol §7; numbers multiplied, strings changed); it must exist, pass the absent list and differ.",
-		"Not mapped (no field, route or reachable state): the increase preview of Change amount ('Charged now: $56.33 (26 of 30 days left in this cycle). Adds 14 sessions now.' is the server's proration, no route yet) and its toast; the 'refund pending' pill (no fixture row has a pending refund); the history empty state ('Nothing in this period', 'No invoices or payments in this period.': every mockup person has rows in every period) and Download CSV disabled for a non-finance admin (no as= value is an admin without the finance grant; the mockup's smoke flips Jo A.'s grant); the Members row's eye button that opens the portal (S4's roster hook; entries open the portal by route); the vol member card's 'Q2 2026: hidden, fewer than 5 payers.' (every school shows the Before University documents, S1); the toast's Undo; the tier-audience notice ('What members can see changed on 5 Nov 2026', data-audchg: no fixture tier changed its audience); the history's 'Finance only' amounts for an admin without the finance grant (the mockup's school har, not one of the app's schools)."
+		"Not mapped (no field, route or reachable state): the increase preview of Change amount ('Charged now: $56.33 (26 of 30 days left in this cycle). Adds 14 sessions now.' is the server's proration, no route yet) and its toast; the 'refund pending' pill (no fixture row has a pending refund); the history empty state ('Nothing in this period', 'No invoices or payments in this period.': every mockup person has rows in every period) and Download CSV disabled for a non-finance admin (no as= value is an admin without the finance grant; the mockup's smoke flips Jo A.'s grant); the Members row's eye button that opens the portal (S4's roster hook; entries open the portal by route); the toast's Undo; the tier-audience notice ('What members can see changed on 5 Nov 2026', data-audchg: no fixture tier changed its audience); the history's 'Finance only' amounts for an admin without the finance grant (the mockup's school har, not one of the app's schools)."
 	],
 	"hooks": [
 		"portal",
@@ -142,7 +142,7 @@
 	"entries": [
 		{
 			"id": "matrix-adult-overview",
-			"source": "mockup headless (drawVM, mpHome, mpBooks) on b4u, Dana W. (s_21, adult of the Wu family): the preview bar, scope banner, note, plan card, balance and the School books card at Member (last quarter shown Q2 2026). The card's figures are the member document's cells (src/fixtures/mart/documents.json monthly-members.member, 2026-Q2: gross 190000 money0, net_income suppressed 'hidden with refunds'), where the mockup's own estimate reads '$1,800 net'; smoke.mjs 'portal scope banner', 'portal adult toggle', 'portal: adult member reads the Member document (quarters, $100)', 'hist: home tab has no admin tools or switch-plan button'",
+			"source": "mockup headless (drawVM, mpHome, mpBooks) on b4u, Dana W. (s_21, adult of the Wu family): the preview bar, scope banner, note, plan card, balance and the School books card at Member (last quarter shown Q2 2026). The card's figures are the member document's cells (src/fixtures/mart/documents.json monthly-members.member, quarter table, 2026-Q2): gross 190000 money0 is '$1,900', as the mockup; net_income is suppressed in the document ('—', title 'Hidden: fewer than 5 payers') where the mockup's static estimate reads '$1,800 net', so the entry expects the document's cell; smoke.mjs 'portal scope banner', 'portal adult toggle', 'portal: adult member reads the Member document (quarters, $100)', 'hist: home tab has no admin tools or switch-plan button'",
 			"route": "#/b4u/members?portal=s_21&theme=light",
 			"covers": {
 				"member": "adult",
@@ -200,10 +200,11 @@
 					"[data-test=portal-plan-note]": 0,
 					"[data-test=portal-action][data-action=resume]": 0,
 					"[data-test=books-card][data-audience=member]": 1,
-					"[data-test=books-card] [data-kpi=\"net_income\"][data-period=\"2026-Q2\"][data-cell=suppressed][title=\"Hidden: hidden with refunds\"]": 1,
 					"[data-test=portal-action][data-action=quantity][disabled]": 0,
 					"[data-test=portal] input[type=checkbox]": 0,
-					"[data-test=portal-action][data-action=switch]": 0
+					"[data-test=portal-action][data-action=switch]": 0,
+					"[data-test=books-card] [data-kpi=\"net_income\"][data-period=\"2026-Q2\"][data-cell=suppressed][title=\"Hidden: fewer than 5 payers\"]": 1,
+					"[data-test=books-card] [data-kpi=\"gross_collected\"][data-period=\"2026-Q2\"][data-cell=number]": 1
 				},
 				"contains": {
 					"[data-test=portal-scope]": [
@@ -225,8 +226,7 @@
 					],
 					"[data-test=books-text]": [
 						"Member document: Quarters, 6 weeks after each closes, money rounded to $100, totals and categories only.",
-						"Q2 2026:",
-						"collected",
+						"Q2 2026: $1,900 collected,",
 						"net."
 					]
 				},
@@ -1185,7 +1185,7 @@
 		},
 		{
 			"id": "public-books-card",
-			"source": "mockup headless on vol, Sam O. (m_051, membership canceled, ends Nov 11): no live membership reads the Public document ('Public document: years, ...', its last published year, no button; the figures are the public KPI document's 2024 cells, gross 400000 money0 and net_income suppressed, where the mockup's vol estimate reads '2024: — collected, Members see this net.'), the plan card says when it ends and offers Resume, Change amount is disabled 'Resume your membership first', and vol's add-ons are on sale; smoke.mjs 'portal: a member without a live membership reads the Public document'",
+			"source": "mockup headless on vol, Sam O. (m_051, membership canceled, ends Nov 11): no live membership reads the Public document ('Public document: years, money rounded to $100, ...', its last published year 2024, no button). Its figures are Vibes of Light's own public document (src/fixtures/mart/documents.json vol.public, year table, 2024): gross_collected suppressed ('—', title 'Hidden: fewer than 5 payers') and net_income members_only ('Members see this'), which agree with the mockup's '2024: — collected, Members see this net.'; the plan card says when it ends and offers Resume, Change amount is disabled 'Resume your membership first', and vol's add-ons are on sale; smoke.mjs 'portal: a member without a live membership reads the Public document'",
 			"route": "#/vol/members?portal=m_051&theme=light",
 			"expect": {
 				"text": {
@@ -1197,16 +1197,14 @@
 					"[data-test=portal-plan-line]": "Your membership ends on Nov 11. You can keep using your sessions until then.",
 					"[data-test=portal-action][data-action=resume]": "Resume membership",
 					"[data-test=books-pill]": "Public",
-					"[data-test=books-card] [data-kpi=\"gross_collected\"][data-period=\"2024\"]": "$4,000",
-					"[data-test=books-card] [data-kpi=\"net_income\"][data-period=\"2024\"]": "—",
+					"[data-test=books-card] [data-kpi=\"gross_collected\"][data-period=\"2024\"]": "—",
+					"[data-test=books-card] [data-kpi=\"net_income\"][data-period=\"2024\"]": "Members see this",
 					"[data-test=portal-action][data-action=buy][data-addon=pack8]": "Buy"
 				},
 				"contains": {
 					"[data-test=books-text]": [
 						"Public document: years, money rounded to $100, published 12 months after a year closes. Totals and categories only.",
-						"2024:",
-						"collected",
-						"net."
+						"2024: — collected, Members see this net."
 					],
 					"[data-test=portal-addons]": [
 						"Need more sessions?",
@@ -1222,12 +1220,13 @@
 				},
 				"count": {
 					"[data-test=books-card][data-audience=public]": 1,
-					"[data-test=books-card] [data-kpi=\"net_income\"][data-period=\"2024\"][data-cell=suppressed]": 1,
 					"[data-test=portal-action][data-action=books]": 0,
 					"[data-test=portal-action][data-action=cancel]": 0,
 					"[data-test=portal-action][data-action=buy]": 2,
 					"[data-test=portal-action][data-action=quantity][disabled][title=\"Resume your membership first\"]": 1,
-					"[data-test=portal-family-switch]": 0
+					"[data-test=portal-family-switch]": 0,
+					"[data-test=books-card] [data-kpi=\"gross_collected\"][data-period=\"2024\"][data-cell=suppressed][title=\"Hidden: fewer than 5 payers\"]": 1,
+					"[data-test=books-card] [data-kpi=\"net_income\"][data-period=\"2024\"][data-cell=members_only][title=\"Members see this\"]": 1
 				}
 			}
 		},
