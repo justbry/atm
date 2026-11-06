@@ -1,6 +1,7 @@
 import type { BooksLevel, KpiDocument } from "../data/kpi-document.ts";
 import type { Reader } from "../data/reader.ts";
 import type { Clock, DashboardOptions, School } from "../data/types.ts";
+import { bookingsBySchool } from "./bookings.ts";
 import cellRules from "./mart/cell-rules.json";
 import documentsFile from "./mart/documents.json";
 
@@ -15,6 +16,7 @@ const schools: School[] = [
 		name: "Vibes of Light",
 		timeZone: "America/Denver",
 		currency: "USD",
+		creditUnit: { one: "session", other: "sessions" },
 		role: "owner",
 		booksLevel: "owner",
 		stale: false,
@@ -27,6 +29,7 @@ const schools: School[] = [
 		name: "B4 Uni",
 		timeZone: "America/Chicago",
 		currency: "USD",
+		creditUnit: { one: "credit", other: "credits" },
 		role: "admin",
 		booksLevel: "finance_admin",
 		dashboardOpensOn: "2026-06",
@@ -40,6 +43,7 @@ const schools: School[] = [
 		name: "Maple Pilates",
 		timeZone: "America/Toronto",
 		currency: "CAD",
+		creditUnit: { one: "class", other: "classes" },
 		role: "owner",
 		booksLevel: "owner",
 		stale: true,
@@ -52,6 +56,7 @@ const schools: School[] = [
 		name: "Lotus Lane Yoga",
 		timeZone: "America/Los_Angeles",
 		currency: "USD",
+		creditUnit: { one: "class", other: "classes" },
 		role: "owner",
 		booksLevel: "owner",
 		stale: false,
@@ -107,6 +112,12 @@ export function createFixtureReader(_options: { clock: Clock }): Reader {
 			presets,
 			levels,
 			labels: cellRules.labels,
+		}),
+		bookings: async ({ school, from, to }) => ({
+			bookings: (bookingsBySchool[school] ?? []).filter(({ startsAt }) => {
+				const day = startsAt.slice(0, 10);
+				return day >= from && day <= to;
+			}),
 		}),
 		kpiDocument: async ({ preset, level, pinLocked }) =>
 			documents[`${preset}.${level}${pinLocked ? ".pin-locked" : ""}`],

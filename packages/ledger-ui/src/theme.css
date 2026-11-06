@@ -2103,3 +2103,8 @@ svg.kc .col.on {
 		grid-template-columns: 1fr;
 	}
 }
+
+/* The Bookings filter chips are buttons here (the mockup's are spans): they take the surrounding line height. */
+button.chip {
+	line-height: inherit;
+}

@@ -16,10 +16,12 @@ const navigate = (route: Route): void => {
 function App({
 	root,
 	reader,
+	writer,
 	clock,
 }: {
 	root: HTMLElement;
 	reader: Reader;
+	writer: Writer;
 	clock: Clock;
 }): JSX.Element | null {
 	const [hash, setHash] = useState(window.location.hash);
@@ -37,8 +39,8 @@ function App({
 	const route = parseRoute(hash, schools?.map((school) => school.id) ?? []);
 	const canonical = schools ? formatRoute(route) : null;
 	const theme = themeOf(route.query);
-	/** The Dashboard records its own render, once its document is on screen. */
-	const reportsItself = route.tab === "dashboard";
+	/** The Dashboard and Bookings record their own render, once their data is on screen. */
+	const reportsItself = route.tab === "dashboard" || route.tab === "bookings";
 	useLayoutEffect(() => {
 		root.classList.toggle("light", theme === "light");
 		root.classList.toggle("dark", theme === "dark");
@@ -60,6 +62,7 @@ function App({
 			schools={schools}
 			clock={clock}
 			reader={reader}
+			writer={writer}
 			navigate={navigate}
 			onRendered={() => {
 				root.dataset.route = hash;
@@ -76,7 +79,12 @@ export function mountApp(
 ): { unmount(): void } {
 	root.classList.add("app");
 	render(
-		<App root={root} reader={options.reader} clock={options.clock} />,
+		<App
+			root={root}
+			reader={options.reader}
+			writer={options.writer}
+			clock={options.clock}
+		/>,
 		root,
 	);
 	return {
