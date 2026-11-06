@@ -17,7 +17,7 @@ import type {
 	AtmSignedReceipt,
 	AtmSigner,
 } from "../types.js";
-import { signText, verifyText } from "./sign.js";
+import { signText, verifySignedText } from "./sign.js";
 import { canonicalize, sha256Hex } from "./util.js";
 
 const AMOUNT_FIELD: Record<AtmReceiptedEventType, string> = {
@@ -160,13 +160,8 @@ export const verifyReceipt = (
 	keys: AtmPublicKeys,
 ): AtmReceiptVerdict => {
 	if (!isSignedReceipt(signed)) return { ok: false, reason: "malformed" };
-	const publicKeyPem = Object.hasOwn(keys, signed.key_id)
-		? keys[signed.key_id]
-		: undefined;
-	if (publicKeyPem === undefined) return { ok: false, reason: "unknown_key" };
-	return verifyText(canonicalize(signed.receipt), signed.sig, publicKeyPem)
-		? { ok: true }
-		: { ok: false, reason: "bad_signature" };
+	const failure = verifySignedText(canonicalize(signed.receipt), signed, keys);
+	return failure === null ? { ok: true } : { ok: false, reason: failure };
 };
 
 /**

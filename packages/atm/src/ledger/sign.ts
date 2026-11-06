@@ -10,7 +10,7 @@ import {
 	sign,
 	verify,
 } from "node:crypto";
-import type { AtmSigner } from "../types.js";
+import type { AtmPublicKeys, AtmSigner } from "../types.js";
 
 const ED25519 = "ed25519";
 
@@ -49,6 +49,22 @@ export const verifyText = (
 	} catch {
 		return false;
 	}
+};
+
+/**
+ * Checks `sig` over `text` under the key published as `keyId`: null when it verifies, else why not. A key id that is only
+ * inherited (`__proto__`, `toString`) is unknown. Never throws.
+ */
+export const verifySignedText = (
+	text: string,
+	signed: { key_id: string; sig: string },
+	keys: AtmPublicKeys,
+): "unknown_key" | "bad_signature" | null => {
+	const publicKeyPem = Object.hasOwn(keys, signed.key_id)
+		? keys[signed.key_id]
+		: undefined;
+	if (publicKeyPem === undefined) return "unknown_key";
+	return verifyText(text, signed.sig, publicKeyPem) ? null : "bad_signature";
 };
 
 /** A new Ed25519 key pair as PEM: PKCS#8 for the private key, SPKI for the public one. */

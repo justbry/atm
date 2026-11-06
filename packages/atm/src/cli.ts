@@ -1,5 +1,12 @@
 import { Database } from "bun:sqlite";
-import { appendFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import {
+	appendFile,
+	mkdir,
+	readFile,
+	rm,
+	stat,
+	writeFile,
+} from "node:fs/promises";
 import { basename, join } from "node:path";
 import type { WorkerFullSubject } from "@autumn/balance-engine";
 import { Command } from "commander";
@@ -19,6 +26,7 @@ import {
 } from "./ledger/inputs-destination.js";
 import {
 	checkReceiptAgainstEvents,
+	isSignedReceipt,
 	receiptOf,
 	signReceipt,
 	verifyReceipt,
@@ -63,6 +71,7 @@ import type {
 	AtmCatalogRow,
 	AtmEnv,
 	AtmPublicKeys,
+	AtmSignedReceipt,
 	AtmSignedSeal,
 	AtmSigner,
 } from "./types.js";
@@ -984,6 +993,7 @@ const EXIT_INVALID = 1;
 const KEY_ID = /^[0-9A-Za-z._-]+$/;
 const PRIVATE_KEY_MODE = 0o600;
 const SEALS_FILE = "ledger/seals.jsonl";
+const SEALS_LOCK_FILE = `${SEALS_FILE}.lock`;
 
 const readSigner = async (
 	keyFile: string,
@@ -1006,7 +1016,13 @@ const readPublicKeys = async (file: string): Promise<AtmPublicKeys> => {
 	return keys as AtmPublicKeys;
 };
 
-/** The school's seal chain, a line per seal; a line that is not JSON is kept as text, so it verifies as malformed. */
+const isMissingFile = (error: unknown): boolean =>
+	error instanceof Error && (error as NodeJS.ErrnoException).code === "ENOENT";
+
+/**
+ * The school's seal chain, a line per seal; a line that is not JSON is kept as text, so it verifies as malformed. No file
+ * is an empty chain; any other read error is thrown, so an unreadable chain is never mistaken for none.
+ */
 const readSealChain = async (
 	root: string,
 	school: string,
@@ -1014,7 +1030,10 @@ const readSealChain = async (
 	const text = await readFile(
 		join(root, "schools", school, SEALS_FILE),
 		"utf8",
-	).catch(() => "");
+	).catch((error: unknown) => {
+		if (isMissingFile(error)) return "";
+		throw error;
+	});
 	return text
 		.split("\n")
 		.filter((line) => line.length > 0)
@@ -1047,31 +1066,31 @@ const keysNewCommand = keysCommand
 				throw new InputError(`--id ${JSON.stringify(keyId)} is not a key id`);
 			await mkdir(opts.out, { recursive: true });
 			const keysFile = join(opts.out, "keys.json");
-			const keys: Record<string, string> = await readFile(
-				keysFile,
-				"utf8",
-			).then(
-				(text) => JSON.parse(text) as Record<string, string>,
-				() => ({}),
-			);
+			const keys: Record<string, string> = {
+				...(await readPublicKeys(keysFile).catch((error: unknown) => {
+					if (isMissingFile(error)) return {};
+					throw error;
+				})),
+			};
 			if (Object.hasOwn(keys, keyId))
 				throw new InputError(`${keysFile} already has a key ${keyId}`);
+			const privateFile = join(opts.out, `${keyId}.private.pem`);
+			const publicFile = join(opts.out, `${keyId}.public.pem`);
+			for (const keyFile of [privateFile, publicFile]) {
+				const exists = await stat(keyFile).then(
+					() => true,
+					() => false,
+				);
+				if (exists) throw new InputError(`${keyFile} already exists`);
+			}
 			const pair = generateSigningKey();
-			await writeFile(
-				join(opts.out, `${keyId}.private.pem`),
-				pair.privateKeyPem,
-				{
-					flag: "wx",
-					mode: PRIVATE_KEY_MODE,
-				},
-			);
-			await writeFile(
-				join(opts.out, `${keyId}.public.pem`),
-				pair.publicKeyPem,
-				{
-					flag: "wx",
-				},
-			);
+			await writeFile(privateFile, pair.privateKeyPem, {
+				flag: "wx",
+				mode: PRIVATE_KEY_MODE,
+			});
+			await writeFile(publicFile, pair.publicKeyPem, {
+				flag: "wx",
+			});
 			keys[keyId] = pair.publicKeyPem;
 			await writeFile(keysFile, `${JSON.stringify(keys, null, 2)}\n`);
 			process.stdout.write(`key ${keyId} written to ${opts.out}\n`);
@@ -1106,17 +1125,17 @@ const receiptCommand = program
 						: events.filter((event) => event.id === opts.event);
 				if (opts.event !== undefined && chosen.length === 0)
 					throw new InputError(`no event ${opts.event} in ${opts.school}`);
-				let printed = 0;
+				// Sign every receipt before printing any, so an event that cannot give one never leaves half a listing on stdout.
+				const signed: AtmSignedReceipt[] = [];
 				for (const event of chosen) {
 					const receipt = receiptOf(event);
-					if (receipt === null) continue;
-					writeJson(signReceipt(receipt, signer));
-					printed += 1;
+					if (receipt !== null) signed.push(signReceipt(receipt, signer));
 				}
-				if (opts.event !== undefined && printed === 0)
+				if (opts.event !== undefined && signed.length === 0)
 					throw new InputError(
 						`event ${opts.event} is a ${chosen[0]?.event_type}, which gets no receipt`,
 					);
+				for (const receipt of signed) writeJson(receipt);
 			}),
 	);
 exitTwoOnUsageError(receiptCommand);
@@ -1124,7 +1143,7 @@ exitTwoOnUsageError(receiptCommand);
 const sealCommand = program
 	.command("seal")
 	.description(
-		`seal one month of a school's events: signs what was written by now, chained to the school's last seal, and appends it to schools/<id>/${SEALS_FILE}. Seal a month again to cover events that arrived after its seal`,
+		`seal one month of a school's events: signs the ids and hash of the month's events in the folder now, chained to the school's last seal, and appends it to schools/<id>/${SEALS_FILE}. Seal a month again to cover events that reached the folder after its seal. A second seal of the same school running at once is refused (lock file ${SEALS_FILE}.lock; remove it if a crash left it)`,
 	)
 	.requiredOption("--root <folder>", "the folder that holds schools/<id>/")
 	.requiredOption("--school <id>", "school id, as in schools/<id>/")
@@ -1144,29 +1163,51 @@ const sealCommand = program
 		}) =>
 			unattended("seal", false, async () => {
 				const signer = await readSigner(opts.key, opts.keyId);
-				const chain = await readSealChain(opts.root, opts.school);
-				const last = chain.at(-1);
-				if (last !== undefined && !isSignedSeal(last))
-					throw new InputError(
-						`the last line of ${SEALS_FILE} is not a signed seal; run atm verify seals`,
+				const ledgerDir = join(opts.root, "schools", opts.school, "ledger");
+				await mkdir(ledgerDir, { recursive: true });
+				// Two seals made at once would both link to the same last seal and break the chain, so one holds a lock while
+				// it reads the chain and appends.
+				const lock = join(opts.root, "schools", opts.school, SEALS_LOCK_FILE);
+				try {
+					await writeFile(lock, `${process.pid}\n`, { flag: "wx" });
+				} catch (error) {
+					if ((error as NodeJS.ErrnoException).code === "EEXIST")
+						throw new InputError(
+							`another atm seal holds ${SEALS_LOCK_FILE}; remove it if no seal is running`,
+						);
+					throw error;
+				}
+				try {
+					const chain = await readSealChain(opts.root, opts.school);
+					const last = chain.at(-1);
+					let previous: AtmSignedSeal | null = null;
+					if (last !== undefined) {
+						if (!isSignedSeal(last))
+							throw new InputError(
+								`the last line of ${SEALS_FILE} is not a signed seal; run atm verify seals`,
+							);
+						previous = last;
+					}
+					const sealedAt = isoInstant(Date.now());
+					const { events } = await readEvents(opts.root, opts.school);
+					const signed = signSeal(
+						sealOf({
+							school: opts.school,
+							month: opts.month,
+							events,
+							sealedAt,
+							previous,
+						}),
+						signer,
 					);
-				const { events } = await readEvents(opts.root, opts.school);
-				const signed = signSeal(
-					sealOf({
-						school: opts.school,
-						month: opts.month,
-						events,
-						sealedAt: isoInstant(Date.now()),
-						previous: (last as AtmSignedSeal | undefined) ?? null,
-					}),
-					signer,
-				);
-				const file = join(opts.root, "schools", opts.school, SEALS_FILE);
-				await mkdir(join(opts.root, "schools", opts.school, "ledger"), {
-					recursive: true,
-				});
-				await appendFile(file, `${JSON.stringify(signed)}\n`);
-				writeJson(signed);
+					await appendFile(
+						join(opts.root, "schools", opts.school, SEALS_FILE),
+						`${JSON.stringify(signed)}\n`,
+					);
+					writeJson(signed);
+				} finally {
+					await rm(lock, { force: true });
+				}
 			}),
 	);
 exitTwoOnUsageError(sealCommand);
@@ -1203,14 +1244,12 @@ const verifyReceiptCommand = verifyCommand
 				);
 				if (
 					verdict.ok &&
+					isSignedReceipt(signed) &&
 					opts.root !== undefined &&
 					opts.school !== undefined
 				) {
 					const { events } = await readEvents(opts.root, opts.school);
-					verdict = checkReceiptAgainstEvents(
-						signed as Parameters<typeof checkReceiptAgainstEvents>[0],
-						events,
-					);
+					verdict = checkReceiptAgainstEvents(signed, events);
 				}
 				if (opts.json) writeJson(verdict);
 				else
@@ -1225,7 +1264,7 @@ exitTwoOnUsageError(verifyReceiptCommand);
 const verifySealsCommand = verifyCommand
 	.command("seals")
 	.description(
-		`check a school's seal chain (schools/<id>/${SEALS_FILE}) against its events: signatures, links, and what each seal counted. Events written after their month's latest seal are listed as late; they alone do not fail it`,
+		`check a school's seal chain (schools/<id>/${SEALS_FILE}) against its events: signatures, links, and the events each seal covers (an edit or a deletion fails it). Month events the latest seal does not cover are listed as late; they alone do not fail it`,
 	)
 	.requiredOption("--root <folder>", "the folder that holds schools/<id>/")
 	.requiredOption("--school <id>", "school id, as in schools/<id>/")

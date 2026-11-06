@@ -1,10 +1,12 @@
 /**
- * Sealed months: a signature over one month of a school's events, chained to the school's previous seal, so an edit, a
- * deletion or a backdated insertion in a sealed month breaks that seal. Spec: plans/atm-signed-receipts.md.
+ * Sealed months: a signature over one month of a school's events, chained to the school's previous seal, so an edit or a
+ * deletion in a sealed month breaks that seal. Spec: plans/atm-signed-receipts.md.
  *
- * A seal counts only the month's events written at or before `sealed_at` (their `ingest_time`). A Stripe event delivered
- * after the seal still lands in its month (its `date` follows `event_time`), so the earlier seal keeps verifying, the event
- * is reported as unsealed and late, and sealing the month again covers it. Pure: the caller passes the time.
+ * A seal names the ids of the events it covers: the month's events in the folder when it was made. An event that reaches
+ * the folder later (a late Stripe delivery, or an outbox row shipped after the seal) still lands in its month, so the
+ * earlier seal keeps verifying, the event is listed as unsealed, and sealing the month again covers it. Membership is by
+ * id, not by `ingest_time`, because the handler stamps `ingest_time` before the shipper puts the event in the folder.
+ * Pure: the caller passes the time.
  */
 import type {
 	AtmEvent,
@@ -16,7 +18,7 @@ import type {
 	AtmSigner,
 } from "../types.js";
 import { byEventId } from "./order.js";
-import { signText, verifyText } from "./sign.js";
+import { signText, verifySignedText } from "./sign.js";
 import { canonicalize, sha256Hex } from "./util.js";
 
 const MONTH = /^\d{4}-\d{2}$/;
@@ -27,6 +29,7 @@ const SEAL_KEYS = new Set([
 	"school",
 	"month",
 	"events",
+	"event_ids",
 	"transactions",
 	"events_hash",
 	"sealed_at",
@@ -37,14 +40,20 @@ const SIGNED_KEYS = new Set(["seal", "key_id", "sig"]);
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
-const instantMs = (name: string, value: string): number => {
-	const ms = Date.parse(value);
-	if (!INSTANT.test(value) || Number.isNaN(ms))
+const checkInstant = (name: string, value: string): void => {
+	if (!INSTANT.test(value) || Number.isNaN(Date.parse(value)))
 		throw new Error(
 			`${name} ${JSON.stringify(value)} is not a UTC ISO instant`,
 		);
-	return ms;
 };
+
+/** Ids in strictly increasing order: sorted, no repeat. */
+const isIdList = (value: unknown): value is string[] =>
+	Array.isArray(value) &&
+	value.every(
+		(id, index) =>
+			typeof id === "string" && (index === 0 || value[index - 1] < id),
+	);
 
 const monthEvents = (
 	events: readonly AtmEvent[],
@@ -55,30 +64,21 @@ const monthEvents = (
 		.filter((e) => e.school === school && e.date.startsWith(`${month}-`))
 		.sort(byEventId);
 
-/** What a seal with this cutoff counts: the month's events written at or before it. */
-const counted = (
-	events: readonly AtmEvent[],
-	school: string,
-	month: string,
-	cutoffMs: number,
-) => {
-	const included = monthEvents(events, school, month).filter(
-		(e) => Date.parse(e.ingest_time) <= cutoffMs,
-	);
-	return {
-		events: included.length,
-		transactions: included.filter((e) => e.postings.length > 0).length,
-		events_hash: sha256Hex(included.map((e) => canonicalize(e)).join("\n")),
-	};
-};
+/** What a seal records about the events it covers, given in id order. */
+const counted = (covered: readonly AtmEvent[]) => ({
+	events: covered.length,
+	event_ids: covered.map((e) => e.id),
+	transactions: covered.filter((e) => e.postings.length > 0).length,
+	events_hash: sha256Hex(covered.map((e) => canonicalize(e)).join("\n")),
+});
 
 /** sha256 of a signed seal's canonical form: what the next seal's `prev_seal_hash` names. */
 export const sealHash = (signed: unknown): string =>
 	sha256Hex(canonicalize(signed));
 
 /**
- * The seal of one month of a school's events. `events` may hold the whole log: the month's are picked by `date`. Throws
- * when a month event was written after `sealedAt` (the caller is sealing before it was written), or on a bad month or time.
+ * The seal of one month of a school's events: every event of the month in `events` (which may hold the whole log; the
+ * month's are picked by `date`). Throws on a bad month or time.
  */
 export const sealOf = ({
 	school,
@@ -95,19 +95,12 @@ export const sealOf = ({
 }): AtmSeal => {
 	if (!MONTH.test(month))
 		throw new Error(`month must be YYYY-MM, got ${month}`);
-	const cutoffMs = instantMs("sealedAt", sealedAt);
-	const later = monthEvents(events, school, month).find(
-		(e) => Date.parse(e.ingest_time) > cutoffMs,
-	);
-	if (later)
-		throw new Error(
-			`event ${later.id} was written at ${later.ingest_time}, after sealedAt ${sealedAt}`,
-		);
+	checkInstant("sealedAt", sealedAt);
 	return {
 		v: 1,
 		school,
 		month,
-		...counted(events, school, month, cutoffMs),
+		...counted(monthEvents(events, school, month)),
 		sealed_at: sealedAt,
 		prev_seal_hash: previous === null ? null : sealHash(previous),
 	};
@@ -128,6 +121,8 @@ const isSealShape = (value: unknown): value is AtmSeal =>
 	typeof value.month === "string" &&
 	MONTH.test(value.month) &&
 	Number.isSafeInteger(value.events) &&
+	isIdList(value.event_ids) &&
+	value.event_ids.length === value.events &&
 	Number.isSafeInteger(value.transactions) &&
 	typeof value.events_hash === "string" &&
 	SHA256_HEX.test(value.events_hash) &&
@@ -149,27 +144,24 @@ const verdictOf = (
 	signed: unknown,
 	previous: unknown,
 	index: number,
-	events: readonly AtmEvent[],
+	inMonthOf: (seal: AtmSeal) => readonly AtmEvent[],
 	keys: AtmPublicKeys,
 ): AtmSealVerdict => {
 	if (!isSignedSeal(signed)) return "malformed";
-	const publicKeyPem = Object.hasOwn(keys, signed.key_id)
-		? keys[signed.key_id]
-		: undefined;
-	if (publicKeyPem === undefined) return "unknown_key";
-	if (!verifyText(canonicalize(signed.seal), signed.sig, publicKeyPem))
-		return "bad_signature";
+	const failure = verifySignedText(canonicalize(signed.seal), signed, keys);
+	if (failure !== null) return failure;
 	const expectedLink = index === 0 ? null : sealHash(previous);
 	if (signed.seal.prev_seal_hash !== expectedLink) return "broken_link";
 	const { seal } = signed;
-	const now = counted(
-		events,
-		seal.school,
-		seal.month,
-		Date.parse(seal.sealed_at),
-	);
+	const byId = new Map(inMonthOf(seal).map((e) => [e.id, e]));
+	const covered: AtmEvent[] = [];
+	for (const id of seal.event_ids) {
+		const event = byId.get(id);
+		if (event === undefined) return "events_changed";
+		covered.push(event);
+	}
+	const now = counted(covered);
 	return now.events_hash === seal.events_hash &&
-		now.events === seal.events &&
 		now.transactions === seal.transactions
 		? "ok"
 		: "events_changed";
@@ -178,21 +170,32 @@ const verdictOf = (
 /**
  * Checks a school's seal chain, in the order the seals were made, against its events: each seal's shape, key and
  * signature, its link to the seal before it (a missing or reordered seal is `broken_link`), and the events it counted (an
- * edit, a deletion or a backdated insertion is `events_changed`). Lists the events of sealed months written after their
- * month's latest seal. Never throws on a bad seal.
+ * edit or a deletion is `events_changed`). Lists the events of sealed months that their month's latest seal does not
+ * cover (late, or inserted after it). Never throws on a bad seal.
  */
 export const verifySeals = (
 	seals: readonly unknown[],
 	events: readonly AtmEvent[],
 	keys: AtmPublicKeys,
 ): AtmSealReport => {
+	// Each month's events are picked and sorted once, however many seals name the month.
+	const byMonth = new Map<string, AtmEvent[]>();
+	const inMonthOf = (seal: AtmSeal): AtmEvent[] => {
+		const monthKey = `${seal.school}|${seal.month}`;
+		let inMonth = byMonth.get(monthKey);
+		if (inMonth === undefined) {
+			inMonth = monthEvents(events, seal.school, seal.month);
+			byMonth.set(monthKey, inMonth);
+		}
+		return inMonth;
+	};
 	const report: AtmSealReport["seals"] = seals.map((signed, index) => {
 		const shaped = isSignedSeal(signed) ? signed.seal : null;
 		return {
 			index,
 			month: shaped?.month ?? null,
 			sealed_at: shaped?.sealed_at ?? null,
-			verdict: verdictOf(signed, seals[index - 1], index, events, keys),
+			verdict: verdictOf(signed, seals[index - 1], index, inMonthOf, keys),
 		};
 	});
 	const latest = new Map<string, AtmSeal>();
@@ -201,9 +204,9 @@ export const verifySeals = (
 			latest.set(`${signed.seal.school}|${signed.seal.month}`, signed.seal);
 	const unsealedLate: AtmSealReport["unsealedLate"] = [];
 	for (const seal of latest.values()) {
-		const cutoffMs = Date.parse(seal.sealed_at);
-		for (const e of monthEvents(events, seal.school, seal.month))
-			if (Date.parse(e.ingest_time) > cutoffMs)
+		const covered = new Set(seal.event_ids);
+		for (const e of inMonthOf(seal))
+			if (!covered.has(e.id))
 				unsealedLate.push({
 					month: seal.month,
 					event_id: e.id,

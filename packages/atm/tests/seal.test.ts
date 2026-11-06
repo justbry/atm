@@ -61,9 +61,9 @@ describe("sealOf", () => {
 		const build = buildJournal({ events, month: "2026-10" });
 		expect(october.events_hash).toBe(build.inputsHash);
 		expect(october.transactions).toBe(build.transactions);
-		expect(october.events).toBe(
-			events.filter((e) => e.date.startsWith("2026-10-")).length,
-		);
+		const inOctober = events.filter((e) => e.date.startsWith("2026-10-"));
+		expect(october.events).toBe(inOctober.length);
+		expect(october.event_ids).toEqual(inOctober.map((e) => e.id).sort());
 		expect(october.prev_seal_hash).toBeNull();
 	});
 
@@ -73,12 +73,7 @@ describe("sealOf", () => {
 		);
 	});
 
-	test("refuses to seal before a month event was written, and a bad month or time", () => {
-		const written = octoberEvent().ingest_time;
-		const before = new Date(Date.parse(written) - 1000).toISOString();
-		expect(() => seal("2026-10", null, events, before)).toThrow(
-			"after sealedAt",
-		);
+	test("refuses a bad month or time", () => {
 		expect(() => seal("2026-13x", null)).toThrow("YYYY-MM");
 		expect(() => seal("2026-10", null, events, "yesterday")).toThrow(
 			"UTC ISO instant",
@@ -94,7 +89,7 @@ describe("verifySeals", () => {
 		expect(report.unsealedLate).toEqual([]);
 	});
 
-	test("an edit, a deletion or a backdated insertion in a sealed month is events_changed", () => {
+	test("an edit or a deletion in a sealed month is events_changed", () => {
 		const signed = chain();
 		const target = octoberEvent();
 		const others = events.filter((e) => e.id !== target.id);
@@ -102,16 +97,7 @@ describe("verifySeals", () => {
 			...target,
 			payload: { ...target.payload, tampered: true },
 		};
-		const backdated = {
-			...target,
-			id: siblingId(target.id),
-			idem: "forged",
-		};
-		for (const books of [
-			[...others, editedEvent],
-			others,
-			[...events, backdated],
-		]) {
+		for (const books of [[...others, editedEvent], others]) {
 			const report = verifySeals(signed, books, keys);
 			expect(report.ok).toBe(false);
 			expect(report.seals[0]?.verdict).toBe("events_changed");
@@ -131,7 +117,7 @@ describe("verifySeals", () => {
 		).toEqual(["broken_link", "broken_link"]);
 		const forged = {
 			...november,
-			seal: { ...november?.seal, events: 0 },
+			seal: { ...november?.seal, transactions: 0 },
 		};
 		expect(verifySeals([october, forged], events, keys).seals[1]?.verdict).toBe(
 			"bad_signature",
@@ -157,6 +143,37 @@ describe("verifySeals", () => {
 		expect(after.seals.map((s) => s.verdict)).toEqual(["ok", "ok"]);
 		expect(after.unsealedLate).toEqual([]);
 		expect(second.seal.events).toBe(first.seal.events + 1);
+	});
+
+	test("an event stamped before the seal but shipped after it is late, not tampering", () => {
+		const target = octoberEvent();
+		const shippedLate: AtmEvent = {
+			...target,
+			id: siblingId(target.id),
+			idem: "shipped-after-the-seal",
+			ingest_time: target.ingest_time,
+		};
+		const report = verifySeals(
+			[seal("2026-10", null)],
+			[...events, shippedLate],
+			keys,
+		);
+		expect(report.seals[0]?.verdict).toBe("ok");
+		expect(report.unsealedLate.map((late) => late.event_id)).toEqual([
+			shippedLate.id,
+		]);
+	});
+
+	test("a seal whose ids are unsorted or do not match its count is malformed", () => {
+		const { seal: october } = seal("2026-10", null);
+		for (const change of [
+			{ event_ids: [...october.event_ids].reverse() },
+			{ event_ids: october.event_ids.slice(1) },
+		])
+			expect(
+				verifySeals([signSeal({ ...october, ...change }, signer)], events, keys)
+					.seals[0]?.verdict,
+			).toBe("malformed");
 	});
 
 	test("an unknown key or a malformed line is reported, never thrown", () => {

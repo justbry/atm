@@ -1285,8 +1285,8 @@ export const checkReceiptAgainstEvents = (
 	receipts.checkReceiptAgainstEvents(signed, events);
 
 /**
- * The seal of one month of a school's events (those written at or before `sealedAt`), chained to the school's previous
- * signed seal. Throws when a month event was written after `sealedAt`.
+ * The seal of one month of a school's events: the ids and hash of every month event in `events`, chained to the school's
+ * previous signed seal. An event added to the month later is listed by `verifySeals` until the month is sealed again.
  */
 export const sealOf = (input: {
 	school: string;
@@ -1302,7 +1302,7 @@ export const signSeal = (seal: AtmSeal, signer: AtmSigner): AtmSignedSeal =>
 
 /**
  * Checks a school's seal chain, in the order made, against its events: signatures, links, and what each seal counted.
- * Lists the events of sealed months written after their month's latest seal. Never throws on a bad seal.
+ * Lists the events of sealed months that their latest seal does not cover. Never throws on a bad seal.
  */
 export const verifySeals = (
 	chain: readonly unknown[],

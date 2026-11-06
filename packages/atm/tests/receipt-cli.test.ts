@@ -3,7 +3,15 @@
  * valid, 2 an error.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { cp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import {
+	cp,
+	mkdir,
+	readdir,
+	readFile,
+	rm,
+	stat,
+	writeFile,
+} from "node:fs/promises";
 import { join } from "node:path";
 import { tmp } from "./helpers.js";
 
@@ -163,6 +171,25 @@ describe("receipt and verify receipt", () => {
 });
 
 describe("seal and verify seals", () => {
+	test("a second seal while one holds the lock is refused and leaves the chain alone", async () => {
+		const ledger = join(root, "schools", SCHOOL, "ledger");
+		await mkdir(ledger, { recursive: true });
+		await writeFile(join(ledger, "seals.jsonl.lock"), "1\n");
+		const run = atm([
+			"seal",
+			"--root",
+			root,
+			"--school",
+			SCHOOL,
+			"--month",
+			"2026-09",
+			...signing(),
+		]);
+		expect(run.code).toBe(2);
+		expect(run.stderr).toContain("seals.jsonl.lock");
+		expect(await readdir(ledger)).not.toContain("seals.jsonl");
+	});
+
 	test("seals of past months (the fixture runs past today) chain in ledger/seals.jsonl and verify until a sealed month is edited", async () => {
 		for (const month of ["2026-09", "2026-10"])
 			expect(

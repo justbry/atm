@@ -3517,8 +3517,10 @@ export type AtmSeal = {
 	school: string;
 	/** `YYYY-MM`, by the events' school-local `date`. */
 	month: string;
-	/** The month's events with `ingest_time` at or before `sealed_at`. */
+	/** How many events the seal covers: the month's events in the folder when it was made. */
 	events: number;
+	/** Their ids, in order. A month event not listed here reached the folder after the seal. */
+	event_ids: string[];
 	/** Those with postings, as `buildJournal` counts transactions. */
 	transactions: number;
 	/** sha256 of those events' canonical forms, in id order, joined by "\n": the formula of `buildJournal`'s `inputsHash`. */
@@ -3548,6 +3550,6 @@ export type AtmSealReport = {
 		sealed_at: string | null;
 		verdict: AtmSealVerdict;
 	}[];
-	/** Events of a sealed month written after that month's latest seal: late, not tampering, until the month is sealed again. */
+	/** Events of a sealed month that its latest seal does not cover: late (or inserted), listed until the month is sealed again. */
 	unsealedLate: { month: string; event_id: string; ingest_time: string }[];
 };
