@@ -97,9 +97,17 @@ export type CancelBooking = {
 /** The mockup's Release hold has no reason field, so the tab sends this one. */
 export const adminReleaseReason = "admin_release";
 
+/** "Remind host" on a booking waiting for approval (mockup bkActions): mail the booking's hosts again. NOT in the
+ * briefs: an S8 gap until a route exists. The UI toasts "Reminder sent to <hosts>." only after the server accepts. */
+export type RemindHost = {
+	school: string;
+	bookingId: string;
+};
+
 export interface BookingsWriter {
 	recordOutcome(request: RecordOutcome): Promise<OutcomeRecorded>;
 	cancelBooking(request: CancelBooking): Promise<void>;
+	remindHost(request: RemindHost): Promise<void>;
 }
 /* Confirm all attended has no route of its own: it is one `recordOutcome({ school, bookingId, state: "attended" })`
  * per booking of its group that needs an outcome, in the order the rows show (`startsAt` ascending). */

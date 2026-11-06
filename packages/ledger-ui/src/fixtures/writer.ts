@@ -123,6 +123,7 @@ export function createFixtureWriter(options: {
 				creditEffect: "not_wired" as const,
 			})),
 		cancelBooking,
+		remindHost: (request) => record("remindHost", [request], nothing),
 		saveMenu: (schoolId, menu) => record("saveMenu", [schoolId, menu], nothing),
 		publishMenu: (schoolId) => record("publishMenu", [schoolId], nothing),
 		refund: (request) =>
