@@ -1,0 +1,47 @@
+{
+	"opus": {
+		"overall": 7,
+		"scores": {
+			"testability": 7,
+			"convergence": 8,
+			"antiGaming": 7,
+			"simplicity": 7,
+			"cost": 8
+		},
+		"blockers": [
+			"invented mockup-only data traced to atm hashes; rule: every number is an atm row or a cell-rules formula over atm rows, else marked"
+		],
+		"mustFix": [
+			"v7 text still v2 viewers vs v3 levels",
+			"shoot.mjs is the real recipe",
+			"size baseline recorded at merge",
+			"diff.patch excludes generated fixtures"
+		]
+	},
+	"fable": {
+		"overall": 8,
+		"scores": {
+			"testability": 9,
+			"convergence": 8,
+			"antiGaming": 9,
+			"simplicity": 8,
+			"cost": 9
+		},
+		"mustFix": [
+			"v7 body v2 vs v3 (v3 wins)",
+			"delta slice when a mockup PR changes a merged slice's screens"
+		]
+	},
+	"grok": {
+		"overall": 8,
+		"scores": {
+			"testability": 8,
+			"convergence": 8,
+			"antiGaming": 9,
+			"simplicity": 8,
+			"cost": 9
+		},
+		"blockers": ["v2 viewer text vs v3 levels; one contract file"]
+	},
+	"result": "Phase 0 closed after 6 rounds (cap) at 7/8/8; all findings = consolidate text to what runs; v8 written unscored per owner's order to continue"
+}
