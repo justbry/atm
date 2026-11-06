@@ -82,13 +82,17 @@ const expectPinned = (scenario: string, rec: Outcomes) => {
 	});
 	const known = KNOWN_FINDINGS[scenario] ?? [];
 	const found = findingsOf(rec);
-	expect(
-		found,
-		rec.outcomes
-			.filter((outcome) => outcome.status === "FINDING")
-			.map((outcome) => `${outcome.check}: ${outcome.detail}`)
-			.join("\n"),
-	).toEqual(known);
+	const gone = known.filter((check) => !found.includes(check));
+	const detail = rec.outcomes
+		.filter((outcome) => outcome.status === "FINDING")
+		.map((outcome) => `${outcome.check}: ${outcome.detail}`)
+		.join("\n");
+	// A pinned finding that no longer shows is either a fix (update KNOWN_FINDINGS and docs/golden-e2e-check.md knowingly) or a
+	// check that stopped looking; the message says so, because the bare list diff does not.
+	const goneNote = gone.length
+		? `\nPINNED FINDING NO LONGER REPORTED in ${scenario}: ${gone.join(" | ")}\nIf the behavior was fixed, remove it from KNOWN_FINDINGS and update docs/golden-e2e-check.md; if not, this check stopped detecting it.`
+		: "";
+	expect(found, `${detail}${goneNote}`).toEqual(known);
 };
 
 const withTimeZone = async <T>(zone: string, run: () => Promise<T>) => {
