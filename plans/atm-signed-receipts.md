@@ -145,11 +145,13 @@ export type AtmSeal = {
 	v: 1;
 	school: string;
 	month: string; // YYYY-MM, by the events' school-local `date`
-	/** Events counted: the month's events with `ingest_time <= sealed_at`. */
+	/** How many events the seal covers: the month's events in the folder when it was made. */
 	events: number;
+	/** Their ids, sorted. A month event not listed here reached the folder after the seal. */
+	event_ids: string[];
 	/** Events among them with postings, as `buildJournal` counts transactions. */
 	transactions: number;
-	/** sha256 of the counted events' canonical forms, sorted by id and joined by "\n". The same formula as `inputsHash`. */
+	/** sha256 of the covered events' canonical forms, sorted by id and joined by "\n". The same formula as `inputsHash`. */
 	events_hash: string;
 	sealed_at: string; // UTC ISO, passed in by the caller (atm reads no clock)
 	/** sha256 of the canonical form of the previous signed seal for this school, or null for the first. */
@@ -170,16 +172,18 @@ export const signSeal = (seal: AtmSeal, signer: AtmSigner): AtmSignedSeal;
 ```
 
 - The events are already de-duplicated by `idem`, as `readEvents` does.
-- `sealOf` throws if any of the month's events has `ingest_time > sealedAt`: the caller is sealing before those events were written.
+- `sealOf` covers every month event it is given. `sealedAt` is recorded, not used to pick events.
 
 ### The chain, and events that arrive late
 
 Seals form one append-only chain per school, in the order they were made. **A month may be sealed more than once.** A Stripe event delivered after a month was sealed still lands in that month (its `date` comes from `event_time`), so the month can be sealed again to cover it.
 
-Each seal counts only events with `ingest_time <= sealed_at`. That means:
-- an earlier seal of a month **keeps verifying** after late events arrive;
-- a later seal of the same month covers those late events too;
-- any month event with `ingest_time` after the month's latest seal is reported as **unsealed late**, not as tampering.
+Each seal lists the ids of the events it covers. Membership is by id, not by `ingest_time`, because the webhook handler stamps `ingest_time` when it writes the outbox row, before `atm ship` puts the event in the folder. A cutoff on `ingest_time` would leave out an event that was stamped before the seal but shipped after it, and the seal would later read as tampered. (An earlier draft of this spec used that cutoff; the code review of the implementation found the false alarm.) So:
+- an earlier seal of a month **keeps verifying** after more events reach the folder;
+- a later seal of the same month covers them too;
+- any month event that the month's latest seal does not list is reported as **unsealed late**, not as tampering.
+
+Seal after `atm ship` has run. `atm seal` holds a lock file per school (`ledger/seals.jsonl.lock`) while it reads the chain and appends, so two seals at once are refused instead of both linking to the same previous seal.
 
 ### Verifying seals
 
@@ -191,7 +195,7 @@ export type SealReport = {
 		sealed_at: string;
 		verdict: "ok" | "bad_signature" | "unknown_key" | "broken_link" | "events_changed";
 	}[];
-	/** Month events newer than that month's latest seal. */
+	/** Month events that the month's latest seal does not list. */
 	unsealedLate: { month: string; event_id: string; ingest_time: string }[];
 };
 
@@ -205,11 +209,11 @@ export const verifySeals = (
 For each seal, in chain order:
 1. Check its shape and signature.
 2. Check that `prev_seal_hash` matches the seal before it. A missing or reordered seal gives `broken_link`.
-3. Recompute `events_hash` and `events` with that seal's own cutoff. Any edit, deletion or backdated insertion gives `events_changed`.
+3. Look up each listed id and recompute `events_hash` and `transactions`. An edited event or a missing one gives `events_changed`.
 
 ### Known gap
 
-An event inserted later with a forged `ingest_time` after the seal looks like a real late event. It isn't hidden: `verifySeals` lists every unsealed late event, so a reviewer sees it. Closing this gap needs the per-event chain written at ingest (a later milestone).
+An event inserted into a sealed month afterwards looks like a real late event. It isn't hidden: `verifySeals` lists every event the latest seal doesn't cover, so a reviewer sees it. Closing this gap needs the per-event chain written at ingest (a later milestone). A seal's size grows with the month's event count (about 30 bytes an id).
 
 ## CLI
 
@@ -289,10 +293,10 @@ Receipts:
    - an event whose type was changed to one without receipts → `not_receipted`.
 
 Seals:
-10. Sealing, then changing, deleting or inserting an event in that month (with an earlier `ingest_time`) gives `events_changed`.
+10. Sealing, then changing or deleting an event in that month, gives `events_changed`.
 11. Sealing October and November, then removing or reordering a seal, gives `broken_link`.
-12. **Late events:** after sealing October, a new October event with a later `ingest_time` gives `ok` for the first seal and one `unsealedLate` entry. Sealing October again covers it, and both seals verify.
-13. `sealOf` throws when a month event's `ingest_time` is after `sealedAt`.
+12. **Late events:** after sealing October, a new October event (whatever its `ingest_time`, including one stamped before the seal) gives `ok` for the first seal and one `unsealedLate` entry. Sealing October again covers it, and both seals verify.
+13. A seal whose ids are unsorted or don't match its count is malformed; a second `atm seal` while the lock is held is refused.
 14. Seals are deterministic given the same events, `sealedAt` and previous seal.
 
 CLI:
@@ -318,7 +322,7 @@ About 100 lines:
 
 1. **Erasing a family's personal data must not rewrite events.** If an erasure (`subject.erased`) ever edits stored payloads, for example to remove `billing_email`, every receipt and seal over those events breaks. Decision needed: personal data stays out of hashed fields, or erasure deletes keys rather than editing events, or seals hash `redacted` instead. Check what the family service does today before release.
 2. **One platform key.** If it leaks, someone can forge receipts. Mitigations: keep it in a secret store, and support rotation through `key_id` (`keys.json` holds old keys so old receipts still verify). If a key is compromised, a list of revoked keys with dates is a later addition.
-3. **The open month isn't sealed until it closes**, and backdated insertions show up only as "late". This is the main limit of this milestone.
+3. **The open month isn't sealed until it closes**, and insertions into a sealed month show up only as "late". This is the main limit of this milestone.
 4. **Freezing the canonical form.** Pinned by the golden test. Any change to `canonicalize` needs a new receipt version.
 5. **Wording in marketing:** after this milestone, say "signed receipts and sealed books". Don't say "triple-entry accounting" until Stripe matching ships (`docs/brand/trifold-brand-and-messaging.md`, "Claim rules").
 6. **Owner decisions:**
