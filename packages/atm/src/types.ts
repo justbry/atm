@@ -514,17 +514,19 @@ export type LedgerVerdict =
 	| { ok: true }
 	| { ok: false; reason: "missing_event" | "event_changed" | "not_receipted" };
 
-/** One month's events as they stood at `sealed_at`, chained to the school's seal before it. */
+/** One month's events, named by id, as they stood in the folder when sealed, chained to the school's seal before it. */
 export type AtmSeal = {
 	v: 1;
 	school: string;
 	/** `YYYY-MM`, by the events' school-local `date`. */
 	month: string;
-	/** Events counted: the month's events with `ingest_time <= sealed_at`. */
+	/** Events covered: the month's events in the folder when the seal was made. */
 	events: number;
+	/** Their ids, sorted. Membership is by id, not by `ingest_time`, so an event shipped after the seal is late, not an edit. */
+	event_ids: string[];
 	/** Events among them with postings, as `buildJournal` counts transactions. */
 	transactions: number;
-	/** sha256 of the counted events' canonical forms, sorted by id and joined by "\n". The same formula as `inputsHash`. */
+	/** sha256 of the covered events' canonical forms, sorted by id and joined by "\n". The same formula as `inputsHash`. */
 	events_hash: string;
 	/** UTC ISO, passed in by the caller (atm reads no clock). */
 	sealed_at: string;
@@ -558,7 +560,7 @@ export type SealReport = {
 			| "broken_link"
 			| "events_changed";
 	}[];
-	/** Month events newer than that month's latest seal. */
+	/** Month events that month's latest seal does not name: late deliveries, or insertions. */
 	unsealedLate: { month: string; event_id: string; ingest_time: string }[];
 };
 

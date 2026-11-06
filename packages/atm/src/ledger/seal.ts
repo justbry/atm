@@ -13,36 +13,47 @@ import { canonicalize, sha256Hex } from "./util.js";
 
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 
-/** An instant as epoch ms; ISO text is not compared as text, because `...:01Z` sorts after `...:01.713Z`. */
-const instant = (text: string, what: string): number => {
-	const ms = Date.parse(text);
-	if (Number.isNaN(ms))
+const checkInstant = (text: string, what: string): void => {
+	if (Number.isNaN(Date.parse(text)))
 		throw new Error(`${what} is not an ISO instant: ${text}`);
-	return ms;
 };
 
 const monthEvents = (events: readonly AtmEvent[], month: string) =>
 	events.filter((e) => e.date.startsWith(`${month}-`));
 
-/** What a seal counts: the month's events written by `cutoff`, sorted by id, as `buildJournal` hashes them. */
-const counted = (events: readonly AtmEvent[], cutoff: number) => {
-	const inSeal = events
-		.filter((e) => Date.parse(e.ingest_time) <= cutoff)
-		.sort((a, b) => (a.id < b.id ? -1 : 1));
-	return {
-		events: inSeal.length,
-		transactions: inSeal.filter((e) => e.postings.length > 0).length,
-		events_hash: sha256Hex(inSeal.map((e) => canonicalize(e)).join("\n")),
-	};
+/** The events of each `YYYY-MM` month by id, built once for a whole chain. */
+const eventsByMonth = (events: readonly AtmEvent[]) => {
+	const months = new Map<string, Map<string, AtmEvent>>();
+	for (const event of events) {
+		// As `monthEvents` reads it: the `YYYY-MM` before the day's "-".
+		if (event.date[7] !== "-") continue;
+		const month = event.date.slice(0, 7);
+		const byEventId = months.get(month) ?? new Map<string, AtmEvent>();
+		byEventId.set(event.id, event);
+		months.set(month, byEventId);
+	}
+	return months;
 };
+
+const byId = (a: AtmEvent, b: AtmEvent) => (a.id < b.id ? -1 : 1);
+
+/** What a seal records about the events it covers, given sorted by id: `events_hash` as `buildJournal` hashes them. */
+const counted = (covered: readonly AtmEvent[]) => ({
+	events: covered.length,
+	event_ids: covered.map((e) => e.id),
+	transactions: covered.filter((e) => e.postings.length > 0).length,
+	events_hash: sha256Hex(covered.map((e) => canonicalize(e)).join("\n")),
+});
 
 /** What the next seal in the chain names as `prev_seal_hash`. */
 const sealHash = (signed: unknown): string => sha256Hex(canonicalize(signed));
 
 /**
- * The seal of one month of a school's events at `sealedAt`, chained to `previous` (the school's last signed seal). A
- * month may be sealed again later, to cover events that arrived after its last seal. Throws when the month has an event
- * written after `sealedAt` (the caller is sealing before it was written), and on a bad month or instant. Pure.
+ * The seal of one month of a school's events, chained to `previous` (the school's last signed seal). It covers every event
+ * of the month in `events` and names them by id, so membership never depends on `ingest_time`: the handler stamps that
+ * before `atm ship` puts the event in the folder, so an event stamped before a seal can arrive after it. A month may be
+ * sealed again later, to cover events that arrived after its last seal. Throws on a bad month or instant, and when two
+ * of the month's events share an id (the seal could not name them apart, so `verifySeals` would call it malformed). Pure.
  */
 export const sealOf = ({
 	school,
@@ -53,24 +64,22 @@ export const sealOf = ({
 }: SealOfInput): AtmSeal => {
 	if (!MONTH.test(month))
 		throw new Error(`month must be YYYY-MM, got ${month}`);
-	const cutoff = instant(sealedAt, "sealedAt");
+	checkInstant(sealedAt, "sealedAt");
 	if (previous && previous.seal.school !== school)
 		throw new Error(
 			`the previous seal is school ${previous.seal.school}'s, not ${school}'s`,
 		);
-	const inMonth = monthEvents(events, month);
-	const late = inMonth.find(
-		(e) => instant(e.ingest_time, `${e.id} ingest_time`) > cutoff,
+	const covered = monthEvents(events, month).sort(byId);
+	const repeated = covered.find(
+		(event, index) => index > 0 && covered[index - 1]?.id === event.id,
 	);
-	if (late)
-		throw new Error(
-			`event ${late.id} of ${month} was written at ${late.ingest_time}, after sealedAt ${sealedAt}`,
-		);
+	if (repeated)
+		throw new Error(`two events of ${month} share the id ${repeated.id}`);
 	return {
 		v: 1,
 		school,
 		month,
-		...counted(inMonth, cutoff),
+		...counted(covered),
 		sealed_at: sealedAt,
 		prev_seal_hash: previous ? sealHash(previous) : null,
 	};
@@ -83,7 +92,17 @@ export const signSeal = (seal: AtmSeal, signer: AtmSigner): AtmSignedSeal => ({
 	sig: signBytes(canonicalize(seal), signer),
 });
 
-const isSignedSeal = shapeCheck(sealSchema);
+const matchesSchema = shapeCheck(sealSchema);
+
+/** The schema, plus what it cannot say: `event_ids` strictly increasing (sorted, no repeat) and as many as `events`. */
+const isSignedSeal = (value: unknown): value is AtmSignedSeal => {
+	if (!matchesSchema(value)) return false;
+	const { event_ids: ids, events } = (value as AtmSignedSeal).seal;
+	return (
+		ids.length === events &&
+		ids.every((id, index) => index === 0 || (ids[index - 1] as string) < id)
+	);
+};
 
 type Verdict = SealReport["seals"][number]["verdict"];
 
@@ -97,17 +116,18 @@ const textOr = (value: unknown, key: string): string => {
 
 /**
  * A school's seal chain, in the order the seals were made, against its events (one per `idem`). For each seal: its shape
- * and signature, then its link to the seal before it (a missing or reordered seal is `broken_link`), then its counts
- * and `events_hash` again at its own `sealed_at` (an edit, deletion or backdated insertion is `events_changed`). A month
- * event written after the month's latest valid seal is listed in `unsealedLate`, not counted as tampering. Never throws
- * on a bad seal.
+ * and signature, then its link to the seal before it (a missing or reordered seal is `broken_link`), then the events it
+ * names, by id, hashed and counted again (an edit or a deletion is `events_changed`). A month event not named by the
+ * month's latest seal with a good signature (its own verdict aside) is listed in `unsealedLate`, not counted as
+ * tampering: atm cannot tell a late delivery from an insertion. Never throws on a bad seal.
  */
 export const verifySeals = (
 	seals: readonly unknown[],
 	events: readonly AtmEvent[],
 	keys: AtmPublicKeys,
 ): SealReport => {
-	const latest = new Map<string, number>();
+	const months = eventsByMonth(events);
+	const latest = new Map<string, AtmSeal>();
 	const rows = seals.map((raw, index) => {
 		const row = (verdict: Verdict) => ({
 			month: textOr(raw, "month"),
@@ -115,26 +135,32 @@ export const verifySeals = (
 			verdict,
 		});
 		if (!isSignedSeal(raw)) return row("malformed");
-		const { seal, key_id, sig } = raw as AtmSignedSeal;
+		const { seal, key_id, sig } = raw;
 		const signature = verifyBytes(canonicalize(seal), key_id, sig, keys);
 		if (signature !== "ok") return row(signature);
-		const cutoff = Date.parse(seal.sealed_at);
-		latest.set(seal.month, Math.max(latest.get(seal.month) ?? 0, cutoff));
+		latest.set(seal.month, seal);
 		const expected = index === 0 ? null : sealHash(seals[index - 1]);
 		if (seal.prev_seal_hash !== expected) return row("broken_link");
-		const again = counted(monthEvents(events, seal.month), cutoff);
+		const inMonth = months.get(seal.month);
+		const covered = seal.event_ids.map((id) => inMonth?.get(id));
+		if (covered.some((e) => e === undefined)) return row("events_changed");
+		const again = counted(covered as AtmEvent[]);
 		const same =
-			again.events === seal.events &&
 			again.transactions === seal.transactions &&
 			again.events_hash === seal.events_hash;
 		return row(same ? "ok" : "events_changed");
 	});
-	const unsealedLate = [...latest]
-		.flatMap(([month, cutoff]) =>
-			monthEvents(events, month)
-				.filter((e) => Date.parse(e.ingest_time) > cutoff)
-				.map((e) => ({ month, event_id: e.id, ingest_time: e.ingest_time })),
-		)
+	const unsealedLate = [...latest.values()]
+		.flatMap((seal) => {
+			const named = new Set(seal.event_ids);
+			return [...(months.get(seal.month)?.values() ?? [])]
+				.filter((e) => !named.has(e.id))
+				.map((e) => ({
+					month: seal.month,
+					event_id: e.id,
+					ingest_time: e.ingest_time,
+				}));
+		})
 		.sort((a, b) =>
 			a.month === b.month
 				? a.event_id < b.event_id
