@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import { cpSync, readdirSync, readFileSync } from "node:fs";
+import { cpSync, existsSync, readdirSync, readFileSync } from "node:fs";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,6 +10,10 @@ import {
 	createSubjectFor,
 } from "../../balance-engine/tests/unit/engineFixtures.js";
 import { deterministicUlid } from "../src/index.js";
+import { readEvents } from "../src/ledger/files.js";
+import { membersOf } from "../src/ledger/summary.js";
+import { buildViews } from "../src/ledger/views.js";
+import type { AtmCatalogRow } from "../src/types.js";
 
 /**
  * Builds dist into an empty directory and uses it the way a consumer outside this workspace would. With `ATM_DIST`
@@ -275,4 +279,114 @@ describe("built library", () => {
 		expect(bun.changes).toBeGreaterThan(0);
 		expect(bun.rows).toBeGreaterThan(0);
 	});
+	test("the `atm/worker` subpath points at built files that declare no foreign import", () => {
+		const subpath = JSON.parse(
+			readFileSync(join(import.meta.dir, "../package.json"), "utf8"),
+		).exports["./worker"];
+		expect(subpath).toEqual({
+			types: "./dist/worker.d.ts",
+			bun: "./src/worker.ts",
+			default: "./dist/worker.js",
+		});
+		expect(
+			existsSync(join(dir, subpath.types.replace("./dist/", "dist/"))),
+		).toBe(true);
+		expect(
+			existsSync(join(dir, subpath.default.replace("./dist/", "dist/"))),
+		).toBe(true);
+		const declarations = readFileSync(join(dir, "dist/worker.d.ts"), "utf8");
+		expect(declarations).toContain("export declare const readEventsFromStore");
+		expect(declarations).toContain("export declare const writeViews");
+	});
+
+	test("the worker declarations typecheck against the built package alone", async () => {
+		await writeFile(
+			join(dir, "typed-worker.ts"),
+			[
+				'import { buildViews, memberSummary, membersOf, readEventsFromStore, writeViews, type MemberResult, type MembersResult, type Views, type ViewsResult, type WriteViewsResult } from "./dist/worker.js";',
+				'import type { AtmEvent, Store } from "./dist/index.js";',
+				"declare const store: Store;",
+				"declare const asOf: Date;",
+				'const events: Promise<AtmEvent[]> = readEventsFromStore(store, "sch_vol", { from: "2026-01-01" });',
+				"declare const loaded: AtmEvent[];",
+				"const members: MembersResult = membersOf(loaded, asOf, { catalog: [] });",
+				'const one: MemberResult = memberSummary(loaded, "family:fam_1", asOf);',
+				'const built: ViewsResult = buildViews(loaded, { school: "sch_vol", asOf });',
+				"declare const views: Views;",
+				'const written: Promise<WriteViewsResult> = writeViews(store, "sch_vol", views);',
+				"export { events, members, one, built, written };",
+			].join("\n"),
+		);
+		await writeFile(
+			join(dir, "tsconfig-worker.json"),
+			JSON.stringify({
+				compilerOptions: {
+					strict: true,
+					module: "nodenext",
+					moduleResolution: "nodenext",
+					target: "es2022",
+					types: [],
+					noEmit: true,
+				},
+				files: ["typed-worker.ts"],
+			}),
+		);
+		run([
+			process.execPath,
+			require.resolve("typescript/bin/tsc"),
+			"-p",
+			"tsconfig-worker.json",
+		]);
+	}, 60_000);
+
+	test("the worker bundle reads a log through a Store and builds views, under Node, with no node_modules", async () => {
+		const root = join(import.meta.dir, "../fixtures/vibes-year");
+		cpSync(root, join(dir, "worker-books"), { recursive: true });
+		await writeFile(
+			join(dir, "worker.mjs"),
+			[
+				'import { readdirSync, readFileSync, statSync } from "node:fs";',
+				'import { join, relative } from "node:path";',
+				'import { buildViews, membersOf, readEventsFromStore } from "./dist/worker.js";',
+				'const base = "worker-books";',
+				"const keys = [];",
+				"const walk = (d) => { for (const n of readdirSync(d)) { const p = join(d, n); if (statSync(p).isDirectory()) walk(p); else keys.push(relative(base, p)); } };",
+				"walk(base);",
+				"const store = {",
+				"  list: async ({ prefix = '', delimiter } = {}) => {",
+				"    const under = keys.filter((k) => k.startsWith(prefix)).sort();",
+				"    if (!delimiter) return { objects: under.map((key) => ({ key })), prefixes: [], next: null };",
+				"    const prefixes = new Set(); const objects = [];",
+				"    for (const key of under) { const rest = key.slice(prefix.length); const at = rest.indexOf(delimiter); if (at === -1) objects.push({ key }); else prefixes.add(prefix + rest.slice(0, at + 1)); }",
+				"    return { objects, prefixes: [...prefixes].sort(), next: null };",
+				"  },",
+				"  get: async (key) => ({ key, body: new Uint8Array(readFileSync(join(base, key))) }),",
+				"};",
+				'const events = await readEventsFromStore(store, "sch_vol");',
+				'const catalog = JSON.parse(readFileSync(join(base, "catalog.json"), "utf8"));',
+				'const asOf = new Date("2026-12-28T17:00:00Z");',
+				"const members = membersOf(events, asOf, { catalog });",
+				'const built = buildViews(events, { school: "sch_vol", asOf, catalog });',
+				"console.log(JSON.stringify({ events: events.length, members, built }));",
+			].join("\n"),
+		);
+		const out = JSON.parse(run(["node", "worker.mjs"]));
+		const asOf = new Date("2026-12-28T17:00:00Z");
+		const catalog = JSON.parse(
+			readFileSync(join(root, "catalog.json"), "utf8"),
+		) as AtmCatalogRow[];
+		const { events } = await readEvents(root, "sch_vol");
+		expect(out.events).toBe(events.length);
+		expect(out.members).toEqual(
+			JSON.parse(JSON.stringify(membersOf(events, asOf, { catalog }))),
+		);
+		expect(out.built).toEqual(
+			JSON.parse(
+				JSON.stringify(
+					buildViews(events, { school: "sch_vol", asOf, catalog }),
+				),
+			),
+		);
+		expect(out.built.ok).toBe(true);
+	}, 60_000);
 });

@@ -52,12 +52,10 @@ const { reports } = await reportMonth({ root, school: "sch_vol", month: "2026-03
 
 ### Reading the log from a Worker (`src/ledger/read.ts`, `summary.ts`, `views.ts`)
 
-The read side for a reader with no disk and no database: an admin UI in a Cloudflare Worker over R2. Everything goes through a `Store` (`R2Store` there, `FolderStore` in tests), so none of it touches `node:fs` or `node:path`. These are source modules; they are not yet exported from `atm` (the export needs its types in `types.ts`, because the built declarations must stand alone), so import them by path inside this workspace.
+The read side for a reader with no disk and no database: an admin UI in a Cloudflare Worker over R2. Everything goes through a `Store` (`R2Store` there, `FolderStore` in tests), so none of it touches `node:fs` or `node:path`. Import them from the `atm/worker` subpath (`dist/worker.js` and `dist/worker.d.ts`; `src/worker.ts` under Bun), which re-exports `ledger/read.ts`, `ledger/summary.ts` and `ledger/views.ts` and their types. The main entry does not export them.
 
 ```ts
-import { readEventsFromStore } from "./ledger/read.js";
-import { membersOf, memberSummary } from "./ledger/summary.js";
-import { buildViews, writeViews } from "./ledger/views.js";
+import { buildViews, membersOf, memberSummary, readEventsFromStore, writeViews } from "atm/worker";
 
 const events = await readEventsFromStore(store, "sch_vol", { from: "2026-03-01", to: "2026-03-31" }); // range optional
 const members = membersOf(events, new Date()); // { ok: true, asOf, members: { "family:fam_8k2": { plan, features: { visit: { available, held, used, nextExpiryAt } }, lastEventAt } } }
@@ -70,7 +68,7 @@ if (built.ok) await writeViews(store, "sch_vol", built.views); // views/months/Y
 - `used` is the net of the member's postings to `credits:spent:*` and `credits:forfeited` for the feature (a `credit.refunded` takes its units back); expired and released credits are not used. `nextExpiryAt` is the earliest expiry still ahead of `asOf` among rows that hold credits.
 - `writeViews` writes canonical JSON and only the objects whose bytes change (`Store.putIfAbsent`, then `putIfMatch` on the ETag read), so a second run with the same `asOf` writes nothing. A member's object name is `sha256(<school>\0<key>)`, which a Worker computes with Web Crypto; the body carries the key. No view holds a name or an email.
 - Not derivable from the events: the **quantity** a family bought (only the credits it granted), the **renewal date** of a subscription (no `plan.*` event carries a period end), and a booking's **start time** (the only time on a booking is `payload.command.lock.expiresAt` of its `credit.held`, when the hold lapses). Showing them needs the family service's rows or a new field on the events.
-- Runtime: `read.ts` imports nothing at run time. `summary.ts` and `views.ts` need `nodejs_compat` (a Worker flag): `ledger/ids.ts`, `ledger/util.ts` and `store/store.ts` import `node:crypto`, `ledger/run.ts` sets `process.env.TZ`, and the engine imports `node:util`. `tests/ledger-read-hygiene.test.ts` walks the import graph and fails on `node:fs`, `node:path`, `child_process`, DuckDB or Ajv; its one exception is `billing/menu.ts`, which imports Ajv for `validateMenu` and which the read path never calls (the test also checks that no schema is compiled).
+- Runtime: `atm/worker` needs the `nodejs_compat` flag in the Worker's config. `ledger/ids.ts`, `ledger/util.ts` and `store/store.ts` import `node:crypto`, `ledger/run.ts` reads and sets `process.env.TZ`, and the engine imports `node:util`; workerd without the flag fails at load with `No such module "node:crypto"` (and `process is not defined` for the `process.env` reads). Three tests keep this honest: `tests/ledger-read-hygiene.test.ts` walks atm's import graph and fails on `node:fs`, `node:path`, `child_process`, DuckDB or Ajv (no exception: `billing/grants.ts` takes `commodityProblems` from `billing/commodity.ts`, not `billing/menu.ts`); `tests/ledger-read-bundle.test.ts` bundles `src/worker.ts` with esbuild (`@autumn/balance-engine` and `@autumn/shared` included), fails on Ajv, DuckDB, `node:fs`, `node:path`, `child_process`, `eval` or `new Function`, and pins the `node:*` built-ins left (`node:crypto`, `node:util`); `tests/ledger-read-workerd.test.ts` runs a Worker in workerd (Miniflare) over an R2 binding with `nodejs_compat`, compares its members and views with Node's, and records the error without the flag. The bundle is about 2.1 MB unminified (drizzle, zod, orpc and date-fns come in through `@autumn/shared`, which the engine imports).
 
 ## Billing
 

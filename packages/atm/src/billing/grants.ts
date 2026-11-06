@@ -19,8 +19,8 @@
 
 import type { AtmEnv } from "../types.js";
 import { heldOnRows, owedOnRows } from "./booking-holds.js";
+import { commodityProblems } from "./commodity.js";
 import { resolveEnv } from "./env.js";
-import { commodityProblems } from "./menu.js";
 import {
 	prorationPairUnchecked,
 	raiseLine,
