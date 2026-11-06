@@ -14,6 +14,7 @@ import { BookingDialog } from "./booking-dialog.tsx";
 import { Icon, type IconName } from "./icon.tsx";
 import { addDays, monthAndDay, weekdayName, weekStart } from "./period.ts";
 import { type Route, withQuery } from "./route.ts";
+import { viewedAudience } from "./view-as.ts";
 
 type Range = "day" | "week";
 type Filter = "outcome" | "approval" | "cutoff";
@@ -30,17 +31,6 @@ const refundTitle = "Refunds from this tab are not available yet.";
 const bookingsNote =
 	"Credits are reserved when a booking is made, spent when it's attended, and released when it's cancelled before the item's cutoff. Cutoffs come from each item, not one school-wide number.";
 
-const presets: Array<{
-	slug: string;
-	label: string;
-	range: Range;
-	offset: number;
-}> = [
-	{ slug: "today", label: "Today", range: "day", offset: 0 },
-	{ slug: "tomorrow", label: "Tomorrow", range: "day", offset: 1 },
-	{ slug: "this-week", label: "This week", range: "week", offset: 0 },
-	{ slug: "next-week", label: "Next week", range: "week", offset: 1 },
-];
 const filters: Array<{ slug: "all" | Filter; filter: Filter | null }> = [
 	{ slug: "all", filter: null },
 	{ slug: "outcome", filter: "outcome" },
@@ -48,7 +38,8 @@ const filters: Array<{ slug: "all" | Filter; filter: Filter | null }> = [
 	{ slug: "cutoff", filter: "cutoff" },
 ];
 
-/** `range=day|week` (absent: week), `offset=<n>` (absent: 0) and `filter=outcome|approval|cutoff` (absent: all). */
+/** The period is the top bar's (S7's) `range=day|week` (absent: week) and `offset=<n>` (absent: 0), the chips'
+ * `filter=outcome|approval|cutoff` (absent: all). */
 function readView(query: URLSearchParams): View {
 	const offset = Number(query.get("offset") ?? 0);
 	const filter = query.get("filter");
@@ -60,19 +51,6 @@ function readView(query: URLSearchParams): View {
 				? filter
 				: null,
 	};
-}
-
-/** The route for a view: the defaults (week, offset 0, all) are left out of the hash. */
-function viewRoute(route: Route, { range, offset, filter }: View): Route {
-	return withQuery(
-		withQuery(
-			withQuery(route, "range", range === "day" ? "day" : null),
-			"offset",
-			offset === 0 ? null : String(offset),
-		),
-		"filter",
-		filter,
-	);
 }
 
 /** The days a view covers (mockup `bRange`): a day from the clock's today, or a Monday-to-Sunday week. */
@@ -318,6 +296,18 @@ type Group = {
 	withDate: boolean;
 };
 
+type BookingsProps = {
+	reader: Reader;
+	writer: Writer;
+	school: School;
+	clock: Clock;
+	route: Route;
+	navigate: (route: Route) => void;
+	/** Called after each render that shows what the route asks for: the list, or the lock panel. */
+	onRendered: () => void;
+	onToast: (text: string) => void;
+};
+
 type Loaded = { key: string; inRange: Booking[]; before: Booking[] };
 
 /** The Bookings pane (mockup `bookings()`): one day or week of the school's bookings in day groups, preceded by the
@@ -325,7 +315,7 @@ type Loaded = { key: string; inRange: Booking[]; before: Booking[] };
  * days before it). Which bookings need an outcome or sit inside their cutoff is the contract's `needsOutcome` and
  * `insideCutoff`; the Billing column is the Reader's `billing`; nothing is counted but the rows shown. Writes are
  * `recordOutcome` and `cancelBooking`, one per booking; a booking written stays "pending" until the ledger ships. */
-export function Bookings({
+function BookingsList({
 	reader,
 	writer,
 	school,
@@ -334,17 +324,7 @@ export function Bookings({
 	navigate,
 	onRendered,
 	onToast,
-}: {
-	reader: Reader;
-	writer: Writer;
-	school: School;
-	clock: Clock;
-	route: Route;
-	navigate: (route: Route) => void;
-	/** Called after each render that shows the list the route asks for. */
-	onRendered: () => void;
-	onToast: (text: string) => void;
-}): JSX.Element | null {
+}: BookingsProps): JSX.Element | null {
 	const view = readView(route.query);
 	const { from, to } = viewDays(view, clock.today);
 	const key = `${school.id}/${from}/${to}`;
@@ -491,7 +471,8 @@ export function Bookings({
 		);
 	};
 
-	const chooseView = (next: View): void => navigate(viewRoute(route, next));
+	const chooseFilter = (filter: Filter | null): void =>
+		navigate(withQuery(route, "filter", filter));
 	const chipLabels: Record<"all" | Filter, string> = {
 		all: "All",
 		outcome: `Needs outcome (${counted.filter(checks.outcome).length})`,
@@ -499,18 +480,6 @@ export function Bookings({
 		cutoff: `Inside cutoff (${counted.filter(checks.cutoff).length})`,
 	};
 	const onThisWeek = view.range === "week" && view.offset === 0;
-	const step = (direction: -1 | 1): JSX.Element => (
-		<button
-			type="button"
-			class="btn ico s"
-			data-test="booking-step"
-			data-step={direction}
-			aria-label={direction < 0 ? "Previous" : "Next"}
-			onClick={() => chooseView({ ...view, offset: view.offset + direction })}
-		>
-			<Icon name={direction < 0 ? "chevronLeft" : "chevronRight"} />
-		</button>
-	);
 	const dialogLine = dialog
 		? [
 				dialog.booking.service,
@@ -588,39 +557,12 @@ export function Bookings({
 	return (
 		<>
 			<div class="tools">
-				{/* biome-ignore lint/a11y/useSemanticElements: the mockup's segmented control is a div; a fieldset brings its own border and padding */}
-				<div class="seg" role="group" aria-label="Period">
-					{presets.map((preset) => {
-						const on =
-							view.range === preset.range && view.offset === preset.offset;
-						return (
-							<button
-								key={preset.slug}
-								type="button"
-								class={on ? "on" : undefined}
-								aria-pressed={on}
-								data-test="booking-range"
-								data-range={preset.slug}
-								onClick={() =>
-									chooseView({
-										...view,
-										range: preset.range,
-										offset: preset.offset,
-									})
-								}
-							>
-								{preset.label}
-							</button>
-						);
-					})}
-				</div>
-				{step(-1)}
 				<b data-test="booking-range-label">{viewLabel(view, from)}</b>
 				<span class="mut" data-test="booking-range-dates">
 					{monthAndDay(from)}
-					{from === to ? "" : ` – ${monthAndDay(to)}`}
+					{from === to ? "" : ` – ${monthAndDay(to)}`} · change it in the period
+					control
 				</span>
-				{step(1)}
 				<span class="sp" />
 				{filters.map(({ slug, filter }) => (
 					<button
@@ -630,7 +572,7 @@ export function Bookings({
 						aria-pressed={filter === view.filter}
 						data-test="booking-filter"
 						data-filter={slug}
-						onClick={() => chooseView({ ...view, filter })}
+						onClick={() => chooseFilter(filter)}
 					>
 						{chipLabels[slug]}
 					</button>
@@ -670,4 +612,31 @@ export function Bookings({
 			)}
 		</>
 	);
+}
+
+/** The lock panel (mockup `lockPanel`): bookings are not a school-books surface, so the governance, member and public
+ * audiences see this and none of the list, its dates or its names. */
+function BookingsLock({ onRendered }: { onRendered: () => void }): JSX.Element {
+	useLayoutEffect(() => {
+		onRendered();
+	});
+	return (
+		<div class="klock" data-test="lock-panel" data-lock="admins_only">
+			<Icon name="calendar" />
+			<h4>Owners and admins see bookings</h4>
+			<div class="mut">
+				Not a school-books surface: bookings carry minors' schedules
+				(safeguarding), so they follow ManageBookings, not the audience.
+			</div>
+		</div>
+	);
+}
+
+/** The Bookings pane (mockup `bookings()`): the list for the owner, finance and admin audiences, the lock panel for
+ * the others. The audience is the signed-in person's, or the `as=` preview they may take. */
+export function Bookings(props: BookingsProps): JSX.Element | null {
+	const audience = viewedAudience(props.school, props.route.query.get("as"));
+	if (audience === "owner" || audience === "finance" || audience === "admin")
+		return <BookingsList {...props} />;
+	return <BookingsLock onRendered={props.onRendered} />;
 }

@@ -56,6 +56,11 @@ const open = async (
 	}).unmount;
 	await settle();
 };
+/** Follows a hash in the app that is already open. */
+const go = async (hash: string): Promise<void> => {
+	window.location.hash = hash;
+	await settle();
+};
 const click = async (selector: string): Promise<void> => {
 	element(selector).click();
 	await settle();
@@ -112,19 +117,54 @@ test("the contract's rules read the clock, state and attendance only", () => {
 	);
 });
 
-test("the route's defaults are left out and a preset or step writes only what differs", async () => {
-	await open("#/vol/bookings?filter=cutoff&theme=light");
-	await click("[data-test=booking-range][data-range=today]");
+test("a filter chip writes only filter= and keeps the period and the preview in the hash", async () => {
+	await open("#/vol/bookings?range=day&offset=1&as=admin&theme=light");
+	await click("[data-test=booking-filter][data-filter=approval]");
 	expect(window.location.hash).toBe(
-		"#/vol/bookings?filter=cutoff&theme=light&range=day",
+		"#/vol/bookings?range=day&offset=1&as=admin&theme=light&filter=approval",
 	);
-	await click("[data-test=booking-step][data-step='1']");
-	expect(window.location.hash).toContain("offset=1");
-	expect(text("[data-test=booking-range-label]")).toBe("Tomorrow");
-	await click("[data-test=booking-range][data-range=this-week]");
-	expect(window.location.hash).toBe("#/vol/bookings?filter=cutoff&theme=light");
 	await click("[data-test=booking-filter][data-filter=all]");
-	expect(window.location.hash).toBe("#/vol/bookings?theme=light");
+	expect(window.location.hash).toBe(
+		"#/vol/bookings?range=day&offset=1&as=admin&theme=light",
+	);
+	expect(text("[data-test=booking-range-label]")).toBe("Tomorrow");
+});
+
+test("the pane has no period buttons of its own", async () => {
+	await open("#/vol/bookings");
+	expect(count("[data-test=booking-range], [data-test=booking-step]")).toBe(0);
+});
+
+test("the audiences that may not see bookings get the lock panel and read nothing", async () => {
+	const reads: BookingsQuery[] = [];
+	const reader = createFixtureReader({ clock });
+	await open("#/vol/bookings?as=public&filter=cutoff", {
+		reader: {
+			...reader,
+			bookings: (query) => {
+				reads.push(query);
+				return reader.bookings(query);
+			},
+		},
+	});
+	expect(reads).toEqual([]);
+	expect(text("[data-test=lock-panel] h4")).toBe(
+		"Owners and admins see bookings",
+	);
+	expect(element("[data-test=lock-panel]").dataset.lock).toBe("admins_only");
+	expect(count("table, [data-test=booking-filter]")).toBe(0);
+});
+
+test("a preview the person may not take is ignored; one they may take is honoured", async () => {
+	await open("#/b4u/bookings?as=owner");
+	expect(count("[data-test=lock-panel]")).toBe(0);
+	expect(count("[data-test=booking-row]")).toBe(1);
+	await go("#/b4u/bookings?as=member");
+	expect(count("[data-test=lock-panel]")).toBe(1);
+	await go("#/b4u/bookings?as=finance");
+	expect(count("[data-test=lock-panel]")).toBe(0);
+	await go("#/b4u/bookings?as=nobody");
+	expect(count("[data-test=lock-panel]")).toBe(0);
 });
 
 test("a malformed route opens this week with every booking", async () => {
@@ -134,11 +174,13 @@ test("a malformed route opens this week with every booking", async () => {
 	expect(count("[data-test=booking-row]")).toBe(5);
 });
 
-test("a week beyond the presets is named by its Monday and a day by its weekday", async () => {
+test("a week beyond last, this and next is named by its Monday and a day by its weekday", async () => {
 	await open("#/vol/bookings?range=week&offset=-3");
 	expect(text("[data-test=booking-range-label]")).toBe("Week of Oct 12");
-	expect(text("[data-test=booking-range-dates]")).toBe("Oct 12 – Oct 18");
-	await open("#/vol/bookings?range=day&offset=-1");
+	expect(text("[data-test=booking-range-dates]")).toBe(
+		"Oct 12 – Oct 18 · change it in the period control",
+	);
+	await go("#/vol/bookings?range=day&offset=-1");
 	expect(text("[data-test=booking-range-label]")).toBe("Yesterday");
 });
 
@@ -165,9 +207,9 @@ test("the Billing column shows free, held credits in the school's unit and paid 
 	expect(text(`${row("bk_6qq")} td:nth-child(4)`)).toBe("Free");
 	expect(text(`${row("bk_8zz")} td:nth-child(4)`)).toBe("1 session held");
 	expect(text(`${row("bk_5kd")} td:nth-child(4)`)).toBe("2 sessions held");
-	await click("[data-test=booking-range][data-range=next-week]");
+	await go("#/vol/bookings?offset=1");
 	expect(text(`${row("bk_3cd")} td:nth-child(4)`)).toBe("Paid $40.00");
-	await open("#/b4u/bookings");
+	await go("#/b4u/bookings");
 	expect(text(`${row("bk_b12")} td:nth-child(4)`)).toBe("2 credits held");
 });
 
