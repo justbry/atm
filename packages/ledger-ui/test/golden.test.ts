@@ -30,6 +30,11 @@ type Expectation = {
 	hash?: string;
 	writes?: Array<{ method: string; args: unknown[] }>;
 	absent?: string[];
+	/** Form controls: each part is a substring of the first match's raw `value` (a textarea's text is not its
+	 * textContent). */
+	value?: Record<string, string[]>;
+	/** `text` selectors the moving-data run checks again (protocol §7); this runner does not read it. */
+	moves?: string[];
 };
 type Entry = {
 	id: string;
@@ -42,6 +47,7 @@ type Entry = {
 };
 type GoldenFile = {
 	slice: string;
+	source?: string;
 	hooks: string[];
 	matrix?: Record<string, string[]>;
 	/** Reader field paths, `<method>.<property>…`, with `[]` after a segment that is a list, e.g.
@@ -220,6 +226,15 @@ const check = (
 			selector,
 			count: document.querySelectorAll(selector).length,
 		}).toEqual({ selector, count });
+	}
+	for (const [selector, parts] of Object.entries(expectation.value ?? {})) {
+		const control = required(selector) as HTMLInputElement;
+		for (const part of parts)
+			expect({
+				selector,
+				value: part,
+				ok: control.value.includes(part),
+			}).toEqual({ selector, value: part, ok: true });
 	}
 	if (expectation.hash !== undefined)
 		expect(window.location.hash).toContain(expectation.hash);
