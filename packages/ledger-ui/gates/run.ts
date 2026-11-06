@@ -129,13 +129,19 @@ const bytes = [...firstLoad].reduce(
 const budget = JSON.parse(
 	readFileSync(join(import.meta.dir, "budget.json"), "utf8"),
 ) as Budget;
-const previous = budget.sizes[`S${sliceNumber - 1}`];
+/** The last recorded slice before this one, and how many slices lie between (each may grow by `growth`). */
+const recorded = Array.from(
+	{ length: sliceNumber },
+	(_, index) => sliceNumber - 1 - index,
+).find((number) => budget.sizes[`S${number}`] !== undefined);
+const previous =
+	recorded === undefined ? undefined : budget.sizes[`S${recorded}`];
 const limit =
 	sliceNumber === 0
 		? budget.S0Ceiling
-		: previous === undefined
+		: previous === undefined || recorded === undefined
 			? Number.NaN
-			: Math.floor(previous * budget.growth);
+			: Math.floor(previous * budget.growth ** (sliceNumber - recorded));
 if (!(bytes <= limit)) {
 	process.stdout.write(`S red: ${bytes} gzip bytes, limit ${limit}\n`);
 	process.exit(1);
