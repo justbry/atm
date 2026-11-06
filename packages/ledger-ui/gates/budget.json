@@ -2,7 +2,8 @@
 	"S0Ceiling": 30720,
 	"growth": 1.1,
 	"sizes": {
-		"S0": 17452
+		"S0": 18626
 	},
-	"measure": "first load: entry chunk, its static imports and their CSS (owner default 2026-11-06; reversible)"
+	"measure": "first load: entry chunk, its static imports and their CSS (owner default 2026-11-06; reversible)",
+	"note": "S0 recorded at its round-3 head (first load, gzip); re-recorded when S0 merges"
 }
