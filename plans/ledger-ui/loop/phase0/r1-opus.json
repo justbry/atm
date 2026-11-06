@@ -1,0 +1,31 @@
+{
+	"scores": {
+		"testability": 6,
+		"convergence": 7,
+		"antiGaming": 6,
+		"simplicity": 8,
+		"cost": 7
+	},
+	"overall": 6,
+	"blockers": [
+		"no-digit rule breaks lt and banded cells; split by type",
+		"gate H dist scan hits Preact runtime",
+		"gate P commits only; shared dirty tree; protect package.json/tsconfig/bunfig/vite.config/nested biome; clean status + fresh worktree for gates; keep state/runs/evidence outside W"
+	],
+	"mustFix": [
+		"texts page-wide; fixtures builder-writable; derive-check missing",
+		"PASS after objection round; revert vs best mean",
+		"close rule 4 rounds x gate fixes vs 6-panel cap; reviewers never see previous mustFix -> moving target",
+		"mockup dark = theme='dark';applyTheme()",
+		"gate B paths relative to repo root: use --relative or run from root",
+		"mockshots + mock text once per slice, reuse",
+		"size: 10% of previous slice, exclude fixtures by entry module not name",
+		"drop evidence index.html"
+	],
+	"wouldChange": [
+		"dry panel on S0 to check Grok reads PNGs; text fallback",
+		"golden cells type+text generated for every series cell",
+		"count gate-fix runs and screenshot calls in budget"
+	],
+	"note": "condensed; full JSON in delegate thread"
+}

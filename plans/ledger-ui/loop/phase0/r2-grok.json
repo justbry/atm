@@ -1,0 +1,33 @@
+{
+	"scores": {
+		"testability": 7,
+		"convergence": 7,
+		"antiGaming": 7,
+		"simplicity": 8,
+		"cost": 8
+	},
+	"overall": 7,
+	"blockers": [
+		"gate B biome binary in W never installed; use archive's",
+		"hidden label has digit vs no-digit rule; exact label instead",
+		"CLOSE does not return; restart does not reset n/best",
+		"second reviewer timeout/invalid: no branch",
+		"only changed shots re-shot; PASS on stale PNGs",
+		"worktree not a sandbox; builder can write state.json; rebuild pass from reviewer JSON",
+		"cell shape vs spec null+reason; open month for locked/admin/demo; probe real null"
+	],
+	"mustFix": [
+		"duplicate key step",
+		"wait for paint before snapshot",
+		"imagesViewed false and not_fixed prior items do not cap",
+		"revert discards reverted findings",
+		"fixtures chunk gameable",
+		"size rule two knobs",
+		"caps only at ROUND start"
+	],
+	"wouldChange": [
+		"required coverage: empty preset + every cell kind",
+		"normalization = smoke.mjs; hashchange",
+		"builder-run ceiling"
+	]
+}
