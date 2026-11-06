@@ -224,5 +224,15 @@ $("#vm #vmx").click();
 sc("vol");card=pc("m_051");ok("books portal: a member without a live membership is Public",card?.dataset.books==="public"&&/Public view/.test(card.textContent),card?.textContent);
 $("#vm #vmx").click();
 ok("books: tiny school hides cells under the 5-contributor rule at Public",(sc("vol"),tab("dash"),lvl("public"),$("#dash [data-dv=members]").click(),$$("#dash .kcut").length+$$("#dash .kcutv").length>=1&&/fewer than 5/.test(txt("#dash"))),txt("#dash").slice(0,200));
+// Legibility: chart axis labels are HTML (not SVG text that the viewBox shrinks), at least 11px; role chips and the three-segment balance bar render with their classes
+{const css=d.querySelector("style").textContent,px=sel=>+((css.match(new RegExp(sel.replace(/[.]/g,"\\.")+"[^{]*\\{[^}]*font-size:([\\d.]+)px"))||[])[1]||0);
+ sc("b4u");tab("dash");$("#dash [data-bv=fin]").click();$("#dash [data-dm='5']").click();
+ ok("axis: gross vs net has 12 month labels, none are SVG text",$$("#dash .kax").length>=1&&$$("#dash .kax")[0].children.length===12&&$$("#dash svg.kc text").length===0,$$("#dash svg.kc text").length+"");
+ ok("axis: gross by day has day labels",$$("#dash .kaxd span").length>=6&&/^1$/.test($("#dash .kaxd span").textContent),$$("#dash .kaxd span").length+"");
+ ok("axis: label font is at least 11px",px(".kax span")>=11&&px(".kaxd span")>=11&&px(".kthr")>=11,[px(".kax span"),px(".kaxd span"),px(".kthr")].join(","));
+ ok("axis: the selected month label is marked",$$("#dash .kax span.on").length===1&&$("#dash .kax span.on").textContent==="Jun");
+ sc("vol");tab("mem");
+ ok("chips: role and finance chips carry their styled classes",$$("#mb .krole").length>=1&&/\.krole\{[^}]*border:1px solid/.test(css)&&/\.kfin\{[^}]*border:1px dashed/.test(css));
+ ok("balance bar: three segments on every row with a plan",$$("#mb .bar3").length>=1&&$$("#mb .bar3").every(b=>b.querySelectorAll("i.u,i.h,i.a").length===3),$$("#mb .bar3").length+"")}
 ok("no runtime errors",errs.length===0,errs.join(" | "));
 console.log(fails.length?`\n${fails.length} FAILED`:"\nall passed");process.exit(fails.length?1:0);
