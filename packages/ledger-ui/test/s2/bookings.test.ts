@@ -380,3 +380,182 @@ test("the fixture Reader answers a range inclusively and a school without bookin
 		).bookings,
 	).toEqual([]);
 });
+
+test("a booking waiting for approval offers Remind host, which toasts the host names and writes nothing", async () => {
+	const writer = createFixtureWriter({ mode: "instant" });
+	const reader = readerWith((booking) =>
+		booking.id === "bk_rq1"
+			? {
+					...booking,
+					hosts: [
+						{ id: "kim", name: "Kim" },
+						{ id: "ravi", name: "Ravi" },
+					],
+				}
+			: booking,
+	);
+	await open("#/vol/bookings", { reader, writer });
+	const remind = `[data-test=booking-action][data-action=remind][data-booking=bk_rq1]`;
+	expect(text(remind)).toBe("Remind host");
+	expect(count("[data-test=booking-action][data-booking=bk_rq1]")).toBe(1);
+	await click(remind);
+	expect(text("[data-test=toast]")).toBe("Reminder sent to Kim, Ravi.");
+	expect(writer.calls).toEqual([]);
+});
+
+test("Remind host is disabled under View as preview, like the other writes", async () => {
+	await open("#/vol/bookings?as=admin");
+	const remind = element<HTMLButtonElement>(
+		`[data-test=booking-action][data-action=remind][data-booking=bk_rq1]`,
+	);
+	expect(remind.disabled).toBe(true);
+	remind.click();
+	await settle();
+	expect(text("[data-test=toast]")).toBe("");
+});
+
+test("a release inside the cutoff opens the waive dialog only where a late cancel is spent", async () => {
+	const startingSoon = readerWith((booking) =>
+		booking.id === "bk_b12"
+			? { ...booking, startsAt: "2026-11-05T13:00", endsAt: "2026-11-05T14:00" }
+			: booking,
+	);
+	const release = (id: string): string =>
+		`[data-test=booking-action][data-action=release][data-booking=${id}]`;
+
+	const spends = createFixtureWriter({ mode: "instant" });
+	await open("#/vol/bookings", { reader: startingSoon, writer: spends });
+	await click(release("bk_5kd"));
+	expect(count("[data-test=waive-cutoff]")).toBe(1);
+	expect(spends.calls).toEqual([]);
+	await click("[data-test=waive-cutoff]");
+	await click("[data-test=dialog-confirm]");
+	expect(spends.calls).toEqual([
+		{
+			method: "cancelBooking",
+			args: [
+				{
+					school: "vol",
+					bookingId: "bk_5kd",
+					reason: "admin_release",
+					waiveCutoff: true,
+				},
+			],
+		},
+	]);
+
+	unmount?.();
+	document.body.innerHTML = "";
+	const releases = createFixtureWriter({ mode: "instant" });
+	await open("#/b4u/bookings", { reader: startingSoon, writer: releases });
+	await click(release("bk_b12"));
+	expect(count("[data-test=dialog]")).toBe(0);
+	expect(releases.calls).toEqual([
+		{
+			method: "cancelBooking",
+			args: [{ school: "b4u", bookingId: "bk_b12", reason: "admin_release" }],
+		},
+	]);
+	expect(text("[data-test=toast]")).toBe("Hold released for Dana W.");
+});
+
+test("a booking's series label is shown as the server worded it, after the other badges", async () => {
+	await open("#/vol/bookings");
+	expect(text(`${row("bk_7hq")} [data-test=booking-status]`)).toBe(
+		"weekly · 3 left",
+	);
+	expect(text(`${row("bk_rq1")} [data-test=booking-status]`)).toBe(
+		"Waiting for approval",
+	);
+	unmount?.();
+	document.body.innerHTML = "";
+	const reader = readerWith((booking) =>
+		booking.id === "bk_rq1"
+			? { ...booking, seriesLabel: "every other week" }
+			: booking,
+	);
+	await open("#/vol/bookings", { reader });
+	expect(text(`${row("bk_rq1")} [data-test=booking-status]`)).toBe(
+		"Waiting for approval every other week",
+	);
+});
+
+test("the member's name is a button that opens their drawer on the Members tab, keeping the shared parameters", async () => {
+	await open("#/vol/bookings?theme=light&range=day&offset=-1&filter=outcome");
+	const name = element(`${row("bk_8zz")} [data-test=booking-member]`);
+	expect(name.tagName).toBe("BUTTON");
+	expect(element(row("bk_8zz")).onclick).toBeNull();
+	await click(`${row("bk_8zz")} [data-test=booking-member]`);
+	expect(window.location.hash).toBe(
+		"#/vol/members?theme=light&range=day&offset=-1&member=m_204",
+	);
+	expect(count("[data-test=member-drawer]")).toBe(1);
+});
+
+test("a guest has no member button", async () => {
+	const reader = readerWith((booking) =>
+		booking.id === "bk_8zz"
+			? { ...booking, attendee: null, guest: true }
+			: booking,
+	);
+	await open("#/vol/bookings", { reader });
+	expect(element(`${row("bk_8zz")} [data-test=booking-member]`).tagName).toBe(
+		"SPAN",
+	);
+});
+
+test("paid money is the shared formatter's, in the booking's own currency", async () => {
+	const reader = readerWith((booking) =>
+		booking.id === "bk_6qq"
+			? {
+					...booking,
+					billing: { kind: "paid", amountMinor: 123_456, currency: "CAD" },
+				}
+			: booking,
+	);
+	await open("#/vol/bookings", { reader });
+	expect(text(`${row("bk_6qq")} td:nth-child(4)`)).toBe("Paid CA$1,234.56");
+});
+
+test("while a read is on its way the tools bar and the note stay and the list is empty, with no counts", async () => {
+	const reader = createFixtureReader({ clock });
+	await open("#/vol/bookings?range=day&offset=1", {
+		reader: { ...reader, bookings: () => new Promise(() => undefined) },
+	});
+	expect(text("[data-test=booking-range-label]")).toBe("Tomorrow");
+	expect(
+		Array.from(
+			document.querySelectorAll("[data-test=booking-filter]"),
+			(chip) => chip.textContent,
+		),
+	).toEqual(["All", "Needs outcome", "Waiting for approval", "Inside cutoff"]);
+	expect(count("table")).toBe(1);
+	expect(count("[data-test=booking-row], [data-test=booking-empty]")).toBe(0);
+	expect(count("[data-test=booking-note]")).toBe(1);
+});
+
+test("the actions column is named and a disabled refund's reason reaches assistive technology", async () => {
+	await open("#/vol/bookings?offset=1");
+	const heads = Array.from(document.querySelectorAll("th"), (head) =>
+		(head.textContent ?? "").trim(),
+	);
+	expect(heads.at(-1)).toBe("Actions");
+	const refund = element(
+		`[data-test=booking-action][data-action=refund][data-booking=bk_3cd]`,
+	);
+	const reasonId = refund.getAttribute("aria-describedby");
+	expect(reasonId).toBeTruthy();
+	expect(document.getElementById(reasonId ?? "")?.textContent).toBe(
+		"Refunds from this tab are not available yet.",
+	);
+});
+
+test("the filter chips and the table carry no inline styles", async () => {
+	await open("#/vol/bookings?range=day&offset=1&filter=approval");
+	expect(count("[style]")).toBe(0);
+	await go("#/vol/bookings?range=day&offset=4");
+	expect(count("[data-test=booking-empty]")).toBe(1);
+	expect(
+		count("[data-test=booking-empty][style], .bookings-empty[style]"),
+	).toBe(0);
+});

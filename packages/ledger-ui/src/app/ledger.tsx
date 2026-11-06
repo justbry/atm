@@ -21,6 +21,7 @@ import { LockPanel } from "./lock-panel.tsx";
 import { formatMoney, signedCount } from "./money.ts";
 import { monthAndDay, parsePeriod, weekdayName } from "./period.ts";
 import { PinLock } from "./pin-lock.tsx";
+import { plural } from "./plural.ts";
 import { withQuery } from "./route.ts";
 import { useLoaded } from "./use-loaded.ts";
 import { useViewing } from "./viewing.ts";
@@ -76,8 +77,6 @@ function eventIcon({ event }: LedgerEntry): IconName {
 
 const capitalise = (word: string): string =>
 	`${word.slice(0, 1).toUpperCase()}${word.slice(1)}`;
-const plural = (count: number, noun: string): string =>
-	`${count} ${noun}${count === 1 ? "" : "s"}`;
 const isDrill = (value: string | null): value is LedgerDrill =>
 	value !== null && value in drillLabels;
 const columnCount = 6;

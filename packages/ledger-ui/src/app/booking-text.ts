@@ -13,3 +13,7 @@ export const sentToast =
 	"Sent. It shows as pending, then in the ledger after the next ship (≤5 min).";
 /** A write that did not reach the server (bookings, Members, the member portal, promos). */
 export const failedToast = "Could not send. Try again.";
+
+/** The toast after "Remind host" (bookings, the Members drawer): who was reminded. */
+export const reminderToast = (hostNames: readonly string[]): string =>
+	`Reminder sent to ${hostNames.join(", ")}.`;

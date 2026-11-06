@@ -15,6 +15,7 @@ import {
 	cutoffHours,
 	endSentence,
 	failedToast,
+	reminderToast,
 	sentToast,
 } from "./booking-text.ts";
 import {
@@ -25,8 +26,10 @@ import {
 } from "./bookings-period.ts";
 import { Icon, type IconName } from "./icon.tsx";
 import { LockPanel } from "./lock-panel.tsx";
+import { formatMoney } from "./money.ts";
 import type { PaneProps } from "./panes.tsx";
 import { addDays, monthAndDay, weekdayName } from "./period.ts";
+import { plural } from "./plural.ts";
 import { type Route, withQuery } from "./route.ts";
 import { keepLoading } from "./use-loaded.ts";
 import { exitPreviewTitle, useViewing } from "./viewing.ts";
@@ -40,13 +43,6 @@ const overdueDays = 62;
 const refundTitle = "Refunds from this tab are not available yet.";
 const bookingsNote =
 	"Credits are reserved when a booking is made, spent when it's attended, and released when it's cancelled before the item's cutoff. Cutoffs come from each item, not one school-wide number.";
-
-const filters: Array<{ slug: "all" | Filter; filter: Filter | null }> = [
-	{ slug: "all", filter: null },
-	{ slug: "outcome", filter: "outcome" },
-	{ slug: "approval", filter: "approval" },
-	{ slug: "cutoff", filter: "cutoff" },
-];
 
 /** The period (`range=` and `offset=`, shared with the top bar's control) and `filter=outcome|approval|cutoff`
  * (absent: all). */
@@ -72,8 +68,6 @@ const byStart = (first: Booking, second: Booking): number =>
 const dayOf = ({ startsAt }: Booking): string => startsAt.slice(0, 10);
 const attendeeName = ({ attendee }: Booking): string =>
 	attendee?.name ?? "Guest";
-const plural = (count: number, noun: string): string =>
-	`${count} ${noun}${count === 1 ? "" : "s"}`;
 
 type Check = (booking: Booking) => boolean;
 
@@ -94,14 +88,10 @@ function BillingBadge({
 				{billing.credits === 1 ? creditUnit.one : creditUnit.other} held
 			</span>
 		);
-	const amount = new Intl.NumberFormat("en-US", {
-		style: "currency",
-		currency: billing.currency,
-	}).format(billing.amountMinor / 100);
 	return (
 		<span class="badge">
 			<Icon name="coin" />
-			Paid {amount}
+			Paid {formatMoney(billing.amountMinor, billing.currency)}
 		</span>
 	);
 }
@@ -115,6 +105,8 @@ type RowProps = {
 	onConfirm: (booking: Booking) => void;
 	onNoShow: (booking: Booking) => void;
 	onRelease: (booking: Booking) => void;
+	onRemind: (booking: Booking) => void;
+	onOpenMember: (booking: Booking) => void;
 };
 
 /** The status badges (mockup `bkStatus`): the write waiting to ship, else what the booking is waiting for. */
@@ -139,12 +131,13 @@ function statusBadges(
 			text: booking.attendance === "attended" ? "Attended" : "No-show",
 			tone: "",
 		});
+	if (booking.seriesLabel) badges.push({ text: booking.seriesLabel, tone: "" });
 	return badges;
 }
 
-/** The row's buttons (mockup `bkActions`): Confirm attended and No-show on a booking that needs an outcome, then by
- * billing Cancel and refund (paid) or Release hold (held, or not known); nothing on a free booking or one waiting for
- * approval. */
+/** The row's buttons (mockup `bkActions`): Remind host on a booking waiting for approval, Confirm attended and No-show
+ * on one that needs an outcome, then by billing Cancel and refund (paid) or Release hold (held, or not known); nothing
+ * on a free booking. */
 function RowActions({
 	booking,
 	pending,
@@ -152,7 +145,8 @@ function RowActions({
 	onConfirm,
 	onNoShow,
 	onRelease,
-}: Omit<RowProps, "withDate" | "school">): JSX.Element | null {
+	onRemind,
+}: Omit<RowProps, "withDate" | "school" | "onOpenMember">): JSX.Element | null {
 	const { preview } = useViewing();
 	const writesOff = preview
 		? { disabled: true, title: exitPreviewTitle }
@@ -164,7 +158,21 @@ function RowActions({
 				waiting to ship
 			</span>
 		);
-	if (booking.state === "requested") return null;
+	if (booking.state === "requested")
+		return (
+			<button
+				type="button"
+				class="btn s"
+				data-test="booking-action"
+				data-action="remind"
+				data-booking={booking.id}
+				{...writesOff}
+				onClick={() => onRemind(booking)}
+			>
+				<Icon name="mail" />
+				Remind host
+			</button>
+		);
 	if (needsOutcome(booking, clock))
 		return (
 			<>
@@ -196,21 +204,29 @@ function RowActions({
 		);
 	if (booking.startsAt < clock.now || booking.billing?.kind === "free")
 		return null;
-	if (booking.billing?.kind === "paid")
+	if (booking.billing?.kind === "paid") {
+		const reasonId = `refund-reason-${booking.id}`;
 		return (
-			<button
-				type="button"
-				class="btn s"
-				data-test="booking-action"
-				data-action="refund"
-				data-booking={booking.id}
-				disabled
-				title={refundTitle}
-			>
-				<Icon name="undo" />
-				Cancel and refund
-			</button>
+			<>
+				<button
+					type="button"
+					class="btn s"
+					data-test="booking-action"
+					data-action="refund"
+					data-booking={booking.id}
+					disabled
+					title={refundTitle}
+					aria-describedby={reasonId}
+				>
+					<Icon name="undo" />
+					Cancel and refund
+				</button>
+				<span id={reasonId} class="visually-hidden">
+					{refundTitle}
+				</span>
+			</>
 		);
+	}
 	return (
 		<button
 			type="button"
@@ -243,7 +259,18 @@ function BookingRow(props: RowProps): JSX.Element {
 				</div>
 			</td>
 			<td>
-				<span data-test="booking-member">{attendeeName(booking)}</span>
+				{booking.attendee ? (
+					<button
+						type="button"
+						class="member-open"
+						data-test="booking-member"
+						onClick={() => props.onOpenMember(booking)}
+					>
+						{attendeeName(booking)}
+					</button>
+				) : (
+					<span data-test="booking-member">{attendeeName(booking)}</span>
+				)}
 				{booking.attendee && <div class="mono mut">{booking.attendee.key}</div>}
 			</td>
 			<td>
@@ -269,6 +296,7 @@ function BookingRow(props: RowProps): JSX.Element {
 						onConfirm={props.onConfirm}
 						onNoShow={props.onNoShow}
 						onRelease={props.onRelease}
+						onRemind={props.onRemind}
 					/>
 				</div>
 			</td>
@@ -285,7 +313,15 @@ type Group = {
 	withDate: boolean;
 };
 
-type Loaded = { key: string; inRange: Booking[]; before: Booking[] };
+type Loaded = {
+	key: string;
+	inRange: Booking[];
+	before: Booking[];
+	lateCancel: "spend" | "release";
+};
+
+/** One filter chip: the route's `filter=` value (null for All), its hook slug and its text. */
+type Chip = { slug: "all" | Filter; filter: Filter | null; label: string };
 
 /** The Bookings pane (mockup `bookings()`): one day or week of the school's bookings in day groups, preceded by the
  * overdue group (confirmed bookings that started before the range and have no outcome, from a second read over the 62
@@ -330,19 +366,21 @@ export function Bookings({
 		if (!option.admin) return;
 		let current = true;
 		const load = async (): Promise<void> => {
-			const [inRange, before] = await Promise.all([
+			const [inRange, before, summary] = await Promise.all([
 				reader.bookings({ school: school.id, from, to }),
 				reader.bookings({
 					school: school.id,
 					from: addDays(from, -overdueDays),
 					to: addDays(from, -1),
 				}),
+				reader.membersSummary({ schoolId: school.id }),
 			]);
 			if (current)
 				setLoaded({
 					key,
 					inRange: inRange.bookings,
 					before: before.bookings,
+					lateCancel: summary.bookingRules.lateCancel,
 				});
 		};
 		load().catch(keepLoading);
@@ -355,7 +393,6 @@ export function Bookings({
 		if (shown || !option.admin) onRendered();
 	});
 	if (!option.admin) return <LockPanel lock={bookingsLock} icon="calendar" />;
-	if (!shown) return null;
 
 	const waiting: Check = ({ id }) => pending.has(id);
 	const canRecord: Check = (booking) =>
@@ -365,10 +402,10 @@ export function Bookings({
 		approval: ({ state }) => state === "requested",
 		cutoff: (booking) => insideCutoff(booking, clock),
 	};
-	const overdue = shown.before
+	const overdue = (shown?.before ?? [])
 		.filter((booking) => needsOutcome(booking, clock))
 		.sort(byStart);
-	const counted = [...overdue, ...shown.inRange];
+	const counted = [...overdue, ...(shown?.inRange ?? [])];
 	const keep: Check = (booking) =>
 		view.filter === null || checks[view.filter](booking);
 
@@ -385,11 +422,11 @@ export function Bookings({
 	const tomorrow = addDays(clock.today, 1);
 	let emptyDay: string | null = null;
 	for (let day = from; day <= to; day = addDays(day, 1)) {
-		const rows = shown.inRange
+		const rows = (shown?.inRange ?? [])
 			.filter((booking) => dayOf(booking) === day && keep(booking))
 			.sort(byStart);
 		if (rows.length === 0) {
-			if (from === to) emptyDay = day;
+			if (from === to && shown) emptyDay = day;
 			continue;
 		}
 		const when =
@@ -446,7 +483,9 @@ export function Bookings({
 		);
 	};
 	const startRelease = (booking: Booking): void => {
-		if (insideCutoff(booking, clock)) setDialog({ action: "release", booking });
+		const forfeits =
+			insideCutoff(booking, clock) && shown?.lateCancel === "spend";
+		if (forfeits) setDialog({ action: "release", booking });
 		else
 			send(
 				[booking],
@@ -470,12 +509,36 @@ export function Bookings({
 
 	const chooseFilter = (filter: Filter | null): void =>
 		navigate(withQuery(route, "filter", filter));
-	const chipLabels: Record<"all" | Filter, string> = {
-		all: "All",
-		outcome: `Needs outcome (${counted.filter(checks.outcome).length})`,
-		approval: `Waiting for approval (${counted.filter(checks.approval).length})`,
-		cutoff: `Inside cutoff (${counted.filter(checks.cutoff).length})`,
+	const remind = ({ hosts }: Booking): void =>
+		onToast(reminderToast(hosts.map(({ name }) => name)));
+	/** The member's drawer is the Members tab's; the shared parameters stay and this tab's `filter=` goes. */
+	const openMember = ({ attendee }: Booking): void => {
+		if (!attendee) return;
+		const { query } = withQuery(route, "filter", null);
+		query.set("member", attendee.key);
+		navigate({ ...route, tab: "members", query });
 	};
+	/** A chip's count is the rows counted, so it waits for the read rather than showing 0. */
+	const counting = (label: string, check: Check): string =>
+		shown ? `${label} (${counted.filter(check).length})` : label;
+	const chips: Chip[] = [
+		{ slug: "all", filter: null, label: "All" },
+		{
+			slug: "outcome",
+			filter: "outcome",
+			label: counting("Needs outcome", checks.outcome),
+		},
+		{
+			slug: "approval",
+			filter: "approval",
+			label: counting("Waiting for approval", checks.approval),
+		},
+		{
+			slug: "cutoff",
+			filter: "cutoff",
+			label: counting("Inside cutoff", checks.cutoff),
+		},
+	];
 	const onThisWeek = view.range === "week" && view.offset === 0;
 	const dialogLine = dialog
 		? [
@@ -502,8 +565,7 @@ export function Bookings({
 					{needing.length > 1 && (
 						<button
 							type="button"
-							class="btn s"
-							style="float:right"
+							class="btn s bookings-bulk"
 							data-test="booking-bulk"
 							data-day={group.key}
 							{...(preview && { disabled: true, title: exitPreviewTitle })}
@@ -528,6 +590,8 @@ export function Bookings({
 						setDialog({ action: "noshow", booking: chosen })
 					}
 					onRelease={startRelease}
+					onRemind={remind}
+					onOpenMember={openMember}
 				/>
 			)),
 		];
@@ -536,15 +600,15 @@ export function Bookings({
 		body = [
 			...body,
 			<tr key="empty-day" data-test="booking-empty">
-				<td colSpan={6} class="mut" style="text-align:center;padding:18px">
+				<td colSpan={6} class="mut bookings-empty bookings-empty-day">
 					Nothing booked on {monthAndDay(emptyDay)}.
 				</td>
 			</tr>,
 		];
-	if (body.length === 0)
+	if (shown && body.length === 0)
 		body = [
 			<tr key="empty" data-test="booking-empty">
-				<td colSpan={6} class="mut" style="text-align:center;padding:24px">
+				<td colSpan={6} class="mut bookings-empty">
 					<Icon name="check" /> No bookings{" "}
 					{view.filter ? "match" : "in this period"}.
 					{onThisWeek ? "" : " Try This week."}
@@ -562,7 +626,7 @@ export function Bookings({
 					control
 				</span>
 				<span class="sp" />
-				{filters.map(({ slug, filter }) => (
+				{chips.map(({ slug, filter, label }) => (
 					<button
 						key={slug}
 						type="button"
@@ -572,24 +636,26 @@ export function Bookings({
 						data-filter={slug}
 						onClick={() => chooseFilter(filter)}
 					>
-						{chipLabels[slug]}
+						{label}
 					</button>
 				))}
 			</div>
 			<table>
 				<thead>
 					<tr>
-						<th style="width:92px">When</th>
+						<th class="bookings-when">When</th>
 						<th>Booking</th>
 						<th>Member</th>
 						<th>Billing</th>
 						<th>Status</th>
-						<th />
+						<th>
+							<span class="visually-hidden">Actions</span>
+						</th>
 					</tr>
 				</thead>
 				<tbody>{body}</tbody>
 			</table>
-			<p class="mut" style="margin-top:10px" data-test="booking-note">
+			<p class="mut bookings-note" data-test="booking-note">
 				<Icon name="info" /> {bookingsNote}
 			</p>
 			{dialog && (

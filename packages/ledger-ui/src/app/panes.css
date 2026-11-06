@@ -111,3 +111,20 @@
 	clip-path: inset(50%);
 	white-space: nowrap;
 }
+/* Bookings: classes for the inline styles of its table. */
+.bookings-when {
+	width: 92px;
+}
+.bookings-bulk {
+	float: right;
+}
+.bookings-empty {
+	text-align: center;
+	padding: 24px;
+}
+.bookings-empty-day {
+	padding: 18px;
+}
+.bookings-note {
+	margin-top: 10px;
+}

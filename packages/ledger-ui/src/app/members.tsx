@@ -21,7 +21,7 @@ import {
 import type { Reader } from "../data/reader.ts";
 import type { Clock, School } from "../data/types.ts";
 import type { Writer } from "../data/writer.ts";
-import { endSentence, failedToast } from "./booking-text.ts";
+import { endSentence, failedToast, reminderToast } from "./booking-text.ts";
 import { saveFile } from "./download.ts";
 import { saveCsv } from "./download-button.tsx";
 import { Icon } from "./icon.tsx";
@@ -643,8 +643,7 @@ function Roster({
 			action === "release" &&
 			inside &&
 			summary.bookingRules.lateCancel === "spend";
-		if (action === "remind")
-			onToast(`Reminder sent to ${booking.hosts.join(", ")}.`);
+		if (action === "remind") onToast(reminderToast(booking.hosts));
 		else if (action === "noshow")
 			startModal(person.id, { kind: "noshow", bookingId: booking.id });
 		else if (action === "refund")

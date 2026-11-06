@@ -15,6 +15,8 @@ type MockupBooking = {
 	state: Booking["state"];
 	cutoffMinutes: number;
 	billing: BookingBilling;
+	/** The mockup's `ser`. */
+	seriesLabel?: string;
 };
 
 const held = (credits: number): BookingBilling => ({ kind: "held", credits });
@@ -33,6 +35,9 @@ const toBooking = (booking: MockupBooking): Booking => ({
 	seriesId: null,
 	attendance: null,
 	billing: booking.billing,
+	...(booking.seriesLabel === undefined
+		? {}
+		: { seriesLabel: booking.seriesLabel }),
 });
 
 const vibesOfLight: MockupBooking[] = [
@@ -95,6 +100,7 @@ const vibesOfLight: MockupBooking[] = [
 		state: "confirmed",
 		cutoffMinutes: 1440,
 		billing: held(2),
+		seriesLabel: "weekly · 3 left",
 	},
 	{
 		id: "bk_9ab",
