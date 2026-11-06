@@ -217,7 +217,9 @@ function BalanceCard({
 			</div>
 			<Bar balance={balance} />
 			<div class="mp-muted" style="margin-top:8px">
-				Your allowance refreshes on {plan.endsOn}.
+				{plan.ended
+					? `No further refresh: your membership ends on ${plan.endsOn}.`
+					: `Your allowance refreshes on ${plan.endsOn}.`}
 			</div>
 		</div>
 	);

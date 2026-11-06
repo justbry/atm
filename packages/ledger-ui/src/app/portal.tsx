@@ -22,6 +22,7 @@ import {
 	siteThemes,
 } from "../data/portal.ts";
 import { endSentence, failedToast } from "./booking-text.ts";
+import { focusCloseButton } from "./close-focus.ts";
 import { saveFile } from "./download.ts";
 import { saveCsv } from "./download-button.tsx";
 import { Icon, type IconName } from "./icon.tsx";
@@ -232,8 +233,8 @@ function Portal(
 	const viewingBar = useRef<HTMLSpanElement>(null);
 	const profileShown = visible ? profileId : null;
 	useEffect(() => {
-		if (profileShown !== null)
-			viewingBar.current?.focus({ preventScroll: true });
+		if (profileShown !== null && viewingBar.current)
+			focusCloseButton(viewingBar.current);
 	}, [profileShown]);
 	useEffect(() => {
 		onShownChange(visible);

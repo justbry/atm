@@ -226,7 +226,7 @@
 					"[data-test=dash-step]": 0,
 					"[data-test=pin-chip]": 0,
 					"[data-test=pin-lock]": 0,
-					"[data-test=preset-option]": 15
+					"[data-test=preset-option]": 4
 				},
 				"contains": {
 					"[data-test=kpi-label]": [
@@ -269,7 +269,7 @@
 					"[data-test=dash-step]": 0,
 					"[data-test=pin-chip]": 0,
 					"[data-test=pin-lock]": 0,
-					"[data-test=preset-option]": 15
+					"[data-test=preset-option]": 4
 				},
 				"contains": {
 					"[data-test=kpi-label]": [
@@ -310,7 +310,7 @@
 					"[data-test=dash-step]": 0,
 					"[data-test=pin-chip]": 0,
 					"[data-test=pin-lock]": 0,
-					"[data-test=preset-option]": 15
+					"[data-test=preset-option]": 4
 				},
 				"contains": {
 					"[data-test=kpi-label]": [
@@ -353,7 +353,7 @@
 					"[data-test=dash-step]": 0,
 					"[data-test=pin-chip]": 0,
 					"[data-test=pin-lock]": 0,
-					"[data-test=preset-option]": 15
+					"[data-test=preset-option]": 4
 				},
 				"contains": {
 					"[data-test=kpi-label]": [
@@ -396,7 +396,7 @@
 					"[data-test=dash-step]": 0,
 					"[data-test=pin-chip]": 0,
 					"[data-test=pin-lock]": 0,
-					"[data-test=preset-option]": 15
+					"[data-test=preset-option]": 4
 				},
 				"contains": {
 					"[data-test=kpi-label]": [
@@ -437,7 +437,7 @@
 					"[data-test=dash-step]": 0,
 					"[data-test=pin-chip]": 0,
 					"[data-test=pin-lock]": 0,
-					"[data-test=preset-option]": 15
+					"[data-test=preset-option]": 4
 				},
 				"contains": {
 					"[data-test=kpi-label]": [
@@ -480,7 +480,7 @@
 					"[data-test=dash-step]": 2,
 					"[data-test=pin-chip]": 1,
 					"[data-test=pin-lock]": 0,
-					"[data-test=preset-option]": 15
+					"[data-test=preset-option]": 4
 				},
 				"contains": {
 					"[data-test=kpi-label]": [
@@ -523,7 +523,7 @@
 					"[data-test=dash-step]": 2,
 					"[data-test=pin-chip]": 1,
 					"[data-test=pin-lock]": 0,
-					"[data-test=preset-option]": 15
+					"[data-test=preset-option]": 4
 				},
 				"contains": {
 					"[data-test=kpi-label]": [
@@ -564,7 +564,7 @@
 					"[data-test=dash-step]": 2,
 					"[data-test=pin-chip]": 1,
 					"[data-test=pin-lock]": 0,
-					"[data-test=preset-option]": 15
+					"[data-test=preset-option]": 4
 				},
 				"contains": {
 					"[data-test=kpi-label]": [
@@ -607,7 +607,7 @@
 					"[data-test=dash-step]": 2,
 					"[data-test=pin-chip]": 1,
 					"[data-test=pin-lock]": 0,
-					"[data-test=preset-option]": 15
+					"[data-test=preset-option]": 4
 				},
 				"contains": {
 					"[data-test=kpi-label]": [
@@ -650,7 +650,7 @@
 					"[data-test=dash-step]": 2,
 					"[data-test=pin-chip]": 1,
 					"[data-test=pin-lock]": 0,
-					"[data-test=preset-option]": 15
+					"[data-test=preset-option]": 4
 				},
 				"contains": {
 					"[data-test=kpi-label]": [
@@ -691,7 +691,7 @@
 					"[data-test=dash-step]": 2,
 					"[data-test=pin-chip]": 1,
 					"[data-test=pin-lock]": 0,
-					"[data-test=preset-option]": 15
+					"[data-test=preset-option]": 4
 				},
 				"contains": {
 					"[data-test=kpi-label]": [
