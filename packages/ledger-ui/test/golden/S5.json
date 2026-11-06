@@ -129,18 +129,8 @@
 		]
 	},
 	"matrix": {
-		"tab": [
-			"ledger",
-			"reports",
-			"promos"
-		],
-		"audience": [
-			"public",
-			"member",
-			"governance",
-			"finance",
-			"owner"
-		]
+		"tab": ["ledger", "reports", "promos"],
+		"audience": ["public", "member", "governance", "finance", "owner"]
 	},
 	"entries": [
 		{
@@ -456,9 +446,7 @@
 					"[data-test=ledger-row]": 15,
 					"[data-test=ledger-type][data-type=all].on": 1
 				},
-				"absent": [
-					"type=payout"
-				]
+				"absent": ["type=payout"]
 			}
 		},
 		{
@@ -498,11 +486,7 @@
 					"[data-test=lock-panel]": 0
 				},
 				"contains": {
-					"[data-test=pane]": [
-						"Dana W.",
-						"Omar F.",
-						"Kai W."
-					]
+					"[data-test=pane]": ["Dana W.", "Omar F.", "Kai W."]
 				}
 			}
 		},
@@ -611,9 +595,7 @@
 						"count": {
 							"[data-test=ledger-csv][aria-busy=\"true\"][disabled]": 1
 						},
-						"absent": [
-							"Downloaded"
-						]
+						"absent": ["Downloaded"]
 					}
 				},
 				{
@@ -645,9 +627,7 @@
 							"[data-test=ledger-filter]": 0,
 							"[data-test=ledger-row]": 15
 						},
-						"absent": [
-							"Filter: Income"
-						]
+						"absent": ["Filter: Income"]
 					}
 				}
 			],
@@ -862,7 +842,7 @@
 						"text": "$226.89",
 						"moves": true
 					},
-					"[data-test=report-line][data-line=gifts]": "Not income: gift certificates sold $50.00 (held as a liability until redeemed) ›",
+					"[data-test=report-line][data-line=gifts]": "Not income: gift certificates sold $50.00 (held as a liability until redeemed)",
 					"[data-test=report-rule][data-rule=cutoff]": "Cancel cutoff (default) 24 hours before",
 					"[data-test=report-rule][data-rule=no-show]": "No-show sessions are spent",
 					"[data-test=report-rule][data-rule=late-cancel]": "Late cancel sessions are forfeited",
@@ -903,17 +883,12 @@
 					"[data-test=report-grain]": 0
 				},
 				"contains": {
-					"[data-test=report-spark-axis]": [
-						"Nov 1",
-						"Nov 5"
-					],
+					"[data-test=report-spark-axis]": ["Nov 1", "Nov 5"],
 					"[data-test=report-rules]": [
 						"Rules in force",
 						"School policy: every audience sees it. An item can set its own cutoff."
 					],
-					"[data-test=report-spark]": [
-						"Daily income"
-					]
+					"[data-test=report-spark]": ["Daily income"]
 				}
 			},
 			"shot": {
@@ -970,10 +945,7 @@
 					"[data-test=donor-row][data-id=s_21]": 0,
 					"[data-test=lock-panel]": 0
 				},
-				"absent": [
-					"Tom Kim",
-					"Anonymous to finance"
-				]
+				"absent": ["Tom Kim", "Anonymous to finance"]
 			}
 		},
 		{
@@ -1031,10 +1003,7 @@
 					"[data-test=report-spark-point]": 45
 				},
 				"contains": {
-					"[data-test=report-spark-axis]": [
-						"Jan 1",
-						"Nov 5"
-					]
+					"[data-test=report-spark-axis]": ["Jan 1", "Nov 5"]
 				}
 			}
 		},
@@ -1106,9 +1075,7 @@
 						"count": {
 							"[data-test=report-download][aria-busy=\"true\"][disabled]": 1
 						},
-						"absent": [
-							"Downloaded"
-						]
+						"absent": ["Downloaded"]
 					}
 				},
 				{
@@ -1175,9 +1142,7 @@
 						"count": {
 							"[data-test=donors-csv][aria-busy=\"true\"][disabled]": 1
 						},
-						"absent": [
-							"Downloaded"
-						]
+						"absent": ["Downloaded"]
 					}
 				},
 				{
@@ -1269,9 +1234,7 @@
 						"Public document",
 						"Reconciliation with Stripe: Finance admins and the owner see this"
 					],
-					"[data-test=report-statement-title]": [
-						"Public document"
-					],
+					"[data-test=report-statement-title]": ["Public document"],
 					"[data-test=report-rules]": [
 						"School policy: every audience sees it."
 					],
@@ -1334,9 +1297,7 @@
 						"Member document",
 						"Reconciliation with Stripe: Finance admins and the owner see this"
 					],
-					"[data-test=report-statement-title]": [
-						"Member document"
-					],
+					"[data-test=report-statement-title]": ["Member document"],
 					"[data-test=report-rules]": [
 						"School policy: every audience sees it."
 					],
@@ -1544,9 +1505,7 @@
 				"text": {
 					"[data-test=promo-row][data-promo=c_01] [data-test=promo-code]": "SPR•••10"
 				},
-				"absent": [
-					"SPRING10"
-				]
+				"absent": ["SPRING10"]
 			}
 		},
 		{
@@ -1648,9 +1607,7 @@
 						"count": {
 							"[data-test=promo-row][data-promo=c_04] [data-test=promo-disable][aria-busy=\"true\"][disabled]": 1
 						},
-						"absent": [
-							"stops working at checkout"
-						]
+						"absent": ["stops working at checkout"]
 					}
 				},
 				{
@@ -1690,9 +1647,11 @@
 						},
 						"count": {
 							"[data-test=promo-type-input] option": 3,
-							"[data-test=promo-value-input][value=\"10\"]": 1,
-							"[data-test=promo-expires-input][value=\"2026-12-31\"]": 1,
 							"[data-test=dialog-confirm][disabled]": 1
+						},
+						"value": {
+							"[data-test=promo-value-input]": ["10"],
+							"[data-test=promo-expires-input]": ["2026-12-31"]
 						}
 					}
 				},
@@ -1889,9 +1848,7 @@
 					"[data-test=promo-created-summary]": "Dollar gift · $50.00 · expires 2026-12-31"
 				},
 				"contains": {
-					"[data-test=dialog]": [
-						"Email it to the recipient (optional)"
-					]
+					"[data-test=dialog]": ["Email it to the recipient (optional)"]
 				},
 				"count": {
 					"[data-test=promo-email-input]": 1
@@ -1987,9 +1944,7 @@
 					"[data-test=promo-reveal][disabled][title=\"Owners and admins only\"]": 4,
 					"[data-test=promo-new][disabled][title=\"Exit preview to act\"]": 1
 				},
-				"absent": [
-					"SPRING10"
-				]
+				"absent": ["SPRING10"]
 			}
 		},
 		{
@@ -2012,9 +1967,7 @@
 					"[data-test=promo-reveal][disabled][title=\"Owners and admins only\"]": 4,
 					"[data-test=promo-new][disabled][title=\"Exit preview to act\"]": 1
 				},
-				"absent": [
-					"SPRING10"
-				]
+				"absent": ["SPRING10"]
 			}
 		},
 		{

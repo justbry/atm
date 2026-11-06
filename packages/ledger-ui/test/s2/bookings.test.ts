@@ -514,7 +514,7 @@ test("paid money is the shared formatter's, in the booking's own currency", asyn
 			: booking,
 	);
 	await open("#/vol/bookings", { reader });
-	expect(text(`${row("bk_6qq")} td:nth-child(4)`)).toBe("Paid CA$1,234.56");
+	expect(text(`${row("bk_6qq")} td:nth-child(4)`)).toBe("Paid C$1,234.56");
 });
 
 test("while a read is on its way the tools bar and the note stay and the list is empty, with no counts", async () => {
