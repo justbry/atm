@@ -37,8 +37,8 @@
 		"dash-derived-badge.1": {
 			"name": "dash derived badge",
 			"line": 19,
-			"slice": "S1",
-			"status": "fail",
+			"slice": "S1b",
+			"status": "pending-slice",
 			"ui": "#pane[aria-labelledby=tab-dashboard] .kt",
 			"reason": "fail",
 			"note": "UI: every school's Dashboard shows the Before University mart documents with the 'Fixture data: invented' badge (S1 golden note); the mockup marks Vibes of Light 'From this school's events'."
@@ -81,8 +81,8 @@
 		"b4u-jun-gross.1": {
 			"name": "b4u jun gross",
 			"line": 27,
-			"slice": "S1",
-			"status": "fail",
+			"slice": "S1b",
+			"status": "pending-slice",
 			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard b",
 			"reason": "fail: 0.0%",
 			"note": "UI: switching school keeps the route query, so B4 Uni opens on the view and month left at Vibes of Light (Risk, Oct 2026) instead of its own Money, Jun; the mockup keeps dashboard state per school. Fresh #/b4u/dashboard shows the expected value ($623.00 gross, $592.04 net, 23 paying)."
@@ -90,16 +90,16 @@
 		"b4u-jun-net.1": {
 			"name": "b4u jun net",
 			"line": 28,
-			"slice": "S1",
-			"status": "fail",
+			"slice": "S1b",
+			"status": "pending-slice",
 			"reason": "fail: 0.0%,0,$0.00 + $0.00,$496.01",
 			"note": "UI: switching school keeps the route query, so B4 Uni opens on the view and month left at Vibes of Light (Risk, Oct 2026) instead of its own Money, Jun; the mockup keeps dashboard state per school. Fresh #/b4u/dashboard shows the expected value ($623.00 gross, $592.04 net, 23 paying)."
 		},
 		"b4u-members-paying-23.1": {
 			"name": "b4u members paying 23",
 			"line": 29,
-			"slice": "S1",
-			"status": "fail",
+			"slice": "S1b",
+			"status": "pending-slice",
 			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard b",
 			"reason": "fail: 20",
 			"note": "UI: switching school keeps the route query, so B4 Uni opens on the view and month left at Vibes of Light (Risk, Oct 2026) instead of its own Money, Jun; the mockup keeps dashboard state per school. Fresh #/b4u/dashboard shows the expected value ($623.00 gross, $592.04 net, 23 paying)."
@@ -128,8 +128,8 @@
 		"nw-empty.1": {
 			"name": "nw empty",
 			"line": 34,
-			"slice": "S1",
-			"status": "fail",
+			"slice": "S1b",
+			"status": "pending-slice",
 			"ui": "#pane[aria-labelledby=tab-dashboard]",
 			"reason": "fail: View books asPublicMemberGovernanceFinance adminOwnerPIN lockedYou are Owner here. This sw",
 			"note": "UI: Lotus Lane shows the selected mart preset like every school; 'No payments yet' appears only for a preset without payments (free-only). The mockup's empty school has no events."
@@ -620,8 +620,8 @@
 		"books-pin-chip-only-from-governance-up.1": {
 			"name": "books: PIN chip only from Governance up",
 			"line": 146,
-			"slice": "S1",
-			"status": "fail",
+			"slice": "S1b",
+			"status": "pending-slice",
 			"reason": "unreached: not reached: the step at line 146 threw: null is not an object (evaluating '$(\"#kview\").click')",
 			"note": "Obsolete S1 vocabulary: the frozen mockup (disclosure-v2) picks the audience with the top bar's View as (smoke va(): #kview then #kvp [data-bv=<audience>]); the UI has only S1's Dashboard-local 'View books as' switch, so va() throws, the Dashboard stays at B4 Uni's signed-in Finance admin level and the check reads the wrong audience. Fixed by S7 (View as) and S1b (audiences)."
 		},
@@ -635,8 +635,8 @@
 		"books-public-year-grain-only.1": {
 			"name": "books public: year grain only",
 			"line": 150,
-			"slice": "S1",
-			"status": "fail",
+			"slice": "S1b",
+			"status": "pending-slice",
 			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths [data-dpk] | #pane[aria-labelledby=tab-dashboard] .kmonths button",
 			"reason": "fail: ‹,Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,›",
 			"note": "Obsolete S1 vocabulary: the frozen mockup (disclosure-v2) picks the audience with the top bar's View as (smoke va(): #kview then #kvp [data-bv=<audience>]); the UI has only S1's Dashboard-local 'View books as' switch, so va() throws, the Dashboard stays at B4 Uni's signed-in Finance admin level and the check reads the wrong audience. Fixed by S7 (View as) and S1b (audiences)."
@@ -692,8 +692,8 @@
 		"books-member-quarter-grain.1": {
 			"name": "books member: quarter grain",
 			"line": 162,
-			"slice": "S1",
-			"status": "fail",
+			"slice": "S1b",
+			"status": "pending-slice",
 			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths [data-dpk]",
 			"reason": "fail",
 			"note": "Obsolete S1 vocabulary: the frozen mockup (disclosure-v2) picks the audience with the top bar's View as (smoke va(): #kview then #kvp [data-bv=<audience>]); the UI has only S1's Dashboard-local 'View books as' switch, so va() throws, the Dashboard stays at B4 Uni's signed-in Finance admin level and the check reads the wrong audience. Fixed by S7 (View as) and S1b (audiences)."
@@ -701,8 +701,8 @@
 		"books-member-money-rounded-to-100.1": {
 			"name": "books member: money rounded to $100",
 			"line": 163,
-			"slice": "S1",
-			"status": "fail",
+			"slice": "S1b",
+			"status": "pending-slice",
 			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard b",
 			"reason": "fail: $5,735.00,$60.00,$173.52,$5,501.48,$0.00",
 			"note": "Obsolete S1 vocabulary: the frozen mockup (disclosure-v2) picks the audience with the top bar's View as (smoke va(): #kview then #kvp [data-bv=<audience>]); the UI has only S1's Dashboard-local 'View books as' switch, so va() throws, the Dashboard stays at B4 Uni's signed-in Finance admin level and the check reads the wrong audience. Fixed by S7 (View as) and S1b (audiences)."
@@ -723,8 +723,8 @@
 		"books-gov-month-grain-closed-months-only.1": {
 			"name": "books gov: month grain, closed months only",
 			"line": 168,
-			"slice": "S1",
-			"status": "fail",
+			"slice": "S1b",
+			"status": "pending-slice",
 			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths button[data-dm]:not(.kwait) | #pane[aria-labelledby=tab-dashboard] .kcaption",
 			"reason": "fail: Finance admin sees everything, live: months and days, the open month included, names included. Cell rules are off, so no figure is hidden or banded. Every identified read is audited.",
 			"note": "Obsolete S1 vocabulary: the frozen mockup (disclosure-v2) picks the audience with the top bar's View as (smoke va(): #kview then #kvp [data-bv=<audience>]); the UI has only S1's Dashboard-local 'View books as' switch, so va() throws, the Dashboard stays at B4 Uni's signed-in Finance admin level and the check reads the wrong audience. Fixed by S7 (View as) and S1b (audiences). Even at Governance the UI strip has 9 closed and 2 waiting months (Jan to Nov), the mockup 9 and 3."
@@ -739,8 +739,8 @@
 		"books-gov-plan-breakdown-with-cell-rules-suppressed-cell-shows-with-the-reason.1": {
 			"name": "books gov: plan breakdown with cell rules, suppressed cell shows — with the reason",
 			"line": 171,
-			"slice": "S1",
-			"status": "fail",
+			"slice": "S1b",
+			"status": "pending-slice",
 			"ui": "#pane[aria-labelledby=tab-dashboard] .kcutv | #pane[aria-labelledby=tab-dashboard] .kwhy",
 			"reason": "fail: 0 MRR is not computed: cash basis, a yearly payer counts in the month paid · ARR is not computed: cash basis · Churn is not computed: cash basis",
 			"note": "Obsolete S1 vocabulary: the frozen mockup (disclosure-v2) picks the audience with the top bar's View as (smoke va(): #kview then #kvp [data-bv=<audience>]); the UI has only S1's Dashboard-local 'View books as' switch, so va() throws, the Dashboard stays at B4 Uni's signed-in Finance admin level and the check reads the wrong audience. Fixed by S7 (View as) and S1b (audiences). At Governance (#/b4u/dashboard?level=governance) the UI's first .kwhy is the cash-basis 'MRR is not computed' line; the 'fewer than 5' reason is a later .kwhy."
@@ -761,8 +761,8 @@
 		"books-gov-months-not-yet-closed-are-not-drawn-as-zeros.1": {
 			"name": "books gov: months not yet closed are not drawn as zeros",
 			"line": 175,
-			"slice": "S1",
-			"status": "fail",
+			"slice": "S1b",
+			"status": "pending-slice",
 			"ui": "#pane[aria-labelledby=tab-dashboard] svg title",
 			"reason": "fail",
 			"note": "Obsolete S1 vocabulary: the frozen mockup (disclosure-v2) picks the audience with the top bar's View as (smoke va(): #kview then #kvp [data-bv=<audience>]); the UI has only S1's Dashboard-local 'View books as' switch, so va() throws, the Dashboard stays at B4 Uni's signed-in Finance admin level and the check reads the wrong audience. Fixed by S7 (View as) and S1b (audiences). At Governance the UI's chart titles also say 'Not shown yet' with a capital N; the check matches 'not shown yet'."
@@ -1468,8 +1468,8 @@
 		"axis-gross-vs-net-has-12-month-labels-none-are-svg-text.1": {
 			"name": "axis: gross vs net has 12 month labels, none are SVG text",
 			"line": 344,
-			"slice": "S1",
-			"status": "fail",
+			"slice": "S1b",
+			"status": "pending-slice",
 			"ui": "#pane[aria-labelledby=tab-dashboard] .kax | #pane[aria-labelledby=tab-dashboard] svg.kc text",
 			"reason": "fail: 0",
 			"note": "Mockup: its month strip and axis draw all 12 months (Oct to Dec not shown yet); the UI draws the document's periods, Jan to Nov 2026 (11 labels). No SVG text."

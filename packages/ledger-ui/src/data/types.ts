@@ -1,4 +1,4 @@
-import type { BooksLevel, HiddenKind } from "./kpi-document.ts";
+import type { BooksLevel } from "./kpi-document.ts";
 
 /** The clock the UI runs on (protocol §3): the UI never reads the system time. `today` is `YYYY-MM-DD`, `now` is
  * `YYYY-MM-DDTHH:MM`. */
@@ -37,19 +37,8 @@ export type School = {
  * has one, the caveat shown above the cards. */
 export type Preset = { id: string; label: string; note?: string };
 
-/** A books level as the switcher offers it (cell-rules `levels`): its name, whether it opens with the family PIN, and
- * its granularity ceiling (`G2` categories, `G4` distributions, `G6` identified). */
-export type BooksLevelOption = {
-	id: BooksLevel;
-	name: string;
-	pin: boolean;
-	steps: string;
-};
-
-/** What the Dashboard may ask the Reader for, each list in switcher order, and the text of each hidden kind
- * (cell-rules `labels`). */
+/** What the Dashboard may ask the Reader for: the presets of the fixture schools, in switcher order. The audiences
+ * come from the disclosure (`disclosure.ts`), and each cell carries its own text. */
 export type DashboardOptions = {
 	presets: [Preset, ...Preset[]];
-	levels: BooksLevelOption[];
-	labels: Record<HiddenKind, string>;
 };
