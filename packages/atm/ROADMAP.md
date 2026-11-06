@@ -93,6 +93,10 @@ The critical path. Simulation, corrections, the Parquet export, decoupling and t
 - [ ] A member code's expiry is not checked by atm (no clock): Stripe refuses an expired promotion code. A dollar gift larger than the invoice loses the remainder (Stripe keeps none).
 - [ ] **Referral codes** (see "Referral codes and reconciliation" below).
 
+### Triple-entry books (spec: `../../plans/atm-signed-receipts.md`)
+- [x] Milestone 1: signed receipts for paid and refunded payments, regenerated from the event; signed month seals chained per school, late events listed; `atm keys new`, `receipt`, `seal`, `verify receipt`, `verify seals`.
+- [ ] Next: a hash chain over every event at write time (seals the open month and catches a forged `ingest_time`); key rotation and revocation; the itemised receipt (owner decisions under "Invoices and receipts"); receipts for credit draws; a published daily root; `atm reconcile` results joined to receipts (Stripe as the third witness, not only by reference).
+
 ## Lower priority, after 0.3.0
 
 ### Simulation or what-if

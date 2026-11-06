@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
-import { readFile, stat } from "node:fs/promises";
-import { basename } from "node:path";
+import { appendFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { basename, join } from "node:path";
 import type { WorkerFullSubject } from "@autumn/balance-engine";
 import { Command } from "commander";
 import packageJson from "../package.json";
@@ -17,13 +17,18 @@ import {
 	R2_ENV,
 	resolveInputsDestination,
 } from "./ledger/inputs-destination.js";
+import {
+	checkReceiptAgainstEvents,
+	receiptOf,
+	signReceipt,
+	verifyReceipt,
+} from "./ledger/receipt.js";
 import { ReconcileInputError } from "./ledger/reconcile.js";
 import {
 	formatReconcile,
 	reconcileFolder,
 	STRIPE_FILES,
 } from "./ledger/reconcile-files.js";
-
 import {
 	feeUnknownNote,
 	HledgerError,
@@ -32,6 +37,7 @@ import {
 	reportMonth,
 	skippedNote,
 } from "./ledger/report.js";
+import { isSignedSeal, sealOf, signSeal, verifySeals } from "./ledger/seal.js";
 import {
 	formatShareStatement,
 	shareStatement,
@@ -42,16 +48,24 @@ import {
 	inputsShipStatus,
 	shipInputs,
 } from "./ledger/ship-inputs.js";
+import { generateSigningKey } from "./ledger/sign.js";
 import { simulate } from "./ledger/simulate.js";
 import {
 	InputsSimulateError,
 	simulateFromInputs,
 } from "./ledger/simulate-inputs.js";
 import { outboxStatus } from "./ledger/status.js";
+import { isoInstant } from "./ledger/util.js";
 import { addScenarioCommands, runScenarioSimulate } from "./scenario/cli.js";
 import { FolderStore } from "./store/folder-store.js";
 import { R2Store } from "./store/r2-store.js";
-import type { AtmCatalogRow, AtmEnv } from "./types.js";
+import type {
+	AtmCatalogRow,
+	AtmEnv,
+	AtmPublicKeys,
+	AtmSignedSeal,
+	AtmSigner,
+} from "./types.js";
 
 /** How long `atm ship` waits for the handler's write lock on a busy database. */
 const BUSY_TIMEOUT_MS = 5000;
@@ -963,4 +977,291 @@ const simulateCommand = program
 		unattended("simulate", opts.json === true, () => runSimulate(opts)),
 	);
 exitTwoOnUsageError(simulateCommand);
+// ---- Signed receipts and sealed months (spec: plans/atm-signed-receipts.md) ----
+
+/** Exit code of `atm verify` when a receipt or seal does not verify; 2 stays for errors. */
+const EXIT_INVALID = 1;
+const KEY_ID = /^[0-9A-Za-z._-]+$/;
+const PRIVATE_KEY_MODE = 0o600;
+const SEALS_FILE = "ledger/seals.jsonl";
+
+const readSigner = async (
+	keyFile: string,
+	keyId: string,
+): Promise<AtmSigner> => {
+	if (!KEY_ID.test(keyId))
+		throw new InputError(`--key-id ${JSON.stringify(keyId)} is not a key id`);
+	return { keyId, privateKeyPem: await readFile(keyFile, "utf8") };
+};
+
+const readPublicKeys = async (file: string): Promise<AtmPublicKeys> => {
+	const keys: unknown = await readJson(file);
+	if (
+		typeof keys !== "object" ||
+		keys === null ||
+		Array.isArray(keys) ||
+		Object.values(keys).some((pem) => typeof pem !== "string")
+	)
+		throw new InputError(`${file} is not a map of key id to public key PEM`);
+	return keys as AtmPublicKeys;
+};
+
+/** The school's seal chain, a line per seal; a line that is not JSON is kept as text, so it verifies as malformed. */
+const readSealChain = async (
+	root: string,
+	school: string,
+): Promise<unknown[]> => {
+	const text = await readFile(
+		join(root, "schools", school, SEALS_FILE),
+		"utf8",
+	).catch(() => "");
+	return text
+		.split("\n")
+		.filter((line) => line.length > 0)
+		.map((line) => {
+			try {
+				return JSON.parse(line) as unknown;
+			} catch {
+				return line;
+			}
+		});
+};
+
+const keysCommand = program
+	.command("keys")
+	.description("signing keys for receipts and seals (see: keys new)");
+exitTwoOnUsageError(keysCommand);
+
+const keysNewCommand = keysCommand
+	.command("new")
+	.description(
+		"make an Ed25519 signing key: writes <out>/<id>.private.pem (mode 0600, keep it secret), <out>/<id>.public.pem, and adds the public key to <out>/keys.json (key id to PEM, what /.well-known publishes). Never overwrites a file",
+	)
+	.requiredOption("--out <dir>", "folder for the key files")
+	.option("--id <key_id>", "the key id (default trifold-YYYY-MM, UTC)")
+	.action((opts: { out: string; id?: string }) =>
+		unattended("keys new", false, async () => {
+			const keyId =
+				opts.id ?? `trifold-${new Date().toISOString().slice(0, 7)}`;
+			if (!KEY_ID.test(keyId))
+				throw new InputError(`--id ${JSON.stringify(keyId)} is not a key id`);
+			await mkdir(opts.out, { recursive: true });
+			const keysFile = join(opts.out, "keys.json");
+			const keys: Record<string, string> = await readFile(
+				keysFile,
+				"utf8",
+			).then(
+				(text) => JSON.parse(text) as Record<string, string>,
+				() => ({}),
+			);
+			if (Object.hasOwn(keys, keyId))
+				throw new InputError(`${keysFile} already has a key ${keyId}`);
+			const pair = generateSigningKey();
+			await writeFile(
+				join(opts.out, `${keyId}.private.pem`),
+				pair.privateKeyPem,
+				{
+					flag: "wx",
+					mode: PRIVATE_KEY_MODE,
+				},
+			);
+			await writeFile(
+				join(opts.out, `${keyId}.public.pem`),
+				pair.publicKeyPem,
+				{
+					flag: "wx",
+				},
+			);
+			keys[keyId] = pair.publicKeyPem;
+			await writeFile(keysFile, `${JSON.stringify(keys, null, 2)}\n`);
+			process.stdout.write(`key ${keyId} written to ${opts.out}\n`);
+		}),
+	);
+exitTwoOnUsageError(keysNewCommand);
+
+const receiptCommand = program
+	.command("receipt")
+	.description(
+		"print signed receipts, one JSON line each, for a school's payment.succeeded and payment.refunded events (or the one --event). Regenerated from the events, so nothing is stored",
+	)
+	.requiredOption("--root <folder>", "the folder that holds schools/<id>/")
+	.requiredOption("--school <id>", "school id, as in schools/<id>/")
+	.requiredOption("--key <file>", "the Ed25519 private key (PEM)")
+	.requiredOption("--key-id <id>", "the id its public key is published under")
+	.option("--event <id>", "only this event")
+	.action(
+		(opts: {
+			root: string;
+			school: string;
+			key: string;
+			keyId: string;
+			event?: string;
+		}) =>
+			unattended("receipt", false, async () => {
+				const signer = await readSigner(opts.key, opts.keyId);
+				const { events } = await readEvents(opts.root, opts.school);
+				const chosen =
+					opts.event === undefined
+						? events
+						: events.filter((event) => event.id === opts.event);
+				if (opts.event !== undefined && chosen.length === 0)
+					throw new InputError(`no event ${opts.event} in ${opts.school}`);
+				let printed = 0;
+				for (const event of chosen) {
+					const receipt = receiptOf(event);
+					if (receipt === null) continue;
+					writeJson(signReceipt(receipt, signer));
+					printed += 1;
+				}
+				if (opts.event !== undefined && printed === 0)
+					throw new InputError(
+						`event ${opts.event} is a ${chosen[0]?.event_type}, which gets no receipt`,
+					);
+			}),
+	);
+exitTwoOnUsageError(receiptCommand);
+
+const sealCommand = program
+	.command("seal")
+	.description(
+		`seal one month of a school's events: signs what was written by now, chained to the school's last seal, and appends it to schools/<id>/${SEALS_FILE}. Seal a month again to cover events that arrived after its seal`,
+	)
+	.requiredOption("--root <folder>", "the folder that holds schools/<id>/")
+	.requiredOption("--school <id>", "school id, as in schools/<id>/")
+	.requiredOption(
+		"--month <YYYY-MM>",
+		"month, by the events' school-local date",
+	)
+	.requiredOption("--key <file>", "the Ed25519 private key (PEM)")
+	.requiredOption("--key-id <id>", "the id its public key is published under")
+	.action(
+		(opts: {
+			root: string;
+			school: string;
+			month: string;
+			key: string;
+			keyId: string;
+		}) =>
+			unattended("seal", false, async () => {
+				const signer = await readSigner(opts.key, opts.keyId);
+				const chain = await readSealChain(opts.root, opts.school);
+				const last = chain.at(-1);
+				if (last !== undefined && !isSignedSeal(last))
+					throw new InputError(
+						`the last line of ${SEALS_FILE} is not a signed seal; run atm verify seals`,
+					);
+				const { events } = await readEvents(opts.root, opts.school);
+				const signed = signSeal(
+					sealOf({
+						school: opts.school,
+						month: opts.month,
+						events,
+						sealedAt: isoInstant(Date.now()),
+						previous: (last as AtmSignedSeal | undefined) ?? null,
+					}),
+					signer,
+				);
+				const file = join(opts.root, "schools", opts.school, SEALS_FILE);
+				await mkdir(join(opts.root, "schools", opts.school, "ledger"), {
+					recursive: true,
+				});
+				await appendFile(file, `${JSON.stringify(signed)}\n`);
+				writeJson(signed);
+			}),
+	);
+exitTwoOnUsageError(sealCommand);
+
+const verifyCommand = program
+	.command("verify")
+	.description(
+		"check signed receipts and seals (see: verify receipt, verify seals); exit 0 valid, 1 not valid, 2 an error",
+	);
+exitTwoOnUsageError(verifyCommand);
+
+const verifyReceiptCommand = verifyCommand
+	.command("receipt")
+	.description(
+		"check a signed receipt: its shape, key and signature; with --root and --school, also that the school's events still give the same receipt",
+	)
+	.argument("<file>", "the signed receipt JSON, or - for stdin")
+	.requiredOption("--keys <file>", "keys.json: key id to public key PEM")
+	.option("--root <folder>", "the folder that holds schools/<id>/")
+	.option("--school <id>", "school id, with --root")
+	.option("--json", "print one JSON line ({ok, reason?})")
+	.action(
+		(
+			file: string,
+			opts: { keys: string; root?: string; school?: string; json?: boolean },
+		) =>
+			unattended("verify receipt", opts.json === true, async () => {
+				if ((opts.root === undefined) !== (opts.school === undefined))
+					throw new InputError("--root and --school go together");
+				const signed: unknown = await readJson(file);
+				let verdict: { ok: boolean; reason?: string } = verifyReceipt(
+					signed,
+					await readPublicKeys(opts.keys),
+				);
+				if (
+					verdict.ok &&
+					opts.root !== undefined &&
+					opts.school !== undefined
+				) {
+					const { events } = await readEvents(opts.root, opts.school);
+					verdict = checkReceiptAgainstEvents(
+						signed as Parameters<typeof checkReceiptAgainstEvents>[0],
+						events,
+					);
+				}
+				if (opts.json) writeJson(verdict);
+				else
+					process.stdout.write(
+						verdict.ok ? "valid\n" : `not valid: ${verdict.reason}\n`,
+					);
+				if (!verdict.ok) process.exitCode = EXIT_INVALID;
+			}),
+	);
+exitTwoOnUsageError(verifyReceiptCommand);
+
+const verifySealsCommand = verifyCommand
+	.command("seals")
+	.description(
+		`check a school's seal chain (schools/<id>/${SEALS_FILE}) against its events: signatures, links, and what each seal counted. Events written after their month's latest seal are listed as late; they alone do not fail it`,
+	)
+	.requiredOption("--root <folder>", "the folder that holds schools/<id>/")
+	.requiredOption("--school <id>", "school id, as in schools/<id>/")
+	.requiredOption("--keys <file>", "keys.json: key id to public key PEM")
+	.option(
+		"--json",
+		"print the report as one JSON line ({ok, seals, unsealedLate})",
+	)
+	.action(
+		(opts: { root: string; school: string; keys: string; json?: boolean }) =>
+			unattended("verify seals", opts.json === true, async () => {
+				const chain = await readSealChain(opts.root, opts.school);
+				if (chain.length === 0)
+					throw new InputError(
+						`no seals in schools/${opts.school}/${SEALS_FILE}`,
+					);
+				const { events } = await readEvents(opts.root, opts.school);
+				const report = verifySeals(
+					chain,
+					events,
+					await readPublicKeys(opts.keys),
+				);
+				if (opts.json) writeJson(report);
+				else {
+					for (const seal of report.seals)
+						process.stdout.write(
+							`${seal.verdict} ${seal.month ?? "?"} sealed ${seal.sealed_at ?? "?"}\n`,
+						);
+					for (const late of report.unsealedLate)
+						process.stdout.write(
+							`late ${late.month} ${late.event_id} written ${late.ingest_time}\n`,
+						);
+				}
+				if (!report.ok) process.exitCode = EXIT_INVALID;
+			}),
+	);
+exitTwoOnUsageError(verifySealsCommand);
+
 addScenarioCommands(program, scenarioKit);

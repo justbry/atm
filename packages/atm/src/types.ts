@@ -3449,3 +3449,105 @@ export type ReconcileVerdictInput = {
 	ignored: unknown;
 	skipped: unknown;
 };
+
+// ---- Signed receipts and sealed months (`src/ledger/receipt.ts`, `src/ledger/seal.ts`) ----
+
+/** An Ed25519 private key (PKCS#8 PEM) and the id its public key is published under. */
+export type AtmSigner = { keyId: string; privateKeyPem: string };
+
+/** Public keys (SPKI PEM) by key id: what `keys.json` holds and `/.well-known` publishes. */
+export type AtmPublicKeys = Readonly<Record<string, string>>;
+
+/** The event types that get a receipt. */
+export type AtmReceiptedEventType = "payment.succeeded" | "payment.refunded";
+
+/** The Stripe objects a receipt names, as the event's payload has them. */
+export type AtmReceiptRefs = {
+	invoice?: string;
+	payment_intent?: string;
+	charge?: string;
+	booking?: string;
+};
+
+/**
+ * The family's copy of a paid or refunded payment. A pure function of its event (`receiptOf`), so it is never stored: the
+ * school's books regenerate it byte for byte. No name or email: a receipt may be shown to anyone.
+ */
+export type AtmReceipt = {
+	v: 1;
+	school: string;
+	/** The family's timeline, e.g. `family:fam_8k2`. */
+	key: string;
+	event_id: string;
+	event_type: AtmReceiptedEventType;
+	event_time: string;
+	/** School-local `YYYY-MM-DD`, from the event. */
+	date: string;
+	/** Cents: `amount_paid` on a payment, `amount` on a refund. */
+	amount: number;
+	currency: string;
+	/** The payload's `id`: the invoice on a membership payment, the payment intent on a booking's, the refund on a refund. */
+	stripe_id: string;
+	/** The other Stripe objects the payload names; absent when it names none. */
+	refs?: AtmReceiptRefs;
+	/** The event that caused this one (a refund's payment), or null. */
+	cause: string | null;
+	/** sha256 (hex) of `canonicalize(event)`: the link to the school's books. */
+	event_hash: string;
+};
+
+export type AtmSignedReceipt = {
+	receipt: AtmReceipt;
+	key_id: string;
+	/** Ed25519 over `canonicalize(receipt)`, base64url. */
+	sig: string;
+};
+
+export type AtmReceiptVerdict =
+	| { ok: true }
+	| { ok: false; reason: "malformed" | "unknown_key" | "bad_signature" };
+
+export type AtmReceiptLedgerVerdict =
+	| { ok: true }
+	| { ok: false; reason: "missing_event" | "event_changed" | "not_receipted" };
+
+/** One closed month of a school's events, as signed. Seals chain per school in the order they were made. */
+export type AtmSeal = {
+	v: 1;
+	school: string;
+	/** `YYYY-MM`, by the events' school-local `date`. */
+	month: string;
+	/** The month's events with `ingest_time` at or before `sealed_at`. */
+	events: number;
+	/** Those with postings, as `buildJournal` counts transactions. */
+	transactions: number;
+	/** sha256 of those events' canonical forms, in id order, joined by "\n": the formula of `buildJournal`'s `inputsHash`. */
+	events_hash: string;
+	/** UTC ISO 8601, given by the caller. */
+	sealed_at: string;
+	/** sha256 of `canonicalize` of the previous signed seal of the school, or null for the first. */
+	prev_seal_hash: string | null;
+};
+
+export type AtmSignedSeal = { seal: AtmSeal; key_id: string; sig: string };
+
+export type AtmSealVerdict =
+	| "ok"
+	| "malformed"
+	| "unknown_key"
+	| "bad_signature"
+	| "broken_link"
+	| "events_changed";
+
+export type AtmSealReport = {
+	/** Every seal verified. Unsealed late events alone do not make it false. */
+	ok: boolean;
+	seals: {
+		index: number;
+		month: string | null;
+		sealed_at: string | null;
+		verdict: AtmSealVerdict;
+	}[];
+	/** Events of a sealed month written after that month's latest seal: late, not tampering, until the month is sealed again. */
+	unsealedLate: { month: string; event_id: string; ingest_time: string }[];
+};

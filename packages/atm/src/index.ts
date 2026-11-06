@@ -40,6 +40,7 @@ import {
 	ledgerEvent as ledgerEventImpl,
 	mutationToEvents as mutationToEventsImpl,
 } from "./ledger/postings.js";
+import * as receipts from "./ledger/receipt.js";
 import { reconcile as reconcileImpl } from "./ledger/reconcile.js";
 import {
 	balancesOf as balancesOfImpl,
@@ -53,6 +54,7 @@ import {
 	reportMonth as reportMonthImpl,
 } from "./ledger/report.js";
 import { runOnState as runOnStateImpl, toCatalog } from "./ledger/run.js";
+import * as seals from "./ledger/seal.js";
 import {
 	formatShareStatement as formatShareStatementImpl,
 	shareStatement as shareStatementImpl,
@@ -62,6 +64,7 @@ import {
 	shipOutbox as shipOutboxImpl,
 } from "./ledger/ship.js";
 import * as shipInputsModule from "./ledger/ship-inputs.js";
+import * as signing from "./ledger/sign.js";
 import { simulate as simulateImpl } from "./ledger/simulate.js";
 import {
 	InputsSimulateError as InputsSimulateErrorImpl,
@@ -94,8 +97,17 @@ import type {
 	AtmLapsedRow,
 	AtmLedgerEventInput,
 	AtmMutation,
+	AtmPublicKeys,
+	AtmReceipt,
+	AtmReceiptLedgerVerdict,
+	AtmReceiptVerdict,
 	AtmReplayResult,
 	AtmResultFor,
+	AtmSeal,
+	AtmSealReport,
+	AtmSignedReceipt,
+	AtmSignedSeal,
+	AtmSigner,
 	AtmSimulateInput,
 	AtmSimulation,
 	AtmSnapshot,
@@ -1237,3 +1249,63 @@ export const canonicalReconcile = (
 		Record<string, Readonly<Record<string, ReconcileVerdictInput>>>
 	>,
 ): Checkpoint => checkpoints.canonicalReconcile(perSchool);
+
+// ---- Signed receipts and sealed months (spec: plans/atm-signed-receipts.md) ----
+
+/** A new Ed25519 signing key pair as PEM (PKCS#8 private, SPKI public), for `signReceipt` and `signSeal`. */
+export const generateSigningKey = (): {
+	privateKeyPem: string;
+	publicKeyPem: string;
+} => signing.generateSigningKey();
+
+/**
+ * The family's receipt of a `payment.succeeded` or `payment.refunded` event, or null for any other type. Pure, so it is
+ * never stored: the books regenerate it byte for byte. Holds no name or email; `event_hash` links it to the event.
+ */
+export const receiptOf = (event: AtmEvent): AtmReceipt | null =>
+	receipts.receiptOf(event);
+
+/** Signs a receipt with an Ed25519 key. Deterministic: the same receipt and key give the same signature. */
+export const signReceipt = (
+	receipt: AtmReceipt,
+	signer: AtmSigner,
+): AtmSignedReceipt => receipts.signReceipt(receipt, signer);
+
+/** Checks a signed receipt from anyone: shape, key id, signature. Never throws. */
+export const verifyReceipt = (
+	signed: unknown,
+	keys: AtmPublicKeys,
+): AtmReceiptVerdict => receipts.verifyReceipt(signed, keys);
+
+/** The tamper check: regenerates the receipt from the school's events and compares it with the family's copy. */
+export const checkReceiptAgainstEvents = (
+	signed: AtmSignedReceipt,
+	events: readonly AtmEvent[],
+): AtmReceiptLedgerVerdict =>
+	receipts.checkReceiptAgainstEvents(signed, events);
+
+/**
+ * The seal of one month of a school's events (those written at or before `sealedAt`), chained to the school's previous
+ * signed seal. Throws when a month event was written after `sealedAt`.
+ */
+export const sealOf = (input: {
+	school: string;
+	month: string;
+	events: readonly AtmEvent[];
+	sealedAt: string;
+	previous: AtmSignedSeal | null;
+}): AtmSeal => seals.sealOf(input);
+
+/** Signs a seal with an Ed25519 key. */
+export const signSeal = (seal: AtmSeal, signer: AtmSigner): AtmSignedSeal =>
+	seals.signSeal(seal, signer);
+
+/**
+ * Checks a school's seal chain, in the order made, against its events: signatures, links, and what each seal counted.
+ * Lists the events of sealed months written after their month's latest seal. Never throws on a bad seal.
+ */
+export const verifySeals = (
+	chain: readonly unknown[],
+	events: readonly AtmEvent[],
+	keys: AtmPublicKeys,
+): AtmSealReport => seals.verifySeals(chain, events, keys);
