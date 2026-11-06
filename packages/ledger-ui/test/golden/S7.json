@@ -317,7 +317,7 @@
 		},
 		{
 			"id": "settings-large-school",
-			"source": "mockup bkSettings() at Harbor Arts Academy (har, an admin without the finance grant; large for 2026 by bkSize): the size line and the large rounding field label; needs har in the schools list (merged mockup SC.har)",
+			"source": "mockup bkSettings() at Harbor Arts Academy (har, an admin without the finance grant; large for 2026 by bkSize): the size line and the large rounding field label; needs har in the schools list (merged mockup SC.har); the drawer's School books section is not locked for the admin row (the Plans pane under the drawer carries its own plans-revenue lock: gate-plans-revenue-admin)",
 			"route": "#/har/plans?theme=light",
 			"steps": [
 				{
@@ -336,7 +336,7 @@
 					"[data-test=connection-row][data-connection=stripe] [data-test=connection-detail]": "Harbor Arts Academy Inc. · key ending h8Ra"
 				},
 				"count": {
-					"[data-test=lock-panel]": 0,
+					"[data-test=lock-panel][data-surface=settings-books]": 0,
 					"[data-test=disclosure-row]": 6
 				}
 			}
