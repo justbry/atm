@@ -5,6 +5,8 @@ body{margin:0;font-family:var(--font-sans);font-size:12px;line-height:1.4}
 .app{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;position:relative;min-height:780px}
 .app.light{color-scheme:light;--background:#ffffff;--foreground:#16161a;--card:#f5f5f7;--popover:#ffffff;--secondary:#ececf0;--muted-foreground:#6b6b78;--border:#dadae0;--ring:#8f9bb3;--primary:#2563eb;--primary-foreground:#ffffff;--destructive:#d92d20;--warning:#b45309;--success:#047857;--info:#2563eb;--code-background:#eeeef2;--chart-1:#2563eb;--chart-2:#0d9488;--chart-3:#d97706;--chart-4:#9333ea;--chart-5:#db2777;background:var(--background);color:var(--foreground)}
 .app.dark{color-scheme:dark;--background:#0b0b0d;--foreground:#ededf0;--card:#141418;--popover:#17171c;--secondary:#1d1d23;--muted-foreground:#9a9aa6;--border:#2a2a32;--ring:#555a70;--primary:#4c7dff;--primary-foreground:#ffffff;--destructive:#f0524a;--warning:#f0a020;--success:#2fbf8a;--info:#5b9dff;--code-background:#1a1a20;--chart-1:#4c7dff;--chart-2:#2dd4bf;--chart-3:#fbbf24;--chart-4:#c084fc;--chart-5:#f472b6;background:var(--background);color:var(--foreground)}
+/* Opened on its own (no host tokens, appearance "system"): follow the OS scheme. A layer, so a host that defines the same tokens always wins. */
+@layer standalone{:root{--font-sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;--font-mono:ui-monospace,SFMono-Regular,Menlo,monospace;--radius:10px}.app:not(.light):not(.dark){color-scheme:light;--background:#ffffff;--foreground:#16161a;--card:#f5f5f7;--popover:#ffffff;--secondary:#ececf0;--muted-foreground:#6b6b78;--border:#dadae0;--ring:#8f9bb3;--primary:#2563eb;--primary-foreground:#ffffff;--destructive:#d92d20;--warning:#b45309;--success:#047857;--info:#2563eb;--code-background:#eeeef2;--chart-1:#2563eb;--chart-2:#0d9488;--chart-3:#d97706;--chart-4:#9333ea;--chart-5:#db2777;background:var(--background);color:var(--foreground)}@media (prefers-color-scheme:dark){.app:not(.light):not(.dark){color-scheme:dark;--background:#0b0b0d;--foreground:#ededf0;--card:#141418;--popover:#17171c;--secondary:#1d1d23;--muted-foreground:#9a9aa6;--border:#2a2a32;--ring:#555a70;--primary:#4c7dff;--primary-foreground:#ffffff;--destructive:#f0524a;--warning:#f0a020;--success:#2fbf8a;--info:#5b9dff;--code-background:#1a1a20;--chart-1:#4c7dff;--chart-2:#2dd4bf;--chart-3:#fbbf24;--chart-4:#c084fc;--chart-5:#f472b6;background:var(--background);color:var(--foreground)}}}
 .top{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border)}
 .logo{font-family:var(--font-mono);font-weight:700}
 select,input,textarea{font:inherit;color:var(--foreground);background:var(--card);border:1px solid var(--border);border-radius:6px;padding:4px 8px}
@@ -47,7 +49,7 @@ button.stat{cursor:pointer}button.stat:hover{border-color:var(--ring)}
 .neg{color:var(--destructive)}
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:10px}
 h3{margin:0 0 2px;font-size:14px}
-h5{margin:14px 0 8px;font-size:11px;font-weight:600;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.05em;display:flex;gap:6px;align-items:center}
+h5{margin:14px 0 8px;font-size:11px;font-weight:600;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.05em;display:flex;flex-wrap:wrap;gap:2px 6px;align-items:center}
 .badge{font-size:10px;padding:1px 6px;border-radius:9px;border:1px solid var(--border);color:var(--muted-foreground);white-space:nowrap;display:inline-flex;align-items:center}
 .b-warn{color:var(--warning);border-color:var(--warning)}.b-bad{color:var(--destructive);border-color:var(--destructive)}.b-ok{color:var(--success);border-color:var(--success)}
 .chip{display:inline-flex;gap:4px;font-size:11px;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;align-items:center;font-family:inherit;color:var(--foreground)}
@@ -230,7 +232,13 @@ tr.tot td{font-weight:600;border-bottom:0}
 .kleg{display:flex;gap:10px;flex-wrap:wrap;color:var(--muted-foreground);font-size:10.5px;text-transform:none;letter-spacing:0;font-weight:400}
 .kleg i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px}
 svg.kc{width:100%;height:auto;display:block;overflow:visible}
-svg.kc text{fill:var(--muted-foreground);font-size:10px}
+.kcs{position:relative}
+.kthr{position:absolute;right:2px;transform:translateY(-100%);font-size:11px;line-height:1.2;color:var(--warning)}
+.kax{display:grid;grid-template-columns:repeat(12,1fr);margin-top:3px}
+.kax span{text-align:center;font-size:11px;line-height:16px;color:var(--muted-foreground);cursor:pointer;border-radius:4px}
+.kax span.on{color:var(--foreground);font-weight:600}
+.kaxd{position:relative;height:16px;margin-top:3px}
+.kaxd span{position:absolute;transform:translateX(-50%);font-size:11px;line-height:16px;color:var(--muted-foreground)}
 svg.kc .col{fill:transparent;cursor:pointer}svg.kc .col:hover{fill:var(--border);opacity:.4}svg.kc .col.on{fill:var(--border);opacity:.55}
 .krow{display:grid;grid-template-columns:70px 1fr 72px;gap:8px;align-items:center;margin:7px 0}
 .krow .t{height:8px;border-radius:4px;background:var(--border);overflow:hidden}.krow .t i{display:block;height:100%;border-radius:4px}
@@ -268,7 +276,7 @@ svg.kc .col{fill:transparent;cursor:pointer}svg.kc .col:hover{fill:var(--border)
 .kbk-gov{color:var(--chart-3,var(--warning));border-color:var(--chart-3,var(--warning))}
 .kbk-fin{color:var(--success);border-color:var(--success)}
 .kbk-owner{color:var(--primary);border-color:var(--primary)}
-.kwait{background:repeating-linear-gradient(135deg,transparent 0 5px,var(--border) 5px 6px);color:var(--muted-foreground)}
+.kwait{background:repeating-linear-gradient(135deg,transparent 0 5px,color-mix(in srgb,var(--ring) 45%,transparent) 5px 6px);color:var(--muted-foreground)}
 .kmonths button.kwait,.kmonths button.kopen{border-style:dashed}
 .kmonths button.kwait{cursor:not-allowed;opacity:.75}
 .kmonths button.kopen{border-color:var(--warning);background:repeating-linear-gradient(135deg,rgba(240,160,32,.25) 0 3px,transparent 3px 6px)}
@@ -292,6 +300,17 @@ svg.kc .col{fill:transparent;cursor:pointer}svg.kc .col:hover{fill:var(--border)
 .kbp label{display:block;color:var(--muted-foreground);font-size:10px;margin-bottom:2px}
 .kbp select,.kbp input{width:100%}
 .pane [hidden],.kbv[hidden]{display:none!important}
+.drawer:not(.on){box-shadow:none}
+.pane{overflow-x:auto}
+.tabs{overflow-x:auto}.tab{flex:none;white-space:nowrap}
+.top{flex-wrap:wrap}.top .btn{white-space:nowrap}
+.krole,.kfin,.kbk{vertical-align:middle}
+.kbv .seg{display:flex;flex-wrap:wrap;max-width:100%;gap:1px;background:var(--border)}
+.kbv .seg button{flex:1 1 auto;justify-content:center;white-space:nowrap}
+.mp-tabs{overflow-x:auto}.mp-tabs button{white-space:nowrap}
+.gr{grid-template-columns:70px 1fr 104px 90px 28px}
+.kbp select,.kbp input{height:28px}
+@media (max-width:600px){.drawer{width:94%}.two2{grid-template-columns:1fr}.kview{font-size:0;gap:0;padding:2px 6px}}
 .kbhint{margin:3px 0 0;font-size:10.5px;color:var(--muted-foreground)}
 </style></head><body>
 <div class="app" id="app">
@@ -817,18 +836,18 @@ function kpiSeries(s){if(s.kpi)return s.kpi.scenarios[dsc];
  for(let i=0;i<12;i++){k.pm[i]=paid[i].size;k.f[i]=Math.round(k.g[i]*.03);k.n[i]=k.g[i]-k.r[i]-k.f[i];k.rr[i]=k.g[i]?k.r[i]/k.g[i]:0;k.ar[i]=k.pm[i]?k.g[i]/k.pm[i]:0}
  return k}
 const KCOL=["var(--chart-1)","var(--chart-2)","var(--chart-3)","var(--chart-4)","var(--chart-5)"],KGROSS="rgba(138,138,150,.5)";
-function kbars(g,{h=110,fmt,cols,names,max,tip}){const W=600,bw=W/12,mx=max||Math.max(1,...g.flat()),n=g.length,w=bw*.72/n;let o=`<svg class="kc" viewBox="0 0 ${W} ${h+16}" role="img">`;
- for(let i=0;i<12;i++){const x=i*bw;o+=`<rect class="col ${i===dm?"on":""}" x="${x}" y="0" width="${bw}" height="${h+16}" data-dm="${i}"><title>${tip?tip(i):MN[i]+": "+g.map((a,j)=>names[j]+" "+(a[i]===null?"not shown yet":fmt(a[i]))).join(" · ")}</title></rect>`;
-  g.forEach((a,j)=>{const bh=Math.max(0,a[i])/mx*h;o+=`<rect x="${x+bw*.14+j*w}" y="${h-bh}" width="${Math.max(1,w-1)}" height="${bh}" rx="2" fill="${cols[j]}" pointer-events="none"/>`});
-  o+=`<text x="${x+bw/2}" y="${h+12}" text-anchor="middle" ${i===dm?'style="fill:var(--foreground)"':""}>${MN[i]}</text>`}
- return o+"</svg>"}
-function kline(a,{h=100,fmt,color="var(--chart-1)",thr,max}){const W=600,bw=W/12,mx=max||Math.max(1e-9,...a,thr||0),y=v=>h-v/mx*(h-10)-2,x=i=>i*bw+bw/2;let o=`<svg class="kc" viewBox="0 0 ${W} ${h+16}" role="img">`;
- for(let i=0;i<12;i++)o+=`<rect class="col ${i===dm?"on":""}" x="${i*bw}" y="0" width="${bw}" height="${h+16}" data-dm="${i}"><title>${MN[i]}: ${a[i]===null?"not shown yet":fmt(a[i])}</title></rect>`;
- if(thr!=null)o+=`<line x1="0" x2="${W}" y1="${y(thr)}" y2="${y(thr)}" stroke="var(--warning)" stroke-dasharray="4 3"/><text x="${W-2}" y="${y(thr)-3}" text-anchor="end" style="fill:var(--warning)">${fmt(thr)}</text>`;
+function kbars(g,{h=110,fmt,cols,names,max,tip}){const W=600,bw=W/12,mx=max||Math.max(1,...g.flat()),n=g.length,w=bw*.72/n;let o=`<svg class="kc" viewBox="0 0 ${W} ${h}" role="img">`;
+ for(let i=0;i<12;i++){const x=i*bw;o+=`<rect class="col ${i===dm?"on":""}" x="${x}" y="0" width="${bw}" height="${h}" data-dm="${i}"><title>${tip?tip(i):MN[i]+": "+g.map((a,j)=>names[j]+" "+(a[i]===null?"not shown yet":fmt(a[i]))).join(" · ")}</title></rect>`;
+  g.forEach((a,j)=>{const bh=Math.max(0,a[i])/mx*h;o+=`<rect x="${x+bw*.14+j*w}" y="${h-bh}" width="${Math.max(1,w-1)}" height="${bh}" rx="2" fill="${cols[j]}" pointer-events="none"/>`});}
+ return o+"</svg>"+kaxis()}
+// Axis labels are HTML under the chart, not SVG text: the SVG is scaled to its box, which shrank 10px labels to 5-6px. They stay clickable like the columns.
+const kaxis=()=>`<div class="kax" aria-hidden="true">${MN.slice(0,12).map((n,i)=>`<span class="${i===dm?"on":""}" data-dm="${i}">${n}</span>`).join("")}</div>`;
+function kline(a,{h=100,fmt,color="var(--chart-1)",thr,max}){const W=600,bw=W/12,mx=max||Math.max(1e-9,...a,thr||0),y=v=>h-v/mx*(h-10)-2,x=i=>i*bw+bw/2;let o=`<svg class="kc" viewBox="0 0 ${W} ${h}" role="img">`;
+ for(let i=0;i<12;i++)o+=`<rect class="col ${i===dm?"on":""}" x="${i*bw}" y="0" width="${bw}" height="${h}" data-dm="${i}"><title>${MN[i]}: ${a[i]===null?"not shown yet":fmt(a[i])}</title></rect>`;
+ if(thr!=null)o+=`<line x1="0" x2="${W}" y1="${y(thr)}" y2="${y(thr)}" stroke="var(--warning)" stroke-dasharray="4 3"/>`;
  o+=`<polyline fill="none" stroke="${color}" stroke-width="2" points="${a.map((v,i)=>v===null?"":`${x(i)},${y(v)}`).filter(Boolean).join(" ")}" pointer-events="none"/>`;
  a.forEach((v,i)=>{if(v!==null)o+=`<circle cx="${x(i)}" cy="${y(v)}" r="${i===dm?4.5:2.5}" fill="${i===dm?"var(--foreground)":color}" pointer-events="none"/>`});
- for(let i=0;i<12;i++)o+=`<text x="${x(i)}" y="${h+12}" text-anchor="middle" ${i===dm?'style="fill:var(--foreground)"':""}>${MN[i]}</text>`;
- return o+"</svg>"}
+ return `<div class="kcs">${o}</svg>${thr!=null?`<span class="kthr" style="top:${y(thr)/h*100}%">${fmt(thr)}</span>`:""}</div>`+kaxis()}
 const kleg=(a,c)=>`<span class="kleg">${a.map((n,i)=>`<span><i style="background:${c[i]}"></i>${n}</span>`).join("")}</span>`;
 // ---- School books: five levels of access (spec: school-books-access). The mockup previews every level; the real build reads books_level (owner, finance grant, tier `books`) per person.
 const BK_LV=[["public","Public","eye"],["member","Member","user"],["gov","Governance","users"],["fin","Finance admin","coin"],["owner","Owner","key"]];
@@ -942,10 +961,10 @@ const bkDays=(s,d,mi)=>{const n=new Date(Date.UTC(2026,mi+1,0)).getUTCDate(),las
  const w=a.map((_,i)=>i<last?1+(i*7+mi*3)%5:0),tw=w.reduce((x,y)=>x+y,0)||1;let left=d.g[mi];
  w.forEach((x,i)=>{if(i<last-1){a[i]=Math.round(d.g[mi]*x/tw);left-=a[i]}else if(i===last-1)a[i]=left});
  return{a,last}};
-function kdays(a,last,us){const W=1200,h=64,bw=W/a.length,mx=Math.max(1,...a);let o=`<svg class="kc" viewBox="0 0 ${W} ${h+16}" role="img" aria-label="Gross by day">`;
+function kdays(a,last,us){const W=1200,h=64,bw=W/a.length,mx=Math.max(1,...a);let o=`<svg class="kc" viewBox="0 0 ${W} ${h}" role="img" aria-label="Gross by day">`,lab="";
  a.forEach((v,i)=>{const bh=v/mx*h,x=i*bw;o+=i<last?`<rect x="${x+1}" y="${h-bh}" width="${bw-2}" height="${bh}" rx="2" fill="var(--chart-1)"><title>${MN[dm]} ${i+1}: ${us(v)}</title></rect>`:`<rect x="${x+1}" y="${h-10}" width="${bw-2}" height="10" rx="2" fill="var(--border)" opacity=".4"><title>${MN[dm]} ${i+1}: not yet</title></rect>`;
-  if(i%5===0||i===a.length-1)o+=`<text x="${x+bw/2}" y="${h+12}" text-anchor="middle">${i+1}</text>`});
- return o+"</svg>"}
+  if(i%5===0||i===a.length-1)lab+=`<span style="left:${(x+bw/2)/W*100}%">${i+1}</span>`});
+ return o+`</svg><div class="kaxd" aria-hidden="true">${lab}</div>`}
 function dashFull(s,lv){const gov=lv==="gov",last=bkLastClosed(),d=gov?bkMask(kpiSeries(s),last):kpiSeries(s),fix=!!s.kpi,m=MN[dm],u=U(s),US=c=>kusd(c,s),US0=c=>kusd0(c,s),dis=d.dl[dm]+d.df[dm],anyDis=d.dn.some(v=>v>0),empty=!d.g.some(v=>v)&&!d.pm.some(v=>v),open=!gov&&dm===10;
  const dlt=(a,f)=>dm===0?"First month":a[dm]===a[dm-1]?`Same as ${MN[dm-1]}`:`${a[dm]>a[dm-1]?"▲":"▼"} ${f(Math.abs(a[dm]-a[dm-1]))} vs ${MN[dm-1]}`;
  const kc=(l,v,sub,t="")=>`<div class="kcard ${t}"><small>${l}</small><b>${v}</b><i>${sub}</i></div>`;
