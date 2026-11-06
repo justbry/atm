@@ -28,8 +28,9 @@ import { withQuery } from "./route.ts";
 import { keepLoading } from "./use-loaded.ts";
 import { useViewing } from "./viewing.ts";
 
-/** The mockup's four fixture scenarios (its `Fixture scenario` segmented control) come first in the Reader's list; the
- * other presets of the mart sit in one select beside them. */
+/** The mockup's four fixture scenarios (its `Fixture scenario` segmented control) come first in the Reader's list. The
+ * other presets of the mart have no control: they stay reachable by the route's `preset=<id>`, and the segmented control
+ * then shows none pressed. */
 const featuredScenarios = 4;
 
 type DashboardView = "money" | "members" | "risk";
@@ -1463,7 +1464,6 @@ export function Dashboard({
 		);
 	};
 	const featured = loaded.presets.slice(0, featuredScenarios);
-	const more = loaded.presets.slice(featuredScenarios);
 	const caption = document.captions[selected.period.slice(0, 4)];
 	let body: JSX.Element;
 	if (selected.state !== "shown")
@@ -1565,31 +1565,6 @@ export function Dashboard({
 								</button>
 							))}
 						</div>
-						{more.length > 0 && (
-							<select
-								class="kmore"
-								aria-label="More scenarios"
-								value={
-									more.some(({ id }) => id === preset?.id) ? preset?.id : ""
-								}
-								onChange={(event) => {
-									if (event.currentTarget.value)
-										go("preset", event.currentTarget.value);
-								}}
-							>
-								<option value="">More scenarios</option>
-								{more.map(({ id, label }) => (
-									<option
-										key={id}
-										value={id}
-										data-test="preset-option"
-										data-preset={id}
-									>
-										{label}
-									</option>
-								))}
-							</select>
-						)}
 					</>
 				)}
 			</div>

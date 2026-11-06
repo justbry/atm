@@ -95,26 +95,18 @@ test("the Member's year note replaces the generic rounding line", async () => {
 	);
 });
 
-test("the four scenarios are one segmented control; the rest sit in one select, and preset= still names all 15", async () => {
+test("the four scenarios are the only scenario control; preset= still names all 15, and a preset outside the four presses none", async () => {
 	await open("#/b4u/dashboard?as=governance");
 	const seg = element('[aria-label="Fixture scenario"]');
 	expect(seg.getAttribute("role")).toBe("group");
 	expect(seg.querySelectorAll("[data-test=preset-option]").length).toBe(4);
-	const more = element<HTMLSelectElement>(
-		'select[aria-label="More scenarios"]',
-	);
-	expect(more.querySelectorAll("[data-test=preset-option]").length).toBe(11);
-	expect(count("[data-test=preset-option]")).toBe(15);
-	more.value = "fee-oracle";
-	more.dispatchEvent(new Event("change", { bubbles: true }));
-	for (let turn = 0; turn < 30; turn += 1)
-		await new Promise((resolve) => setTimeout(resolve, 0));
-	expect(window.location.hash).toContain("preset=fee-oracle");
-	expect(
-		element<HTMLSelectElement>('select[aria-label="More scenarios"]').value,
-	).toBe("fee-oracle");
+	expect(count("[data-test=preset-option]")).toBe(4);
+	expect(count('select[aria-label="More scenarios"]')).toBe(0);
 	await click("[data-test=preset-option][data-preset=disputes]");
 	expect(window.location.hash).toContain("preset=disputes");
+	await open("#/b4u/dashboard?as=governance&preset=fee-oracle");
+	expect(count("[data-test=preset-option][aria-pressed=true]")).toBe(0);
+	expect(count("[data-test=preset-option].on")).toBe(0);
 });
 
 test("the view, scenario and period controls are named groups, as the mockup names them", async () => {

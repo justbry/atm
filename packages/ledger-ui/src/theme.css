@@ -695,7 +695,8 @@ tr.tot td {
 	outline: 2px solid var(--ring);
 	outline-offset: 2px;
 }
-.x[data-pointer-focus]:focus {
+.x[data-pointer-focus]:focus,
+.vmbar .badge[data-pointer-focus]:focus {
 	outline: 0;
 }
 .acts {
@@ -1610,11 +1611,6 @@ tr.tot td {
 }
 .kafter {
 	margin-left: 6px;
-}
-.kmore {
-	max-width: 11em;
-	font-size: 12px;
-	padding: 3px 6px;
 }
 .kmonths {
 	display: flex;
