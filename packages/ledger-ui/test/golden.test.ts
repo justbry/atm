@@ -34,7 +34,6 @@ type Expectation = {
 	 * textContent). */
 	value?: Record<string, string[]>;
 	/** `text` selectors the moving-data run checks again (protocol §7); this runner does not read it. */
-	moves?: string[];
 };
 type Entry = {
 	id: string;

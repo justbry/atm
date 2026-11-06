@@ -114,14 +114,14 @@
 	},
 	"moves": {
 		"fields": [
-			"MenuVersionBody.menu.tiers[].prices[].amount",
-			"MenuVersionBody.menu.addons[].price.amount",
-			"PlanSummary.activeMembers",
-			"PlanSummary.endingSoon",
-			"PlanSummary.collected.amount",
-			"PlanSummary.tiers[].active",
-			"PlanSummary.tiers[].ending",
-			"PlanSummary.tiers[].activeUnits"
+			"menuVersion.menu.tiers[].prices[].amount",
+			"menuVersion.menu.addons[].price.amount",
+			"planSummary.activeMembers",
+			"planSummary.endingSoon",
+			"planSummary.collected.amount",
+			"planSummary.tiers[].active",
+			"planSummary.tiers[].ending",
+			"planSummary.tiers[].activeUnits"
 		]
 	},
 	"fixtures": {
@@ -788,8 +788,14 @@
 			},
 			"expect": {
 				"text": {
-					"[data-test=plan-stat][data-stat=active] [data-test=plan-stat-value]": "5",
-					"[data-test=plan-stat][data-stat=collected] [data-test=plan-stat-value]": "$287.00",
+					"[data-test=plan-stat][data-stat=active] [data-test=plan-stat-value]": {
+						"text": "5",
+						"moves": true
+					},
+					"[data-test=plan-stat][data-stat=collected] [data-test=plan-stat-value]": {
+						"text": "$287.00",
+						"moves": true
+					},
 					"[data-test=plan-stat][data-stat=ending] [data-test=plan-stat-value]": "1",
 					"[data-test=plan-stat][data-stat=attention] [data-test=plan-stat-value]": "4",
 					"[data-test=plan-stat][data-stat=collected] [data-test=plan-stat-label]": "Collected in Nov",
@@ -805,21 +811,36 @@
 					"[data-test=plan-count][data-kind=addons]": "2 of 6",
 					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-name]": "Sparkle",
 					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-blurb]": "A little time, every month",
-					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-price]": "$32.50 per session / month · $350.00 / year",
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-price]": {
+						"text": "$32.50 per session / month · $350.00 / year",
+						"moves": true
+					},
 					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-sizes]": "Sold in 1, 2, 4",
 					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-grants]": "8 sessions per unit each month, rolls over 1 mo",
-					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-members]": "3",
-					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-monthly]": "$227.50",
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-members]": {
+						"text": "3",
+						"moves": true
+					},
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-monthly]": {
+						"text": "$227.50",
+						"moves": true
+					},
 					"[data-test=plan-row][data-plan=shine] [data-test=plan-price]": "$30.00 per session / month · $324.00 / year",
 					"[data-test=plan-row][data-plan=shine] [data-test=plan-members]": "1",
 					"[data-test=plan-row][data-plan=shine] [data-test=plan-ending]": "+1 ending",
 					"[data-test=plan-row][data-plan=shine] [data-test=plan-monthly]": "$120.00",
-					"[data-test=plan-row][data-plan=glow] [data-test=plan-price]": "$70.00 / month · $702.00 / year",
+					"[data-test=plan-row][data-plan=glow] [data-test=plan-price]": {
+						"text": "$70.00 / month · $702.00 / year",
+						"moves": true
+					},
 					"[data-test=plan-row][data-plan=glow] [data-test=plan-grants]": "24 sessions each month",
 					"[data-test=plan-row][data-plan=glow] [data-test=plan-changed]": "draft",
 					"[data-test=plan-row][data-plan=glow] [data-test=plan-monthly]": "$70.00",
 					"[data-test=plan-row][data-plan=pack8] [data-test=plan-name]": "Top-up pack",
-					"[data-test=plan-row][data-plan=pack8] [data-test=plan-price]": "$40.00 one time",
+					"[data-test=plan-row][data-plan=pack8] [data-test=plan-price]": {
+						"text": "$40.00 one time",
+						"moves": true
+					},
 					"[data-test=plan-row][data-plan=pack8] [data-test=plan-grants]": "8 sessions once",
 					"[data-test=plan-row][data-plan=pack16] [data-test=plan-price]": "$72.00 one time",
 					"[data-test=plan-row][data-plan=pack16] [data-test=plan-grants]": "16 sessions once",
@@ -866,16 +887,7 @@
 						"Preview",
 						"Code"
 					]
-				},
-				"moves": [
-					"[data-test=plan-stat][data-stat=active] [data-test=plan-stat-value]",
-					"[data-test=plan-stat][data-stat=collected] [data-test=plan-stat-value]",
-					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-price]",
-					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-members]",
-					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-monthly]",
-					"[data-test=plan-row][data-plan=glow] [data-test=plan-price]",
-					"[data-test=plan-row][data-plan=pack8] [data-test=plan-price]"
-				]
+				}
 			},
 			"shot": {
 				"full": true,
@@ -893,8 +905,14 @@
 			"expect": {
 				"text": {
 					"[data-test=plan-stat][data-stat=collected] [data-test=plan-stat-label]": "Collected in Jun",
-					"[data-test=plan-stat][data-stat=collected] [data-test=plan-stat-value]": "$623.00",
-					"[data-test=plan-stat][data-stat=active] [data-test=plan-stat-value]": "7",
+					"[data-test=plan-stat][data-stat=collected] [data-test=plan-stat-value]": {
+						"text": "$623.00",
+						"moves": true
+					},
+					"[data-test=plan-stat][data-stat=active] [data-test=plan-stat-value]": {
+						"text": "7",
+						"moves": true
+					},
 					"[data-test=plan-stat][data-stat=ending] [data-test=plan-stat-value]": "0",
 					"[data-test=plan-stat][data-stat=attention] [data-test=plan-stat-value]": "2",
 					"[data-test=plan-version]": "v3 published",
@@ -904,10 +922,16 @@
 					"[data-test=plan-row][data-plan=board] [data-test=plan-monthly]": "$0.00",
 					"[data-test=plan-row][data-plan=board] [data-test=plan-blurb]": "For board members. Not for sale: the owner gives it.",
 					"[data-test=plan-row][data-plan=board] [data-test=plan-audience]": "Audience: Governance",
-					"[data-test=plan-row][data-plan=shine] [data-test=plan-price]": "$45.00 per credit / month",
+					"[data-test=plan-row][data-plan=shine] [data-test=plan-price]": {
+						"text": "$45.00 per credit / month",
+						"moves": true
+					},
 					"[data-test=plan-row][data-plan=shine] [data-test=plan-sizes]": "Sold in 1, 2",
 					"[data-test=plan-row][data-plan=shine] [data-test=plan-grants]": "12 credits per unit each month, rolls over 1 mo",
-					"[data-test=plan-row][data-plan=shine] [data-test=plan-monthly]": "$135.00",
+					"[data-test=plan-row][data-plan=shine] [data-test=plan-monthly]": {
+						"text": "$135.00",
+						"moves": true
+					},
 					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-price]": "$20.00 / month",
 					"[data-test=plan-count][data-kind=addons]": "0 of 6",
 					"[data-test=plan-empty][data-kind=addons]": "None yet.",
@@ -925,13 +949,7 @@
 					"[data-test=plan-hid]": 0,
 					"[data-test=tab][data-tab=plans] [data-test=tab-badge]": 0,
 					"[data-test=plan-ending]": 0
-				},
-				"moves": [
-					"[data-test=plan-stat][data-stat=collected] [data-test=plan-stat-value]",
-					"[data-test=plan-stat][data-stat=active] [data-test=plan-stat-value]",
-					"[data-test=plan-row][data-plan=shine] [data-test=plan-price]",
-					"[data-test=plan-row][data-plan=shine] [data-test=plan-monthly]"
-				]
+				}
 			}
 		},
 		{
@@ -984,13 +1002,25 @@
 					"[data-test=plan-billing].on": "Monthly",
 					"[data-test=plan-preview-note]": "Showing the draft. Members see the live version until an owner publishes.",
 					"[data-test=plan-card][data-plan=glow] [data-test=plan-card-flag]": "Draft change",
-					"[data-test=plan-card][data-plan=glow] [data-test=plan-card-was]": "$65.00",
-					"[data-test=plan-card][data-plan=glow] [data-test=plan-card-price]": "$70.00",
+					"[data-test=plan-card][data-plan=glow] [data-test=plan-card-was]": {
+						"text": "$65.00",
+						"moves": true
+					},
+					"[data-test=plan-card][data-plan=glow] [data-test=plan-card-price]": {
+						"text": "$70.00",
+						"moves": true
+					},
 					"[data-test=plan-card][data-plan=glow] [data-test=plan-card-period]": "/ month",
 					"[data-test=plan-card][data-plan=sparkle] [data-test=plan-card-price]": "$32.50",
-					"[data-test=plan-card][data-plan=shine] [data-test=plan-card-price]": "$60.00",
+					"[data-test=plan-card][data-plan=shine] [data-test=plan-card-price]": {
+						"text": "$60.00",
+						"moves": true
+					},
 					"[data-test=plan-card][data-plan=shine] [data-test=plan-card-grants]": "12 sessions each month, rolls over 1 mo",
-					"[data-test=plan-card][data-plan=pack8] [data-test=plan-card-price]": "$40.00",
+					"[data-test=plan-card][data-plan=pack8] [data-test=plan-card-price]": {
+						"text": "$40.00",
+						"moves": true
+					},
 					"[data-test=plan-card][data-plan=pack8] [data-test=plan-card-period]": "one time",
 					"[data-test=plan-card][data-plan=pack8] [data-test=plan-card-grants]": "8 sessions once",
 					"[data-test=plan-card][data-plan=sparkle] [data-test=plan-choose]": "Choose Sparkle"
@@ -1012,13 +1042,7 @@
 						"Memberships",
 						"Packs and add-ons"
 					]
-				},
-				"moves": [
-					"[data-test=plan-card][data-plan=glow] [data-test=plan-card-price]",
-					"[data-test=plan-card][data-plan=glow] [data-test=plan-card-was]",
-					"[data-test=plan-card][data-plan=shine] [data-test=plan-card-price]",
-					"[data-test=plan-card][data-plan=pack8] [data-test=plan-card-price]"
-				]
+				}
 			}
 		},
 		{
@@ -1034,17 +1058,17 @@
 				"hash": "show=live",
 				"text": {
 					"[data-test=plan-show].on": "Live v3",
-					"[data-test=plan-card][data-plan=glow] [data-test=plan-card-price]": "$65.00"
+					"[data-test=plan-card][data-plan=glow] [data-test=plan-card-price]": {
+						"text": "$65.00",
+						"moves": true
+					}
 				},
 				"count": {
 					"[data-test=plan-preview-note]": 0,
 					"[data-test=plan-card-flag]": 0,
 					"[data-test=plan-card-was]": 0,
 					"[data-test=plan-card]": 5
-				},
-				"moves": [
-					"[data-test=plan-card][data-plan=glow] [data-test=plan-card-price]"
-				]
+				}
 			}
 		},
 		{
@@ -1072,15 +1096,17 @@
 				"hash": "billing=year",
 				"text": {
 					"[data-test=plan-billing].on": "Yearly",
-					"[data-test=plan-card][data-plan=sparkle] [data-test=plan-card-price]": "$1,400.00",
+					"[data-test=plan-card][data-plan=sparkle] [data-test=plan-card-price]": {
+						"text": "$1,400.00",
+						"moves": true
+					},
 					"[data-test=plan-card][data-plan=sparkle] [data-test=plan-card-period]": "/ year",
-					"[data-test=plan-card][data-plan=shine] [data-test=plan-card-price]": "$648.00",
+					"[data-test=plan-card][data-plan=shine] [data-test=plan-card-price]": {
+						"text": "$648.00",
+						"moves": true
+					},
 					"[data-test=plan-card][data-plan=glow] [data-test=plan-card-price]": "$702.00"
-				},
-				"moves": [
-					"[data-test=plan-card][data-plan=sparkle] [data-test=plan-card-price]",
-					"[data-test=plan-card][data-plan=shine] [data-test=plan-card-price]"
-				]
+				}
 			}
 		},
 		{
@@ -1121,7 +1147,10 @@
 				"text": {
 					"[data-test=plan-show].on": "Live v3",
 					"[data-test=plan-show][data-show=draft]": "Draft",
-					"[data-test=plan-card][data-plan=shine] [data-test=plan-card-price]": "$45.00",
+					"[data-test=plan-card][data-plan=shine] [data-test=plan-card-price]": {
+						"text": "$45.00",
+						"moves": true
+					},
 					"[data-test=plan-preview-intro]": "How the purchase page looks at b4uni.com/join/b4-uni. Click a plan to edit it."
 				},
 				"count": {
@@ -1129,10 +1158,7 @@
 					"[data-test=plan-card][data-plan=board]": 0,
 					"[data-test=plan-billing][data-billing=year][disabled]": 1,
 					"[data-test=plan-preview-note]": 0
-				},
-				"moves": [
-					"[data-test=plan-card][data-plan=shine] [data-test=plan-card-price]"
-				]
+				}
 			}
 		},
 		{
@@ -1186,8 +1212,7 @@
 						"  - id: glow\n    name: Glow\n    blurb: One big plan\n    public: true\n    prices:\n      month: 70\n      year: 702\n    grants:\n",
 						"\n\npacks:\n  # stripe: product · price\n  - id: pack8\n    name: Top-up pack\n    price: 40\n    every: once\n"
 					]
-				},
-				"moves": []
+				}
 			},
 			"shot": {
 				"full": true,
@@ -2165,7 +2190,10 @@
 				"text": {
 					"[data-test=plan-publish-dialog] h3": "Review and publish",
 					"[data-test=plan-publish-versions]": "Vibes of Light · v3 → v4",
-					"[data-test=plan-publish-summary]": "New purchases get the new terms. 1 current member keep the version they bought. The change applies at once (it doesn't wait for the next local month).",
+					"[data-test=plan-publish-summary]": {
+						"text": "New purchases get the new terms. 1 current member keep the version they bought. The change applies at once (it doesn't wait for the next local month).",
+						"moves": true
+					},
 					"[data-test=plan-publish-go]": "Publish v4",
 					"[data-test=plan-publish-cancel]": "Cancel"
 				},
@@ -2186,9 +2214,6 @@
 					"[data-test=plan-publish-lock]": 0,
 					"[data-test=plan-publish-go][disabled]": 1
 				},
-				"moves": [
-					"[data-test=plan-publish-summary]"
-				],
 				"writes": []
 			},
 			"shot": {
@@ -2244,7 +2269,10 @@
 				"text": {
 					"[data-test=plan-version]": "v4 published",
 					"[data-test=toast]": "Published v4. The Stripe prices are being updated.",
-					"[data-test=plan-row][data-plan=glow] [data-test=plan-price]": "$70.00 / month · $702.00 / year"
+					"[data-test=plan-row][data-plan=glow] [data-test=plan-price]": {
+						"text": "$70.00 / month · $702.00 / year",
+						"moves": true
+					}
 				},
 				"count": {
 					"[data-test=plan-publish-dialog]": 0,
@@ -2261,9 +2289,6 @@
 							"vol"
 						]
 					}
-				],
-				"moves": [
-					"[data-test=plan-row][data-plan=glow] [data-test=plan-price]"
 				]
 			}
 		},
@@ -2310,7 +2335,10 @@
 				"text": {
 					"[data-test=plan-version]": "v4 published",
 					"[data-test=toast]": "Published v4. The Stripe prices are being updated.",
-					"[data-test=plan-row][data-plan=glow] [data-test=plan-price]": "$70.00 / month · $702.00 / year"
+					"[data-test=plan-row][data-plan=glow] [data-test=plan-price]": {
+						"text": "$70.00 / month · $702.00 / year",
+						"moves": true
+					}
 				},
 				"count": {
 					"[data-test=plan-publish-dialog]": 0,
@@ -2327,9 +2355,6 @@
 							"vol"
 						]
 					}
-				],
-				"moves": [
-					"[data-test=plan-row][data-plan=glow] [data-test=plan-price]"
 				]
 			}
 		},
@@ -2451,7 +2476,10 @@
 				"text": {
 					"[data-test=plan-publish-lock]": "Owners publish. You are an admin here, so your draft waits for an owner.",
 					"[data-test=plan-publish-go]": "Publish v4",
-					"[data-test=plan-publish-summary]": "New purchases get the new terms. 4 current members keep the version they bought. The change applies at once (it doesn't wait for the next local month)."
+					"[data-test=plan-publish-summary]": {
+						"text": "New purchases get the new terms. 4 current members keep the version they bought. The change applies at once (it doesn't wait for the next local month).",
+						"moves": true
+					}
 				},
 				"count": {
 					"[data-test=plan-publish-go][disabled][title=\"Owners publish\"]": 1,
@@ -2544,9 +2572,6 @@
 							}
 						]
 					}
-				],
-				"moves": [
-					"[data-test=plan-publish-summary]"
 				]
 			}
 		},
@@ -2563,7 +2588,10 @@
 				"text": {
 					"[data-test=toast]": "Draft discarded.",
 					"[data-test=plan-version]": "v3 published",
-					"[data-test=plan-row][data-plan=glow] [data-test=plan-price]": "$65.00 / month · $702.00 / year"
+					"[data-test=plan-row][data-plan=glow] [data-test=plan-price]": {
+						"text": "$65.00 / month · $702.00 / year",
+						"moves": true
+					}
 				},
 				"count": {
 					"[data-test=plan-draft-badge]": 0,
@@ -2711,9 +2739,6 @@
 							}
 						]
 					}
-				],
-				"moves": [
-					"[data-test=plan-row][data-plan=glow] [data-test=plan-price]"
 				]
 			}
 		},
@@ -2729,7 +2754,10 @@
 			"expect": {
 				"text": {
 					"[data-test=plan-drawer-title]": "Sparkle",
-					"[data-test=plan-drawer-sub]": "Vibes of Light · editing the draft · 3 active members",
+					"[data-test=plan-drawer-sub]": {
+						"text": "Vibes of Light · editing the draft · 3 active members",
+						"moves": true
+					},
 					"[data-test=plan-drawer-save]": "Save to draft",
 					"[data-test=plan-drawer-cancel]": "Cancel",
 					"[data-test=plan-drawer-note]": "A cap on rollover isn't enforced yet, so it isn't offered.",
@@ -2797,10 +2825,7 @@
 					"[data-test=plan-drawer-close][aria-label=Close]": 1,
 					"[data-test=plan-drawer-problem]": 0,
 					"[data-test=plan-drawer-save][disabled]": 0
-				},
-				"moves": [
-					"[data-test=plan-drawer-sub]"
-				]
+				}
 			}
 		},
 		{
@@ -3682,7 +3707,10 @@
 					]
 				},
 				"text": {
-					"[data-test=plan-publish-summary]": "New purchases get the new terms. 4 current members keep the version they bought. The change applies at once (it doesn't wait for the next local month)."
+					"[data-test=plan-publish-summary]": {
+						"text": "New purchases get the new terms. 4 current members keep the version they bought. The change applies at once (it doesn't wait for the next local month).",
+						"moves": true
+					}
 				},
 				"writes": [
 					{
@@ -3824,9 +3852,6 @@
 							}
 						]
 					}
-				],
-				"moves": [
-					"[data-test=plan-publish-summary]"
 				]
 			}
 		},
@@ -3843,8 +3868,14 @@
 					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-members]": "Finance or governance only",
 					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-monthly]": "Finance or governance only",
 					"[data-test=plan-stat][data-stat=collected] [data-test=plan-stat-value]": "Finance or governance only",
-					"[data-test=plan-stat][data-stat=active] [data-test=plan-stat-value]": "5",
-					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-price]": "$32.50 per session / month · $350.00 / year"
+					"[data-test=plan-stat][data-stat=active] [data-test=plan-stat-value]": {
+						"text": "5",
+						"moves": true
+					},
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-price]": {
+						"text": "$32.50 per session / month · $350.00 / year",
+						"moves": true
+					}
 				},
 				"count": {
 					"[data-test=plan-hid][data-hid=no_grant][title=\"Finance or governance only\"]": 7,
@@ -3853,11 +3884,7 @@
 					"[data-test=plan-review][disabled][title=\"Exit preview to act\"]": 1,
 					"[data-test=plan-discard][disabled][title=\"Exit preview to act\"]": 1,
 					"[data-test=plan-add][disabled][title=\"Exit preview to act\"]": 2
-				},
-				"moves": [
-					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-price]",
-					"[data-test=plan-stat][data-stat=active] [data-test=plan-stat-value]"
-				]
+				}
 			}
 		},
 		{
@@ -3873,7 +3900,10 @@
 					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-members]": "<10",
 					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-monthly]": "—",
 					"[data-test=plan-row][data-plan=board] [data-test=plan-name]": "Board",
-					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-price]": "$20.00 / month"
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-price]": {
+						"text": "$20.00 / month",
+						"moves": true
+					}
 				},
 				"count": {
 					"[data-test=plan-stat]": 0,
@@ -3882,10 +3912,7 @@
 					"[data-test=plan-hid][data-hid=approx][title=\"Rounded to the nearest 10: fewer than 5 members\"]": 3,
 					"[data-test=plan-hid][data-hid=suppressed][title=\"Hidden: fewer than 5 payers\"]": 3,
 					"[data-test=plan-review][disabled][title=\"Exit preview to act\"]": 1
-				},
-				"moves": [
-					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-price]"
-				]
+				}
 			}
 		},
 		{
@@ -3900,16 +3927,16 @@
 					"[data-test=plan-books-note]": "Per-plan members and revenue are a breakdown: finance admins, the owner and governance see them.",
 					"[data-test=plan-row][data-plan=shine] [data-test=plan-members]": "Governance and up see this",
 					"[data-test=plan-row][data-plan=shine] [data-test=plan-monthly]": "Governance and up see this",
-					"[data-test=plan-row][data-plan=shine] [data-test=plan-price]": "$30.00 per session / month · $324.00 / year"
+					"[data-test=plan-row][data-plan=shine] [data-test=plan-price]": {
+						"text": "$30.00 per session / month · $324.00 / year",
+						"moves": true
+					}
 				},
 				"count": {
 					"[data-test=plan-stat]": 0,
 					"[data-test=plan-hid][data-hid=no_grant][title=\"Governance and up see this\"]": 6,
 					"[data-test=plan-ending]": 0
-				},
-				"moves": [
-					"[data-test=plan-row][data-plan=shine] [data-test=plan-price]"
-				]
+				}
 			}
 		},
 		{
@@ -3922,17 +3949,17 @@
 			"expect": {
 				"text": {
 					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-monthly]": "Governance and up see this",
-					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-price]": "$20.00 / month"
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-price]": {
+						"text": "$20.00 / month",
+						"moves": true
+					}
 				},
 				"count": {
 					"[data-test=plan-row][data-plan=board]": 0,
 					"[data-test=plan-row]": 2,
 					"[data-test=plan-stat]": 0,
 					"[data-test=plan-hid][data-hid=no_grant][title=\"Governance and up see this\"]": 4
-				},
-				"moves": [
-					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-price]"
-				]
+				}
 			}
 		},
 		{
@@ -4086,17 +4113,17 @@
 				"text": {
 					"[data-test=plan-setup-count]": "3 of 4 done",
 					"[data-test=plan-setup-next]": "Next: Share your purchase link",
-					"[data-test=plan-stat][data-stat=active] [data-test=plan-stat-value]": "2",
+					"[data-test=plan-stat][data-stat=active] [data-test=plan-stat-value]": {
+						"text": "2",
+						"moves": true
+					},
 					"[data-test=plan-row][data-plan=glow] [data-test=plan-ending]": "+1 ending"
 				},
 				"count": {
 					"[data-test=plan-setup-step][disabled]": 3,
 					"[data-test=plan-setup-step][data-step=link].next": 1,
 					"[data-test=plan-row]": 1
-				},
-				"moves": [
-					"[data-test=plan-stat][data-stat=active] [data-test=plan-stat-value]"
-				]
+				}
 			}
 		}
 	]
