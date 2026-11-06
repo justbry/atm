@@ -115,7 +115,12 @@ export const generateScenario = (scenario: ResolvedScenario): Generated => {
 		if (t < endMs) ops.push({ at: t, order: ops.length, run });
 	};
 	const stores = new Map<string, Store>();
-	const school = createStore({ menu, school: SCHOOL_ID, family: "school" });
+	const school = createStore({
+		menu,
+		school: SCHOOL_ID,
+		family: "school",
+		commandPrefix: "school_",
+	});
 	const stats: GenerateStats = {
 		families: 0,
 		invoices: 0,
@@ -319,7 +324,13 @@ export const generateScenario = (scenario: ResolvedScenario): Generated => {
 		const price = tier.prices.find((x) => x.interval === interval)
 			?.amount as number;
 		stats.families += 1;
-		const store = createStore({ menu, school: SCHOOL_ID, family, profile });
+		const store = createStore({
+			menu,
+			school: SCHOOL_ID,
+			family,
+			profile,
+			commandPrefix: `${family}_`,
+		});
 		stores.set(family, store);
 
 		const tierLine = (): EventLine => ({
