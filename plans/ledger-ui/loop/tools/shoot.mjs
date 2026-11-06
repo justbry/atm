@@ -25,7 +25,9 @@ const out = argument("--out");
 const side = argument("--side");
 const nonce = argument("--nonce");
 const commit = argument("--commit");
-const golden = JSON.parse(readFileSync(`packages/ledger-ui/test/golden/${slice}.json`, "utf8"));
+const golden = JSON.parse(
+	readFileSync(`packages/ledger-ui/test/golden/${slice}.json`, "utf8"),
+);
 const hostCss = readFileSync("plans/ledger-ui/design/mockup-host.css", "utf8");
 const executablePath = join(
 	homedir(),
@@ -44,32 +46,54 @@ const writeNonce = (value) => {
 mkdirSync(out, { recursive: true });
 const browser = await chromium.launch({ executablePath });
 const files = {};
-for (const entry of golden.entries.filter((candidate) => candidate.shot?.full)) {
+for (const entry of golden.entries.filter(
+	(candidate) => candidate.shot?.full,
+)) {
 	for (const width of widths) {
 		for (const theme of themes) {
 			const page = await browser.newPage({ viewport: { width, height: 900 } });
 			if (side === "app") {
 				const route = entry.route.replace(/theme=\w+/, `theme=${theme}`);
 				await page.goto(`${appOrigin}/${route}`);
-				await page.waitForFunction((hash) => document.getElementById("app")?.dataset.route === hash, route);
+				await page.waitForFunction(
+					(hash) => document.getElementById("app")?.dataset.route === hash,
+					route,
+				);
 				for (const step of entry.steps ?? []) {
 					if (step.click) await page.click(step.click);
-					else if (step.fill) await page.locator(step.fill).evaluate((input, value) => {
-						input.value = value;
-						input.dispatchEvent(new Event("input", { bubbles: true }));
-						input.dispatchEvent(new Event("change", { bubbles: true }));
-					}, step.value);
-					else if (step.key) await page.locator(step.target).press(step.key);
+					else if (step.fill)
+						await page
+							.locator(step.fill)
+							.first()
+							.evaluate((input, value) => {
+								input.value = value;
+								input.dispatchEvent(new Event("input", { bubbles: true }));
+								input.dispatchEvent(new Event("change", { bubbles: true }));
+							}, step.value);
+					else if (step.key)
+						await page
+							.locator(step.target)
+							.first()
+							.evaluate(
+								(target, key) =>
+									target.dispatchEvent(
+										new KeyboardEvent("keydown", { key, bubbles: true }),
+									),
+								step.key,
+							);
 				}
 				await page.waitForTimeout(150);
 			} else {
 				await page.goto(`${mockOrigin}/mockup.html`);
 				await page.waitForSelector(".tab");
 				await page.addStyleTag({ content: hostCss });
-				await page.evaluate(`theme=${JSON.stringify(theme)};applyTheme();${entry.shot.mockupSteps}`);
+				await page.evaluate(
+					`theme=${JSON.stringify(theme)};applyTheme();${entry.shot.mockupSteps}`,
+				);
 				await page.waitForTimeout(150);
 			}
-			if ((await page.evaluate(() => innerWidth)) !== width) throw new Error(`viewport is not ${width}`);
+			if ((await page.evaluate(() => innerWidth)) !== width)
+				throw new Error(`viewport is not ${width}`);
 			await page.evaluate(writeNonce, nonce);
 			const name = `${entry.id}-${width}-${theme}.png`;
 			await page.screenshot({ path: join(out, name) });
@@ -79,5 +103,8 @@ for (const entry of golden.entries.filter((candidate) => candidate.shot?.full)) 
 	}
 }
 await browser.close();
-writeFileSync(join(out, "manifest.json"), `${JSON.stringify({ side, slice, commit, files: Object.keys(files) }, null, "\t")}\n`);
+writeFileSync(
+	join(out, "manifest.json"),
+	`${JSON.stringify({ side, slice, commit, files: Object.keys(files) }, null, "\t")}\n`,
+);
 process.stdout.write(`${Object.keys(files).length} shots in ${out}\n`);
