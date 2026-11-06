@@ -1,5 +1,8 @@
 import { afterEach, expect, test } from "bun:test";
+import { Fragment, h, render } from "preact";
 import { mountApp } from "../../src/app/mount.tsx";
+import { Popover } from "../../src/app/popover.tsx";
+import { SettingsDrawer } from "../../src/app/settings-drawer.tsx";
 import { createFixtureReader } from "../../src/fixtures/reader.ts";
 import { createFixtureWriter } from "../../src/fixtures/writer.ts";
 
@@ -321,16 +324,53 @@ test("the settings drawer is a modal dialog that keeps focus inside", async () =
 	expect(document.activeElement).toBe(closeButton);
 });
 
-test("Escape closes an open popover first and the drawer only on the next press", async () => {
+test("in the shell a popover and the drawer are open one at a time: opening the drawer closes the popover", async () => {
 	await open("#/vol/plans");
-	await click("[data-test=settings-button]");
 	await click("[data-test=help-button]");
 	expect(document.querySelectorAll("[data-test=help-link]").length).toBe(4);
-	await press(element("[data-test=help-link]"), "Escape");
+	await click("[data-test=settings-button]");
 	expect(document.querySelector("[data-test=help-link]")).toBeNull();
 	expect(element(".drawer").classList.contains("on")).toBe(true);
 	await press(document.body, "Escape");
 	expect(element(".drawer").classList.contains("on")).toBe(false);
+});
+
+test("Escape closes an open popover first and the drawer only on the next press", async () => {
+	// The shell's top bar is inert while the drawer is open, so this mounts a popover the open drawer leaves reachable,
+	// as a popover inside the drawer is.
+	const container = document.createElement("div");
+	container.id = "app";
+	container.dataset.route = window.location.hash;
+	document.body.appendChild(container);
+	let closes = 0;
+	render(
+		h(Fragment, null, [
+			h(SettingsDrawer, {
+				id: "drawer",
+				open: true,
+				subtitle: "You and Volunteers",
+				theme: "system",
+				onThemeChange: () => undefined,
+				onClose: () => {
+					closes += 1;
+				},
+			}),
+			h(Popover, {
+				trigger: { class: "ib", "data-test": "reachable-popover" },
+				label: "Open",
+				children: () =>
+					h("button", { type: "button", "data-test": "popover-item" }, "Item"),
+			}),
+		]),
+		container,
+	);
+	await click("[data-test=reachable-popover]");
+	await press(element("[data-test=popover-item]"), "Escape");
+	expect(document.querySelector("[data-test=popover-item]")).toBeNull();
+	expect(closes).toBe(0);
+	await press(document.body, "Escape");
+	expect(closes).toBe(1);
+	render(null, container);
 });
 
 test("Copy a prompt puts the prompt on the clipboard, and says so when it cannot", async () => {

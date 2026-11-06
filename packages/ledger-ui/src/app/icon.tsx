@@ -17,6 +17,12 @@ const shapes = {
 	chevronDown: <path d="M6 9l6 6 6-6" />,
 	chevronLeft: <path d="M15 6l-6 6 6 6" />,
 	chevronRight: <path d="M9 6l6 6-6 6" />,
+	coin: (
+		<>
+			<circle cx="12" cy="12" r="9" />
+			<path d="M14.5 9.2c-.5-.8-1.4-1.2-2.5-1.2-1.5 0-2.5.8-2.5 1.8 0 2.6 5 1.4 5 4 0 1-1 1.9-2.5 1.9-1.2 0-2.2-.5-2.7-1.4M12 6v2M12 16v2" />
+		</>
+	),
 	copy: (
 		<>
 			<rect x="9" y="9" width="11" height="11" rx="2" />
@@ -41,6 +47,18 @@ const shapes = {
 			<path d="M9.5 9.5a2.5 2.5 0 114 2c-.9.6-1.5 1-1.5 2M12 17h.01" />
 		</>
 	),
+	info: (
+		<>
+			<circle cx="12" cy="12" r="9" />
+			<path d="M12 11v5M12 8h.01" />
+		</>
+	),
+	key: (
+		<>
+			<circle cx="8" cy="15" r="4" />
+			<path d="M11 12l9-9M16 7l3 3" />
+		</>
+	),
 	layers: (
 		<>
 			<path d="M12 3l9 5-9 5-9-5 9-5z" />
@@ -49,6 +67,12 @@ const shapes = {
 		</>
 	),
 	list: <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />,
+	lock: (
+		<>
+			<rect x="5" y="11" width="14" height="9" rx="2" />
+			<path d="M8 11V8a4 4 0 018 0v3" />
+		</>
+	),
 	monitor: (
 		<>
 			<rect x="3" y="4" width="18" height="12" rx="2" />
@@ -56,6 +80,9 @@ const shapes = {
 		</>
 	),
 	moon: <path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z" />,
+	scale: (
+		<path d="M12 3v18M5 21h14M5 7h14M5 7l-3 7a3 3 0 006 0L5 7zM19 7l-3 7a3 3 0 006 0l-3-7z" />
+	),
 	sun: (
 		<>
 			<circle cx="12" cy="12" r="4" />
@@ -66,6 +93,18 @@ const shapes = {
 		<>
 			<path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z" />
 			<circle cx="7.5" cy="7.5" r="1.3" />
+		</>
+	),
+	unlock: (
+		<>
+			<rect x="5" y="11" width="14" height="9" rx="2" />
+			<path d="M8 11V8a4 4 0 017.5-2" />
+		</>
+	),
+	user: (
+		<>
+			<circle cx="12" cy="8" r="3.5" />
+			<path d="M5 20c0-3.9 3.1-7 7-7s7 3.1 7 7" />
 		</>
 	),
 	users: (

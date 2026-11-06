@@ -1,9 +1,14 @@
+import type { BooksLevel, KpiDocument } from "../data/kpi-document.ts";
 import type { Reader } from "../data/reader.ts";
-import type { Clock, School } from "../data/types.ts";
+import type { Clock, DashboardOptions, School } from "../data/types.ts";
+import cellRules from "./mart/cell-rules.json";
+import documentsFile from "./mart/documents.json";
 
 /** The mockup's four schools (its `SC` table), with the counts its headless run shows on 2026-11-05: attention from
  * `attN`, overdue bookings from `groups().out`, expiring promos from `expiring`, stale when `lag` is over 15 minutes.
- * Vibes of Light's Plans tab shows `draft` as the mockup draws it. */
+ * Vibes of Light's Plans tab shows `draft` as the mockup draws it. The books level is `bkDefault`'s: at B4 Uni the
+ * signed-in person is Jo A., an admin with the finance grant; elsewhere the owner. B4 Uni, the mockup's fixture
+ * school, opens its Dashboard on Jun (`dm=5`). */
 const schools: School[] = [
 	{
 		id: "vol",
@@ -11,6 +16,7 @@ const schools: School[] = [
 		timeZone: "America/Denver",
 		currency: "USD",
 		role: "owner",
+		booksLevel: "owner",
 		stale: false,
 		lagMinutes: 2,
 		attentionCount: 4,
@@ -22,6 +28,8 @@ const schools: School[] = [
 		timeZone: "America/Chicago",
 		currency: "USD",
 		role: "admin",
+		booksLevel: "finance_admin",
+		dashboardOpensOn: "2026-06",
 		stale: false,
 		lagMinutes: 3,
 		attentionCount: 2,
@@ -33,6 +41,7 @@ const schools: School[] = [
 		timeZone: "America/Toronto",
 		currency: "CAD",
 		role: "owner",
+		booksLevel: "owner",
 		stale: true,
 		lagMinutes: 26,
 		attentionCount: 1,
@@ -44,6 +53,7 @@ const schools: School[] = [
 		timeZone: "America/Los_Angeles",
 		currency: "USD",
 		role: "owner",
+		booksLevel: "owner",
 		stale: false,
 		lagMinutes: 1,
 		attentionCount: 0,
@@ -51,8 +61,54 @@ const schools: School[] = [
 	},
 ];
 
-/** The fixture Reader. The clock is part of the contract for the dated documents later slices read; the school list
- * does not depend on it. */
+/** The mart's 15 presets: the mockup's four scenarios first, with its labels and its annual-prepay note, then the
+ * others by id. */
+const presets: DashboardOptions["presets"] = [
+	{ id: "monthly-members", label: "Monthly members" },
+	{
+		id: "annual-prepay",
+		label: "Annual prepay",
+		note: "Cash basis: a yearly payer counts in the month paid, so every month after January looks empty. MRR and churn are not computed.",
+	},
+	{ id: "disputes", label: "Disputes" },
+	{ id: "heavy-refunds", label: "Heavy refunds" },
+	{ id: "child-only", label: "Child only" },
+	{ id: "churn-spike", label: "Churn spike" },
+	{ id: "fee-oracle", label: "Fee oracle" },
+	{ id: "free-only", label: "Free only" },
+	{ id: "growth-12mo", label: "Growth over 12 months" },
+	{ id: "non-usd", label: "Non-USD" },
+	{ id: "one-payer-tier", label: "One payer tier" },
+	{ id: "seminar-quantities", label: "Seminar quantities" },
+	{ id: "single-refund-month", label: "Single refund month" },
+	{ id: "tiny-school", label: "Tiny school" },
+	{ id: "yearly-solo", label: "Yearly solo" },
+];
+
+/** The five books levels in rank order. */
+const levels: DashboardOptions["levels"] = Object.entries(cellRules.levels)
+	.sort(([, first], [, second]) => first.rank - second.rank)
+	.map(([id, { name, pin, steps }]) => ({
+		id: id as BooksLevel,
+		name,
+		pin,
+		steps,
+	}));
+
+/** The orchestrator's documents, computed at the mockup's clock (protocol §4): returned as they are, keyed as
+ * `gates/oracle.ts` `documentKey` keys them. */
+const documents = documentsFile as unknown as Record<string, KpiDocument>;
+
+/** The fixture Reader. The documents are fixed at the clock the gates use, so it only names the clock. */
 export function createFixtureReader(_options: { clock: Clock }): Reader {
-	return { schools: async () => schools };
+	return {
+		schools: async () => schools,
+		dashboardOptions: async () => ({
+			presets,
+			levels,
+			labels: cellRules.labels,
+		}),
+		kpiDocument: async ({ preset, level, pinLocked }) =>
+			documents[`${preset}.${level}${pinLocked ? ".pin-locked" : ""}`],
+	};
 }

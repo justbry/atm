@@ -60,6 +60,8 @@ const filesUnder = (directory: string): string[] =>
 
 process.stdout.write(`slice ${slice} head ${head}\n`);
 run("I install", "bun", ["install", "--frozen-lockfile"]);
+if (existsSync(join(packageRoot, "scripts/import-mart.ts")))
+	run("F fixtures", "bun", ["scripts/import-mart.ts"]);
 run("Y types", "bunx", ["tsc", "--noEmit", "-p", "gates/tsconfig.gates.json"]);
 
 const lintable = readFileSync(changedFile, "utf8")
@@ -96,12 +98,33 @@ if (lintable.length)
 else process.stdout.write("B green: no lintable changed files\n");
 
 run("S build", "bun", ["run", "build:size"]);
-const bytes = filesUnder(join(packageRoot, "dist-size"))
-	.filter((file) => /\.(js|css)$/.test(file))
-	.reduce(
-		(total, file) => total + gzipSync(readFileSync(file), { level: 9 }).length,
-		0,
-	);
+/** First-load size (owner default, 2026-11-06): the entry chunk, its static imports and their CSS; panes loaded on demand are not counted. */
+type ManifestChunk = {
+	file: string;
+	css?: string[];
+	imports?: string[];
+	isEntry?: boolean;
+};
+const manifest = JSON.parse(
+	readFileSync(join(packageRoot, "dist-size/.vite/manifest.json"), "utf8"),
+) as Record<string, ManifestChunk>;
+const firstLoad = new Set<string>();
+const visit = (key: string): void => {
+	const chunk = manifest[key];
+	if (!chunk || firstLoad.has(chunk.file)) return;
+	firstLoad.add(chunk.file);
+	for (const css of chunk.css ?? []) firstLoad.add(css);
+	for (const imported of chunk.imports ?? []) visit(imported);
+};
+for (const [key, chunk] of Object.entries(manifest))
+	if (chunk.isEntry) visit(key);
+const bytes = [...firstLoad].reduce(
+	(total, file) =>
+		total +
+		gzipSync(readFileSync(join(packageRoot, "dist-size", file)), { level: 9 })
+			.length,
+	0,
+);
 const budget = JSON.parse(
 	readFileSync(join(import.meta.dir, "budget.json"), "utf8"),
 ) as Budget;

@@ -1,0 +1,799 @@
+{
+	"version": 3,
+	"changes": "v3: the five books access levels of protocol §11b (spec runs/books-levels/school-books-access-spec.md) replace v2's viewers; a delay (not_yet) replaces open_period; rounding for public and member; cell rules by level and step; a PIN-locked variant from governance up; demo-only KPIs leave the series (MRR, ARR and churn are listed as not computed); suppressed cells read '—' and carry their reason; the mockup's invented 2024 and 2025, its daily split and its B4 Uni donors are carried into the fixtures",
+	"source": "v2's KPI table, formats and labels; the mockup at 10ca2a6c1 (#115): BK_DEF, bkUnlock, bkPeriods, BK_SCALE, bkYear, bkAgg, cellWhy, bkRules, bkMakeDonors, bkDist, bkFundHtml, bkDays, bkCaption, bkSwitch, bkLock",
+	"rule": {
+		"minContributors": 5,
+		"maxShare": 0.6,
+		"zeroIsExact": "a cell whose value is 0 is shown exactly at every level; locked stays locked",
+		"missingContrib": "a contrib entry of null with a non-zero value is not_computed",
+		"aggregate": "a year or quarter cell passes the cell rule only if every month in it passes (conservative: the mart has monthly contrib only)",
+		"complementary": "in a period where the total is shown and exactly one term is suppressed, the smallest shown non-zero term is suppressed too",
+		"derived": "a derived cell is suppressed when an input is, locked when an input is, not_computed when an input is or its denominator is 0"
+	},
+	"steps": {
+		"G1": "Totals: one figure per period for the whole school",
+		"G2": "Categories: split by kind of money",
+		"G3": "Breakdowns: split by plan, programme or fund",
+		"G4": "Distributions: how amounts spread across people, with no rows",
+		"G5": "Per person, pseudonymous (never in a KPI document)",
+		"G6": "Identified (never in a KPI document; Reports 'Donors and payers', slice S5)"
+	},
+	"levels": {
+		"public": {
+			"rank": 0,
+			"name": "Public",
+			"steps": "G2",
+			"grain": "year",
+			"years": [
+				2024,
+				2025,
+				2026
+			],
+			"delay": {
+				"closeDays": 7,
+				"money": 12,
+				"usage": 0
+			},
+			"roundTo": 100000,
+			"cellRules": "all",
+			"pin": false,
+			"openPeriod": "never"
+		},
+		"member": {
+			"rank": 1,
+			"name": "Member",
+			"steps": "G2",
+			"grain": "quarter",
+			"years": [
+				2025,
+				2026
+			],
+			"delay": {
+				"closeDays": 7,
+				"money": 3,
+				"usage": 3
+			},
+			"roundTo": 10000,
+			"cellRules": "all",
+			"pin": false,
+			"openPeriod": "never"
+		},
+		"governance": {
+			"rank": 2,
+			"name": "Governance",
+			"steps": "G4",
+			"grain": "month",
+			"years": [
+				2026
+			],
+			"delay": {
+				"closeDays": 7,
+				"money": 0,
+				"usage": 0
+			},
+			"roundTo": 0,
+			"cellRules": "G3 and G4",
+			"pin": true,
+			"openPeriod": "never"
+		},
+		"finance_admin": {
+			"rank": 3,
+			"name": "Finance admin",
+			"steps": "G6",
+			"grain": "month and day",
+			"years": [
+				2026
+			],
+			"delay": null,
+			"roundTo": 0,
+			"cellRules": "off",
+			"pin": true,
+			"openPeriod": "shown"
+		},
+		"owner": {
+			"rank": 4,
+			"name": "Owner",
+			"steps": "G6",
+			"grain": "month and day",
+			"years": [
+				2026
+			],
+			"delay": null,
+			"roundTo": 0,
+			"cellRules": "off",
+			"pin": true,
+			"openPeriod": "shown"
+		}
+	},
+	"delay": {
+		"rule": "a period closes closeDays after its last day; it shows from that date plus the level's months for the KPI's lag class (money or usage); before that every cell of the class is not_yet. Periods after the clock's month are not in the document",
+		"shownFromLabel": {
+			"year": "Mon YYYY",
+			"quarter": "Mon YYYY",
+			"month": "Mon D"
+		},
+		"examples": {
+			"public 2025 money": "2025 shows from Jan 2027",
+			"public 2026 usage": "2026 shows from Jan 2027",
+			"member Q3 2026": "Q3 2026 shows from Jan 2027",
+			"governance Oct 2026": "Oct shows from Nov 7"
+		}
+	},
+	"rounding": {
+		"rule": "amount cells only, after the cell rule: sign(value) * round(|value| / roundTo) * roundTo; a positive value that rounds to 0 is { lt: roundTo }, shown 'under $1,000'; each period is rounded on its own (a year is not the sum of its rounded quarters); rates come from the exact sums; counts are exact",
+		"format": "money0"
+	},
+	"pinLocked": {
+		"levels": [
+			"governance",
+			"finance_admin",
+			"owner"
+		],
+		"rule": "the level's document with every amount cell, every rate whose rateOf is amount, and the day series locked; counts stay as the level shows them. The mockup shows only the PIN prompt until the PIN is entered"
+	},
+	"captions": {
+		"aggregate": "{Level} sees {grain}s, money rounded to {roundTo}, totals and categories only; cell rules on. {next}",
+		"aggregateNone": "Every period is shown.",
+		"governance": "Governance sees months, exact, from totals to how gifts spread, with plan and fund breakdowns and no names, emails or per-person rows. Cell rules are on for plans, funds and distributions. {next}",
+		"next": "{label} shows from {shownFromLabel}.",
+		"full": "{Level} sees everything, live: months and days, the open month included, names included. Cell rules are off, so no figure is hidden or banded. {ownerOnly}Every identified read is audited.",
+		"ownerOnly": "Owner-only actions (refunds, roles, publishing) stay on their own tabs. ",
+		"note": "plain text (the mockup bolds the level name and 'no names, emails or per-person rows'); one caption per lag class, {next} names the first period of that class not shown yet"
+	},
+	"waiting": {
+		"title": "{label} is not shown yet",
+		"when": "{label} shows from {shownFromLabel}.",
+		"public.money": "A year's money shows 12 months after the year closes.",
+		"public.usage": "Usage shows once the year has closed.",
+		"member": "A quarter shows once it has closed and one more quarter has passed."
+	},
+	"policies": {
+		"contrib": "rule (a) and (b) on bundle.contrib[key][periodIndex] = [holders, largestShare], when the level's cell rules cover the KPI's step",
+		"self": "each unit is a distinct holder: passes when value is 0 or value >= 5",
+		"derived": "rule.derived; else the export's own value (months) or recomputed from the period's sums (years and quarters, 4 decimals like atm)",
+		"blocked": "always the blocked kind, for every level",
+		"distribution": "invented.donors, cumulative from January: a bucket or fund passes with at least 5 donors and none over 60% of its sum (the mockup's cellWhy); complementary within the buckets (by count) and within the funds (by sum); fewer than 5 donors in all hides the whole distribution and the median"
+	},
+	"reasons": {
+		"fewer": "fewer than 5 {noun}",
+		"share": "one {noun, singular} is over 60%",
+		"complementary": "hidden so the cell beside it can't be worked out from the total",
+		"derived": "hidden with {input title, lower case}",
+		"nouns": {
+			"contrib": "payers",
+			"self": "payers",
+			"distribution": "donors"
+		}
+	},
+	"kinds": {
+		"amount": "money in integer minor units",
+		"count": "people, events or credit units",
+		"rate": "a fraction; rateOf says whether any input is an amount"
+	},
+	"kpis": {
+		"gross_collected": {
+			"kind": "amount",
+			"policy": "contrib",
+			"contrib": "gross_collected",
+			"format": "money",
+			"step": "G1",
+			"lag": "money"
+		},
+		"stripe_fees": {
+			"kind": "amount",
+			"policy": "contrib",
+			"contrib": "gross_collected",
+			"format": "money",
+			"step": "G2",
+			"lag": "money"
+		},
+		"payouts": {
+			"kind": "amount",
+			"policy": "contrib",
+			"contrib": "gross_collected",
+			"format": "money",
+			"step": "G2",
+			"lag": "money"
+		},
+		"refunds": {
+			"kind": "amount",
+			"policy": "contrib",
+			"contrib": "refunds",
+			"format": "money",
+			"step": "G2",
+			"lag": "money"
+		},
+		"refunds_count": {
+			"kind": "count",
+			"policy": "contrib",
+			"contrib": "refunds",
+			"format": "integer",
+			"step": "G2",
+			"lag": "money"
+		},
+		"disputes_lost": {
+			"kind": "amount",
+			"policy": "contrib",
+			"contrib": "disputes_lost",
+			"format": "money",
+			"step": "G2",
+			"lag": "money"
+		},
+		"dispute_fees": {
+			"kind": "amount",
+			"policy": "contrib",
+			"contrib": "disputes_lost",
+			"format": "money",
+			"step": "G2",
+			"lag": "money"
+		},
+		"disputes_opened": {
+			"kind": "count",
+			"policy": "self",
+			"format": "integer",
+			"step": "G2",
+			"lag": "money"
+		},
+		"paying_members": {
+			"kind": "count",
+			"policy": "contrib",
+			"contrib": "gross_collected",
+			"format": "integer",
+			"step": "G1",
+			"lag": "usage",
+			"aggregate": "max"
+		},
+		"payments_count": {
+			"kind": "count",
+			"policy": "contrib",
+			"contrib": "gross_collected",
+			"format": "integer",
+			"step": "G2",
+			"lag": "money"
+		},
+		"new_paying_members": {
+			"kind": "count",
+			"policy": "self",
+			"format": "integer",
+			"step": "G2",
+			"lag": "usage"
+		},
+		"credits_granted": {
+			"kind": "count",
+			"policy": "contrib",
+			"contrib": "credits_consumed",
+			"format": "integer",
+			"note": "proxy: holders who use credits",
+			"step": "G2",
+			"lag": "usage"
+		},
+		"credits_consumed": {
+			"kind": "count",
+			"policy": "contrib",
+			"contrib": "credits_consumed",
+			"format": "integer",
+			"note": "the provider rule of spec v3 2(b) is not applicable: the mart has no provider contrib",
+			"step": "G2",
+			"lag": "usage"
+		},
+		"credits_expired": {
+			"kind": "count",
+			"policy": "contrib",
+			"contrib": "credits_expired",
+			"format": "integer",
+			"step": "G2",
+			"lag": "usage"
+		},
+		"net_income": {
+			"kind": "amount",
+			"policy": "derived",
+			"inputs": [
+				"gross_collected",
+				"stripe_fees",
+				"refunds",
+				"disputes_lost",
+				"dispute_fees"
+			],
+			"formula": "gross - fees - refunds - disputes_lost - dispute_fees",
+			"format": "money",
+			"step": "G1",
+			"lag": "money"
+		},
+		"arpa": {
+			"kind": "amount",
+			"policy": "derived",
+			"inputs": [
+				"gross_collected",
+				"paying_members"
+			],
+			"denominator": "paying_members",
+			"format": "money",
+			"step": "G2",
+			"lag": "money",
+			"aggregate": "not_computed"
+		},
+		"refund_rate": {
+			"kind": "rate",
+			"rateOf": "amount",
+			"policy": "derived",
+			"inputs": [
+				"refunds",
+				"gross_collected"
+			],
+			"denominator": "gross_collected",
+			"format": "percent1",
+			"step": "G2",
+			"lag": "money"
+		},
+		"dispute_rate": {
+			"kind": "rate",
+			"rateOf": "count",
+			"policy": "derived",
+			"inputs": [
+				"disputes_opened",
+				"payments_count"
+			],
+			"denominator": "payments_count",
+			"format": "percent1",
+			"step": "G2",
+			"lag": "money"
+		},
+		"breakage_rate": {
+			"kind": "rate",
+			"rateOf": "count",
+			"policy": "derived",
+			"inputs": [
+				"credits_expired",
+				"credits_granted"
+			],
+			"denominator": "credits_granted",
+			"format": "percent1",
+			"note": "atm returns 0 when credits_granted is 0; the adapter returns not_computed",
+			"step": "G2",
+			"lag": "usage"
+		},
+		"revenue_by_tier:*": {
+			"kind": "amount",
+			"policy": "contrib",
+			"contrib": "revenue_by_tier:<tier>",
+			"format": "money0",
+			"source": "bundle.tiers",
+			"step": "G3",
+			"lag": "money"
+		},
+		"credits_outstanding": {
+			"kind": "count",
+			"policy": "blocked",
+			"step": "G2",
+			"lag": "usage"
+		},
+		"donations_by_fund:*": {
+			"kind": "amount",
+			"policy": "distribution",
+			"step": "G3",
+			"lag": "money",
+			"format": "money0",
+			"source": "invented.donors.funds, cumulative from January to the period's end"
+		},
+		"donors_count": {
+			"kind": "count",
+			"policy": "distribution",
+			"step": "G4",
+			"lag": "money",
+			"format": "integer",
+			"source": "invented.donors, cumulative from January"
+		},
+		"donors_by_size:*": {
+			"kind": "count",
+			"policy": "distribution",
+			"step": "G4",
+			"lag": "money",
+			"format": "integer",
+			"source": "invented.donors.buckets, cumulative from January"
+		},
+		"donors_median_gift": {
+			"kind": "amount",
+			"policy": "distribution",
+			"step": "G4",
+			"lag": "money",
+			"format": "money0",
+			"source": "invented.donors, cumulative from January (mean of the two middle gifts when even)"
+		}
+	},
+	"notComputed": {
+		"mrr": "MRR is not computed: cash basis, a yearly payer counts in the month paid",
+		"arr": "ARR is not computed: cash basis",
+		"churned_members": "Churn is not computed: cash basis"
+	},
+	"complementary": [
+		{
+			"total": "gross_collected",
+			"terms": "revenue_by_tier:*",
+			"rule": "in a period where the total is shown and exactly one term is suppressed, suppress the next smallest shown term"
+		}
+	],
+	"aggregate": {
+		"amountsAndEventCounts": "sum of the period's months (up to the clock's month for real periods)",
+		"max": "paying_members: the most in one month of the period (the mockup's 'most in one month of')",
+		"rates": "recomputed from the period's summed inputs, rounded to 4 decimals like atm",
+		"notComputed": "arpa: needs distinct paying members per period"
+	},
+	"invented": {
+		"years": {
+			"source": "mockup BK_SCALE and bkYear: earlier years are invented from 2026's shape so the public view has something to show",
+			"scale": {
+				"2024": 0.58,
+				"2025": 0.82
+			},
+			"rule": "each 2026 month row of the preset times the year's factor, Math.round per month; rates recomputed; the month's contrib is 2026's; such periods carry invented: true"
+		},
+		"days": {
+			"source": "mockup bkDays: a month's gross spread over its days by weights 1 + (day0 * 7 + month0 * 3) mod 5, Math.round, the last day taking the remainder; the open month ends at the clock's day and later days are not_yet",
+			"levels": [
+				"finance_admin",
+				"owner"
+			]
+		},
+		"donors": {
+			"source": "mockup bkMakeDonors for B4 Uni, the same for every preset (the snapshot has no donations: atm books no gifts and fact_payments holds membership payments only); amounts in cents; names are not carried (G6 is Reports, slice S5)",
+			"buckets": [
+				{
+					"id": "under-100",
+					"title": "under $100",
+					"below": 10000
+				},
+				{
+					"id": "100-999",
+					"title": "$100 to $999",
+					"below": 100000
+				},
+				{
+					"id": "1000-plus",
+					"title": "$1,000 or more",
+					"below": null
+				}
+			],
+			"funds": [
+				{
+					"id": "general",
+					"title": "General"
+				},
+				{
+					"id": "scholarships",
+					"title": "Scholarships"
+				},
+				{
+					"id": "building-fund",
+					"title": "Building fund"
+				}
+			],
+			"gifts": [
+				{
+					"amount": 500,
+					"date": "2026-01-01",
+					"fund": "Scholarships"
+				},
+				{
+					"amount": 500,
+					"date": "2026-06-04",
+					"fund": "General"
+				},
+				{
+					"amount": 1000,
+					"date": "2026-03-07",
+					"fund": "General"
+				},
+				{
+					"amount": 1000,
+					"date": "2026-08-10",
+					"fund": "Scholarships"
+				},
+				{
+					"amount": 1000,
+					"date": "2026-05-13",
+					"fund": "General"
+				},
+				{
+					"amount": 1000,
+					"date": "2026-02-16",
+					"fund": "General"
+				},
+				{
+					"amount": 1500,
+					"date": "2026-07-19",
+					"fund": "Scholarships"
+				},
+				{
+					"amount": 1500,
+					"date": "2026-04-22",
+					"fund": "General"
+				},
+				{
+					"amount": 1500,
+					"date": "2026-01-25",
+					"fund": "General"
+				},
+				{
+					"amount": 1500,
+					"date": "2026-06-01",
+					"fund": "Scholarships"
+				},
+				{
+					"amount": 2000,
+					"date": "2026-03-04",
+					"fund": "General"
+				},
+				{
+					"amount": 2000,
+					"date": "2026-08-07",
+					"fund": "General"
+				},
+				{
+					"amount": 2000,
+					"date": "2026-05-10",
+					"fund": "Scholarships"
+				},
+				{
+					"amount": 2000,
+					"date": "2026-02-13",
+					"fund": "General"
+				},
+				{
+					"amount": 2500,
+					"date": "2026-07-16",
+					"fund": "General"
+				},
+				{
+					"amount": 2500,
+					"date": "2026-04-19",
+					"fund": "Scholarships"
+				},
+				{
+					"amount": 2500,
+					"date": "2026-01-22",
+					"fund": "General"
+				},
+				{
+					"amount": 2500,
+					"date": "2026-06-25",
+					"fund": "General"
+				},
+				{
+					"amount": 3000,
+					"date": "2026-03-01",
+					"fund": "Scholarships"
+				},
+				{
+					"amount": 3000,
+					"date": "2026-08-04",
+					"fund": "General"
+				},
+				{
+					"amount": 3000,
+					"date": "2026-05-07",
+					"fund": "General"
+				},
+				{
+					"amount": 3000,
+					"date": "2026-02-10",
+					"fund": "Scholarships"
+				},
+				{
+					"amount": 3500,
+					"date": "2026-07-13",
+					"fund": "General"
+				},
+				{
+					"amount": 3500,
+					"date": "2026-04-16",
+					"fund": "General"
+				},
+				{
+					"amount": 3500,
+					"date": "2026-01-19",
+					"fund": "Scholarships"
+				},
+				{
+					"amount": 3500,
+					"date": "2026-06-22",
+					"fund": "General"
+				},
+				{
+					"amount": 4000,
+					"date": "2026-03-25",
+					"fund": "General"
+				},
+				{
+					"amount": 4000,
+					"date": "2026-08-01",
+					"fund": "Scholarships"
+				},
+				{
+					"amount": 4000,
+					"date": "2026-05-04",
+					"fund": "General"
+				},
+				{
+					"amount": 4000,
+					"date": "2026-02-07",
+					"fund": "General"
+				},
+				{
+					"amount": 4500,
+					"date": "2026-07-10",
+					"fund": "Scholarships"
+				},
+				{
+					"amount": 4500,
+					"date": "2026-04-13",
+					"fund": "General"
+				},
+				{
+					"amount": 4500,
+					"date": "2026-01-16",
+					"fund": "General"
+				},
+				{
+					"amount": 4500,
+					"date": "2026-06-19",
+					"fund": "Scholarships"
+				},
+				{
+					"amount": 5000,
+					"date": "2026-03-22",
+					"fund": "General"
+				},
+				{
+					"amount": 5000,
+					"date": "2026-08-25",
+					"fund": "General"
+				},
+				{
+					"amount": 6000,
+					"date": "2026-05-01",
+					"fund": "Scholarships"
+				},
+				{
+					"amount": 6000,
+					"date": "2026-02-04",
+					"fund": "General"
+				},
+				{
+					"amount": 7500,
+					"date": "2026-07-07",
+					"fund": "General"
+				},
+				{
+					"amount": 9000,
+					"date": "2026-04-10",
+					"fund": "Scholarships"
+				},
+				{
+					"amount": 10000,
+					"date": "2026-01-13",
+					"fund": "General"
+				},
+				{
+					"amount": 12000,
+					"date": "2026-06-16",
+					"fund": "General"
+				},
+				{
+					"amount": 15000,
+					"date": "2026-03-19",
+					"fund": "Scholarships"
+				},
+				{
+					"amount": 15000,
+					"date": "2026-08-22",
+					"fund": "General"
+				},
+				{
+					"amount": 20000,
+					"date": "2026-05-25",
+					"fund": "General"
+				},
+				{
+					"amount": 20000,
+					"date": "2026-02-01",
+					"fund": "Scholarships"
+				},
+				{
+					"amount": 25000,
+					"date": "2026-07-04",
+					"fund": "General"
+				},
+				{
+					"amount": 25000,
+					"date": "2026-04-07",
+					"fund": "General"
+				},
+				{
+					"amount": 30000,
+					"date": "2026-01-10",
+					"fund": "Scholarships"
+				},
+				{
+					"amount": 30000,
+					"date": "2026-06-13",
+					"fund": "General"
+				},
+				{
+					"amount": 35000,
+					"date": "2026-03-16",
+					"fund": "General"
+				},
+				{
+					"amount": 40000,
+					"date": "2026-08-19",
+					"fund": "Scholarships"
+				},
+				{
+					"amount": 45000,
+					"date": "2026-05-22",
+					"fund": "General"
+				},
+				{
+					"amount": 50000,
+					"date": "2026-02-25",
+					"fund": "General"
+				},
+				{
+					"amount": 50000,
+					"date": "2026-07-01",
+					"fund": "Scholarships"
+				},
+				{
+					"amount": 60000,
+					"date": "2026-04-04",
+					"fund": "General"
+				},
+				{
+					"amount": 75000,
+					"date": "2026-01-07",
+					"fund": "General"
+				},
+				{
+					"amount": 90000,
+					"date": "2026-06-10",
+					"fund": "Scholarships"
+				},
+				{
+					"amount": 100000,
+					"date": "2026-03-13",
+					"fund": "General"
+				},
+				{
+					"amount": 150000,
+					"date": "2026-08-16",
+					"fund": "General"
+				},
+				{
+					"amount": 250000,
+					"date": "2026-05-19",
+					"fund": "Scholarships"
+				},
+				{
+					"amount": 500000,
+					"date": "2026-02-22",
+					"fund": "Building fund"
+				}
+			]
+		}
+	},
+	"labels": {
+		"suppressed": "—",
+		"locked": "Locked",
+		"not_computed": "Not computed",
+		"not_yet": "Not shown yet",
+		"blocked": "Blocked: atm does not post renewal resets yet, so this balance goes negative"
+	},
+	"formats": {
+		"money": "Intl.NumberFormat('en-US', { style: 'currency', currency: document.currency }) from integer minor units: 62300 USD -> $623.00, 62300 EUR -> €623.00",
+		"money0": "Intl.NumberFormat('en-US', { style: 'currency', currency: document.currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }) from integer minor units: 400000 USD -> $4,000",
+		"integer": "en-US grouping: 1308 -> 1,308",
+		"percent1": "Intl.NumberFormat('en-US', { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 }): 0.024 -> 2.4%",
+		"lt": "an amount: 'under ' + money0(N) ('under $1,000'); a count: <N"
+	}
+}

@@ -2,12 +2,13 @@
 	"name": "ledger-ui",
 	"private": true,
 	"type": "module",
-	"description": "The ledger admin UI for ledger.b4uni.com: Preact on Vite, served as static assets by a Worker. See plans/ledger-ui/loop/protocol-v7.md.",
+	"description": "The ledger admin UI for ledger.b4uni.com: Preact on Vite, served as static assets by a Worker. See plans/ledger-ui/loop/protocol-v8.md.",
 	"scripts": {
-		"dev": "vite",
-		"build": "vite build",
+		"fixtures": "bun scripts/import-mart.ts",
+		"dev": "bun run fixtures && vite",
+		"build": "bun run fixtures && vite build",
 		"build:size": "vite build --config gates/vite.size.config.ts",
-		"test": "bun test",
+		"test": "bun run fixtures && bun test",
 		"gates": "bun gates/run.ts"
 	},
 	"dependencies": {
