@@ -5,7 +5,7 @@ const errs=[];
 const win=new Window({url:"https://localhost/",console:{log(){},warn(){},info(){},debug(){},error:(...a)=>errs.push(a.map(String).join(" "))}});
 win.addEventListener("error",e=>errs.push("window error: "+e.message));
 const __h=readFileSync(file,"utf8"),__m=__h.match(/<script>([\s\S]*)<\/script>/);win.document.write(__h.replace(__m[0],""));
-await win.happyDOM.waitUntilComplete();try{win.eval(__m[1]+"\n;window.__t={SC,people,roleGuard,kEmit,kParse}")}catch(e){errs.push("eval error: "+e.message+" "+(e.stack||"").split("\n").slice(0,3).join(" / "))}
+await win.happyDOM.waitUntilComplete();try{win.eval(__m[1]+"\n;window.__t={SC,people,roleGuard,kEmit,kParse,kCsv,kHist,kScope,kFilter}")}catch(e){errs.push("eval error: "+e.message+" "+(e.stack||"").split("\n").slice(0,3).join(" / "))}
 const d=win.document,$=s=>d.querySelector(s),$$=s=>[...d.querySelectorAll(s)],txt=s=>(($(s)||{}).textContent||"").replace(/\s+/g," ").trim();
 const fails=[];const ok=(name,cond,info="")=>{console.log(cond?"ok  ":"FAIL",name,cond?"":info);if(!cond)fails.push(name)};
 const tab=p=>$(`.tab[data-p=${p}]`).click(),sc=id=>{$("#sw").click();$(`[data-sc=${id}]`).click()};
@@ -66,7 +66,7 @@ ok("mem sort: attention first",order.slice(0,attIds.size).every(i=>attIds.has(i)
 ok("mem sort: calm rows by role then name",calm.every((i,n)=>n===0||rk(calm[n-1])<rk(i)||(rk(calm[n-1])===rk(i)&&row(calm[n-1]).querySelector("b").textContent.localeCompare(row(i).querySelector("b").textContent)<=0)),calm.join(","));
 ok("top bar says admins see all members",!$("#kview").hidden&&/You see all members/.test(txt("#kview")),txt("#kview"));
 // capability lines and owner-only role actions
-const openRow=id=>row(id).click(),menu=()=>$$("#dr [data-role]"),mk=k=>menu().find(b=>b.dataset.role===k);
+let kmn=null;const openRow=id=>{row(id).click();kmn=null},menu=()=>{if(!kmn){$("#dr [data-kmenu]").click();kmn=$$("#kmm [data-role]")}return kmn},mk=k=>menu().find(b=>b.dataset.role===k);
 openRow("u_rav");ok("drawer admin capability",/Sees: every member, dashboard, bookings/.test(txt("#dr"))&&/Money: yes/.test(txt("#dr")),txt("#dr").slice(0,200));
 openRow("m_093");ok("drawer admin without finance: money no",/Money: no/.test(txt("#dr")));
 openRow("m_204");ok("drawer member capability",/Sees: only themselves and their family/.test(txt("#dr"))&&!/Money:/.test(txt("#dr")));
@@ -338,6 +338,120 @@ ok("books: tiny school hides cells under the 5-contributor rule at Public",(sc("
  {const css=d.querySelector("style").textContent;
   ok("yaml: editor css (gutter, monospace, no wrap) and a 600px rule that stacks the panes",/\.kta\{[^}]*white-space:pre/.test(css)&&/\.kgut\{[^}]*font:12px\/18px var\(--font-mono\)/.test(css)&&/@media \(max-width:600px\)\{\.kmain,\.kchg\{flex:1 1 100%/.test(css)&&/\.ktool\{[^}]*flex-wrap:wrap/.test(css));
   ok("yaml: no console.log in the page",!/console\.log/.test(__m[1]))}
+}
+
+// ---- History + CSV, and per-member admin actions in the ⋯ menu
+{
+ const T=win.__t,cap={};
+ win.URL.createObjectURL=b=>{cap.blob=b;return "blob:test"};win.URL.revokeObjectURL=u=>{cap.revoked=u};
+ win.HTMLAnchorElement.prototype.click=function(){cap.name=this.download;cap.href=this.href};
+ const dl=async()=>{cap.blob=null;$("#kdl").click();const buf=new Uint8Array(await cap.blob.arrayBuffer());return{bytes:buf,text:new TextDecoder().decode(buf).replace(/^﻿/,""),name:cap.name}};
+ const lines=x=>x.text.split("\r\n").filter(Boolean);
+ const bill=(id)=>{sc(cur_sc);tab("mem");row(id).querySelector("[data-vm]").click();$("#vm [data-vtab=bill]").click()};
+ let cur_sc="b4u";
+ // pure member view
+ bill("s_21");
+ ok("hist: card is titled Invoices and payments",/Invoices and payments/.test(txt("#khist h4")),txt("#khist h4"));
+ ok("hist: portal is the pure member view (no admin block, tags, toggle, buttons)",!$("#vm .mp-admin,#vm .mp-tag,#vm #vad,#vm [data-act]")&&!/Admin tools|Refund/.test(txt("#vm")),txt("#vm").slice(0,100));
+ $("#vm [data-vtab=home]").click();
+ ok("hist: home tab has no admin tools or switch-plan button",!$("#vm [data-act],#vm [data-vact=switch],#vm .mp-admin")&&!/Admin tools/.test(txt("#vm")));
+ $("#vm [data-vtab=bill]").click();
+ ok("hist: collapsed shows the latest 5 rows",$$("#khist tr.k-r").length===5,String($$("#khist tr.k-r").length));
+ ok("hist: month-year group headings",$$("#khist tr.grp th").length>=1&&/20\d\d/.test(txt("#khist tr.grp th")),txt("#khist tr.grp th"));
+ const newest=$$("#khist tr.k-r td.khd").map(x=>x.textContent);
+ $("#vm [data-khx]").click();
+ const nAll=$$("#khist tr.k-r").length;
+ ok("hist: Show all history reveals older rows (12+ over two years)",nAll>=12&&/Show latest 5/.test(txt("#khist")),String(nAll));
+ const sel=$("#khf");sel.value="last";sel.dispatchEvent(new win.Event("change",{bubbles:true}));
+ const nLast=$$("#khist tr.k-r").length;
+ ok("hist: filter Last year changes the row count and only shows that year",nLast>0&&nLast<nAll&&$$("#khist tr.k-r td.khd").every(x=>/2025$/.test(x.textContent)),nLast+"/"+nAll);
+ ok("hist: statuses cover Paid, Refunded, Partly refunded, Failed, Open",(()=>{const s=T.SC.b4u,m=s.M.find(x=>x[0]==="s_21"),st=new Set(T.kHist(s,m).map(r=>r.st));return["Paid","Refunded","Partly refunded","Failed","Open"].every(x=>st.has(x))})());
+ ok("hist: refunds are negative rows with status Refunded, newest first",(()=>{const s=T.SC.b4u,r=T.kHist(s,s.M.find(x=>x[0]==="s_21"));return r.some(x=>x.amt<0&&x.st==="Refunded")&&r.every((x,i)=>!i||r[i-1].d>=x.d)})());
+ ok("hist: card has a Download CSV button with the tooltip",!!$("#kdl")&&/Download CSV/.test(txt("#kdl"))&&$("#kdl").title==="Download this history as CSV"&&!!$("#kdl svg"),$("#kdl")?.title);
+ // kCsv format
+ {const raw=T.kCsv([{d:"2026-01-02",m:"m_1",tx:'He said "hi", ok',amt:-12.5,cur:"USD",st:"Refunded",inv:"in_1",pay:"pay_1"},{d:"2026-01-03",m:"m_1",tx:"=HYPERLINK(\"x\")",amt:3,cur:"USD",st:"Paid",inv:"",pay:""},{d:"2026-01-04",m:"m_1",tx:"@sum\nline",amt:0.1,cur:"USD",st:"Paid"},{d:"2026-01-05",m:"m_1",tx:"-cmd",amt:5,cur:"USD",st:"Paid"},{d:"2026-01-06",m:"m_1",tx:"+1",amt:5,cur:"USD",st:"Paid"}]);
+  ok("csv: BOM, CRLF line ends and the header",raw.charCodeAt(0)===0xFEFF&&raw.slice(1).startsWith("date,description,amount,currency,status,invoice_id,payment_id\r\n")&&!/[^\r]\n/.test(raw.replace(/"[^"]*"/g,"")),JSON.stringify(raw.slice(0,90)));
+  ok("csv: RFC 4180 quoting and doubled quotes",raw.includes('"He said ""hi"", ok"'));
+  ok("csv: signed two-decimal amounts, never apostrophe-guarded",raw.includes(',-12.50,USD,Refunded,in_1,pay_1')&&raw.includes(',0.10,')&&!raw.includes("'-12.50"));
+  ok("csv: formula-injection guard on = + - @",raw.includes("\"'=HYPERLINK(\"\"x\"\")\"")&&raw.includes("\"'@sum\nline\"")&&raw.includes(",'-cmd,")&&raw.includes(",'+1,"),JSON.stringify(raw.slice(100,320)));
+  ok("csv: no member column unless asked",!/member/.test(raw.split("\r\n")[0])&&/,member,/.test(T.kCsv([],{member:true})))}
+ // real downloads and scope
+ {const a=await dl();
+  ok("csv dl: adult export is a real file with BOM bytes, CRLF and the family rows",a.bytes[0]===0xEF&&a.bytes[1]===0xBB&&a.bytes[2]===0xBF&&/^date,member,description,amount/.test(lines(a)[0])&&a.text.includes("\r\n")&&lines(a).length-1===nAllFor("s_21","family"),lines(a)[0]);
+  function nAllFor(id,k){const s=T.SC.b4u,m=s.M.find(x=>x[0]===id);return T.kScope(s,m).filter(r=>T.kFilter([r],"last").length).length}
+  ok("csv dl: file name is invoices-<member>-<from>-<to>.csv and the URL is revoked",/^invoices-s_21-2025-\d\d-\d\d-2025-\d\d-\d\d\.csv$/.test(a.name)&&cap.href==="blob:test",a.name);
+  ok("csv dl: toast says how many rows",new RegExp(`Downloaded ${lines(a).length-1} rows`).test(txt("#ts")),txt("#ts"));
+  const ids=new Set(lines(a).slice(1).map(l=>l.split(",")[1]));
+  ok("csv dl: adult export has only own family ids and no other family",[...ids].sort().join(",")==="s_21,s_25,s_26"&&!/s_22|s_23|s_24|s_27|Omar|Pia|Raj|Marta/.test(a.text),[...ids].join(","));
+  $("#khf").value="all";$("#khf").dispatchEvent(new win.Event("change",{bubbles:true}));
+  const b=await dl();ok("csv dl: All exports every row",lines(b).length-1>lines(a).length-1,lines(b).length+"");
+  $("#vm [data-vfam=s_25]").click();$("#vm [data-vtab=bill]").click();
+  const tn=await dl(),tm=T.SC.b4u.M.find(x=>x[0]==="s_25"),own=new Set(T.kHist(T.SC.b4u,tm).map(r=>r.pay));
+  ok("csv dl: teen export has only their own rows and no member column",!/member/.test(lines(tn)[0])&&lines(tn).length-1===T.kHist(T.SC.b4u,tm).length&&lines(tn).slice(1).every(l=>own.has(l.split(",").pop())),lines(tn)[0]);
+  ok("hist: teen sees no family names in the card",!/Dana W\.|Lia W\./.test(txt("#khist")));
+  $("#vm [data-vfam=s_26]").click();$("#vm [data-vtab=bill]").click();
+  const ch=await dl();ok("csv dl: child export has only their own rows",lines(ch).length-1===T.kHist(T.SC.b4u,T.SC.b4u.M.find(x=>x[0]==="s_26")).length&&!/member/.test(lines(ch)[0]));
+  $("#vm #vmx").click()}
+ // portal for a member with no family
+ bill("s_22");ok("hist: family-less member sees own rows only, no member column",!/Dana|Lia|Kai/.test(txt("#khist"))&&(await dl()).text.split("\r\n")[0].indexOf("member")<0);$("#vm #vmx").click();
+ // download buttons on the admin side
+ sc("b4u");tab("led");
+ ok("admin csv: Ledger has Download CSV, enabled for a finance admin",!!$("#lcsv")&&/Download CSV/.test(txt("#lcsv"))&&!$("#lcsv").disabled);
+ cap.blob=null;$("#lcsv").click();{const x=new TextDecoder("utf-8",{ignoreBOM:true}).decode(new Uint8Array(await cap.blob.arrayBuffer()));
+  ok("admin csv: ledger export uses the same helper (BOM, CRLF, header + event columns) and the file name keeps the period",x.charCodeAt(0)===0xFEFF&&/^\uFEFFdate,member,description,amount,currency,status,invoice_id,payment_id,event,credits\r\n/.test(x)&&/^ledger-/.test(cap.name),cap.name)}
+ tab("rep");cap.blob=null;$("#rdl").click();{const x=new TextDecoder("utf-8",{ignoreBOM:true}).decode(new Uint8Array(await cap.blob.arrayBuffer()));
+  ok("admin csv: Reports download exports the income statement lines",/^\uFEFFline,amount,currency,period_from,period_to\r\nMemberships,/.test(x)&&/\r\nNet,/.test(x)&&/^income-statement-/.test(cap.name),JSON.stringify(x.slice(0,100)))}
+ tab("mem");row("s_22").click();
+ ok("admin csv: drawer has a Payments section with Download CSV",/Payments/.test(txt("#dr"))&&!!$("#dr [data-kx=csv]")&&!$("#dr [data-kx=csv]").disabled);
+ cap.blob=null;$("#dr [data-kx=csv]").click();ok("admin csv: drawer export is the member's history only",(await cap.blob.text()).split("\r\n").length-2===T.kHist(T.SC.b4u,T.SC.b4u.M.find(x=>x[0]==="s_22")).length&&/^invoices-s_22-/.test(cap.name),cap.name);
+ // finance gate
+ const you=T.SC.b4u.R.find(r=>r.you);you.fin=false;
+ tab("led");ok("gate: non-finance admin has Ledger CSV disabled with the title",$("#lcsv").disabled&&$("#lcsv").title==="Finance admins only",$("#lcsv").title);
+ tab("mem");row("s_22").click();
+ ok("gate: drawer Download CSV disabled with the title",$("#dr [data-kx=csv]").disabled&&$("#dr [data-kx=csv]").title==="Finance admins only");
+ $("#dr [data-kmenu]").click();const mcsv=$("#kmm [data-kx=csv]");
+ ok("gate: menu Download CSV disabled with the title, refund says owner role",mcsv.disabled&&mcsv.title==="Finance admins only"&&$("#kmm [data-act=refund]").disabled&&$("#kmm [data-act=refund]").title==="Owner role needed",mcsv.title);
+ portal("s_22");$("#vm [data-vtab=bill]").click();
+ ok("gate: portal preview by a non-finance admin cannot export",$("#kdl").disabled&&$("#kdl").title==="Finance admins only");$("#vm #vmx").click();
+ tab("rep");ok("gate: donors CSV disabled for a non-finance admin",!$("#kdon")||$("#kdon").disabled);
+ you.fin=true;tab("rep");ok("gate: donors CSV present and enabled with the grant",!!$("#kdon")&&!$("#kdon").disabled&&/Download CSV/.test(txt("#kdon")));
+ // ⋯ menu on every Members row
+ sc("vol");tab("mem");
+ ok("menu: every Members row has a ⋯ button with aria-haspopup",$$("#mb tr.row").length>0&&$$("#mb tr.row").every(r=>{const b=r.querySelector("[data-kmenu]");return b&&b.getAttribute("aria-haspopup")==="menu"&&b.getAttribute("aria-expanded")==="false"}),String($$("#mb [data-kmenu]").length));
+ ok("menu: eye button is still next to it",$$("#mb tr.row").filter(r=>r.dataset.id.startsWith("m_")).every(r=>!!r.querySelector("[data-vm]")));
+ const items=()=>$$("#kmm [role=menuitem]"),labels=()=>items().map(b=>b.textContent.replace(/\s+/g," ").trim());
+ row("m_012").querySelector("[data-kmenu]").click();
+ ok("menu: opens a role=menu with the listed items for the owner",$("#kmm").classList.contains("on")&&$("#kmm").getAttribute("role")==="menu"&&["View as member","Send invoice…","Adjust sessions…","Refund a payment…","Release a booking…","Make admin","Download CSV"].every(l=>labels().includes(l)),labels().join("|"));
+ ok("menu: groups are separated by rules",$$("#kmm hr").length>=3);
+ ok("menu: owner sees every action enabled",items().filter(b=>/Cancel membership|Make admin|Send invoice|Adjust|Refund|Download|View as/.test(b.textContent)).every(b=>!b.disabled),items().filter(b=>b.disabled).map(b=>b.textContent+":"+b.title).join("|"));
+ ok("menu: destructive item uses the danger style",!!$("#kmm button.d")&&/Cancel membership/.test($("#kmm button.d").textContent));
+ $("#kmm [data-act=invoice]").click();ok("menu: Send invoice opens the invoice modal",$("#bg").classList.contains("on")&&/Send invoice/.test(txt("#md"))&&!$("#kmm").classList.contains("on"),txt("#md").slice(0,60));$("#mc").click();
+ row("m_012").querySelector("[data-kmenu]").click();$("#kmm [data-act=adjust]").click();ok("menu: Adjust opens the adjust modal",/Adjust sessions/.test(txt("#md")));$("#mc").click();
+ row("m_012").querySelector("[data-kmenu]").click();$("#kmm [data-act=refund]").click();ok("menu: Refund a payment opens the refund modal with the payment picker",/Refund a payment/.test(txt("#md"))&&!!$("#f_pay"),txt("#md").slice(0,60));$("#mc").click();
+ row("m_012").querySelector("[data-kmenu]").click();$("#kmm [data-kx=release]").click();ok("menu: Release a booking opens a booking picker",/Release a booking/.test(txt("#md"))&&$$("#md [data-act=release]").length>=1,txt("#md").slice(0,80));$("#md [data-act=release]").click();
+ ok("menu: picking a booking reaches the existing release flow",/Release|Sent|ships/.test(txt("#md")+txt("#ts"))||!$("#bg").classList.contains("on"));
+ if($('#bg').classList.contains('on'))$('#mc')?.click()||$('#bg').click();
+ row("m_012").querySelector("[data-kmenu]").click();$("#kmm [data-kx=csv]").click();ok("menu: Download CSV downloads that member's history",/^invoices-m_012-/.test(cap.name)&&/Downloaded \d+ rows/.test(txt("#ts")),cap.name);
+ // keyboard + outside click
+ const trig=row("m_204").querySelector("[data-kmenu]");trig.focus();
+ trig.dispatchEvent(new win.KeyboardEvent("keydown",{key:"ArrowDown",bubbles:true}));
+ const first=items().find(b=>!b.disabled);
+ ok("kbd: ArrowDown on the button opens the menu and focuses the first item",$("#kmm").classList.contains("on")&&d.activeElement===first&&trig.getAttribute("aria-expanded")==="true",d.activeElement?.textContent);
+ d.activeElement.dispatchEvent(new win.KeyboardEvent("keydown",{key:"ArrowDown",bubbles:true}));
+ const enabled=items().filter(b=>!b.disabled);
+ ok("kbd: ArrowDown moves to the next enabled item, ArrowUp wraps",d.activeElement===enabled[1]&&(d.activeElement.dispatchEvent(new win.KeyboardEvent("keydown",{key:"ArrowUp",bubbles:true})),d.activeElement===enabled[0])&&(d.activeElement.dispatchEvent(new win.KeyboardEvent("keydown",{key:"ArrowUp",bubbles:true})),d.activeElement===enabled[enabled.length-1]));
+ d.activeElement.dispatchEvent(new win.KeyboardEvent("keydown",{key:"Escape",bubbles:true}));
+ ok("kbd: Escape closes the menu and returns focus to the button",!$("#kmm").classList.contains("on")&&d.activeElement===trig&&trig.getAttribute("aria-expanded")==="false");
+ trig.click();d.body.click();ok("menu: outside click closes it",!$("#kmm").classList.contains("on"));
+ trig.click();trig.click();ok("menu: the button toggles it",!$("#kmm").classList.contains("on"));
+ // owner-only and no-plan rows, drawer shares the menu
+ openRow("m_093");$("#dr [data-kmenu]").click();ok("menu: drawer header menu is the same builder (same items as the row)",(()=>{const a=labels().join("|");$("#dr [data-kmenu]").click();row("m_093").querySelector("[data-kmenu]").click();return a===labels().join("|")&&/Grant finance/.test(a)})());
+ row("u_kim").querySelector("[data-kmenu]").click();
+ ok("menu: no-plan admin row has View as member disabled with a title and no money-action group",(()=>{const v=items().find(b=>/View as member/.test(b.textContent));return v.disabled&&/No plan/.test(v.title)&&!labels().some(l=>/Send invoice|Refund/.test(l))})(),labels().join("|"));
+ // layout rules
+ {const css=d.querySelector("style").textContent;
+  ok("layout: the history table stacks at 520px and the menu becomes a bottom sheet at 600px",/@media \(max-width:520px\)\{[^@]*\.mpt\.k tr\.k-r\{display:grid/.test(css)&&/@media \(max-width:600px\)\{\.kmenu\{[^}]*bottom:0/.test(css))}
+ sc("vol");
 }
 ok("no runtime errors",errs.length===0,errs.join(" | "));
 console.log(fails.length?`\n${fails.length} FAILED`:"\nall passed");process.exit(fails.length?1:0);
