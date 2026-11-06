@@ -1,8 +1,10 @@
 import type { KpiDocument, KpiQuery } from "../data/kpi-document.ts";
+import type { MembersFixture } from "../data/members.ts";
 import type { Reader } from "../data/reader.ts";
 import type { Clock, DashboardOptions, School } from "../data/types.ts";
 import { bookingsBySchool } from "./bookings.ts";
 import documentsFile from "./mart/documents.json";
+import { membersFixtures } from "./members.ts";
 import { plansBySchool } from "./plans.ts";
 
 /** The mockup's four schools (its `SC` table), with the counts its headless run shows on 2026-11-05: attention from
@@ -110,6 +112,12 @@ const plansOf = (schoolId: string) => {
 	return plans;
 };
 
+const membersOf = (schoolId: string): MembersFixture => {
+	const fixture = membersFixtures[schoolId];
+	if (!fixture) throw new Error(`no Members fixture for school ${schoolId}`);
+	return fixture;
+};
+
 /** The fixture Reader. The documents are fixed at the clock the gates use, so it only names the clock. */
 export function createFixtureReader(_options: { clock: Clock }): Reader {
 	return {
@@ -125,5 +133,32 @@ export function createFixtureReader(_options: { clock: Clock }): Reader {
 		menuVersion: async (schoolId, version) => plansOf(schoolId).bodies[version],
 		planSummary: async (schoolId) => plansOf(schoolId).summary,
 		kpiDocument: async (query) => documents[documentKey(query)],
+		members: async ({ schoolId, status }) => {
+			const { page } = membersOf(schoolId);
+			return status === undefined
+				? page
+				: {
+						...page,
+						members: page.members.filter((member) => member.status === status),
+					};
+		},
+		people: async ({ schoolId }) => membersOf(schoolId).people,
+		membersSummary: async ({ schoolId }) => membersOf(schoolId).summary,
+		membersIncome: async ({ schoolId, from, to }) =>
+			Object.entries(membersOf(schoolId).incomeByMonth)
+				.filter(
+					([month]) => month >= from.slice(0, 7) && month <= to.slice(0, 7),
+				)
+				.reduce((sum, [, cents]) => sum + cents, 0),
+		capabilities: async ({ schoolId }) => membersOf(schoolId).capabilities,
+		financeGrants: async ({ schoolId }) => membersOf(schoolId).financeGrants,
+		memberDetail: async ({ schoolId, personId }) => {
+			const detail = membersOf(schoolId).details[personId];
+			if (!detail)
+				throw new Error(`no member ${personId} in school ${schoolId}`);
+			return detail;
+		},
+		invoiceItems: async ({ schoolId }) => membersOf(schoolId).invoiceItems,
+		switchTiers: async ({ schoolId }) => membersOf(schoolId).switchTiers,
 	};
 }
