@@ -12,6 +12,11 @@
 			"types": "./dist/index.d.ts",
 			"bun": "./src/index.ts",
 			"default": "./dist/index.js"
+		},
+		"./worker": {
+			"types": "./dist/worker.d.ts",
+			"bun": "./src/worker.ts",
+			"default": "./dist/worker.js"
 		}
 	},
 	"files": [
@@ -40,6 +45,8 @@
 	},
 	"devDependencies": {
 		"@types/bun": "1.4.2",
+		"esbuild": "0.25.0",
+		"miniflare": "4.20260730.0",
 		"typescript": "~5.8.3"
 	}
 }
