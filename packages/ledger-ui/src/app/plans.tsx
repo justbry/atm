@@ -5,6 +5,7 @@ import type { Reader } from "../data/reader.ts";
 import type { School } from "../data/types.ts";
 import type { Writer } from "../data/writer.ts";
 import { Icon } from "./icon.tsx";
+import { LockPanel } from "./lock-panel.tsx";
 import { PlanCode } from "./plan-code.tsx";
 import { PlanDrawer } from "./plan-drawer.tsx";
 import {
@@ -22,6 +23,7 @@ import {
 	emptyMenu,
 	type PlanKind,
 	type PlansSession,
+	plansViewOf,
 	problems,
 	slug,
 	tierCount,
@@ -29,7 +31,7 @@ import {
 } from "./plans-menu.ts";
 import { type Route, type SchoolTab, withQuery } from "./route.ts";
 import { usePlanYaml } from "./use-plan-yaml.ts";
-import { audienceView, exitPreviewTitle } from "./view-as.ts";
+import { exitPreviewTitle, useViewing } from "./viewing.ts";
 
 type Mode = "edit" | "preview" | "code";
 
@@ -139,6 +141,7 @@ export function Plans({
 	onToast,
 	onOpenSettings,
 }: PlansProps): JSX.Element | null {
+	const viewing = useViewing();
 	const [editing, setEditing] = useState<{
 		kind: PlanKind;
 		id: string | null;
@@ -180,7 +183,9 @@ export function Plans({
 
 	if (!session) return null;
 	const { live, draft, summary } = session;
-	const view = audienceView(school, route.query.get("as"));
+	const view = plansViewOf(viewing);
+	/** The per-plan members and revenue this row may not see (the disclosure's `plans-revenue` surface). */
+	const revenueLock = viewing.option.locks["plans-revenue"];
 	const owner = school.role === "owner";
 	const mode = modeOf(route.query);
 	const changes = diffMenus(live, draft);
@@ -408,6 +413,9 @@ export function Plans({
 						onOpen={open}
 						onMembers={(tierId) => leave("members", ["plan", tierId])}
 					/>
+				)}
+				{mode === "edit" && revenueLock && (
+					<LockPanel lock={revenueLock} surface="plans-revenue" />
 				)}
 				{mode === "preview" && (
 					<PlanPreview

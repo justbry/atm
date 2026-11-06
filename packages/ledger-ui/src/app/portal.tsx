@@ -6,6 +6,8 @@ import {
 	useLayoutEffect,
 	useState,
 } from "preact/hooks";
+import type { KpiDocument } from "../data/kpi-document.ts";
+import { type HistoryCsvRow, historyColumns } from "../data/ledger.ts";
 import {
 	type HistoryPeriod,
 	historyCsvFileName,
@@ -14,6 +16,7 @@ import {
 	type PortalBooking,
 	type PortalHistoryRow,
 	type PortalMember,
+	paymentStatusLabels,
 	portalFrameVariables,
 	type SiteThemeId,
 	siteThemeIds,
@@ -22,33 +25,34 @@ import {
 import type { Reader } from "../data/reader.ts";
 import type { Clock, School } from "../data/types.ts";
 import type { Writer } from "../data/writer.ts";
-import { seesRoster, viewingOf } from "./audience.ts";
-import { endSentence } from "./booking-text.ts";
-import { type Download, saveFile } from "./download.ts";
+import { endSentence, failedToast } from "./booking-text.ts";
+import { saveFile } from "./download.ts";
+import { saveCsv } from "./download-button.tsx";
 import { Icon, type IconName } from "./icon.tsx";
-import { historyCsv } from "./portal-csv.ts";
+import { LockPanel } from "./lock-panel.tsx";
+import { rosterLock } from "./members-model.ts";
+import { formatMoney } from "./money.ts";
 import {
 	CancelDialog,
 	EmbedDialog,
 	QuantityDialog,
 	ResumeDialog,
 } from "./portal-dialogs.tsx";
-import { type Change, count, money, planOf } from "./portal-format.ts";
+import { type Change, count, planOf } from "./portal-format.ts";
 import {
 	BillingTab,
 	BookingsTab,
-	type BooksFigures,
 	bookingsOf,
 	FamilyTab,
 	familyRoleLabel,
 	type HistoryControls,
 	Overview,
 	type PortalTab,
-	publishedIndex,
+	publishedPeriod,
 } from "./portal-views.tsx";
 import { type Route, withQuery } from "./route.ts";
+import { useViewing } from "./viewing.ts";
 
-const failedToast = "Could not send. Try again.";
 const defaultTab: PortalTab = "overview";
 const defaultTheme: SiteThemeId = "b4u";
 const defaultPeriod: HistoryPeriod = "all";
@@ -82,7 +86,7 @@ type Loaded = {
 	key: string;
 	portal: MemberPortal | undefined;
 	/** The document the School books card reads, when the card shows figures. */
-	figures: BooksFigures | null;
+	figures: KpiDocument | null;
 	/** The year the public school-books document publishes last, for the embed snippet. */
 	publicYear: string;
 };
@@ -101,31 +105,19 @@ type PaneProps = {
 	onToast: (text: string) => void;
 	/** Says whether the portal covers the page, so the shell can put what it covers out of reach. */
 	onShownChange: (shown: boolean) => void;
-	/** Saves a file; the browser's download unless the host gives another. */
-	download?: Download | undefined;
 };
-
-function LockPanel({ onRendered }: { onRendered: () => void }): JSX.Element {
-	useLayoutEffect(onRendered);
-	return (
-		<div class="klock" data-test="lock-panel" data-lock="admins_only">
-			<Icon name="users" />
-			<h4>Owners and admins see the roster</h4>
-			<div class="mut">
-				Members see only themselves and their family, in the member portal. To
-				see one person's portal, an admin uses View as member on their row.
-			</div>
-		</div>
-	);
-}
 
 /** What takes the Members pane while `portal=` is in the route (mockup `#vm`): the member portal for the audiences that
  * see the roster, else the lock panel that stands in for it. */
 export function PortalPane(props: PaneProps): JSX.Element {
-	const viewing = viewingOf(props.route.query, props.school);
-	if (!seesRoster(viewing.audience))
-		return <LockPanel onRendered={props.onRendered} />;
-	return <Portal {...props} preview={viewing.preview} />;
+	const { option, preview } = useViewing();
+	const { onRendered } = props;
+	useLayoutEffect(() => {
+		if (!option.admin) onRendered();
+	});
+	if (!option.admin)
+		return <LockPanel lock={rosterLock} icon="users" hooks="roster" />;
+	return <Portal {...props} preview={preview} />;
 }
 
 /** The member portal (mockup `drawVM`): one person's view as the server scopes it, in the school's site theme.
@@ -141,7 +133,6 @@ function Portal({
 	onRendered,
 	onToast,
 	onShownChange,
-	download = saveFile,
 	preview,
 }: PaneProps & { preview: boolean }): JSX.Element | null {
 	const profileId = route.query.get("portal") ?? "";
@@ -164,13 +155,18 @@ function Portal({
 				school: school.id,
 				profileId,
 			});
-			let figures: BooksFigures | null = null;
+			let figures: KpiDocument | null = null;
 			let publicYear = "";
 			if (portal) {
 				const options = await reader.dashboardOptions();
 				const preset = options.presets[0].id;
-				const read = (level: "public" | "member") =>
-					reader.kpiDocument({ preset, level, pinLocked: false });
+				const read = (audience: "public" | "member") =>
+					reader.kpiDocument({
+						school: school.id,
+						preset,
+						audience,
+						pinLocked: false,
+					});
 				const { audience, guardian } = portal.books;
 				const [publicDocument, memberDocument] = await Promise.all([
 					read("public"),
@@ -178,10 +174,10 @@ function Portal({
 				]);
 				const booksDocument =
 					audience === "public" && !guardian ? publicDocument : memberDocument;
-				if (booksDocument)
-					figures = { document: booksDocument, labels: options.labels };
-				publicYear =
-					publicDocument?.periods[publishedIndex(publicDocument)] ?? "";
+				figures = booksDocument ?? null;
+				publicYear = publicDocument
+					? (publishedPeriod(publicDocument)?.period ?? "")
+					: "";
 			}
 			if (current) setLoaded({ key, portal, figures, publicYear });
 		};
@@ -255,7 +251,7 @@ function Portal({
 			} else {
 				mergeChange(member.profileId, { quantity });
 				onToast(
-					`Upgraded to ×${quantity}. Charged ${money(result.chargedCents, school.currency)} and ${count(result.granted, school.creditUnit)} added once it ships.`,
+					`Upgraded to ×${quantity}. Charged ${formatMoney(result.chargedCents, school.currency)} and ${count(result.granted, school.creditUnit)} added once it ships.`,
 				);
 			}
 		} catch {
@@ -319,11 +315,17 @@ function Portal({
 		}
 	};
 	const downloadHistory = (rows: PortalHistoryRow[]): void => {
-		download({
+		saveCsv(saveFile, onToast, {
 			name: historyCsvFileName(viewed.profileId, rows),
-			text: historyCsv(rows, portal.scope === "family"),
+			columns: historyColumns(portal.scope === "family"),
+			rows: rows.map(
+				(row): HistoryCsvRow => ({
+					...row,
+					member: row.profileId,
+					status: paymentStatusLabels[row.status],
+				}),
+			),
 		});
-		onToast(`Downloaded ${rows.length} row${rows.length === 1 ? "" : "s"}`);
 	};
 
 	const controls: HistoryControls = {

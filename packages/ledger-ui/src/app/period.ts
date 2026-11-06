@@ -56,9 +56,6 @@ export const monthName = (isoDate: string): string =>
 	monthNames[Number(isoDate.slice(5, 7)) - 1] ?? "";
 export const monthAndYear = (isoDate: string): string =>
 	`${monthName(isoDate)} ${isoDate.slice(0, 4)}`;
-/** `7 Jan 2027`. */
-export const dayMonthYear = (isoDate: string): string =>
-	`${Number(isoDate.slice(8))} ${monthName(isoDate)} ${isoDate.slice(0, 4)}`;
 /** `Nov 4`. */
 export const monthAndDay = (isoDate: string): string =>
 	`${monthName(isoDate)} ${Number(isoDate.slice(8))}`;

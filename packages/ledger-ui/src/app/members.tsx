@@ -1,6 +1,11 @@
 import type { JSX } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import {
+	csvFileNames,
+	type HistoryCsvRow,
+	historyColumns,
+} from "../data/ledger.ts";
+import {
 	type Capabilities,
 	financeOnly,
 	type InvoiceItem,
@@ -10,14 +15,17 @@ import {
 	type MembersReader,
 	type MembersSummary,
 	type MembersWriter,
-	membersLock,
 	type Person,
 	type SwitchTier,
 } from "../data/members.ts";
 import type { Reader } from "../data/reader.ts";
 import type { Clock, School } from "../data/types.ts";
-import { membersWritesOf, type Writer } from "../data/writer.ts";
+import type { Writer } from "../data/writer.ts";
+import { endSentence, failedToast } from "./booking-text.ts";
+import { saveFile } from "./download.ts";
+import { saveCsv } from "./download-button.tsx";
 import { Icon } from "./icon.tsx";
+import { LockPanel } from "./lock-panel.tsx";
 import { type BookingAction, MemberDrawer } from "./member-drawer.tsx";
 import {
 	MemberMenu,
@@ -46,23 +54,22 @@ import {
 	type Change,
 	capitalized,
 	formatDay,
-	formatMoney,
 	insideCutoffOf,
-	paymentsCsv,
 	paymentsOf,
 	project,
 	roleLabels,
 	roleRank,
+	rosterLock,
 	type Standing,
 	standingOf,
 	viewerOf,
 } from "./members-model.ts";
 import {
-	failedToast,
 	recordOutcome,
 	releaseHold,
 	type WriteContext,
 } from "./members-writes.ts";
+import { formatMoney } from "./money.ts";
 import {
 	monthAndDay,
 	type Period,
@@ -70,6 +77,7 @@ import {
 	periodLabel,
 } from "./period.ts";
 import { type Route, withQuery } from "./route.ts";
+import { useViewing } from "./viewing.ts";
 
 /** The status chips: `show=attention|canceled` (absent: all). */
 const statusFilters = [
@@ -84,7 +92,6 @@ const roleFilters = [
 	{ slug: "members", label: "Members", role: "members" },
 ] as const;
 
-const downloadRevokeDelay = 1000;
 /** The actions that open a modal with nothing to choose first (the others name a role, a booking or a person). */
 const modalActions: Partial<Record<MenuAction, Action>> = {
 	invoice: { kind: "invoice" },
@@ -143,24 +150,6 @@ async function readMembers(
 	return members;
 }
 
-function saveFile(name: string, text: string): void {
-	const url = URL.createObjectURL(
-		new Blob([text], { type: "text/csv;charset=utf-8" }),
-	);
-	const link = document.createElement("a");
-	link.href = url;
-	link.download = name;
-	link.hidden = true;
-	document.body.append(link);
-	link.click();
-	link.remove();
-	setTimeout(() => URL.revokeObjectURL(url), downloadRevokeDelay);
-}
-
-/** A name that ends in a full stop ("Ana P.") ends the sentence too. */
-const endSentence = (text: string): string =>
-	text.endsWith(".") ? text : `${text}.`;
-
 type Row = {
 	person: Person;
 	member: Member | null;
@@ -191,7 +180,6 @@ function MemberRow({
 	const balance = member?.balances[0];
 	const projection = balance ? project(balance, person.id, changes) : null;
 	return (
-		// biome-ignore lint/a11y/noNoninteractiveElementInteractions lint/a11y/useKeyWithClickEvents: a click anywhere in the row is a pointer shortcut; the name is the button that opens the drawer from the keyboard
 		<tr
 			class="row"
 			data-test="member-row"
@@ -422,7 +410,7 @@ function Roster({
 	}, [reader, school.id, drawerId, menuPersonId, loaded.people]);
 
 	const people = applyRoles(loaded.people, changes);
-	const viewer = viewerOf(people, route.query.get("as"));
+	const viewer = viewerOf(useViewing());
 	const detailOf = (person: Person): MemberDetail | undefined =>
 		person.planHolder ? details[person.id] : noDetail;
 	const drawerPerson = people.find(({ id }) => id === drawerId);
@@ -448,15 +436,7 @@ function Roster({
 	}, [drawerId]);
 
 	if (!viewer.roster)
-		return (
-			<div class="klock" data-test="lock-panel" data-lock={membersLock.code}>
-				<Icon name="users" />
-				<h4 data-test="lock-title">{membersLock.title}</h4>
-				<div class="mut" data-test="lock-text">
-					{membersLock.text}
-				</div>
-			</div>
-		);
+		return <LockPanel lock={rosterLock} icon="users" hooks="roster" />;
 
 	const go = (name: string, value: string | null): void =>
 		navigate(withQuery(route, name, value));
@@ -601,14 +581,23 @@ function Roster({
 		const detail = detailOf(person);
 		if (!detail) return;
 		const rowsOfPayments = paymentsOf(detail, person.id, changes, clock.today);
-		const dates = rowsOfPayments.map(({ date }) => date).sort();
-		saveFile(
-			`invoices-${person.id}-${dates[0] ?? clock.today}-${dates[dates.length - 1] ?? clock.today}.csv`,
-			paymentsCsv(rowsOfPayments, summary.currency),
-		);
-		onToast(
-			`Downloaded ${rowsOfPayments.length} row${rowsOfPayments.length === 1 ? "" : "s"}`,
-		);
+		saveCsv(saveFile, onToast, {
+			name: csvFileNames.history(
+				person.id,
+				rowsOfPayments.map(({ date }) => date),
+				clock.today,
+			),
+			columns: historyColumns(false),
+			rows: rowsOfPayments.map(
+				(row): HistoryCsvRow => ({
+					...row,
+					member: person.id,
+					currency: summary.currency,
+					invoiceId: row.invoiceId ?? "",
+					paymentId: row.paymentId ?? "",
+				}),
+			),
+		});
 	};
 	const choose = (person: Person, chosen: MenuAction): void => {
 		const change = roleActions[chosen];
@@ -949,7 +938,6 @@ export function Members({
 	onRendered: () => void;
 	onToast: (text: string) => void;
 }): JSX.Element | null {
-	const membersWriter = membersWritesOf(writer);
 	const asked = route.query.get("month");
 	const period = parsePeriod(
 		asked === null && school.dashboardOpensOn ? school.dashboardOpensOn : asked,
@@ -1000,7 +988,7 @@ export function Members({
 		<Roster
 			loaded={loaded}
 			reader={reader}
-			writer={membersWriter}
+			writer={writer}
 			school={school}
 			clock={clock}
 			period={period}

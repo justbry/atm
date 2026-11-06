@@ -1,19 +1,20 @@
 import { expect, test } from "bun:test";
+import { formatMoney } from "../../src/app/money.ts";
 import {
 	canonical,
 	diffMenus,
 	grantText,
-	money,
+	plansViewOf,
 	priceText,
 	problems,
 	slug,
 	withAddon,
 	withTier,
 } from "../../src/app/plans-menu.ts";
-import { audienceView } from "../../src/app/view-as.ts";
+import { resolveViewAs } from "../../src/data/disclosure.ts";
 import type { Menu, MenuTier } from "../../src/data/plans.ts";
-import type { School } from "../../src/data/types.ts";
 import { plansBySchool } from "../../src/fixtures/plans.ts";
+import { createFixtureReader } from "../../src/fixtures/reader.ts";
 
 const menuOf = (schoolId: string, version: number): Menu => {
 	const body = plansBySchool[schoolId]?.bodies[version];
@@ -200,8 +201,8 @@ test("prices and grants read as the mockup's priceTxt and grantTxt", () => {
 			{ perUnit: false, once: false },
 		),
 	).toBe("1 session each month");
-	expect(money(28700, "usd")).toBe("$287.00");
-	expect(money(8500, "cad")).toBe("CA$85.00");
+	expect(formatMoney(28700, "usd")).toBe("$287.00");
+	expect(formatMoney(8500, "cad")).toBe("CA$85.00");
 });
 
 test("a new plan's id is its name as a slug", () => {
@@ -211,34 +212,31 @@ test("a new plan's id is its name as a slug", () => {
 	expect(slug("")).toBe("");
 });
 
-const person = (
-	role: School["role"],
-	booksLevel: School["booksLevel"],
-): School => ({ role, booksLevel }) as School;
+const clock = { today: "2026-11-05", now: "2026-11-05T12:00" };
+const reader = createFixtureReader({ clock });
+const viewOf = async (school: string, asked: string | null) =>
+	plansViewOf(resolveViewAs(asked, await reader.disclosure(school)));
 
-test("a person previews only the audiences at or below their own", () => {
-	const owner = person("owner", "owner");
-	const finance = person("admin", "finance_admin");
-	const admin = person("admin", "member");
-	expect(audienceView(owner, null)).toEqual({
+test("the Plans pane is drawn for the View as row the route resolves to", async () => {
+	expect(await viewOf("vol", null)).toEqual({
 		audience: "owner",
 		preview: false,
 		admin: true,
 		finance: true,
 	});
-	expect(audienceView(owner, "admin")).toEqual({
+	expect(await viewOf("vol", "admin")).toEqual({
 		audience: "admin",
 		preview: true,
 		admin: true,
 		finance: false,
 	});
-	expect(audienceView(owner, "public").admin).toBe(false);
-	expect(audienceView(finance, null).audience).toBe("finance");
-	expect(audienceView(finance, "owner").audience).toBe("finance");
-	expect(audienceView(finance, "admin").preview).toBe(true);
-	expect(audienceView(admin, null).audience).toBe("admin");
-	expect(audienceView(admin, "finance").audience).toBe("admin");
-	expect(audienceView(admin, "governance").audience).toBe("admin");
-	expect(audienceView(admin, "member").audience).toBe("member");
-	expect(audienceView(owner, "nonsense").audience).toBe("owner");
+	expect((await viewOf("vol", "public")).admin).toBe(false);
+	expect((await viewOf("b4u", null)).audience).toBe("finance");
+	expect((await viewOf("b4u", "owner")).audience).toBe("finance");
+	expect((await viewOf("b4u", "admin")).preview).toBe(true);
+	expect((await viewOf("har", null)).audience).toBe("admin");
+	expect((await viewOf("har", "finance")).audience).toBe("admin");
+	expect((await viewOf("har", "governance")).audience).toBe("admin");
+	expect((await viewOf("har", "member")).audience).toBe("member");
+	expect((await viewOf("vol", "nonsense")).audience).toBe("owner");
 });

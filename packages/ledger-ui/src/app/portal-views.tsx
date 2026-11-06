@@ -1,5 +1,6 @@
 import { Fragment, type JSX } from "preact";
-import type { KpiDocument } from "../data/kpi-document.ts";
+import { audienceNames } from "../data/disclosure.ts";
+import type { DocumentPeriod, KpiDocument } from "../data/kpi-document.ts";
 import {
 	type FamilyRole,
 	type HistoryPeriod,
@@ -17,9 +18,10 @@ import {
 import type { Clock, School } from "../data/types.ts";
 import { cutoffHours } from "./booking-text.ts";
 import { Icon, type IconName } from "./icon.tsx";
-import { type CellContext, KpiValue } from "./kpi-cell.tsx";
+import { KpiValue } from "./kpi-cell.tsx";
+import { formatMoney } from "./money.ts";
 import { monthAndDay, monthAndYear } from "./period.ts";
-import { count, money, type Plan } from "./portal-format.ts";
+import { count, type Plan } from "./portal-format.ts";
 
 const previewTitle = "Exit preview to act";
 const minutesPerMillisecond = 1 / 60_000;
@@ -126,7 +128,7 @@ function PlanCard({
 				<div>
 					<h4 data-test="portal-plan-name">{plan.label}</h4>
 					<div class="mp-muted" data-test="portal-plan-price">
-						{money(plan.priceCents, school.currency)} / {viewed.interval}
+						{formatMoney(plan.priceCents, school.currency)} / {viewed.interval}
 					</div>
 				</div>
 				<span
@@ -139,7 +141,7 @@ function PlanCard({
 			<div class="mp-muted" style="margin-top:8px" data-test="portal-plan-line">
 				{plan.ended
 					? `Your membership ends on ${plan.endsOn}. You can keep using your ${school.creditUnit.other} until then.`
-					: `Renews ${plan.endsOn} · next invoice ${money(plan.priceCents, school.currency)}`}
+					: `Renews ${plan.endsOn} · next invoice ${formatMoney(plan.priceCents, school.currency)}`}
 			</div>
 			{plan.scheduled && (
 				<div class="mp-note" data-test="portal-plan-note">
@@ -237,13 +239,6 @@ const booksCopy: Record<PortalAudience, string> = {
 	owner:
 		"Owner: everything in the admin dashboard, names included. Opened with your PIN.",
 };
-const audiencePills: Record<PortalAudience, string> = {
-	public: "Public",
-	member: "Member",
-	governance: "Governance",
-	finance: "Finance admin",
-	owner: "Owner",
-};
 const booksActions: Partial<
 	Record<PortalAudience, { label: string; icon: IconName; toast: string }>
 > = {
@@ -259,16 +254,11 @@ const booksActions: Partial<
 	},
 };
 
-/** The newest period a document publishes its money for: the last whose money is not waiting. */
-export function publishedIndex(document: KpiDocument): number {
-	let latest = -1;
-	for (const [index, info] of document.periodInfo.entries())
-		if (info.waiting.money === null) latest = index;
-	return latest;
-}
-
-/** The document the School books card reads, and the context to write its cells. */
-export type BooksFigures = CellContext;
+/** The newest period the document shows its money for. */
+export const publishedPeriod = (
+	document: KpiDocument,
+): DocumentPeriod | undefined =>
+	document.periods.filter(({ state }) => state === "shown").at(-1);
 
 function BooksCard({
 	portal,
@@ -276,24 +266,30 @@ function BooksCard({
 	handlers,
 }: {
 	portal: MemberPortal;
-	figures: BooksFigures | null;
+	figures: KpiDocument | null;
 	handlers: Handlers;
 }): JSX.Element {
 	const { audience, guardian } = portal.books;
 	const action = guardian ? undefined : booksActions[audience];
-	const index = figures ? publishedIndex(figures.document) : -1;
+	const shown = figures ? publishedPeriod(figures) : undefined;
 	let figuresLine: JSX.Element | string | null = null;
-	if (figures && index >= 0)
+	if (figures && shown) {
+		const cell = (kpi: string): JSX.Element => (
+			<KpiValue
+				document={figures}
+				grain={figures.grain}
+				kpi={kpi}
+				period={shown.period}
+			/>
+		);
 		figuresLine = (
 			<>
 				{" "}
-				{figures.document.periodInfo[index]?.label}:{" "}
-				<KpiValue context={figures} kpi="gross_collected" index={index} />{" "}
-				collected, <KpiValue context={figures} kpi="net_income" index={index} />{" "}
+				{shown.label}: {cell("gross_collected")} collected, {cell("net_income")}{" "}
 				net.
 			</>
 		);
-	else if (figures) figuresLine = " Nothing is published yet.";
+	} else if (figures) figuresLine = " Nothing is published yet.";
 	return (
 		<div class="mp-card" data-test="books-card" data-audience={audience}>
 			<div class="mp-row">
@@ -309,7 +305,7 @@ function BooksCard({
 					</div>
 				</div>
 				<span class="mp-pill" data-test="books-pill">
-					{guardian ? "Via guardian" : audiencePills[audience]}
+					{guardian ? "Via guardian" : audienceNames[audience]}
 				</span>
 			</div>
 			{action && (
@@ -331,7 +327,7 @@ function BooksCard({
 }
 
 export function Overview(
-	props: ViewProps & { figures: BooksFigures | null },
+	props: ViewProps & { figures: KpiDocument | null },
 ): JSX.Element {
 	const { portal, viewed, plan, school, preview, handlers, figures } = props;
 	return (
@@ -353,7 +349,7 @@ export function Overview(
 									<b>{addon.name}</b>
 									<div class="mp-muted">
 										{count(addon.grants, school.creditUnit)} ·{" "}
-										{money(addon.priceCents, school.currency)}
+										{formatMoney(addon.priceCents, school.currency)}
 									</div>
 								</div>
 								<ActionButton
@@ -390,7 +386,7 @@ function bookingTail(booking: PortalBooking, clock: Clock, school: School) {
 			? booking.held > 0
 				? `${count(booking.held, school.creditUnit)} held`
 				: "Free"
-			: `Paid ${money(booking.paidCents, school.currency)}`;
+			: `Paid ${formatMoney(booking.paidCents, school.currency)}`;
 	const started = booking.startsAt < clock.now;
 	if (started || booking.state === "requested") return cost;
 	const cutoff = cutoffHours(booking.cutoffMinutes);
@@ -653,7 +649,7 @@ function HistoryCard({
 					class={row.amountCents < 0 ? "r kha neg2" : "r kha"}
 					data-test="history-amount"
 				>
-					{money(row.amountCents, row.currency)}
+					{formatMoney(row.amountCents, row.currency)}
 				</td>
 				<td class="khs">
 					<span class={pillTone(row.status)} data-test="history-status">
@@ -754,7 +750,7 @@ export function BillingTab(
 						<div class="mp-muted">
 							{plan.ended
 								? `None. Your membership ends ${plan.endsOn}.`
-								: `${plan.endsOn} · ${money(plan.priceCents, school.currency)}`}
+								: `${plan.endsOn} · ${formatMoney(plan.priceCents, school.currency)}`}
 						</div>
 					</div>
 				</div>

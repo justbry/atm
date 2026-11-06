@@ -8,6 +8,7 @@ import {
 	type RefundablePayment,
 	releaseReason,
 } from "../data/members.ts";
+import { endSentence, sentToast } from "./booking-text.ts";
 import {
 	type Applied,
 	type Change,
@@ -17,10 +18,6 @@ import {
 	type RoleChange,
 	roleTexts,
 } from "./members-model.ts";
-
-export const sentToast =
-	"Sent. It shows as pending, then in the ledger after the next ship (≤5 min).";
-export const failedToast = "Could not send. Try again.";
 
 /** Everything a write needs besides its own fields. */
 export type WriteContext = {
@@ -326,10 +323,6 @@ export async function resumeMembership(
 		toast: "Membership resumed.",
 	};
 }
-
-/** A name that ends in a full stop ("Ana P.") ends the sentence too. */
-const endSentence = (text: string): string =>
-	text.endsWith(".") ? text : `${text}.`;
 
 /** The bookings of the person whose hold can be released (mockup `kReleasable`): confirmed, with credits held, not
  * paid, not waiting for an outcome and with no write on its way. */

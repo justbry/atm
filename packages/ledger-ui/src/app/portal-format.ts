@@ -1,17 +1,8 @@
 import type { PortalMember, PortalUnit } from "../data/portal.ts";
 import type { School } from "../data/types.ts";
-import { numberFormat } from "./kpi-cell.tsx";
 import { monthAndDay } from "./period.ts";
 
-const minorUnitsPerUnit = 100;
-const minusSign = "−";
 const millisecondsPerSecond = 1000;
-
-/** Minor units as money in the currency, a negative with the typographic minus ("−$40.00"). */
-export const money = (cents: number, currency: string): string =>
-	numberFormat("money", currency)
-		.format(cents / minorUnitsPerUnit)
-		.replace("-", minusSign);
 
 /** "1 credit", "2 credits". */
 export const count = (amount: number, unit: PortalUnit): string =>

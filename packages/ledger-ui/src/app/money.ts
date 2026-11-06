@@ -22,6 +22,12 @@ export function formatMoney(
 	return `${cents < 0 ? "−" : ""}${formatFor(currency, whole).format(Math.abs(cents) / 100)}`;
 }
 
+/** `$` for US dollars, `CA$` for Canadian ones: the unit of an amount field. */
+export const currencySymbol = (currency: string): string =>
+	formatFor(currency, false)
+		.formatToParts(0)
+		.find(({ type }) => type === "currency")?.value ?? currency.toUpperCase();
+
 /** A signed whole number as the mockup's `sgn` writes it: `+22`, `−2`, and nothing for 0. */
 export function signedCount(count: number): string {
 	if (count === 0) return "";

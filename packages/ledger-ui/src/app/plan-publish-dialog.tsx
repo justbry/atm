@@ -1,6 +1,6 @@
 import type { JSX } from "preact";
-import { useEffect, useId, useRef, useState } from "preact/hooks";
-import { useFocusTrap } from "./focus-trap.ts";
+import { useId, useState } from "preact/hooks";
+import { Dialog } from "./dialog.tsx";
 import { Icon } from "./icon.tsx";
 import type { PlanChange } from "./plans-menu.ts";
 
@@ -36,124 +36,100 @@ export function PlanPublishDialog({
 	onCancel,
 }: PlanPublishDialogProps): JSX.Element {
 	const [pin, setPin] = useState("");
-	const modal = useRef<HTMLDivElement>(null);
-	const cancelButton = useRef<HTMLButtonElement>(null);
-	const titleId = useId();
 	const pinId = useId();
-	const close = (): void => {
-		if (!pending) onCancel();
-	};
-	useFocusTrap(true, modal, close);
-	useEffect(() => {
-		const opener = document.activeElement;
-		cancelButton.current?.focus();
-		return () => {
-			if (opener instanceof HTMLElement) opener.focus();
-		};
-	}, []);
 	const publishEnabled = owner && pin.length >= minimumPinLength && !pending;
 	return (
-		// biome-ignore lint/a11y/noStaticElementInteractions: Escape closes the dialog (useFocusTrap); a click on the backdrop is a pointer shortcut for the same
-		<div
-			class="bg on"
-			role="presentation"
-			onClick={(event) => {
-				if (event.target === event.currentTarget) close();
-			}}
-		>
-			<div
-				ref={modal}
-				class="modal"
-				role="dialog"
-				aria-modal="true"
-				aria-labelledby={titleId}
-				data-test="plan-publish-dialog"
-			>
-				<h3 id={titleId}>
+		<Dialog
+			title={
+				<>
 					<Icon name="upload" /> Review and publish
-				</h3>
-				<div class="mut" data-test="plan-publish-versions">
-					{schoolName} · v{fromVersion} → v{fromVersion + 1}
-				</div>
-				{changes.map((change) => (
-					<div
-						key={`${change.kind}:${change.id}`}
-						data-test="plan-publish-change"
-						data-plan={change.id}
-					>
-						<h5 class="change-name">
-							<Icon name={change.kind === "tiers" ? "layers" : "gift"} />{" "}
-							{change.name}
-						</h5>
-						{change.lines.map((line) => (
-							<div key={line.title}>
-								{line.title}
-								<div class="mut change-detail">
-									<Icon name="plug" /> {line.detail}
-								</div>
-							</div>
-						))}
-					</div>
-				))}
-				<div class="prev" data-test="plan-publish-summary">
-					{affectedMembers > 0 ? (
-						<>
-							New purchases get the new terms.{" "}
-							<b>
-								{affectedMembers} current member
-								{affectedMembers === 1 ? "" : "s"}
-							</b>{" "}
-							keep the version they bought.
-						</>
-					) : (
-						"No current members are affected."
-					)}{" "}
-					The change applies at once (it doesn't wait for the next local month).
-				</div>
-				{owner ? (
-					<div class="fld">
-						<label for={pinId}>Your family PIN</label>
-						<input
-							id={pinId}
-							type="password"
-							inputMode="numeric"
-							maxLength={maximumPinLength}
-							autoComplete="off"
-							data-test="plan-publish-pin"
-							value={pin}
-							onInput={(event) => setPin(event.currentTarget.value)}
-						/>
-					</div>
-				) : (
-					<div class="lock" data-test="plan-publish-lock">
-						<Icon name="lock" /> Owners publish. You are an admin here, so your
-						draft waits for an owner.
-					</div>
-				)}
-				<div class="mf">
-					<button
-						ref={cancelButton}
-						type="button"
-						class="btn"
-						data-test="plan-publish-cancel"
-						disabled={pending}
-						onClick={onCancel}
-					>
-						Cancel
-					</button>
-					<button
-						type="button"
-						class="btn p"
-						data-test="plan-publish-go"
-						title={owner ? undefined : "Owners publish"}
-						disabled={!publishEnabled}
-						onClick={onPublish}
-					>
-						<Icon name="upload" />
-						{pending ? "Publishing…" : `Publish v${fromVersion + 1}`}
-					</button>
-				</div>
+				</>
+			}
+			onClose={onCancel}
+			busy={pending}
+			hooks="publish"
+		>
+			<div class="mut" data-test="plan-publish-versions">
+				{schoolName} · v{fromVersion} → v{fromVersion + 1}
 			</div>
-		</div>
+			{changes.map((change) => (
+				<div
+					key={`${change.kind}:${change.id}`}
+					data-test="plan-publish-change"
+					data-plan={change.id}
+				>
+					<h5 class="change-name">
+						<Icon name={change.kind === "tiers" ? "layers" : "gift"} />{" "}
+						{change.name}
+					</h5>
+					{change.lines.map((line) => (
+						<div key={line.title}>
+							{line.title}
+							<div class="mut change-detail">
+								<Icon name="plug" /> {line.detail}
+							</div>
+						</div>
+					))}
+				</div>
+			))}
+			<div class="prev" data-test="plan-publish-summary">
+				{affectedMembers > 0 ? (
+					<>
+						New purchases get the new terms.{" "}
+						<b>
+							{affectedMembers} current member
+							{affectedMembers === 1 ? "" : "s"}
+						</b>{" "}
+						keep the version they bought.
+					</>
+				) : (
+					"No current members are affected."
+				)}{" "}
+				The change applies at once (it doesn't wait for the next local month).
+			</div>
+			{owner ? (
+				<div class="fld">
+					<label for={pinId}>Your family PIN</label>
+					<input
+						id={pinId}
+						type="password"
+						inputMode="numeric"
+						maxLength={maximumPinLength}
+						autoComplete="off"
+						data-test="plan-publish-pin"
+						value={pin}
+						onInput={(event) => setPin(event.currentTarget.value)}
+					/>
+				</div>
+			) : (
+				<div class="lock" data-test="plan-publish-lock">
+					<Icon name="lock" /> Owners publish. You are an admin here, so your
+					draft waits for an owner.
+				</div>
+			)}
+			<div class="mf">
+				<button
+					type="button"
+					class="btn"
+					data-test="plan-publish-cancel"
+					data-autofocus
+					disabled={pending}
+					onClick={onCancel}
+				>
+					Cancel
+				</button>
+				<button
+					type="button"
+					class="btn p"
+					data-test="plan-publish-go"
+					title={owner ? undefined : "Owners publish"}
+					disabled={!publishEnabled}
+					onClick={onPublish}
+				>
+					<Icon name="upload" />
+					{pending ? "Publishing…" : `Publish v${fromVersion + 1}`}
+				</button>
+			</div>
+		</Dialog>
 	);
 }

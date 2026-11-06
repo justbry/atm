@@ -11,7 +11,12 @@ import type { Reader } from "../data/reader.ts";
 import type { Clock, School } from "../data/types.ts";
 import type { Writer } from "../data/writer.ts";
 import { BookingDialog } from "./booking-dialog.tsx";
-import { cutoffHours, endSentence } from "./booking-text.ts";
+import {
+	cutoffHours,
+	endSentence,
+	failedToast,
+	sentToast,
+} from "./booking-text.ts";
 import {
 	type BookingsPeriod,
 	bookingsDays,
@@ -30,9 +35,6 @@ type Dialog = { action: "noshow" | "release"; booking: Booking };
 
 /** Brief A caps a range at 62 days: the overdue group reads that many days before the range. */
 const overdueDays = 62;
-const sentToast =
-	"Sent. It shows as pending, then in the ledger after the next ship (≤5 min).";
-const failedToast = "Could not send. Try again.";
 const refundTitle = "Refunds from this tab are not available yet.";
 const bookingsNote =
 	"Credits are reserved when a booking is made, spent when it's attended, and released when it's cancelled before the item's cutoff. Cutoffs come from each item, not one school-wide number.";

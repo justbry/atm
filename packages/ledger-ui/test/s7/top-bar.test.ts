@@ -29,12 +29,12 @@ test("choosing a row of View as writes as=, keeps the tab and snaps the period w
 
 test("choosing the viewer's own row, or Exit preview, removes as= and keeps the rest of the route", async () => {
 	await open(
-		"#/b4u/dashboard?as=member&filter=cutoff&month=2026-04-01..2026-06-30",
+		"#/b4u/ledger?as=member&filter=cutoff&month=2026-04-01..2026-06-30",
 	);
 	await click("[data-test=view-as]");
 	await click("[data-test=view-as-option][data-as=finance]");
 	expect(window.location.hash).toBe(
-		"#/b4u/dashboard?filter=cutoff&month=2026-04-01..2026-06-30",
+		"#/b4u/ledger?filter=cutoff&month=2026-04-01..2026-06-30",
 	);
 	expect(count("[data-test=preview-banner]")).toBe(0);
 });

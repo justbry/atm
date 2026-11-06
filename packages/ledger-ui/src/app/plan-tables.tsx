@@ -8,17 +8,18 @@ import {
 	planLimits,
 } from "../data/plans.ts";
 import { Icon } from "./icon.tsx";
+import { formatMoney } from "./money.ts";
 import {
 	audienceName,
 	grantText,
-	money,
 	monthlyAmount,
 	type PlanKind,
+	type PlansView,
 	priceText,
 	tierAudience,
 	tierCount,
 } from "./plans-menu.ts";
-import { type AudienceView, exitPreviewTitle } from "./view-as.ts";
+import { exitPreviewTitle } from "./viewing.ts";
 
 /** cell-rules `minContributors`: under this many payers a per-plan count shows as <10 and a per-plan amount is hidden. */
 const minimumContributors = 5;
@@ -38,13 +39,13 @@ export function Withheld({ text }: { text: string }): JSX.Element {
 /** A membership's Members and Monthly cells for the audience (mockup `cntC`, `revC`): exact for owner and finance
  * admins, banded for governance, withheld below. Monthly is the draft's monthly price times the active units. */
 function tierFigures(
-	view: AudienceView,
+	view: PlansView,
 	menu: Menu,
 	tier: MenuTier,
 	count: PlanTierCount,
 	onMembers: () => void,
 ): { members: JSX.Element; monthly: JSX.Element } {
-	const monthly = money(
+	const monthly = formatMoney(
 		(monthlyAmount(tier) ?? 0) * count.activeUnits,
 		menu.currency,
 	);
@@ -185,7 +186,7 @@ function TierRow({
 	onOpen,
 	onMembers,
 }: RowProps & {
-	view: AudienceView;
+	view: PlansView;
 	tier: MenuTier;
 	count: PlanTierCount;
 	onMembers: () => void;
@@ -294,7 +295,7 @@ const emptyRow = (kind: PlanKind, text: string): JSX.Element => (
 );
 
 type PlanTablesProps = {
-	view: AudienceView;
+	view: PlansView;
 	/** The menu the rows are drawn from: the draft for admins, the live menu for the rest. */
 	menu: Menu;
 	/** The memberships listed (an audience below admin sees only some). */

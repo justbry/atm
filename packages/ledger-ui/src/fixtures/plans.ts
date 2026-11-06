@@ -161,6 +161,55 @@ const b4uLive: Menu = {
 	addons: [],
 };
 
+/** Harbor Arts Academy (mockup `SC.har.pl`): Studio and Ensemble on sale, Board given by the owner. */
+const harborArtsLive: Menu = {
+	currency: "usd",
+	timeZone: "America/New_York",
+	features: [credits],
+	tiers: [
+		{
+			id: "studio",
+			name: "Studio",
+			blurb: "Weekly studio time",
+			public: true,
+			prices: [{ interval: "month", amount: 12000 }],
+			grants: [
+				{
+					featureId: "credits",
+					amount: 8,
+					every: "month",
+					rollover: { months: 1 },
+				},
+			],
+		},
+		{
+			id: "ensemble",
+			name: "Ensemble",
+			blurb: "Ensemble and lessons",
+			public: true,
+			prices: [{ interval: "month", amount: 24000 }],
+			grants: [
+				{
+					featureId: "credits",
+					amount: 16,
+					every: "month",
+					rollover: { months: 1 },
+				},
+			],
+		},
+		{
+			id: "board",
+			name: "Board",
+			blurb: "For trustees. Not for sale: the owner gives it.",
+			public: false,
+			prices: [],
+			grants: [{ featureId: "credits", amount: 2, every: "month" }],
+			audience: "governance",
+		},
+	],
+	addons: [],
+};
+
 const maplePilatesLive: Menu = {
 	currency: "cad",
 	timeZone: "America/Toronto",
@@ -295,6 +344,41 @@ export const plansBySchool: Record<string, SchoolPlans> = {
 			features: [classes],
 			stripeConnected: true,
 			purchaseLinkShared: false,
+		},
+	},
+	har: {
+		versions: {
+			versions: [
+				{ version: 3, publishedAt: 1790683200, savedAt: 1790681400 },
+				{ version: 2, publishedAt: 1779192000, savedAt: 1779190200 },
+				{ version: 1, publishedAt: 1767268800, savedAt: 1767267000 },
+			],
+		},
+		bodies: {
+			3: {
+				version: 3,
+				publishedAt: 1790683200,
+				savedAt: 1790681400,
+				menu: harborArtsLive,
+				stripe: {
+					products: ["t:studio", "t:ensemble", "t:board"],
+					prices: ["t:studio:month", "t:ensemble:month"],
+					portal: true,
+				},
+			},
+		},
+		summary: {
+			activeMembers: 4,
+			endingSoon: 0,
+			collected: { period: "2026-11", amount: 36000 },
+			tiers: [
+				{ tierId: "studio", active: 2, ending: 0, activeUnits: 2 },
+				{ tierId: "ensemble", active: 1, ending: 0, activeUnits: 1 },
+				{ tierId: "board", active: 1, ending: 0, activeUnits: 1 },
+			],
+			features: [credits],
+			stripeConnected: true,
+			purchaseLinkShared: true,
 		},
 	},
 	nw: {

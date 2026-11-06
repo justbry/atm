@@ -1,8 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type { Download } from "../../src/app/download.ts";
 import { mountApp } from "../../src/app/mount.tsx";
-import { historyCsv } from "../../src/app/portal-csv.ts";
-import type { PortalHistoryRow } from "../../src/data/portal.ts";
 import type { Writer } from "../../src/data/writer.ts";
 import { createFixtureReader } from "../../src/fixtures/reader.ts";
 import { createFixtureWriter } from "../../src/fixtures/writer.ts";
@@ -10,7 +7,12 @@ import { createFixtureWriter } from "../../src/fixtures/writer.ts";
 const clock = { today: "2026-11-05", now: "2026-11-05T12:00" };
 const byteOrderMark = "﻿";
 let unmount: (() => void) | null = null;
+/** The files the browser was asked to save (the history is a file, not a write): each link's name and its blob. */
+let saved: Array<{ name: string; blob: Blob }> = [];
 let files: Array<{ name: string; text: string }> = [];
+let blobs: Blob[] = [];
+const createObjectURL = URL.createObjectURL;
+const linkClick = HTMLAnchorElement.prototype.click;
 
 const macrotask = (): Promise<void> =>
 	new Promise((resolve) => setTimeout(resolve, 0));
@@ -37,23 +39,32 @@ const settle = async (): Promise<void> => {
 };
 const open = async (hash: string, writer?: Writer): Promise<void> => {
 	window.location.hash = hash;
+	URL.createObjectURL = (blob: Blob | MediaSource) => {
+		blobs.push(blob as Blob);
+		return "blob:test";
+	};
+	HTMLAnchorElement.prototype.click = function capture(
+		this: HTMLAnchorElement,
+	) {
+		const blob = blobs.shift();
+		if (this.download && blob) saved.push({ name: this.download, blob });
+	};
 	const container = document.createElement("div");
 	container.id = "app";
 	document.body.appendChild(container);
-	const download: Download = (file) => {
-		files.push(file);
-	};
 	unmount = mountApp(container, {
 		reader: createFixtureReader({ clock }),
 		writer: writer ?? createFixtureWriter({ mode: "instant" }),
 		clock,
-		download,
 	}).unmount;
 	await settle();
 };
 const click = async (selector: string): Promise<void> => {
 	element(selector).click();
 	await settle();
+	files = await Promise.all(
+		saved.map(async ({ name, blob }) => ({ name, text: await blob.text() })),
+	);
 };
 const choose = async (selector: string, value: string): Promise<void> => {
 	const select = element<HTMLSelectElement>(selector);
@@ -71,6 +82,10 @@ afterEach(() => {
 	unmount?.();
 	unmount = null;
 	files = [];
+	saved = [];
+	blobs = [];
+	URL.createObjectURL = createObjectURL;
+	HTMLAnchorElement.prototype.click = linkClick;
 	document.body.innerHTML = "";
 	window.location.hash = "";
 });
@@ -130,23 +145,6 @@ test("a learner's export has no member column and holds only their rows", async 
 	);
 	expect(lines).toHaveLength(1 + 28 + 1);
 	expect(text("[data-test=toast]")).toBe("Downloaded 28 rows");
-});
-
-test("a text a spreadsheet would read as a formula is written as text, and quotes are doubled", () => {
-	const row: PortalHistoryRow = {
-		profileId: "s_1",
-		date: "2026-01-02",
-		description: '=SUM(1,1) "gift"',
-		amountCents: -5,
-		currency: "USD",
-		status: "partly_refunded",
-		invoiceId: "",
-		paymentId: "",
-		refundPending: false,
-	};
-	expect(historyCsv([row], false)).toBe(
-		`${byteOrderMark}date,description,amount,currency,status,invoice_id,payment_id\r\n2026-01-02,"'=SUM(1,1) ""gift""",-0.05,USD,Partly refunded,,\r\n`,
-	);
 });
 
 test("a decrease waits for the renewal and an increase shows what the server charged", async () => {

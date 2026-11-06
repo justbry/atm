@@ -1,5 +1,5 @@
 import type { ComponentChildren, JSX } from "preact";
-import { useEffect, useId, useRef, useState } from "preact/hooks";
+import { useEffect, useId, useState } from "preact/hooks";
 import {
 	applyOverride,
 	audienceNames,
@@ -40,7 +40,7 @@ import {
 } from "../data/settings.ts";
 import type { School } from "../data/types.ts";
 import type { Writer } from "../data/writer.ts";
-import { useFocusTrap } from "./focus-trap.ts";
+import { Dialog } from "./dialog.tsx";
 import { Icon, type IconName } from "./icon.tsx";
 import { LockPanel } from "./lock-panel.tsx";
 import { monthAndDay } from "./period.ts";
@@ -84,7 +84,7 @@ export function AllSchoolsNote(): JSX.Element {
 /** A dialog over the drawer (mockup `#md`): a title, a body, Cancel and the confirming action. Escape, a click on the
  * backdrop and Cancel close it; Tab stays inside; focus starts on the first field, else on the first button. The
  * action stays busy until it answers, and says so if it fails. */
-function Dialog({
+function SettingsDialog({
 	title,
 	icon,
 	children,
@@ -110,18 +110,6 @@ function Dialog({
 }): JSX.Element {
 	const [busy, setBusy] = useState(false);
 	const [failed, setFailed] = useState(false);
-	const modal = useRef<HTMLDivElement>(null);
-	const titleId = useId();
-	useFocusTrap(true, modal, onCancel);
-	useEffect(() => {
-		const opener = document.activeElement;
-		modal.current
-			?.querySelector<HTMLElement>("input, button:not([disabled])")
-			?.focus();
-		return () => {
-			if (opener instanceof HTMLElement) opener.focus();
-		};
-	}, []);
 	const run = async (): Promise<void> => {
 		setBusy(true);
 		setFailed(false);
@@ -133,57 +121,45 @@ function Dialog({
 		setBusy(false);
 	};
 	return (
-		// biome-ignore lint/a11y/noStaticElementInteractions: Escape closes the dialog (useFocusTrap); a click on the backdrop is a pointer shortcut for the same
-		<div
-			class="bg on"
-			role="presentation"
-			onClick={(event) => {
-				if (event.target === event.currentTarget) onCancel();
-			}}
-		>
-			<div
-				ref={modal}
-				class="modal"
-				role="dialog"
-				aria-modal="true"
-				aria-labelledby={titleId}
-				data-test="dialog"
-			>
-				<h3 id={titleId} data-test="dialog-title">
+		<Dialog
+			title={
+				<>
 					{icon && <Icon name={icon} />} {title}
-				</h3>
-				{children}
-				{failed && (
-					<div class="err" role="alert">
-						{saveFailed}
-					</div>
-				)}
-				<div class="mf">
-					{extra}
-					{cancelable && (
-						<button
-							type="button"
-							class="btn"
-							data-test="dialog-cancel"
-							onClick={onCancel}
-						>
-							Cancel
-						</button>
-					)}
+				</>
+			}
+			onClose={onCancel}
+		>
+			{children}
+			{failed && (
+				<div class="err" role="alert">
+					{saveFailed}
+				</div>
+			)}
+			<div class="mf">
+				{extra}
+				{cancelable && (
 					<button
 						type="button"
-						class={confirm.danger ? "btn d" : "btn p"}
-						data-test="dialog-confirm"
-						disabled={busy || confirm.disabled}
-						aria-busy={busy || undefined}
-						onClick={run}
+						class="btn"
+						data-test="dialog-cancel"
+						onClick={onCancel}
 					>
-						{confirm.icon && <Icon name={confirm.icon} />}
-						{confirm.label}
+						Cancel
 					</button>
-				</div>
+				)}
+				<button
+					type="button"
+					class={confirm.danger ? "btn d" : "btn p"}
+					data-test="dialog-confirm"
+					disabled={busy || confirm.disabled}
+					aria-busy={busy || undefined}
+					onClick={run}
+				>
+					{confirm.icon && <Icon name={confirm.icon} />}
+					{confirm.label}
+				</button>
 			</div>
-		</div>
+		</Dialog>
 	);
 }
 
@@ -469,7 +445,7 @@ function PinDialog({
 }): JSX.Element {
 	const [pin, setPin] = useState("");
 	return (
-		<Dialog
+		<SettingsDialog
 			title="Save the disclosure change"
 			icon="lock"
 			confirm={{
@@ -488,7 +464,7 @@ function PinDialog({
 				onInput={setPin}
 				numeric
 			/>
-		</Dialog>
+		</SettingsDialog>
 	);
 }
 
@@ -524,7 +500,7 @@ function BooksSection({
 	};
 	const askForLink = (minutes: number): void =>
 		onModal(
-			<Dialog
+			<SettingsDialog
 				title="Confirm by email: this publishes your books"
 				icon="mail"
 				confirm={{
@@ -546,7 +522,7 @@ function BooksSection({
 					your books. Nothing changes until you open it. The link works once and
 					expires in {minutes} minutes.
 				</div>
-			</Dialog>,
+			</SettingsDialog>,
 		);
 	const askForPin = (): void => {
 		const [first] = check.errors;
@@ -895,7 +871,7 @@ function KeyCreateDialog({
 }): JSX.Element {
 	const [label, setLabel] = useState("");
 	return (
-		<Dialog
+		<SettingsDialog
 			title={`Create ${keyNames[kind]}`}
 			icon="key"
 			confirm={{ label: "Create", onConfirm: () => onCreate(label) }}
@@ -910,7 +886,7 @@ function KeyCreateDialog({
 				placeholder="For example: Website"
 				secret={false}
 			/>
-		</Dialog>
+		</SettingsDialog>
 	);
 }
 
@@ -934,7 +910,7 @@ function KeyCreatedDialog({
 	if (created.kind === "rd") {
 		const { endpoint, bucket, prefix, keyId, secret } = created.credential;
 		return (
-			<Dialog
+			<SettingsDialog
 				title="Credential created"
 				confirm={{ label: "I stored it", onConfirm: onDone }}
 				cancelable={false}
@@ -945,11 +921,11 @@ function KeyCreatedDialog({
 					{`endpoint  ${endpoint}\nbucket    ${bucket}\nprefix    ${prefix}\nkey id    ${keyId}\nsecret    ${secret}`}
 				</div>
 				{copyButton("Copy all", "Credential copied.")}
-			</Dialog>
+			</SettingsDialog>
 		);
 	}
 	return (
-		<Dialog
+		<SettingsDialog
 			title="Key created"
 			confirm={{ label: "I stored it", onConfirm: onDone }}
 			cancelable={false}
@@ -961,7 +937,7 @@ function KeyCreatedDialog({
 			<p class="mut">
 				Only the SHA-256 and the first 15 characters are stored.
 			</p>
-		</Dialog>
+		</SettingsDialog>
 	);
 }
 
@@ -1008,7 +984,7 @@ function KeysSection({
 	};
 	const startRevoke = (key: ApiKey): void =>
 		onModal(
-			<Dialog
+			<SettingsDialog
 				title={`Revoke this ${key.kind === "rd" ? "credential" : "key"}?`}
 				confirm={{
 					label: "Revoke",
@@ -1030,7 +1006,7 @@ function KeysSection({
 					<span class="mono">{key.prefix}…</span> ({key.label}). Anything using
 					it stops working at once. This can't be undone.
 				</p>
-			</Dialog>,
+			</SettingsDialog>,
 		);
 	return (
 		<>
@@ -1137,7 +1113,7 @@ function PermissionsDialog({
 		</div>
 	);
 	return (
-		<Dialog
+		<SettingsDialog
 			title="Stripe permissions"
 			icon="card"
 			confirm={{ label: "Done", onConfirm: onClose }}
@@ -1180,7 +1156,7 @@ function PermissionsDialog({
 					<Icon name="check" /> All permissions are present.
 				</div>
 			)}
-		</Dialog>
+		</SettingsDialog>
 	);
 }
 
@@ -1198,7 +1174,7 @@ function StripeKeyDialog({
 	const { text, ok } = restrictedKeyMessage(key);
 	const mistake = key.trim() !== "" && !ok && !text.startsWith("Keep typing");
 	return (
-		<Dialog
+		<SettingsDialog
 			title={`${replacing ? "Replace" : "Connect"} Stripe`}
 			icon="card"
 			confirm={{
@@ -1231,7 +1207,7 @@ function StripeKeyDialog({
 				{ok && <Icon name="check" />}
 				{mistake ? <b class="err">{text}</b> : text}
 			</div>
-		</Dialog>
+		</SettingsDialog>
 	);
 }
 
@@ -1246,7 +1222,7 @@ function ZeffyKeyDialog({
 }): JSX.Element {
 	const [apiKey, setApiKey] = useState("");
 	return (
-		<Dialog
+		<SettingsDialog
 			title={`${replacing ? "Replace" : "Connect"} Zeffy`}
 			icon="heart"
 			confirm={{
@@ -1271,7 +1247,7 @@ function ZeffyKeyDialog({
 				<Icon name="info" /> Zeffy doesn't document webhook signing, so every
 				payment is verified by looking it up in Zeffy before it is recorded.
 			</div>
-		</Dialog>
+		</SettingsDialog>
 	);
 }
 
@@ -1288,7 +1264,7 @@ function RemoveDialog({
 }): JSX.Element {
 	const [pin, setPin] = useState("");
 	return (
-		<Dialog
+		<SettingsDialog
 			title={`Remove ${what}?`}
 			confirm={{
 				label: "Remove",
@@ -1307,7 +1283,7 @@ function RemoveDialog({
 				onInput={setPin}
 				numeric
 			/>
-		</Dialog>
+		</SettingsDialog>
 	);
 }
 

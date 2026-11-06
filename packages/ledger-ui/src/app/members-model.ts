@@ -1,3 +1,4 @@
+import type { LockPanel, ViewAs } from "../data/disclosure.ts";
 import {
 	type AttentionReason,
 	type Capabilities,
@@ -8,38 +9,26 @@ import {
 	type Member,
 	type MemberBalance,
 	type MemberDetail,
+	membersLock,
 	type PaymentRow,
 	type Person,
 	type RefundablePayment,
 } from "../data/members.ts";
 import type { IconName } from "./icon.tsx";
 import { monthAndDay } from "./period.ts";
+import type { Viewing } from "./viewing.ts";
 
 /** What the Members tab does with the answers of the Reader and the Writer: the pending effects of a write (shown
  * until the ledger ships), who is looking (`as=`), and the texts built from the contract's data. It
  * derives no number the server derives: it adds and subtracts what a pending write says, as the mockup's `proj`. */
 
 export type Audience = Person["audience"];
-export const audienceNames: Record<Audience, string> = {
-	public: "Public",
-	member: "Member",
-	governance: "Governance",
-	finance: "Finance admin",
-	owner: "Owner",
-};
 export const audienceIcons: Record<Audience, IconName> = {
 	public: "eye",
 	member: "user",
 	governance: "users",
 	finance: "coin",
 	owner: "key",
-};
-const audienceRanks: Record<Audience, number> = {
-	public: 0,
-	member: 1,
-	governance: 2,
-	finance: 3,
-	owner: 4,
 };
 export const roleLabels: Record<Person["role"], string> = {
 	owner: "Owner",
@@ -50,21 +39,18 @@ export const roleLabels: Record<Person["role"], string> = {
 export const roleRank = (person: Person): number =>
 	({ owner: 0, admin: 1, member: 2 })[person.role];
 
-// ---- View as (`as=`, the shared contract; mockup `VW`, `vaAllowed`)
+/** The lock panel the roster and the member portal show below the admins (the contract's `membersLock`). */
+export const rosterLock: LockPanel = {
+	reason: membersLock.code,
+	who: membersLock.title,
+	when: membersLock.text,
+};
 
-const subjects = [
-	"owner",
-	"finance",
-	"admin",
-	"governance",
-	"member",
-	"public",
-] as const;
-type Subject = (typeof subjects)[number];
+// ---- View as (`as=`, resolved by the shell from the school's disclosure: S7's `Viewing`)
 
 export type Viewer = {
-	/** Whose view is on screen: the signed-in person's own, or a preview of another. */
-	subject: Subject;
+	/** Whose view is on screen: the signed-in person's own row, or a preview of another. */
+	subject: ViewAs;
 	/** Every write control is off (title `previewLock`) and nothing is saved. */
 	preview: boolean;
 	/** The roster shows: the owner, a finance admin or an admin. Below them it is the lock panel. */
@@ -73,35 +59,16 @@ export type Viewer = {
 	finance: boolean;
 };
 
-const isSubject = (value: string | null): value is Subject =>
-	subjects.some((subject) => subject === value);
-
-/** The signed-in person's own subject, and the one asked for when they may preview it: owner and finance only by the
- * owner, admin by the owner or a finance admin, governance, member and public by anyone who holds that audience or
- * a higher one. A value that may not be previewed is ignored. */
-export function viewerOf(people: Person[], asked: string | null): Viewer {
-	const you = people.find((person) => person.you);
-	const own: Subject =
-		!you || you.role === "owner"
-			? "owner"
-			: you.financeGrant
-				? "finance"
-				: "admin";
-	const topRank = audienceRanks[you?.audience ?? "owner"];
-	const mayPreview = (subject: Subject): boolean => {
-		if (subject === "owner" || subject === "finance") return own === "owner";
-		if (subject === "admin") return own === "owner" || own === "finance";
-		return audienceRanks[subject] <= topRank;
-	};
-	const subject =
-		isSubject(asked) && asked !== own && mayPreview(asked) ? asked : own;
-	return {
-		subject,
-		preview: subject !== own,
-		roster: subject === "owner" || subject === "finance" || subject === "admin",
-		finance: subject === "owner" || subject === "finance",
-	};
-}
+/** What the Members tab needs of the View as row it is drawn for. */
+export const viewerOf = ({
+	option,
+	preview,
+}: Pick<Viewing, "option" | "preview">): Viewer => ({
+	subject: option.value,
+	preview,
+	roster: option.admin,
+	finance: option.value === "owner" || option.value === "finance",
+});
 
 // ---- Pending effects
 
@@ -426,19 +393,6 @@ export const countOf = (
 export const capitalized = (text: string): string =>
 	`${text.slice(0, 1).toUpperCase()}${text.slice(1)}`;
 
-/** Money from minor units with the minus sign of the mockup (U+2212). */
-export function formatMoney(cents: number, currency: string): string {
-	const text = new Intl.NumberFormat("en-US", {
-		style: "currency",
-		currency,
-	}).format(Math.abs(cents) / 100);
-	return cents < 0 ? `−${text}` : text;
-}
-export const currencySymbol = (currency: string): string =>
-	new Intl.NumberFormat("en-US", { style: "currency", currency })
-		.formatToParts(0)
-		.find(({ type }) => type === "currency")?.value ?? currency;
-
 /** `Dec 1` for unix seconds, in the school's time zone. */
 export const formatDay = (seconds: number, timeZone: string): string =>
 	new Intl.DateTimeFormat("en-US", {
@@ -458,12 +412,6 @@ export const signed = (value: number, text: string): string =>
 	value < 0 ? `−${text}` : `+${text}`;
 export const amountText = (cents: number): string =>
 	signed(cents, (Math.abs(cents) / 100).toFixed(2));
-
-/** Whole hours or one decimal (mockup `fmtCut`). */
-export function cutoffHours(minutes: number): string {
-	const hours = minutes / 60;
-	return Number.isInteger(hours) ? `${hours}h` : `${hours.toFixed(1)}h`;
-}
 
 /** The label of a history event (mockup `lab`). */
 export function eventLabel(

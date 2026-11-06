@@ -12,9 +12,8 @@ import type { Disclosure } from "../data/disclosure.ts";
 import type { Reader } from "../data/reader.ts";
 import type { Clock, School } from "../data/types.ts";
 import type { Writer } from "../data/writer.ts";
-import type { BooksPaneProps } from "./books-pane.ts";
 import { CoreIcon, type CoreIconName } from "./core-icon.tsx";
-import type { Download } from "./download.ts";
+import type { PaneName } from "./panes.tsx";
 import { parsePeriod, snapPeriod } from "./period.ts";
 import type { PlansSession } from "./plans-menu.ts";
 import {
@@ -43,13 +42,14 @@ const tabs: Record<SchoolTab, { label: string; icon: CoreIconName }> = {
 const counted = (count: number, noun: string): string =>
 	`${count} ${noun}${count === 1 ? "" : "s"}`;
 
-/** A tab's badge from the school's counts (mockup `#plbadge`, `#bkbadge`, `#pbadge`), or null when it has none.
+/** A tab's badge from the school's counts and whether its Plans draft has changes (mockup `#plbadge`, `#bkbadge`, `#pbadge`), or null when it has none.
  * `meaning` is what a screen reader hears for the badge. */
 function tabBadge(
 	tab: SchoolTab,
 	{ tabBadges }: School,
+	plansDraft: boolean,
 ): { text: string; meaning: string; tone: "b-warn" | "b-bad" } | null {
-	const { plansDraft, bookingsOverdue, promosExpiring } = tabBadges;
+	const { bookingsOverdue, promosExpiring } = tabBadges;
 	if (tab === "plans" && plansDraft)
 		return { text: "draft", meaning: "draft", tone: "b-warn" };
 	if (tab === "bookings" && bookingsOverdue > 0)
@@ -79,14 +79,7 @@ function useLazy<Loaded>(
 	}, [wanted, loaded, load]);
 	return loaded;
 }
-const loadDashboard = () => import("./dashboard.tsx");
-const loadBookings = () => import("./bookings.tsx");
-const loadPlans = () => import("./plans.tsx");
-const loadMembers = () => import("./members.tsx");
-const loadPortal = () => import("./portal.tsx");
-const loadLedger = () => import("./ledger.tsx");
-const loadReports = () => import("./reports.tsx");
-const loadPromos = () => import("./promos.tsx");
+const loadPanes = () => import("./panes.tsx");
 const loadMenus = () => import("./menus.tsx");
 const loadSettings = () => import("./settings.tsx");
 
@@ -99,8 +92,6 @@ type ShellProps = {
 	navigate: (route: Route) => void;
 	/** Called once a pane that loads data has rendered the route. */
 	onRendered: () => void;
-	/** Saves a file the app makes (the history CSV); the browser's download unless given. */
-	download?: Download | undefined;
 };
 
 /** The mockup's frame (lines 375 to 450): top bar, tabs row, the preview banner, the stale banner, the current tab's
@@ -117,29 +108,20 @@ export function Shell({
 	writer,
 	navigate,
 	onRendered,
-	download,
 }: ShellProps): JSX.Element {
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [toast, setToast] = useState<{ text: string } | null>(null);
 	/** A modal over the drawer (a Settings dialog), handed up by the settings so it sits outside the drawer. */
 	const [modal, setModal] = useState<ComponentChildren>(null);
-	const dashboardOpen = route.tab === "dashboard";
-	const bookingsOpen = route.tab === "bookings";
-	const plansOpen = route.tab === "plans";
 	/** The Members tab shows the member portal instead of the roster when the route asks for one (`portal=`). */
-	const portalOpen = route.tab === "members" && route.query.has("portal");
-	const membersOpen = route.tab === "members" && !portalOpen;
-	const ledgerOpen = route.tab === "ledger";
-	const reportsOpen = route.tab === "reports";
-	const promosOpen = route.tab === "promos";
-	const dashboardModule = useLazy(loadDashboard, dashboardOpen);
-	const bookingsModule = useLazy(loadBookings, bookingsOpen);
-	const plansModule = useLazy(loadPlans, plansOpen);
-	const membersModule = useLazy(loadMembers, membersOpen);
-	const portalModule = useLazy(loadPortal, portalOpen);
-	const ledgerModule = useLazy(loadLedger, ledgerOpen);
-	const reportsModule = useLazy(loadReports, reportsOpen);
-	const promosModule = useLazy(loadPromos, promosOpen);
+	const membersOpen = route.tab === "members" && !route.query.has("portal");
+	const paneName: PaneName | null =
+		route.tab === allSchools
+			? null
+			: route.tab === "members" && !membersOpen
+				? "portal"
+				: route.tab;
+	const panes = useLazy(loadPanes, paneName !== null);
 	/** Each school's plans and draft, kept for the life of the mount: leaving the tab keeps an unsaved draft, and the
 	 * Plans tab's badge follows the draft. */
 	const [planSessions, setPlanSessions] = useState<
@@ -168,16 +150,6 @@ export function Shell({
 		return () => clearTimeout(timer);
 	}, [toast]);
 	const onToast = useCallback((text: string) => setToast({ text }), []);
-	const booksPaneProps = (shown: School): BooksPaneProps => ({
-		reader,
-		writer,
-		school: shown,
-		clock,
-		route,
-		navigate,
-		onRendered,
-		onToast,
-	});
 
 	const school = schools.find((candidate) => candidate.id === route.schoolId);
 	const schoolId = school?.id;
@@ -210,7 +182,7 @@ export function Shell({
 
 	const ready = Boolean(menus && settingsModule && (!school || viewing));
 	/** Every school tab's pane reports its own render once its data is on screen. */
-	const paneReports = Boolean(school) && route.tab !== allSchools;
+	const paneReports = Boolean(school && paneName);
 	useLayoutEffect(() => {
 		if (ready && !paneReports) onRendered();
 	});
@@ -285,15 +257,12 @@ export function Shell({
 				>
 					{schoolTabs.map((tab) => {
 						const selected = tab === route.tab;
-						const badge = tabBadge(tab, {
-							...school,
-							tabBadges: {
-								...school.tabBadges,
-								plansDraft:
-									planSessions[school.id]?.hasChanges ??
-									school.tabBadges.plansDraft,
-							},
-						});
+						const badge = tabBadge(
+							tab,
+							school,
+							planSessions[school.id]?.hasChanges ??
+								school.tabBadges.plansDraft,
+						);
 						return (
 							<button
 								key={tab}
@@ -331,7 +300,11 @@ export function Shell({
 				/>
 			)}
 			{school?.stale && (
-				<div class="banner" data-test="stale-banner" inert={settingsOpen || portalShown}>
+				<div
+					class="banner"
+					data-test="stale-banner"
+					inert={settingsOpen || portalShown}
+				>
 					<CoreIcon name="alert" /> Data is {school.lagMinutes} min behind: the
 					shipper may be stuck. Recent events can be missing.
 				</div>
@@ -346,19 +319,10 @@ export function Shell({
 				aria-label={school ? undefined : "All schools"}
 			>
 				<ViewingContext.Provider value={viewing}>
-					{ready && school && dashboardModule && dashboardOpen && (
-						<dashboardModule.Dashboard
-							reader={reader}
-							school={school}
-							route={route}
-							navigate={navigate}
-							onRendered={onRendered}
-							onToast={onToast}
-						/>
-					)}
-					{ready && school && bookingsModule && bookingsOpen && (
-						<bookingsModule.Bookings
+					{ready && school && panes && paneName && (
+						<panes.Pane
 							key={school.id}
+							name={paneName}
 							reader={reader}
 							writer={writer}
 							school={school}
@@ -367,67 +331,10 @@ export function Shell({
 							navigate={navigate}
 							onRendered={onRendered}
 							onToast={onToast}
-						/>
-					)}
-					{ready && school && plansModule && plansOpen && (
-						<plansModule.Plans
-							key={school.id}
-							reader={reader}
-							writer={writer}
-							school={school}
-							route={route}
-							navigate={navigate}
 							session={planSessions[school.id]}
 							onSession={keepPlanSession}
-							onRendered={onRendered}
-							onToast={onToast}
 							onOpenSettings={() => setSettingsOpen(true)}
-						/>
-					)}
-					{ready && school && membersModule && membersOpen && (
-						<membersModule.Members
-							key={school.id}
-							reader={reader}
-							writer={writer}
-							school={school}
-							clock={clock}
-							route={route}
-							navigate={navigate}
-							onRendered={onRendered}
-							onToast={onToast}
-						/>
-					)}
-					{ready && school && portalModule && portalOpen && (
-						<portalModule.PortalPane
-							key={school.id}
-							reader={reader}
-							writer={writer}
-							school={school}
-							clock={clock}
-							route={route}
-							navigate={navigate}
-							onRendered={onRendered}
-							onToast={onToast}
 							onShownChange={setPortalShown}
-							download={download}
-						/>
-					)}
-					{ready && school && ledgerModule && ledgerOpen && (
-						<ledgerModule.Ledger
-							key={school.id}
-							{...booksPaneProps(school)}
-						/>
-					)}
-					{ready && school && reportsModule && reportsOpen && (
-						<reportsModule.Reports
-							key={school.id}
-							{...booksPaneProps(school)}
-						/>
-					)}
-					{ready && school && promosModule && promosOpen && (
-						<promosModule.Promos
-							key={school.id}
-							{...booksPaneProps(school)}
 						/>
 					)}
 				</ViewingContext.Provider>

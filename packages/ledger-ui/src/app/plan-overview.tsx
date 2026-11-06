@@ -1,10 +1,11 @@
 import type { JSX } from "preact";
 import type { PlanSummary } from "../data/plans.ts";
 import { Icon, type IconName } from "./icon.tsx";
+import { formatMoney } from "./money.ts";
 import { monthName } from "./period.ts";
 import { financeOnlyText, Withheld } from "./plan-tables.tsx";
-import { money } from "./plans-menu.ts";
-import { type AudienceView, exitPreviewTitle } from "./view-as.ts";
+import type { PlansView } from "./plans-menu.ts";
+import { exitPreviewTitle } from "./viewing.ts";
 
 export type SetupStepKey = "stripe" | "plan" | "publish" | "link";
 type SetupStep = {
@@ -151,12 +152,12 @@ function PlanStat({
 
 /** The month's gross, withheld from an admin without the finance grant; "—" before anything is sold. */
 function collectedFigure(
-	view: AudienceView,
+	view: PlansView,
 	collected: PlanSummary["collected"],
 	currency: string,
 ): JSX.Element | string {
 	if (!view.finance) return <Withheld text={financeOnlyText} />;
-	return collected ? money(collected.amount, currency) : "—";
+	return collected ? formatMoney(collected.amount, currency) : "—";
 }
 
 /** The strip over the tables (mockup `strip`): the server's counts and the month's gross, which an admin without the
@@ -169,7 +170,7 @@ export function PlanStrip({
 	onMembers,
 	onDashboard,
 }: {
-	view: AudienceView;
+	view: PlansView;
 	summary: PlanSummary;
 	currency: string;
 	attentionCount: number;

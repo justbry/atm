@@ -1,4 +1,5 @@
 import { Fragment, type JSX } from "preact";
+import { audienceNames } from "../data/disclosure.ts";
 import type {
 	AttentionReason,
 	MemberBalance,
@@ -8,7 +9,6 @@ import { Icon } from "./icon.tsx";
 import {
 	attentionLabel,
 	audienceIcons,
-	audienceNames,
 	barOf,
 	type Projection,
 	roleLabels,

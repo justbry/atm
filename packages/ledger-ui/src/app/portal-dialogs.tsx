@@ -1,5 +1,5 @@
 import type { ComponentChildren, JSX } from "preact";
-import { useEffect, useId, useRef, useState } from "preact/hooks";
+import { useId, useState } from "preact/hooks";
 import {
 	embedAllowedSitesDefault,
 	embedBooksAudienceLabels,
@@ -9,9 +9,10 @@ import {
 	type SiteTheme,
 } from "../data/portal.ts";
 import type { School } from "../data/types.ts";
-import { useFocusTrap } from "./focus-trap.ts";
+import { Dialog } from "./dialog.tsx";
 import { Icon } from "./icon.tsx";
-import { count, money, type Plan } from "./portal-format.ts";
+import { formatMoney } from "./money.ts";
+import { count, type Plan } from "./portal-format.ts";
 
 type DialogProps = {
 	/** "Change amount · Dana W.". */
@@ -23,9 +24,8 @@ type DialogProps = {
 	onClose: () => void;
 };
 
-/** The mockup's modal (`#md`) for the portal's four dialogs: title, a line under it, the body, the buttons. Escape, a
- * click on the backdrop and the button marked `data-autofocus` (Cancel, Done) close it; Tab stays inside; focus starts
- * on that button (without scrolling the dialog to it) and returns to the one that opened the dialog. */
+/** The portal's four dialogs in the shared dialog: title, a line under it, the body, the buttons. The button marked
+ * `data-autofocus` (Cancel, Done) closes it and takes the focus. */
 function PortalDialog({
 	title,
 	detail,
@@ -33,43 +33,12 @@ function PortalDialog({
 	footer,
 	onClose,
 }: DialogProps): JSX.Element {
-	const modal = useRef<HTMLDivElement>(null);
-	const titleId = useId();
-	useFocusTrap(true, modal, onClose);
-	useEffect(() => {
-		const opener = document.activeElement;
-		modal.current
-			?.querySelector<HTMLElement>("[data-autofocus]")
-			?.focus({ preventScroll: true });
-		return () => {
-			if (opener instanceof HTMLElement) opener.focus();
-		};
-	}, []);
 	return (
-		// biome-ignore lint/a11y/noStaticElementInteractions: Escape closes the dialog (useFocusTrap); a click on the backdrop is a pointer shortcut for the same
-		<div
-			class="bg on"
-			role="presentation"
-			onClick={(event) => {
-				if (event.target === event.currentTarget) onClose();
-			}}
-		>
-			<div
-				ref={modal}
-				class="modal"
-				role="dialog"
-				aria-modal="true"
-				aria-labelledby={titleId}
-				data-test="dialog"
-			>
-				<h3 id={titleId} data-test="dialog-title">
-					{title}
-				</h3>
-				<div class="mut">{detail}</div>
-				{children}
-				<div class="mf">{footer}</div>
-			</div>
-		</div>
+		<Dialog title={title} onClose={onClose}>
+			<div class="mut">{detail}</div>
+			{children}
+			<div class="mf">{footer}</div>
+		</Dialog>
 	);
 }
 
@@ -93,7 +62,7 @@ export function QuantityDialog({
 	const [chosen, setChosen] = useState(plan.quantity);
 	const selectId = useId();
 	const options = viewed.quantityOptions ?? [];
-	const price = money(
+	const price = formatMoney(
 		options.find((option) => option.quantity === chosen)?.priceCents ?? 0,
 		school.currency,
 	);

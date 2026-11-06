@@ -1,3 +1,4 @@
+import type { ViewAs } from "../data/disclosure.ts";
 import {
 	type Menu,
 	type MenuAddon,
@@ -11,8 +12,31 @@ import {
 	type PlanTierCount,
 	planLimits,
 } from "../data/plans.ts";
+import { formatMoney } from "./money.ts";
+import type { Viewing } from "./viewing.ts";
 
 export type PlanKind = "tiers" | "addons";
+
+/** What the Plans pane needs of the View as row it is drawn for (S7's `Viewing`). */
+export type PlansView = {
+	audience: ViewAs;
+	/** Not the signed-in person's own row: writes are off. */
+	preview: boolean;
+	/** Owner, finance admin or admin: sees the draft, Get started and the strip. */
+	admin: boolean;
+	/** Owner or finance admin: sees every figure. */
+	finance: boolean;
+};
+
+export const plansViewOf = ({
+	option,
+	preview,
+}: Pick<Viewing, "option" | "preview">): PlansView => ({
+	audience: option.value,
+	preview,
+	admin: option.admin,
+	finance: option.value === "owner" || option.value === "finance",
+});
 
 /** One school's Plans tab for the life of the mount: the live menu, the draft all three views show, and the facts
  * around them. The Shell keeps it, so a draft survives leaving the tab. */
@@ -110,26 +134,6 @@ export const slug = (name: string): string =>
 		.replace(/^-|-$/g, "")
 		.slice(0, 40);
 
-const currencyFormats = new Map<string, Intl.NumberFormat>();
-function currencyFormat(currency: string): Intl.NumberFormat {
-	const known = currencyFormats.get(currency);
-	if (known) return known;
-	const made = new Intl.NumberFormat("en-US", {
-		style: "currency",
-		currency: currency.toUpperCase(),
-	});
-	currencyFormats.set(currency, made);
-	return made;
-}
-/** Minor units as money, written as S1 writes it. */
-export const money = (cents: number, currency: string): string =>
-	currencyFormat(currency).format(cents / 100);
-/** "$" for US dollars: the unit of the price fields in the drawer. */
-export const currencySymbol = (currency: string): string =>
-	currencyFormat(currency)
-		.formatToParts(0)
-		.find(({ type }) => type === "currency")?.value ?? currency.toUpperCase();
-
 const priceOf = (tier: MenuTier, interval: MenuInterval): number | undefined =>
 	tier.prices.find((price) => price.interval === interval)?.amount;
 export const monthlyAmount = (tier: MenuTier): number | undefined =>
@@ -155,12 +159,12 @@ export function priceText(menu: Menu, item: MenuTier | MenuAddon): string {
 		if (!(item.public || month)) return "Not for sale";
 		const year = yearlyAmount(item);
 		const per = item.quantities ? ` per ${tierUnit(menu, item)}` : "";
-		return `${money(month ?? 0, menu.currency)}${per} / month${
-			year ? ` · ${money(year, menu.currency)} / year` : ""
+		return `${formatMoney(month ?? 0, menu.currency)}${per} / month${
+			year ? ` · ${formatMoney(year, menu.currency)} / year` : ""
 		}`;
 	}
 	const { amount, every } = item.price;
-	return `${money(amount, menu.currency)} ${
+	return `${formatMoney(amount, menu.currency)} ${
 		every === "once" ? "one time" : `/ ${every}`
 	}`;
 }
@@ -233,16 +237,16 @@ function changedTierLines(
 	const draftMonth = monthlyAmount(draft) ?? 0;
 	if (draftMonth !== liveMonth)
 		lines.push({
-			title: `Monthly price ${money(liveMonth, currency)} → ${money(draftMonth, currency)}`,
-			detail: `Create a ${money(draftMonth, currency)}/month price and archive the ${money(liveMonth, currency)} one`,
+			title: `Monthly price ${formatMoney(liveMonth, currency)} → ${formatMoney(draftMonth, currency)}`,
+			detail: `Create a ${formatMoney(draftMonth, currency)}/month price and archive the ${formatMoney(liveMonth, currency)} one`,
 		});
 	const liveYear = yearlyAmount(live) ?? 0;
 	const draftYear = yearlyAmount(draft) ?? 0;
 	if (draftYear !== liveYear)
 		lines.push({
-			title: `Yearly price ${liveYear ? money(liveYear, currency) : "none"} → ${draftYear ? money(draftYear, currency) : "none"}`,
+			title: `Yearly price ${liveYear ? formatMoney(liveYear, currency) : "none"} → ${draftYear ? formatMoney(draftYear, currency) : "none"}`,
 			detail: draftYear
-				? `Create a ${money(draftYear, currency)}/year price${liveYear ? " and archive the old one" : ""}`
+				? `Create a ${formatMoney(draftYear, currency)}/year price${liveYear ? " and archive the old one" : ""}`
 				: "Archive the yearly price",
 		});
 	if (tierAudience(draft) !== tierAudience(live))

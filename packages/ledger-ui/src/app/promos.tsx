@@ -1,15 +1,14 @@
 import type { ComponentChildren, JSX } from "preact";
 import { useId, useLayoutEffect, useState } from "preact/hooks";
 import {
-	audienceOf,
 	type CreditUnit,
 	expiresSoon,
-	isPreview,
 	maskCode,
 	type Promo,
 	type PromoType,
 	seesIdentities,
 } from "../data/ledger.ts";
+import { failedToast } from "./booking-text.ts";
 import { type BooksPaneProps, smallCount } from "./books-pane.ts";
 import { Dialog } from "./dialog.tsx";
 import { Icon } from "./icon.tsx";
@@ -17,9 +16,9 @@ import { formatMoney } from "./money.ts";
 import { formatPeriod } from "./period.ts";
 import { type Route, withQuery } from "./route.ts";
 import { useLoaded } from "./use-loaded.ts";
+import { useViewing } from "./viewing.ts";
 
 const previewTitle = "Exit preview to act";
-const failedToast = "Could not send. Try again.";
 const copyFailedToast =
 	"Could not copy the code: the browser blocked the clipboard.";
 const minimumNoteLength = 3;
@@ -344,8 +343,8 @@ export function Promos({
 	onRendered,
 	onToast,
 }: BooksPaneProps): JSX.Element | null {
-	const audience = audienceOf(route.query.get("as"), school.booksLevel);
-	const previewing = isPreview(audience, school.booksLevel);
+	const { option, preview: previewing } = useViewing();
+	const { audience } = option;
 	const admin = seesIdentities(audience);
 	const owner = school.role === "owner";
 	const [loaded, change] = useLoaded(`${school.id}|${audience}`, () =>

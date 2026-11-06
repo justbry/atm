@@ -18,7 +18,7 @@ import { Icon } from "./icon.tsx";
 import { LockPanel } from "./lock-panel.tsx";
 import { formatMoney } from "./money.ts";
 import { monthAndDay } from "./period.ts";
-import { Figure, type Labels } from "./report-figure.tsx";
+import { Figure } from "./report-figure.tsx";
 
 const topDonors = 15;
 
@@ -117,11 +117,9 @@ function DonorTable({
 function DonorSpread({
 	report,
 	currency,
-	labels,
 }: {
 	report: Extract<DonorsReport, { kind: "spread" }>;
 	currency: string;
-	labels: Labels;
 }): JSX.Element {
 	const { donors, buckets, medianCents } = report;
 	const year = report.through.slice(0, 4);
@@ -130,14 +128,7 @@ function DonorSpread({
 		noun: string,
 		money = false,
 	): JSX.Element => (
-		<Figure
-			cell={cell}
-			money={money}
-			currency={currency}
-			whole
-			labels={labels}
-			noun={noun}
-		/>
+		<Figure cell={cell} money={money} currency={currency} whole noun={noun} />
 	);
 	const numbers = buckets.flatMap(({ donors: cell }) =>
 		typeof cell === "number" ? [cell] : [],
@@ -214,7 +205,6 @@ export function Donors({
 	report,
 	audience,
 	currency,
-	labels,
 	today,
 	writer,
 	onToast,
@@ -222,7 +212,6 @@ export function Donors({
 	report: DonorsReport;
 	audience: ViewerAudience;
 	currency: string;
-	labels: Labels;
 	today: string;
 	writer: BooksPaneProps["writer"];
 	onToast: (text: string) => void;
@@ -252,7 +241,7 @@ export function Donors({
 						spread, no names
 					</span>
 				</h5>
-				<DonorSpread report={report} currency={currency} labels={labels} />
+				<DonorSpread report={report} currency={currency} />
 				<p class="mut" style="margin:8px 0 0">
 					<Icon name="info" />
 					{` ${report.through.slice(0, 4)} to the end of ${monthAndDay(`${report.through}-01`).slice(0, 3)} (closed months). Names, emails and per-person rows show to finance admins and the owner only.`}

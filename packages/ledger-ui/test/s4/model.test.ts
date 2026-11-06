@@ -6,8 +6,6 @@ import {
 	type Change,
 	capabilityReason,
 	changeWaiting,
-	formatMoney,
-	paymentsCsv,
 	paymentsOf,
 	pendingEvent,
 	project,
@@ -15,6 +13,8 @@ import {
 	standingOf,
 	viewerOf,
 } from "../../src/app/members-model.ts";
+import { formatMoney } from "../../src/app/money.ts";
+import { resolveViewAs } from "../../src/data/disclosure.ts";
 import type {
 	Capabilities,
 	Member,
@@ -22,6 +22,7 @@ import type {
 	Person,
 } from "../../src/data/members.ts";
 import { membersFixtures } from "../../src/fixtures/members.ts";
+import { createFixtureReader } from "../../src/fixtures/reader.ts";
 
 const vol = membersFixtures.vol;
 const b4u = membersFixtures.b4u;
@@ -51,34 +52,40 @@ const ledger = (
 	paymentIntentId,
 });
 
-test("who is looking: a preview needs the audience, and an unheld one falls back to the viewer's own", () => {
-	expect(viewerOf(vol.people, null)).toEqual({
+const reader = createFixtureReader({
+	clock: { today: "2026-11-05", now: "2026-11-05T12:00" },
+});
+const viewerAt = async (school: string, asked: string | null) =>
+	viewerOf(resolveViewAs(asked, await reader.disclosure(school)));
+
+test("who is looking: a preview needs the audience, and an unheld one falls back to the viewer's own", async () => {
+	expect(await viewerAt("vol", null)).toEqual({
 		subject: "owner",
 		preview: false,
 		roster: true,
 		finance: true,
 	});
-	expect(viewerOf(vol.people, "finance")).toMatchObject({
+	expect(await viewerAt("vol", "finance")).toMatchObject({
 		subject: "finance",
 		preview: true,
 		roster: true,
 		finance: true,
 	});
-	expect(viewerOf(vol.people, "admin")).toMatchObject({
+	expect(await viewerAt("vol", "admin")).toMatchObject({
 		roster: true,
 		finance: false,
 	});
-	expect(viewerOf(vol.people, "public")).toMatchObject({
+	expect(await viewerAt("vol", "public")).toMatchObject({
 		preview: true,
 		roster: false,
 	});
 	// Jo A. at B4 Uni is a finance admin: she may preview governance, not the owner, and not nonsense.
-	expect(viewerOf(b4u.people, "governance").roster).toBe(false);
-	expect(viewerOf(b4u.people, "owner")).toMatchObject({
+	expect((await viewerAt("b4u", "governance")).roster).toBe(false);
+	expect(await viewerAt("b4u", "owner")).toMatchObject({
 		subject: "finance",
 		preview: false,
 	});
-	expect(viewerOf(b4u.people, "nonsense").subject).toBe("finance");
+	expect((await viewerAt("b4u", "nonsense")).subject).toBe("finance");
 });
 
 test("pending events move the balance as the mockup does, and the bar follows", () => {
@@ -260,23 +267,7 @@ test("a refund on its way is the first payment row and turns its payment to Refu
 	expect(whole).toHaveLength(detail.payments.length + 1);
 });
 
-test("money and the CSV: the minus sign is U+2212, text cells that start like a formula are quoted off", () => {
+test("money: the minus sign is U+2212", () => {
 	expect(formatMoney(-5000, "USD")).toBe("−$50.00");
 	expect(formatMoney(11700, "USD")).toBe("$117.00");
-	const csv = paymentsCsv(
-		[
-			{
-				date: "2026-11-02",
-				description: '=HYPERLINK("x"), "quoted"',
-				amountCents: -5000,
-				status: "Refunded",
-				invoiceId: null,
-				paymentId: "pay_51",
-			},
-		],
-		"USD",
-	);
-	expect(csv).toBe(
-		`﻿date,description,amount,currency,status,invoice_id,payment_id\r\n2026-11-02,"'=HYPERLINK(""x""), ""quoted""",-50.00,USD,Refunded,,pay_51\r\n`,
-	);
 });

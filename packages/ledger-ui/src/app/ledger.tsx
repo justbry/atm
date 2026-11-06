@@ -2,7 +2,6 @@ import { Fragment, type JSX } from "preact";
 import { useLayoutEffect, useState } from "preact/hooks";
 import {
 	audienceNames,
-	audienceOf,
 	type CreditUnit,
 	csvFileNames,
 	drillLabels,
@@ -24,6 +23,7 @@ import { monthAndDay, parsePeriod, weekdayName } from "./period.ts";
 import { PinLock } from "./pin-lock.tsx";
 import { withQuery } from "./route.ts";
 import { useLoaded } from "./use-loaded.ts";
+import { useViewing } from "./viewing.ts";
 
 const typeChips: Array<{
 	slug: string;
@@ -202,7 +202,7 @@ export function Ledger({
 	onToast,
 }: BooksPaneProps): JSX.Element | null {
 	const { query } = route;
-	const audience = audienceOf(query.get("as"), school.booksLevel);
+	const { audience } = useViewing().option;
 	const pinLocked = query.get("pin") === "locked" && needsPin(audience);
 	const readable = seesIdentities(audience) && !pinLocked;
 	const period = parsePeriod(query.get("month"), clock.today);

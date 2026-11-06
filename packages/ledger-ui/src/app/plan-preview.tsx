@@ -2,9 +2,9 @@ import type { JSX } from "preact";
 import { useState } from "preact/hooks";
 import type { Menu, MenuGrant } from "../data/plans.ts";
 import { Icon } from "./icon.tsx";
+import { formatMoney } from "./money.ts";
 import {
 	grantText,
-	money,
 	monthlyAmount,
 	type PlanChange,
 	type PlanKind,
@@ -165,10 +165,12 @@ export function PlanPreview({
 				<div class="pr">
 					{showWas && (
 						<s data-test="plan-card-was">
-							{money(publishedPrice, menu.currency)}
+							{formatMoney(publishedPrice, menu.currency)}
 						</s>
 					)}
-					<span data-test="plan-card-price">{money(price, menu.currency)}</span>
+					<span data-test="plan-card-price">
+						{formatMoney(price, menu.currency)}
+					</span>
 					<small data-test="plan-card-period">
 						{model.period ? `/ ${model.period}` : "one time"}
 					</small>

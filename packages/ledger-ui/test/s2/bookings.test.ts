@@ -294,8 +294,8 @@ test("a bulk confirm starts every write at once, in row order, and toasts when a
 
 test("a write that fails offers the booking again and says so", async () => {
 	const writer: Writer = {
+		...createFixtureWriter({ mode: "instant" }),
 		recordOutcome: () => Promise.reject(new Error("offline")),
-		cancelBooking: () => Promise.resolve(),
 	};
 	await open("#/vol/bookings", { writer });
 	await click(

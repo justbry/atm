@@ -349,7 +349,6 @@ export function MemberMenu({
 	};
 
 	return (
-		// biome-ignore lint/a11y/noNoninteractiveElementInteractions: the keys of a menu go on the menu (arrows between its items)
 		<div
 			ref={menu}
 			class="menu kmenu on"

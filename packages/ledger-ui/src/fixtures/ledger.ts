@@ -489,7 +489,7 @@ function audienceDocument(
 								payers < smallCount
 									? ({
 											hidden: "suppressed",
-											why: "fewer than 5 payers",
+											text: "Hidden: fewer than 5 payers",
 										} as const)
 									: money(sum(own.map((sale) => sale.amountCents ?? 0))),
 						};
@@ -730,7 +730,7 @@ function donorSpread(
 					why,
 				})),
 		medianCents: hidden
-			? { hidden: "suppressed", why: "fewer than 5 donors" }
+			? { hidden: "suppressed", text: "Hidden: fewer than 5 donors" }
 			: median,
 	};
 }

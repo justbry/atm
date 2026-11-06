@@ -3,7 +3,6 @@ import { useLayoutEffect } from "preact/hooks";
 import {
 	type AudienceReport,
 	audienceNames,
-	audienceOf,
 	type CreditUnit,
 	type CsvColumn,
 	csvFileNames,
@@ -22,18 +21,19 @@ import type { BooksPaneProps } from "./books-pane.ts";
 import { Donors } from "./donors.tsx";
 import { DownloadButton } from "./download-button.tsx";
 import { Icon, type IconName } from "./icon.tsx";
+import { suppressedText } from "./kpi-cell.tsx";
 import { formatMoney } from "./money.ts";
 import {
-	dayMonthYear,
 	monthAndDay,
 	type Period,
 	parsePeriod,
 	periodLabel,
 } from "./period.ts";
 import { PinLock } from "./pin-lock.tsx";
-import { Figure, type Labels } from "./report-figure.tsx";
+import { dayMonthYear, Figure } from "./report-figure.tsx";
 import { type Route, withQuery } from "./route.ts";
 import { useLoaded } from "./use-loaded.ts";
+import { useViewing } from "./viewing.ts";
 
 const sparkWidth = 600;
 const sparkHeight = 56;
@@ -48,14 +48,13 @@ const whoSees: Record<AudienceReport["audience"], string> = {
 
 /** A money figure of the document, rounded or exact as the document says. */
 const documentFigure =
-	(document: AudienceReport, currency: string, labels: Labels) =>
+	(document: AudienceReport, currency: string) =>
 	(cell: ReportCell, noun = "payers"): JSX.Element => (
 		<Figure
 			cell={cell}
 			money
 			currency={currency}
 			whole={document.rounding !== null}
-			labels={labels}
 			noun={noun}
 		/>
 	);
@@ -67,7 +66,6 @@ function cellCsv(
 	money: boolean,
 	currency: string,
 	whole: boolean,
-	labels: Labels,
 ): { value: string; hidden: string } {
 	if (typeof cell === "number")
 		return {
@@ -81,13 +79,17 @@ function cellCsv(
 				: `<${cell.lt}`,
 			hidden: "",
 		};
+	if ("approx" in cell) return { value: String(cell.approx), hidden: "" };
 	if ("until" in cell)
 		return {
 			value: "",
 			hidden: `Published after ${dayMonthYear(cell.until)}`,
 		};
 	if ("who" in cell) return { value: "", hidden: `${cell.who} see this` };
-	return { value: "", hidden: labels[cell.hidden] };
+	return {
+		value: cell.hidden === "suppressed" ? suppressedText : "",
+		hidden: cell.text,
+	};
 }
 
 type DocumentRow = { line: string; kpi: string; value: string; hidden: string };
@@ -534,15 +536,13 @@ function Statement({
 function DocumentBody({
 	document,
 	currency,
-	labels,
 }: {
 	document: AudienceReport;
 	currency: string;
-	labels: Labels;
 }): JSX.Element {
 	const { audience, grain, figures } = document;
 	const name = audienceNames[audience];
-	const figure = documentFigure(document, currency, labels);
+	const figure = documentFigure(document, currency);
 	const numbers = document.periods.flatMap(({ income }) =>
 		typeof income === "number" ? [income] : [],
 	);
@@ -556,7 +556,6 @@ function DocumentBody({
 					money={false}
 					currency={currency}
 					whole={false}
-					labels={labels}
 					noun="payers"
 				/>
 				{" payments · Reconciliation with Stripe: "}
@@ -649,14 +648,12 @@ function DocumentBody({
 function DocumentStatement({
 	document,
 	currency,
-	labels,
 }: {
 	document: AudienceReport;
 	currency: string;
-	labels: Labels;
 }): JSX.Element {
 	const { audience, grain, figures, rounding } = document;
-	const figure = documentFigure(document, currency, labels);
+	const figure = documentFigure(document, currency);
 	const lines: Array<{
 		line: string;
 		label: string;
@@ -852,7 +849,7 @@ export function Reports({
 	onToast,
 }: BooksPaneProps): JSX.Element | null {
 	const { query } = route;
-	const audience = audienceOf(query.get("as"), school.booksLevel);
+	const { audience } = useViewing().option;
 	const documentAudience =
 		audience === "finance" || audience === "owner" ? null : audience;
 	const pinLocked = query.get("pin") === "locked" && needsPin(audience);
@@ -863,16 +860,15 @@ export function Reports({
 		.join("|");
 	const [loaded] = useLoaded(key, async () => {
 		if (pinLocked) return null;
-		const [rules, donors, options] = await Promise.all([
+		const [rules, donors] = await Promise.all([
 			reader.schoolRules(school.id),
 			reader.donors({
 				school: school.id,
 				audience,
 				year: Number(clock.today.slice(0, 4)),
 			}),
-			reader.dashboardOptions(),
 		]);
-		const common = { rules, donors, labels: options.labels };
+		const common = { rules, donors };
 		return documentAudience === null
 			? {
 					...common,
@@ -912,7 +908,7 @@ export function Reports({
 		);
 	if (!loaded) return null;
 
-	const { rules, donors, labels, statement, document } = loaded;
+	const { rules, donors, statement, document } = loaded;
 	const openLedger = (drill: LedgerDrill): void =>
 		navigate(ledgerRoute(route, drill));
 	const download = statement ? (
@@ -946,7 +942,7 @@ export function Reports({
 						label="Download"
 						name={`books-${document.audience}-${slug(document.periodLabel)}.csv`}
 						columns={documentColumns(document)}
-						rows={documentRows(document, school.currency, labels)}
+						rows={documentRows(document, school.currency)}
 					/>
 				)}
 			</div>
@@ -959,11 +955,7 @@ export function Reports({
 				/>
 			)}
 			{document && (
-				<DocumentBody
-					document={document}
-					currency={school.currency}
-					labels={labels}
-				/>
+				<DocumentBody document={document} currency={school.currency} />
 			)}
 			<div class="two2">
 				<div class="card">
@@ -975,11 +967,7 @@ export function Reports({
 						/>
 					)}
 					{document && (
-						<DocumentStatement
-							document={document}
-							currency={school.currency}
-							labels={labels}
-						/>
+						<DocumentStatement document={document} currency={school.currency} />
 					)}
 				</div>
 				<Rules
@@ -994,7 +982,6 @@ export function Reports({
 					report={donors}
 					audience={audience}
 					currency={school.currency}
-					labels={labels}
 					today={clock.today}
 					writer={writer}
 					onToast={onToast}
@@ -1029,7 +1016,6 @@ const documentColumns = (
 function documentRows(
 	document: AudienceReport,
 	currency: string,
-	labels: Labels,
 ): DocumentRow[] {
 	const { figures } = document;
 	const whole = document.rounding !== null;
@@ -1064,6 +1050,6 @@ function documentRows(
 	return lines.map(({ line, kpi, cell, money }) => ({
 		line,
 		kpi,
-		...cellCsv(cell, money, currency, whole, labels),
+		...cellCsv(cell, money, currency, whole),
 	}));
 }

@@ -1,10 +1,11 @@
+import type { CancelBooking } from "../data/bookings.ts";
 import {
 	checkOverride,
 	type DisclosureFile,
 	type DisclosureOverride,
 } from "../data/disclosure.ts";
 import type { PromoType } from "../data/ledger.ts";
-import type { MembersWriter } from "../data/members.ts";
+import type { Accepted, CancelBookingRequest } from "../data/members.ts";
 import type {
 	CreatedKey,
 	CreateKey,
@@ -41,11 +42,10 @@ const dollars = (minorUnits: number): string =>
  * one waiting on its mailed link. */
 export function createFixtureWriter(options: {
 	mode: "instant" | "hold";
-}): Writer &
-	MembersWriter & {
-		calls: Array<{ method: string; args: unknown[] }>;
-		release(): void;
-	} {
+}): Writer & {
+	calls: Array<{ method: string; args: unknown[] }>;
+	release(): void;
+} {
 	const calls: Array<{ method: string; args: unknown[] }> = [];
 	let held: Array<() => void> = [];
 	const record = async <Result>(
@@ -99,6 +99,19 @@ export function createFixtureWriter(options: {
 		};
 	};
 	const nothing = () => undefined;
+	/** The Bookings tab's cancel answers nothing (S2's contract), the Members tab's `Accepted` (S4's). */
+	function cancelBooking(request: CancelBooking): Promise<void>;
+	function cancelBooking(request: CancelBookingRequest): Promise<Accepted>;
+	function cancelBooking(
+		request: CancelBooking | CancelBookingRequest,
+		// biome-ignore lint/suspicious/noConfusingVoidType: the implementation of both overloads, one of which answers nothing
+	): Promise<Accepted | void> {
+		return record(
+			"cancelBooking",
+			[request],
+			"schoolId" in request ? accepted : nothing,
+		);
+	}
 	return {
 		calls,
 		release: () => {
@@ -109,7 +122,7 @@ export function createFixtureWriter(options: {
 			record("recordOutcome", [request], () => ({
 				creditEffect: "not_wired" as const,
 			})),
-		cancelBooking: (request) => record("cancelBooking", [request], accepted),
+		cancelBooking,
 		saveMenu: (schoolId, menu) => record("saveMenu", [schoolId, menu], nothing),
 		publishMenu: (schoolId) => record("publishMenu", [schoolId], nothing),
 		refund: (request) =>

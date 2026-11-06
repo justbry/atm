@@ -86,12 +86,16 @@ test("theme=system puts neither class on the root; unmount removes the app's mar
 	expect(root().childElementCount).toBe(0);
 });
 
-test("the period control shows only on Ledger, Reports and All schools", async () => {
+test("one period control is on every tab: the period's word, its label in the name, the steps in its popover", async () => {
 	await open("#/vol/plans");
-	expect(element(".pgrp").hidden).toBe(true);
+	expect(document.querySelectorAll("[data-test=period-button]").length).toBe(1);
+	expect(text("[data-test=period-button]")).toBe("Month");
+	expect(element("[data-test=period-button]").getAttribute("aria-label")).toBe(
+		"Period: Nov 2026",
+	);
 	await click("[data-test=tab][data-tab=ledger]");
-	expect(element(".pgrp").hidden).toBe(false);
-	expect(text("[data-test=period-button]")).toBe("Nov 2026");
+	expect(document.querySelectorAll("[data-test=period-button]").length).toBe(1);
+	await click("[data-test=period-button]");
 	expect(element<HTMLButtonElement>("[data-test=period-next]").disabled).toBe(
 		true,
 	);
@@ -117,7 +121,7 @@ test("a click outside closes a popover; opening another closes the first", async
 	expect(document.querySelectorAll("[data-test=help-link]").length).toBe(4);
 	await click("[data-test=period-button]");
 	expect(document.querySelector("[data-test=help-link]")).toBeNull();
-	expect(document.querySelectorAll("[data-test=period-option]").length).toBe(5);
+	expect(document.querySelectorAll("[data-test=period-option]").length).toBe(9);
 	await click("[data-test=brand]");
 	expect(document.querySelector("[data-test=period-option]")).toBeNull();
 });
@@ -140,7 +144,7 @@ test("All schools hides the tabs and shows the period control", async () => {
 	expect(window.location.hash).toBe("#/all/all");
 	expect(text("[data-test=school-switcher]")).toBe("All schools");
 	expect(document.querySelectorAll("[data-test=tab]").length).toBe(0);
-	expect(element(".pgrp").hidden).toBe(false);
+	expect(document.querySelectorAll("[data-test=period-button]").length).toBe(1);
 	await click("[data-test=period-button]");
 	expect(text(".tzn")).toBe("Each school's own time zone");
 	await click("[data-test=school-switcher]");
@@ -160,7 +164,10 @@ test("a preset and a custom range write month= to the hash", async () => {
 	expect(window.location.hash).toBe(
 		"#/vol/ledger?month=2026-01-01..2026-11-05",
 	);
-	expect(text("[data-test=period-button]")).toBe("Jan 1 – Nov 5, 2026");
+	expect(text("[data-test=period-button]")).toBe("Custom");
+	expect(element("[data-test=period-button]").getAttribute("aria-label")).toBe(
+		"Period: Jan 1 – Nov 5, 2026",
+	);
 	expect(document.activeElement).toBe(element("[data-test=period-button]"));
 
 	await click("[data-test=period-button]");
@@ -177,8 +184,12 @@ test("a preset and a custom range write month= to the hash", async () => {
 	expect(window.location.hash).toBe(
 		"#/vol/ledger?month=2026-10-20..2026-10-29",
 	);
+	if (!document.querySelector("[data-test=period-prev]"))
+		await click("[data-test=period-button]");
 	await click("[data-test=period-prev]");
-	expect(text("[data-test=period-button]")).toBe("Oct 10 – Oct 19, 2026");
+	expect(element("[data-test=period-button]").getAttribute("aria-label")).toBe(
+		"Period: Oct 10 – Oct 19, 2026",
+	);
 });
 
 test("tab badges come from the school; Maple Pilates shows the stale banner", async () => {
@@ -206,10 +217,12 @@ test("arrow keys, Home and End move between tabs", async () => {
 	);
 	await press(element("[data-test=tab][data-tab=reports]"), "Home");
 	expect(window.location.hash).toBe("#/vol/plans");
-	await press(element("[data-test=tab][data-tab=plans]"), "ArrowRight");
-	expect(window.location.hash).toBe("#/vol/dashboard");
+	await press(element("[data-test=tab][data-tab=plans]"), "End");
+	expect(window.location.hash).toBe("#/vol/reports");
+	await press(element("[data-test=tab][data-tab=reports]"), "ArrowLeft");
+	expect(window.location.hash).toBe("#/vol/ledger");
 	expect(
-		element("[data-test=tab][data-tab=dashboard]").getAttribute("tabindex"),
+		element("[data-test=tab][data-tab=ledger]").getAttribute("tabindex"),
 	).toBe("0");
 });
 
@@ -308,9 +321,13 @@ test("the settings drawer is a modal dialog that keeps focus inside", async () =
 	await click("[data-test=settings-button]");
 	const closeButton = element(".drawer .x");
 	expect(document.activeElement).toBe(closeButton);
-	const buttons = [...drawer.querySelectorAll<HTMLElement>("button")];
-	const last = buttons[buttons.length - 1] as HTMLElement;
-	expect(last.textContent).toBe("System");
+	const focusable = [
+		...drawer.querySelectorAll<HTMLElement>(
+			"button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]",
+		),
+	];
+	const last = focusable[focusable.length - 1] as HTMLElement;
+	expect(drawer.contains(last)).toBe(true);
 	last.focus();
 	await press(last, "Tab");
 	expect(document.activeElement).toBe(closeButton);
@@ -432,9 +449,9 @@ test("the school switcher is a listbox after its search field, the current schoo
 	expect(listedSchools("[role=listbox] [role=option]")).toEqual(
 		listedSchools("[data-test=school-option]"),
 	);
-	expect(listedSchools("[role=option]").length).toBe(5);
+	expect(listedSchools("[role=option]").length).toBe(6);
 	expect(listedSchools("[role=option][aria-selected=true]")).toEqual(["vol"]);
-	expect(listedSchools("[role=option][aria-selected=false]").length).toBe(4);
+	expect(listedSchools("[role=option][aria-selected=false]").length).toBe(5);
 	expect(listedSchools("[role=option][tabindex='0']")).toEqual(["vol"]);
 });
 

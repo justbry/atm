@@ -1,0 +1,113 @@
+/* The panes' own rules, loaded with the panes (src/app/panes.tsx): the Plans and Members tabs' classes for the
+ * mockup's inline styles, which the mockup's stylesheet (src/theme.css) does not have. */
+/* Plans: the mockup's inline styles as classes. */
+.count,
+.changes-count {
+	text-transform: none;
+	font-weight: 400;
+}
+.empty-row {
+	padding: 16px;
+}
+.add-row {
+	margin: 8px 0 4px;
+}
+.plan-note {
+	margin-top: 12px;
+}
+.setup-card {
+	margin-bottom: 12px;
+}
+.setup-next {
+	margin-top: 10px;
+}
+.preview-intro {
+	margin: 2px 0 10px;
+}
+.preview-empty {
+	text-align: center;
+	padding: 24px;
+}
+.grant-label {
+	font-size: 10px;
+}
+.grant-add {
+	margin-top: 6px;
+}
+.drawer-problems {
+	margin-top: 12px;
+}
+.change-name {
+	margin-top: 12px;
+}
+.change-detail {
+	margin-left: 2px;
+}
+/* The mockup keeps the Plans strip at four columns at every width. */
+.strip.s4.plan-strip {
+	grid-template-columns: repeat(4, 1fr);
+}
+/* Members: classes for the inline styles of its rows, drawer and modals. */
+.member-open,
+.plan-clear {
+	font: inherit;
+	color: inherit;
+	background: none;
+	border: 0;
+	padding: 0;
+	cursor: pointer;
+}
+.member-open {
+	text-align: left;
+}
+.member-open:focus-visible,
+.plan-clear:focus-visible {
+	outline: 2px solid var(--ring);
+	outline-offset: 2px;
+	border-radius: 2px;
+}
+.member-bar {
+	width: 22%;
+}
+.members-empty {
+	text-align: center;
+	padding: 22px;
+}
+.fill-rest {
+	margin-left: 6px;
+}
+.release-option {
+	display: flex;
+	width: 100%;
+	justify-content: space-between;
+	margin-bottom: 6px;
+}
+.drawer-name {
+	margin: 2px 0 6px;
+}
+.drawer-note {
+	font-size: 10.5px;
+	margin: -4px 0 8px;
+}
+.drawer-bookings {
+	margin-bottom: 12px;
+}
+.payments-count {
+	text-transform: none;
+	font-weight: 400;
+}
+.payments-csv {
+	float: right;
+	text-transform: none;
+}
+.tl .quiet {
+	--c: transparent;
+}
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}

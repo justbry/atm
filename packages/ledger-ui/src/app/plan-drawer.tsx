@@ -12,9 +12,9 @@ import {
 import type { School } from "../data/types.ts";
 import { useFocusTrap } from "./focus-trap.ts";
 import { Icon } from "./icon.tsx";
+import { currencySymbol } from "./money.ts";
 import {
 	audienceName,
-	currencySymbol,
 	monthlyAmount,
 	type PlanKind,
 	problems,
@@ -25,7 +25,7 @@ import {
 	withTier,
 	yearlyAmount,
 } from "./plans-menu.ts";
-import { exitPreviewTitle } from "./view-as.ts";
+import { exitPreviewTitle } from "./viewing.ts";
 
 const audienceHint =
 	"What members of this plan see of the school's books. Member: quarters, money rounded, totals and categories. Governance: months, exact, with plan and fund breakdowns and how gifts spread, but no names. Public: nothing beyond what anyone sees. A governance plan is usually hidden (not for sale) and given by the owner. Finance and Owner are never a tier's audience. Access moves at once for current members, with a notice.";

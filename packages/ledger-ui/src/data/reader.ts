@@ -1,9 +1,9 @@
 import type { BookingsReader } from "./bookings.ts";
 import type { DisclosureReader } from "./disclosure.ts";
 import type { KpiDocument, KpiQuery } from "./kpi-document.ts";
-import type { PlansReader } from "./plans.ts";
-import type { MembersReader } from "./members.ts";
 import type { LedgerReader } from "./ledger.ts";
+import type { MembersReader } from "./members.ts";
+import type { PlansReader } from "./plans.ts";
 import type { PortalReader } from "./portal.ts";
 import type { SettingsReader } from "./settings.ts";
 import type { DashboardOptions, School } from "./types.ts";

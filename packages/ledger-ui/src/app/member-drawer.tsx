@@ -1,11 +1,13 @@
 import type { JSX } from "preact";
 import { useEffect, useId, useRef, useState } from "preact/hooks";
+import { audienceNames } from "../data/disclosure.ts";
 import {
 	financeOnly,
 	type MemberBooking,
 	previewLock,
 } from "../data/members.ts";
 import type { School } from "../data/types.ts";
+import { cutoffHours } from "./booking-text.ts";
 import { useFocusTrap } from "./focus-trap.ts";
 import { Icon, type IconName } from "./icon.tsx";
 import {
@@ -22,14 +24,11 @@ import {
 import {
 	amountText,
 	attentionOf,
-	audienceNames,
 	capabilityReason,
 	countOf,
-	cutoffHours,
 	eventColors,
 	eventLabel,
 	formatDay,
-	formatMoney,
 	formatPaymentDay,
 	formatWallTime,
 	historyOf,
@@ -39,6 +38,7 @@ import {
 	signed,
 	standingOf,
 } from "./members-model.ts";
+import { formatMoney } from "./money.ts";
 import { monthAndDay } from "./period.ts";
 
 /** A booking button of the drawer (the golden file's `data-action`). */

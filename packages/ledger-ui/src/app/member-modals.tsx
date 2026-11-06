@@ -1,5 +1,5 @@
 import type { ComponentChildren, JSX } from "preact";
-import { useEffect, useId, useRef, useState } from "preact/hooks";
+import { useEffect, useId, useState } from "preact/hooks";
 import type {
 	InvoiceItem,
 	Member,
@@ -7,16 +7,14 @@ import type {
 	MemberDetail,
 	SwitchTier,
 } from "../data/members.ts";
-import { useFocusTrap } from "./focus-trap.ts";
+import { cutoffHours } from "./booking-text.ts";
+import { Dialog } from "./dialog.tsx";
 import { Icon } from "./icon.tsx";
 import {
 	type Applied,
 	type Change,
 	capitalized,
 	countOf,
-	currencySymbol,
-	cutoffHours,
-	formatMoney,
 	formatWallTime,
 	pendingBookingIds,
 	project,
@@ -37,6 +35,7 @@ import {
 	switchPlan,
 	type WriteContext,
 } from "./members-writes.ts";
+import { currencySymbol, formatMoney } from "./money.ts";
 
 /** What the Members tab can ask the person's modal for. */
 export type Action =
@@ -105,8 +104,8 @@ type FrameProps = {
 	onCancel: () => void;
 };
 
-/** The mockup's modal (`#md`): a title, the fields, the preview, Cancel and the action. Escape, the backdrop and
- * Cancel close it unless a write is on its way; Tab stays inside; focus starts on Cancel. */
+/** A Members modal in the shared dialog: a title, the fields, the preview, Cancel and the action. Escape, the
+ * backdrop and Cancel close it unless a write is on its way; focus starts on Cancel. */
 function ModalFrame({
 	title,
 	subtitle,
@@ -118,76 +117,46 @@ function ModalFrame({
 	busy,
 	onCancel,
 }: FrameProps): JSX.Element {
-	const modal = useRef<HTMLDivElement>(null);
-	const cancelButton = useRef<HTMLButtonElement>(null);
-	const titleId = useId();
 	const close = (): void => {
 		if (!busy) onCancel();
 	};
-	useFocusTrap(true, modal, close);
-	useEffect(() => cancelButton.current?.focus(), []);
 	return (
-		// biome-ignore lint/a11y/noStaticElementInteractions: Escape closes the dialog (useFocusTrap); a click on the backdrop is a pointer shortcut for the same
-		<div
-			class="bg on"
-			role="presentation"
-			onClick={(event) => {
-				if (event.target === event.currentTarget) close();
-			}}
-		>
-			{/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: an Escape pressed inside the modal is the modal's; nothing behind it (the drawer) hears it */}
-			<div
-				ref={modal}
-				class="modal"
-				role="dialog"
-				aria-modal="true"
-				aria-labelledby={titleId}
-				data-test="modal"
-				onKeyDown={(event) => {
-					if (event.key !== "Escape") return;
-					event.stopPropagation();
-					close();
-				}}
-			>
-				<h3 id={titleId} data-test="modal-title">
-					{title}
-				</h3>
-				{subtitle !== undefined && (
-					<div class="mut" data-test="modal-subtitle">
-						{subtitle}
-					</div>
-				)}
-				{children}
-				{preview !== undefined && (
-					<div class="prev" data-test={previewHook} aria-live="polite">
-						{preview}
-					</div>
-				)}
-				<div class="mf">
-					<button
-						ref={cancelButton}
-						type="button"
-						class="btn"
-						data-test="modal-cancel"
-						onClick={close}
-					>
-						{cancelLabel}
-					</button>
-					{confirm && (
-						<button
-							type="button"
-							class={`btn ${confirm.tone}`}
-							data-test="modal-confirm"
-							disabled={confirm.disabled || busy}
-							aria-busy={busy ? "true" : undefined}
-							onClick={confirm.onConfirm}
-						>
-							{confirm.label}
-						</button>
-					)}
+		<Dialog title={title} onClose={onCancel} busy={busy} hooks="modal">
+			{subtitle !== undefined && (
+				<div class="mut" data-test="modal-subtitle">
+					{subtitle}
 				</div>
+			)}
+			{children}
+			{preview !== undefined && (
+				<div class="prev" data-test={previewHook} aria-live="polite">
+					{preview}
+				</div>
+			)}
+			<div class="mf">
+				<button
+					type="button"
+					class="btn"
+					data-test="modal-cancel"
+					data-autofocus
+					onClick={close}
+				>
+					{cancelLabel}
+				</button>
+				{confirm && (
+					<button
+						type="button"
+						class={`btn ${confirm.tone}`}
+						data-test="modal-confirm"
+						disabled={confirm.disabled || busy}
+						aria-busy={busy ? "true" : undefined}
+						onClick={confirm.onConfirm}
+					>
+						{confirm.label}
+					</button>
+				)}
 			</div>
-		</div>
+		</Dialog>
 	);
 }
 

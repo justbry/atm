@@ -4,7 +4,7 @@ import type { School } from "../data/types.ts";
 import { Icon, type IconName } from "./icon.tsx";
 import { diffMenus, type PlansSession, problems } from "./plans-menu.ts";
 import { emitMenu, type ParsedMenu, parseMenu } from "./plans-yaml.ts";
-import { exitPreviewTitle } from "./view-as.ts";
+import { exitPreviewTitle } from "./viewing.ts";
 
 const lineHeight = 18;
 const linesAboveJump = 3;

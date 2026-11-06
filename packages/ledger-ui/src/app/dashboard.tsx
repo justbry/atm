@@ -18,8 +18,8 @@ import type {
 } from "../data/types.ts";
 import { Icon, type IconName } from "./icon.tsx";
 import { cellText, KpiValue, numberFormat } from "./kpi-cell.tsx";
-import { PinLock } from "./pin-lock.tsx";
 import { LockPanel } from "./lock-panel.tsx";
+import { PinLock } from "./pin-lock.tsx";
 import { type Route, withQuery } from "./route.ts";
 import { useViewing } from "./viewing.ts";
 

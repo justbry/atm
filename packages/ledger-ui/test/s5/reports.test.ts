@@ -311,7 +311,10 @@ test("fewer than five donors shows no spread, only the reason", async () => {
 			through: "2026-09",
 			donors: { lt: 10 },
 			buckets: [],
-			medianCents: { hidden: "suppressed", why: "fewer than 5 donors" },
+			medianCents: {
+				hidden: "suppressed",
+				text: "Hidden: fewer than 5 donors",
+			},
 		}),
 	};
 	await open("#/vol/reports?as=governance", { reader });

@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { mountApp } from "../../src/app/mount.tsx";
 import type { Person } from "../../src/data/members.ts";
 import type { Reader } from "../../src/data/reader.ts";
-import { membersWritesOf, type Writer } from "../../src/data/writer.ts";
+import type { Writer } from "../../src/data/writer.ts";
 import { createFixtureReader } from "../../src/fixtures/reader.ts";
 import { createFixtureWriter } from "../../src/fixtures/writer.ts";
 
@@ -304,21 +304,23 @@ test("the search is not part of the route", async () => {
 	expect(window.location.hash).toBe("#/vol/members?theme=light");
 });
 
-test("Download CSV saves the member's payments as a file and counts the rows", async () => {
+test("Download CSV saves the member's payments as a file, not a write, and counts the rows", async () => {
 	const saved: Blob[] = [];
 	const original = URL.createObjectURL;
 	URL.createObjectURL = (blob: Blob | MediaSource) => {
 		saved.push(blob as Blob);
 		return "blob:test";
 	};
+	const writer = createFixtureWriter({ mode: "instant" });
 	try {
-		await open("#/vol/members");
+		await open("#/vol/members", { writer });
 		await click(menuButton("m_012"));
 		await click(menuItem("csv"));
 	} finally {
 		URL.createObjectURL = original;
 	}
 	expect(text("[data-test=toast]")).toBe("Downloaded 30 rows");
+	expect(writer.calls).toEqual([]);
 	const file = await saved[0]?.text();
 	const lines = (file ?? "").replace("﻿", "").split("\r\n");
 	expect(lines[0]).toBe(
@@ -328,18 +330,6 @@ test("Download CSV saves the member's payments as a file and counts the rows", a
 		'2026-11-01,"Invoice paid, Sparkle ×4 (10% off)",117.00,USD,Paid,in_m_012_20261101_0,pay_1114',
 	);
 	expect(lines).toHaveLength(32);
-});
-
-test("the Members tab asks for a Writer that has the Members writes", () => {
-	const bookingsOnly: Writer = {
-		recordOutcome: async () => ({ creditEffect: "not_wired" }),
-		cancelBooking: async () => undefined,
-	};
-	expect(() => membersWritesOf(bookingsOnly)).toThrow(
-		"The Members tab needs a Writer with the Members writes",
-	);
-	const complete = createFixtureWriter({ mode: "instant" });
-	expect(membersWritesOf(complete)).toBe(complete);
 });
 
 test("the fixture Writer records every Members write and, held, answers only on release", async () => {
