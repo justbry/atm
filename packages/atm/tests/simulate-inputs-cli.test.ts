@@ -12,7 +12,9 @@ import { join } from "node:path";
 import { addUtcMonths } from "../src/billing/grants.js";
 import { DEFAULT_POLICY } from "../src/billing/policy.js";
 import { lookupKeyOf, tierPriceKey } from "../src/billing/stripe-menu.js";
+import { shipInputs } from "../src/ledger/ship-inputs.js";
 import { canonicalize } from "../src/ledger/util.js";
+import { FolderStore } from "../src/store/folder-store.js";
 import {
 	FAMILY,
 	HOUR,
@@ -35,6 +37,7 @@ let folder = "";
 let root = "";
 let databaseFile = "";
 let drifted = "";
+let shipped = "";
 const files: Record<string, string> = {};
 
 const price = (tierId: string) =>
@@ -87,6 +90,16 @@ beforeAll(async () => {
 		at,
 	);
 	const events = logOf(h);
+	// the same inputs, shipped to a folder
+	shipped = join(folder, "shipped");
+	await mkdir(shipped);
+	await shipInputs({
+		db: h.db,
+		store: new FolderStore({ root: shipped }),
+		school: SCHOOL,
+		env: "live",
+		nowMs: () => T1,
+	});
 	raw.close();
 	const eventsDir = join(root, "schools", SCHOOL, "events", "date=2026-01-15");
 	await mkdir(eventsDir, { recursive: true });
@@ -310,6 +323,25 @@ describe("atm simulate --inputs: exit 0, 1 and 2", () => {
 	});
 });
 
+describe("atm simulate --inputs <shipped folder>", () => {
+	const fromFolder = (extra: string[]) =>
+		base(extra).map((a) => (a === databaseFile ? (shipped as string) : a));
+
+	test("the same inputs from the folder give the same answer as from the database: the identity, and a candidate", () => {
+		expect(atm(fromFolder([])).code).toBe(0);
+		const fromDb = atm(base(["--policy", files.full as string, "--json"]));
+		const fromShipped = atm(
+			fromFolder(["--policy", files.full as string, "--json"]),
+		);
+		expect(fromShipped.code).toBe(1);
+		const strip = (text: string) => {
+			const { summary: _summary, ...rest } = JSON.parse(text);
+			return rest;
+		};
+		expect(strip(fromShipped.out)).toEqual(strip(fromDb.out));
+	});
+});
+
 describe("atm simulate --inputs: input it cannot use is exit 2 with one line", () => {
 	const bad: [string, () => string[], RegExp][] = [
 		[
@@ -373,9 +405,9 @@ describe("atm simulate --inputs: input it cannot use is exit 2 with one line", (
 			/does not exist/,
 		],
 		[
-			"a folder as --inputs",
+			"a folder with no shipped inputs",
 			() => base().map((a) => (a === databaseFile ? (root as string) : a)),
-			/is a folder/,
+			/no inputs under .*schools\/sch_vol\/inputs\/live: run atm inputs ship, or point --inputs at the handler's database/,
 		],
 		[
 			"stored inputs of another env",
