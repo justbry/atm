@@ -1,0 +1,24 @@
+{
+	"name": "ledger-ui",
+	"private": true,
+	"type": "module",
+	"description": "The ledger admin UI for ledger.b4uni.com: Preact on Vite, served as static assets by a Worker. See plans/ledger-ui/loop/protocol-v7.md.",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"build:size": "vite build --config gates/vite.size.config.ts",
+		"test": "bun test",
+		"gates": "bun gates/run.ts"
+	},
+	"dependencies": {
+		"preact": "10.29.8"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.2.2",
+		"@happy-dom/global-registrator": "20.0.10",
+		"@types/bun": "1.4.2",
+		"happy-dom": "20.0.10",
+		"typescript": "5.8.3",
+		"vite": "7.1.12"
+	}
+}

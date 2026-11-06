@@ -1,0 +1,19 @@
+{
+	"scores": {
+		"testability": 9,
+		"convergence": 8,
+		"antiGaming": 9,
+		"simplicity": 9,
+		"cost": 9
+	},
+	"overall": 8,
+	"blockers": [],
+	"mustFix": [
+		"nonce depends on image delivery to all three, unverified (Grok): one-time preflight panel on a PNG before S0's first panel; nonce absent from every text file"
+	],
+	"wouldChange": [
+		"holdout: marked text present + absent list; mutate only amount/count fields",
+		"hidden-kind precedence; 9 presets end 2026-06 vs clock 2026-11; non-usd no gross contrib; document.currency source",
+		"builder tests in separate bun test run; all golden files run every slice"
+	]
+}
