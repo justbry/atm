@@ -3,6 +3,9 @@ name: atm tests
 # Tests, typecheck, lint and build of packages/atm on a pull request. Nothing else in this repository runs atm's tests:
 # knip.yml and the inherited Autumn workflows do not, and release-atm.yml only builds a tag.
 #
+# Two jobs run side by side: `test` installs hledger and runs the test files in parallel, one worker per runner core, and
+# `checks` runs the typecheck, lint and build. Both restore Bun's install cache, keyed on bun.lock and .bun-version.
+#
 # Where it runs follows B4 Uni's CI (buzz-school docs/ci-and-deploy.md): the repository variable CI_RUNNER, a JSON
 # runner label list, sends the job to a self-hosted Sprite box (for example '["self-hosted","b4u-sprite"]'); unset, it
 # runs on a GitHub-hosted runner. A box has to be registered to THIS repository first (runners are not shared across
@@ -47,8 +50,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  atm:
-    name: atm (tests, tsc, lint, build)
+  test:
+    name: atm (tests)
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-latest"') }}
     timeout-minutes: 20
@@ -60,6 +63,14 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version
+
+      - name: Cache Bun install cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.bun-version', 'bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -91,10 +102,35 @@ jobs:
           "$dir/hledger" --version
 
       # The journal tests that spawn atm's CLI take about 0.6 s per spawn, so the default 5 s test timeout is too short on
-      # a slow box.
+      # a slow box. --parallel runs the test files in one worker process per CPU core, each file in its own global scope.
       - name: Test
         working-directory: packages/atm
-        run: bun test --timeout 60000 tests
+        run: bun test --timeout 60000 --parallel tests
+
+  checks:
+    name: atm (tsc, lint, build)
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-latest"') }}
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Cache Bun install cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.bun-version', 'bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
 
       - name: Typecheck
         working-directory: packages/atm
