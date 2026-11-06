@@ -8,7 +8,7 @@
 		"The UI keeps each school's draft for the life of the mount (switching school or tab and back shows the same draft) and never re-reads after a write. Writes are exactly those of src/data/plans.ts: saveMenu(schoolId, menu) with the whole draft menu whenever the draft changes and has no problems (drawer Save to draft, a Code edit once applied, Discard draft, Reset to published), publishMenu(schoolId) from the review. A draft with problems stays on screen unsaved. After publishMenu resolves the draft is the live version, its number plus one.",
 		"Code: plan-yaml is the textarea (its text is checked with the `value` expectation); plan-yaml-line is one gutter number per line of the text (`text.split('\\n')`, so the final newline adds an empty last line), class bad on a line with a parse error or a problem. A fill (input event) may apply at once or after a debounce; pending text is applied before the Plans pane handles any click (a capture listener, as the mockup's kFlush on mousedown; the golden dispatches click only) and on blur. The status pill reads Valid, '<n> problem(s)' or 'Parse error at line <n>'. plan-yaml-message holds the error or problems, each with a jump button carrying data-line; 'No problems.' otherwise.",
 		"Changes are the mockup's diff() of the draft against the live menu, with its texts (New plan, Removed, 'Monthly price $a → $b', 'Yearly price', 'Sold in', 'What members get changed', 'Now on sale', 'Now hidden', 'Name \"a\" → \"b\"', 'Description changed'); plan-change and plan-publish-change carry data-plan; plan-change-badge is Removed or New. plan-draft-badge reads 'Draft · <n> change(s)' and the Plans tab badge (S0's tab-badge) shows 'draft' exactly when the draft has changes. Problems are the mockup's problems() texts; plan-problems (Edit and Preview) reads '<n> problem(s): <first>' plus ' (+<k> more)'.",
-		"Money: Intl.NumberFormat('en-US', { style: 'currency', currency }) of the menu currency from cents, as S1. Prices read as the mockup's priceTxt ('$32.50 per session / month · $350.00 / year'; a hidden tier with no price is 'Not for sale'; a pack '$40.00 one time' or '$x / month'); grants as grantTxt ('8 sessions per unit each month, rolls over 1 mo'; a pack charged once grants 'once'), with the feature's unit words. plan-monthly is the tier's PlanTierCount.activeUnits times the draft's monthly price ($0.00 without one); plan-members is active, plan-ending '+<ending> ending' only when ending > 0. The strip (Edit only, only when the live menu has a tier): active members, 'Collected in <Mon>' from PlanSummary.collected, ending soon, need attention = the School's attentionCount; plan-stat carries data-stat active, collected, ending or attention; collected opens #/<school>/dashboard, the others the Members tab (S4).",
+		"Money: Intl.NumberFormat('en-US', { style: 'currency', currency }) of the menu currency from cents, as S1. Prices read as the mockup's priceTxt ('$32.50 per session / month · $350.00 / year'; a hidden tier with no price is 'Not for sale'; a pack '$40.00 one time' or '$x / month'); grants as grantTxt ('8 sessions per unit each month, rolls over 1 mo'; a pack charged once grants 'once'), with the feature's unit words. plan-monthly is the tier's PlanTierCount.monthlyMinor, the server's sum at the prices members bought (draft edits do not move it), '—' when null; plan-members is active, plan-ending '+<ending> ending' only when ending > 0. The strip (Edit only, only when the live menu has a tier): active members, 'Collected in <Mon>' from PlanSummary.collected, ending soon, need attention = the School's attentionCount; plan-stat carries data-stat active, collected, ending or attention; collected opens #/<school>/dashboard, the others the Members tab (S4).",
 		"Rows: plan-row carries data-plan (the id) and data-kind (tiers or addons), class chg when the draft changed it; plan-changed is its 'draft' badge, plan-hidden 'Hidden' for a non-public tier. plan-edit is the row's icon button (aria-label 'Edit <name>'); clicking the row or plan-edit opens the drawer. plan-count reads '<n> of 4' and '<n> of 6' (data-kind). plan-members (title 'Show these members') opens #/<school>/members?plan=<tierId>.",
 		"Drawer: plan-field carries data-field (name, blurb, public, month, year, quantities for a tier; name, price, every for a pack: a pack has no public flag in buzz-school's Menu); plan-grant-field carries data-field (amount, unit, every, rollover) and data-index. Fields react to input events, selects included. Monthly and yearly prices are typed in major units and saved as cents; sizes as '1, 2, 4'. A new plan's id is the mockup's slug of its name. plan-drawer-problem is one per problem; Save to draft is disabled while there is any. Escape closes the drawer.",
 		"Review: plan-publish-dialog opens from plan-review (enabled only with changes, no problems and Stripe connected; otherwise disabled with the mockup's title). plan-publish-summary counts the active members of the changed live tiers. An owner gets plan-publish-pin (Publish enabled from 4 digits); an admin gets plan-publish-lock and a disabled Publish titled 'Owners publish'. In hold mode, while publishMenu is pending, plan-publish-go reads 'Publishing…' and it and plan-publish-cancel are disabled. toast is S0's shell toast, hooked.",
@@ -121,7 +121,8 @@
 			"planSummary.collected.amount",
 			"planSummary.tiers[].active",
 			"planSummary.tiers[].ending",
-			"planSummary.tiers[].activeUnits"
+			"planSummary.tiers[].activeUnits",
+			"planSummary.tiers[].monthlyMinor"
 		]
 	},
 	"fixtures": {
@@ -835,7 +836,7 @@
 					},
 					"[data-test=plan-row][data-plan=glow] [data-test=plan-grants]": "24 sessions each month",
 					"[data-test=plan-row][data-plan=glow] [data-test=plan-changed]": "draft",
-					"[data-test=plan-row][data-plan=glow] [data-test=plan-monthly]": "$70.00",
+					"[data-test=plan-row][data-plan=glow] [data-test=plan-monthly]": "$65.00",
 					"[data-test=plan-row][data-plan=pack8] [data-test=plan-name]": "Top-up pack",
 					"[data-test=plan-row][data-plan=pack8] [data-test=plan-price]": {
 						"text": "$40.00 one time",
@@ -919,7 +920,7 @@
 					"[data-test=plan-row][data-plan=board] [data-test=plan-hidden]": "Hidden",
 					"[data-test=plan-row][data-plan=board] [data-test=plan-price]": "Not for sale",
 					"[data-test=plan-row][data-plan=board] [data-test=plan-members]": "1",
-					"[data-test=plan-row][data-plan=board] [data-test=plan-monthly]": "$0.00",
+					"[data-test=plan-row][data-plan=board] [data-test=plan-monthly]": "—",
 					"[data-test=plan-row][data-plan=board] [data-test=plan-blurb]": "For board members. Not for sale: the owner gives it.",
 					"[data-test=plan-row][data-plan=board] [data-test=plan-audience]": "Audience: Governance",
 					"[data-test=plan-row][data-plan=shine] [data-test=plan-price]": {
@@ -1035,7 +1036,7 @@
 					"[data-test=plan-size][data-plan=sparkle]": 3,
 					"[data-test=plan-size][data-plan=shine].on": 1,
 					"[data-test=plan-size][data-plan=shine][data-size=\"2\"].on": 1,
-					"[data-test=plan-card][aria-label=\"Edit Glow\"]": 1
+					"[data-test=plan-card] [aria-label=\"Edit Glow\"]": 1
 				},
 				"contains": {
 					"[data-test=pane]": [
@@ -1395,7 +1396,7 @@
 						"text": {
 							"[data-test=plan-row][data-plan=shine] [data-test=plan-price]": "$31.00 per session / month · $324.00 / year",
 							"[data-test=plan-row][data-plan=shine] [data-test=plan-changed]": "draft",
-							"[data-test=plan-row][data-plan=shine] [data-test=plan-monthly]": "$124.00"
+							"[data-test=plan-row][data-plan=shine] [data-test=plan-monthly]": "$120.00"
 						},
 						"count": {
 							"[data-test=plan-row][data-plan=shine].chg": 1,
@@ -1819,7 +1820,7 @@
 					"expect": {
 						"text": {
 							"[data-test=plan-publish-versions]": "Vibes of Light · v3 → v4",
-							"[data-test=plan-publish-summary]": "New purchases get the new terms. 1 current member keep the version they bought. The change applies at once (it doesn't wait for the next local month)."
+							"[data-test=plan-publish-summary]": "New purchases get the new terms. 1 current member keeps the version they bought. The change applies at once (it doesn't wait for the next local month)."
 						},
 						"contains": {
 							"[data-test=plan-publish-change][data-plan=glow]": [
@@ -2191,7 +2192,7 @@
 					"[data-test=plan-publish-dialog] h3": "Review and publish",
 					"[data-test=plan-publish-versions]": "Vibes of Light · v3 → v4",
 					"[data-test=plan-publish-summary]": {
-						"text": "New purchases get the new terms. 1 current member keep the version they bought. The change applies at once (it doesn't wait for the next local month).",
+						"text": "New purchases get the new terms. 1 current member keeps the version they bought. The change applies at once (it doesn't wait for the next local month).",
 						"moves": true
 					},
 					"[data-test=plan-publish-go]": "Publish v4",
@@ -2854,7 +2855,7 @@
 				"text": {
 					"[data-test=toast]": "Saved to the draft. Nothing is live until you publish.",
 					"[data-test=plan-row][data-plan=shine] [data-test=plan-price]": "$33.00 per session / month · $324.00 / year",
-					"[data-test=plan-row][data-plan=shine] [data-test=plan-monthly]": "$132.00",
+					"[data-test=plan-row][data-plan=shine] [data-test=plan-monthly]": "$120.00",
 					"[data-test=plan-draft-badge]": "Draft · 2 changes"
 				},
 				"count": {
