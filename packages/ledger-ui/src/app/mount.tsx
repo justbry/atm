@@ -12,7 +12,7 @@ const navigate = (route: Route): void => {
 };
 
 /** Follows `location.hash`; once the schools are loaded, rewrites a hash naming an unknown school or tab to the
- * route it shows, then records the rendered hash in `root.dataset.route`. */
+ * route it shows, then records the rendered hash in `root.dataset.route` (protocol §3). */
 function App({
 	root,
 	reader,
@@ -37,6 +37,8 @@ function App({
 	const route = parseRoute(hash, schools?.map((school) => school.id) ?? []);
 	const canonical = schools ? formatRoute(route) : null;
 	const theme = themeOf(route.query);
+	/** The Dashboard records its own render, once its document is on screen. */
+	const reportsItself = route.tab === "dashboard";
 	useLayoutEffect(() => {
 		root.classList.toggle("light", theme === "light");
 		root.classList.toggle("dark", theme === "dark");
@@ -44,16 +46,25 @@ function App({
 	useLayoutEffect(() => {
 		if (canonical === null) return;
 		if (canonical === hash) {
-			root.dataset.route = hash;
+			if (!reportsItself) root.dataset.route = hash;
 			return;
 		}
 		window.history.replaceState(null, "", canonical);
 		setHash(canonical);
-	}, [root, hash, canonical]);
+	}, [root, hash, canonical, reportsItself]);
 
 	if (!schools) return null;
 	return (
-		<Shell route={route} schools={schools} clock={clock} navigate={navigate} />
+		<Shell
+			route={route}
+			schools={schools}
+			clock={clock}
+			reader={reader}
+			navigate={navigate}
+			onRendered={() => {
+				root.dataset.route = hash;
+			}}
+		/>
 	);
 }
 

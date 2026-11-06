@@ -1,6 +1,8 @@
 import { Fragment, type JSX } from "preact";
 import { useCallback, useEffect, useId, useRef, useState } from "preact/hooks";
+import type { Reader } from "../data/reader.ts";
 import type { Clock, School } from "../data/types.ts";
+import type { Dashboard } from "./dashboard.tsx";
 import { Icon, type IconName } from "./icon.tsx";
 import { formatPeriod, parsePeriod } from "./period.ts";
 import { PeriodControl } from "./period-control.tsx";
@@ -97,20 +99,36 @@ type ShellProps = {
 	route: Route;
 	schools: School[];
 	clock: Clock;
+	reader: Reader;
 	navigate: (route: Route) => void;
+	/** Called once a pane that loads data has rendered the route. */
+	onRendered: () => void;
 };
 
 /** The mockup's frame (lines 261 to 282): top bar with the scope note, tabs row, stale banner, the current tab's pane, the settings
- * drawer and the toast. The panes are filled by later slices. While the drawer is open the regions behind it are inert;
- * the toast stays out of that so it can still be announced. */
+ * drawer and the toast. The Dashboard fills its pane; later slices fill the others. While the drawer is open the regions
+ * behind it are inert; the toast stays out of that so it can still be announced. */
 export function Shell({
 	route,
 	schools,
 	clock,
+	reader,
 	navigate,
+	onRendered,
 }: ShellProps): JSX.Element {
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [toast, setToast] = useState<{ text: string } | null>(null);
+	/** The Dashboard pane, loaded the first time its tab opens so that the first page load stays small. */
+	const [DashboardPane, setDashboardPane] = useState<typeof Dashboard | null>(
+		null,
+	);
+	const dashboardOpen = route.tab === "dashboard";
+	useEffect(() => {
+		if (dashboardOpen && !DashboardPane)
+			import("./dashboard.tsx").then((module) =>
+				setDashboardPane(() => module.Dashboard),
+			);
+	}, [dashboardOpen, DashboardPane]);
 	const settingsButton = useRef<HTMLButtonElement>(null);
 	const drawerId = useId();
 	const closeSettings = useCallback(() => {
@@ -308,7 +326,7 @@ export function Shell({
 				</div>
 			)}
 			{school?.stale && (
-				<div class="banner" inert={settingsOpen}>
+				<div class="banner" data-test="stale-banner" inert={settingsOpen}>
 					<Icon name="alert" /> Data is {school.lagMinutes} min behind: the
 					shipper may be stuck. Recent events can be missing.
 				</div>
@@ -321,7 +339,18 @@ export function Shell({
 				role={school ? "tabpanel" : undefined}
 				aria-labelledby={school ? `tab-${route.tab}` : undefined}
 				aria-label={school ? undefined : "All schools"}
-			/>
+			>
+				{school && dashboardOpen && DashboardPane && (
+					<DashboardPane
+						reader={reader}
+						school={school}
+						route={route}
+						navigate={navigate}
+						onRendered={onRendered}
+						onToast={(text) => setToast({ text })}
+					/>
+				)}
+			</section>
 			<SettingsDrawer
 				id={drawerId}
 				open={settingsOpen}
