@@ -235,6 +235,8 @@ type Applied =
 			skipped: string[];
 			/** The payments the books hold without their Stripe fee (`feeUnknownLines`). */
 			feeUnknown: string[];
+			/** This delivery's `paymentFee` knew a fee (so a payment listed in `feeUnknown` was booked without it by an earlier delivery). */
+			feeKnownNow: boolean;
 	  }
 	| { kind: "unknown_school" }
 	| { kind: "refused"; refusal: StripeEventRefusal };
@@ -904,6 +906,7 @@ const applyOnce = ({
 					: undefined,
 			fee,
 		}),
+		feeKnownNow: typeof fee === "number",
 	};
 };
 
@@ -948,9 +951,12 @@ const withoutFee = (
 	event: StripeEvent,
 	applied: Extract<Applied, { kind: "applied" }>,
 ): WebhookResponse => {
-	const why = deps.paymentFee
-		? "paymentFee did not know the fee"
-		: "no paymentFee dependency is configured";
+	// A fee known to this delivery cannot be why the payment has none: an earlier delivery booked it, and the outbox kept that one.
+	let why = "no paymentFee dependency is configured";
+	if (applied.feeKnownNow)
+		why =
+			"paymentFee knows the fee now, but the payment was booked by an earlier delivery without it";
+	else if (deps.paymentFee) why = "paymentFee did not know the fee";
 	sayAloud(
 		deps,
 		`atm: fee_unknown: ${event.id} (${event.type}) was applied, but ${applied.feeUnknown.length} payment(s) are booked at the gross amount with no Stripe fee (${why}): ${applied.feeUnknown.join("; ")}. The fee is not booked later: expenses:billing:stripe-fees and net income are off by it, and assets:stripe keeps it after a payout.`,

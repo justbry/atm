@@ -133,6 +133,9 @@ describe("the answer says a payment was booked without its fee", () => {
 		expect(h.warned).toHaveLength(2);
 		expect(h.warned[1]).toContain("evt_in_1_resent");
 		expect(h.warned[1]).toContain("784");
+		// the hook did know the fee on this delivery: the cause is the first delivery, not the hook
+		expect(h.warned[1]).toContain("paymentFee knows the fee now");
+		expect(h.warned[1]).not.toContain("did not know");
 		// the books keep the first: one payment, no fee, 260.00 in assets:stripe
 		const held = payments(h.outbox());
 		expect(held).toHaveLength(1);
@@ -441,4 +444,92 @@ describe("the books through hledger and atm report", () => {
 			}
 		},
 	);
+});
+
+describe("what is not unknown, and what is not read", () => {
+	/** A payment.succeeded the outbox holds for `stripe:in_1` with `fee_known: false`, as another school's or env's delivery left it. */
+	const seedUnfed = (
+		h: ReturnType<typeof quiet>,
+		over: { school: string; env: "live" | "test" },
+	) => {
+		const donor = quiet();
+		donor.deliver(paid());
+		const [payment] = payments(donor.outbox());
+		h.raw.run(
+			`INSERT INTO ledger_outbox (school_id, env, id, idem, date, body) VALUES (?, ?, '01ARZ3NDEKTSV4RRFFQ69G5FAV', 'stripe:in_1', '2026-01-15', ?)`,
+			[over.school, over.env, JSON.stringify(payment)],
+		);
+	};
+
+	test("a fee of 0 is a known fee: no feeUnknown, no warning, fee_known true", () => {
+		const h = quiet({ in_1: 0 });
+		const response = h.deliver(paid());
+		expect(response.body.outcome).toBe("applied");
+		expect("feeUnknown" in response.body).toBe(false);
+		expect(h.warned).toEqual([]);
+		expect(payments(h.outbox())[0]?.payload).toMatchObject({
+			fee: 0,
+			fee_known: true,
+		});
+	});
+
+	test("an invoice that paid nothing books no payment and lists none", () => {
+		const h = quiet();
+		const free = paid();
+		free.data.object.amount_paid = 0;
+		const response = h.deliver(free);
+		expect(payments(h.outbox())).toEqual([]);
+		expect("feeUnknown" in response.body).toBe(false);
+		expect(h.warned).toEqual([]);
+	});
+
+	test("a held payment of another school is never read, on a delivery that books its own and on a re-send", () => {
+		const h = quiet({ in_1: FEE });
+		seedUnfed(h, { school: "sch_aaa", env: "live" });
+		const first = h.deliver(paid());
+		expect("feeUnknown" in first.body).toBe(false);
+		const again = h.deliver({ ...paid(), id: "evt_in_1_resent" }, T0 + 60_000);
+		expect(again.body.outcome).toBe("applied");
+		expect("feeUnknown" in again.body).toBe(false);
+		expect(h.warned).toEqual([]);
+	});
+
+	test("a held payment of the other env is never read, on a delivery that books its own and on a re-send", () => {
+		const h = quiet({ in_1: FEE });
+		const test = harness({ in_1: FEE }, { raw: h.raw, env: "test" });
+		const warned: string[] = [];
+		test.deps.warn = (line) => warned.push(line);
+		seedUnfed(h, { school: SCHOOL, env: "live" });
+		const first = test.deliver(paid());
+		expect("feeUnknown" in first.body).toBe(false);
+		const again = test.deliver(
+			{ ...paid(), id: "evt_in_1_resent" },
+			T0 + 60_000,
+		);
+		expect("feeUnknown" in again.body).toBe(false);
+		expect(warned).toEqual([]);
+	});
+
+	test("a deps.warn that throws does not lose the committed 200", () => {
+		const h = quiet();
+		h.deps.warn = () => {
+			throw new Error("log sink is down");
+		};
+		const response = h.deliver(paid());
+		expect(response.status).toBe(200);
+		expect(response.body.feeUnknown).toEqual(["in_1 26000 cents"]);
+		expect(h.claim("evt_in_1")?.state).toBe("done");
+		expect(payments(h.outbox())).toHaveLength(1);
+	});
+
+	test("a non-USD invoice without a fee dependency is non_usd and lists no payment", () => {
+		const h = quiet();
+		const euros = paid();
+		euros.data.object.currency = "eur";
+		const response = h.deliver(euros);
+		expect(response.body.outcome).toBe("non_usd");
+		expect("feeUnknown" in response.body).toBe(false);
+		expect(h.warned).toHaveLength(1);
+		expect(h.warned[0]).not.toContain("fee_unknown");
+	});
 });

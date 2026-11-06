@@ -584,6 +584,8 @@ const outboxOf = (events: Recorded[]): { cause?: string }[] => {
 		schoolId: DELIVERED_SCHOOL,
 		nowMs: () => clock.now,
 		workerId: "replay-fact",
+		// a delivery with no paymentFee warns (fee_unknown) once per payment; tests/handler-fee-unknown.test.ts reads those lines
+		warn: () => undefined,
 		env: "test",
 		context: deliveredContext,
 	};

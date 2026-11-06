@@ -105,6 +105,8 @@ const holderBeforeRenewal = () => {
 				schoolId: SCHOOL,
 				nowMs: () => clock.now,
 				workerId: "overage",
+				// a delivery with no paymentFee warns (fee_unknown) once per payment; tests/handler-fee-unknown.test.ts reads those lines
+				warn: () => undefined,
 				env: "test",
 				context: () => ({
 					menu,

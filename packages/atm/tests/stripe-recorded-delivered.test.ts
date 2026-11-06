@@ -90,6 +90,8 @@ const harness = () => {
 		schoolId: SCHOOL,
 		nowMs: () => clock.now,
 		workerId: "recorded",
+		// a delivery with no paymentFee warns (fee_unknown) once per payment; tests/handler-fee-unknown.test.ts reads those lines
+		warn: () => undefined,
 		// The recordings are sandbox events (livemode false): a default (live) handler refuses them.
 		env: "test",
 		context,
