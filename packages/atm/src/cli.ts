@@ -1,6 +1,13 @@
 import { Database } from "bun:sqlite";
 import { generateKeyPairSync } from "node:crypto";
-import { appendFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import {
+	appendFile,
+	mkdir,
+	readFile,
+	rm,
+	stat,
+	writeFile,
+} from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import type { WorkerFullSubject } from "@autumn/balance-engine";
 import { Command } from "commander";
@@ -1048,9 +1055,19 @@ const schoolEvents = async (root: string, school: string) => {
 	return (await readEvents(root, school)).events;
 };
 
-/** The chain in `seals.jsonl`, in the order made; null when there is no file. A line that is not JSON stays as its text, so `verifySeals` calls it malformed. */
+const isMissingFile = (error: unknown): boolean =>
+	(error as NodeJS.ErrnoException | null)?.code === "ENOENT";
+
+/**
+ * The chain in `seals.jsonl`, in the order made; null when there is no file. Any other read error is an error, not an
+ * empty chain, so a file atm cannot read never starts a second chain. A line that is not JSON stays as its text, so
+ * `verifySeals` calls it malformed.
+ */
 const readSeals = async (path: string): Promise<unknown[] | null> => {
-	const text = await readFile(path, "utf8").catch(() => null);
+	const text = await readFile(path, "utf8").catch((error: unknown) => {
+		if (isMissingFile(error)) return null;
+		throw new InputError(`${path} cannot be read: ${oneLine(error)}`);
+	});
 	if (text === null) return null;
 	return text
 		.split("\n")
@@ -1070,7 +1087,7 @@ const keysCommand = program
 const keysNewCommand = keysCommand
 	.command("new")
 	.description(
-		"write a new Ed25519 key pair into --out: <key_id>.private.pem (mode 0600; keep it in a secret store), <key_id>.public.pem and keys.json ({ key_id: public PEM }, what --keys reads); refuses to overwrite any file",
+		"write a new Ed25519 key pair into --out: <key_id>.private.pem (mode 0600; keep it in a secret store), <key_id>.public.pem, and its public key into keys.json ({ key_id: public PEM }, what --keys reads), beside any keys already there; refuses to overwrite a key file or a key id",
 	)
 	.requiredOption("--out <dir>", "the folder to write the three files into")
 	.option(
@@ -1089,29 +1106,37 @@ const keysNewCommand = keysCommand
 			const publicPem = String(
 				publicKey.export({ format: "pem", type: "spki" }),
 			);
-			const files: [string, string, number][] = [
+			const keyFiles: [string, string, number][] = [
 				[
 					`${keyId}.private.pem`,
 					String(privateKey.export({ format: "pem", type: "pkcs8" })),
 					0o600,
 				],
 				[`${keyId}.public.pem`, publicPem, 0o644],
-				[
-					"keys.json",
-					`${JSON.stringify({ [keyId]: publicPem }, null, 2)}\n`,
-					0o644,
-				],
 			];
+			const keysPath = join(opts.out, "keys.json");
 			await mkdir(opts.out, { recursive: true });
-			for (const [name] of files)
+			for (const [name] of keyFiles)
 				if (await stat(join(opts.out, name)).catch(() => null))
 					throw new InputError(
 						`${join(opts.out, name)} already exists; atm keys new overwrites nothing`,
 					);
-			for (const [name, text, mode] of files)
+			// A rotation adds its key beside the old ones, which still check the receipts and seals they signed.
+			const known = (await stat(keysPath).catch(() => null))
+				? await keysFrom(keysPath)
+				: {};
+			if (Object.hasOwn(known, keyId))
+				throw new InputError(
+					`${keysPath} already has a key ${keyId}; atm keys new overwrites nothing`,
+				);
+			for (const [name, text, mode] of keyFiles)
 				await writeFile(join(opts.out, name), text, { flag: "wx", mode });
+			await writeFile(
+				keysPath,
+				`${JSON.stringify({ ...known, [keyId]: publicPem }, null, 2)}\n`,
+			);
 			process.stdout.write(
-				`wrote ${files.map(([name]) => join(opts.out, name)).join(", ")}\n`,
+				`wrote ${[...keyFiles.map(([name]) => join(opts.out, name)), keysPath].join(", ")}\n`,
 			);
 		}),
 	);
@@ -1168,7 +1193,7 @@ type SealOptions = {
 const sealCommand = program
 	.command("seal")
 	.description(
-		`seal a school's month: sign the count and hash of its events written by now, chained to the last seal in schools/<id>/${SEALS_FILE}, append it there and print it as one JSON line; a month may be sealed again to cover events that arrived later; an error is one line on stderr and exit 2`,
+		`seal a school's month: sign the ids, count and hash of the month's events in the folder now, chained to the last seal in schools/<id>/${SEALS_FILE}, append it there and print it as one JSON line; a month may be sealed again to cover events that arrived later; an error is one line on stderr and exit 2`,
 	)
 	.requiredOption("--root <folder>", "the folder that holds schools/<id>/")
 	.requiredOption("--school <id>", "school id, as in schools/<id>/")
@@ -1183,25 +1208,41 @@ const sealCommand = program
 			if (!SIMULATE_MONTH.test(opts.month))
 				throw new InputError(`--month must be YYYY-MM, got ${opts.month}`);
 			const signer = await signerFrom(opts.key, opts.keyId);
-			const events = await schoolEvents(opts.root, opts.school);
 			const path = join(opts.root, "schools", opts.school, SEALS_FILE);
-			const previous = (await readSeals(path))?.at(-1) ?? null;
-			if (previous !== null && typeof previous !== "object")
-				throw new InputError(
-					`the last line of ${path} is not a signed seal; run atm verify seals`,
-				);
-			const seal = sealOf({
-				school: opts.school,
-				month: opts.month,
-				events,
-				// The CLI's clock, not atm's: the library reads none.
-				sealedAt: isoInstant(Date.now()),
-				previous: previous as AtmSignedSeal | null,
-			});
-			const signed = signSeal(seal, signer);
+			assertSchoolFolder(opts.school);
 			await mkdir(dirname(path), { recursive: true });
-			await appendFile(path, `${canonicalize(signed)}\n`);
-			writeJson(signed);
+			// Two seals made at once would both chain to the same last seal and fork the chain; the second is refused.
+			const lock = `${path}.lock`;
+			await writeFile(lock, `${process.pid}\n`, { flag: "wx" }).catch(
+				(error: unknown) => {
+					throw new InputError(
+						(error as NodeJS.ErrnoException | null)?.code === "EEXIST"
+							? `${lock} exists: another atm seal is running, or one stopped without removing it`
+							: `${lock} cannot be written: ${oneLine(error)}`,
+					);
+				},
+			);
+			try {
+				const events = await schoolEvents(opts.root, opts.school);
+				const previous = (await readSeals(path))?.at(-1) ?? null;
+				if (previous !== null && typeof previous !== "object")
+					throw new InputError(
+						`the last line of ${path} is not a signed seal; run atm verify seals`,
+					);
+				const seal = sealOf({
+					school: opts.school,
+					month: opts.month,
+					events,
+					// The CLI's clock, not atm's: the library reads none.
+					sealedAt: isoInstant(Date.now()),
+					previous: previous as AtmSignedSeal | null,
+				});
+				const signed = signSeal(seal, signer);
+				await appendFile(path, `${canonicalize(signed)}\n`);
+				writeJson(signed);
+			} finally {
+				await rm(lock, { force: true });
+			}
 		}),
 	);
 exitTwoOnUsageError(sealCommand);
