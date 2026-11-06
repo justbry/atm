@@ -251,10 +251,10 @@ test("a bulk confirm starts every write at once, in row order, and toasts when a
 });
 
 test("a write that fails offers the booking again and says so", async () => {
-	const writer: Writer = {
+	const writer = {
 		recordOutcome: () => Promise.reject(new Error("offline")),
 		cancelBooking: () => Promise.resolve(),
-	};
+	} as Partial<Writer> as Writer;
 	await open("#/vol/bookings", { writer });
 	await click(
 		`[data-test=booking-action][data-action=confirm][data-booking=bk_6qq]`,
