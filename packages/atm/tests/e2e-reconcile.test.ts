@@ -329,10 +329,17 @@ describe.skipIf(!hasHledger)("the end-to-end reconciliation matrix", () => {
 				step.kind === "erase" ? [] : [step.answer],
 			);
 			expect(run.answers).toEqual(delivered);
-			// a delivery answered `non_usd` warns once, and nothing else does
-			expect(run.warnings).toHaveLength(
-				delivered.filter(([, outcome]) => outcome === "non_usd").length,
-			);
+			// a delivery answered `non_usd` warns once, a case that passes no fee warns once per payment (D1: `fee_unknown`),
+			// and nothing else does
+			const nonUsd = delivered.filter(
+				([, outcome]) => outcome === "non_usd",
+			).length;
+			expect(
+				run.warnings.filter((line) => !line.includes("fee_unknown")),
+			).toHaveLength(nonUsd);
+			expect(
+				run.warnings.filter((line) => line.includes("fee_unknown")),
+			).toHaveLength(c.id === "fee-unknown" ? 1 : 0);
 			expect(run.books).toHaveLength(c.books.length);
 			const caseRows: string[] = [];
 			for (const [index, got] of run.books.entries()) {

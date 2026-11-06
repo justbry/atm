@@ -2796,13 +2796,15 @@ export type WebhookDeps = {
 	 * inside its transaction, so it must answer from what the caller already holds, not by a network call. Called once per
 	 * `invoice.paid` attempt with the raw event; return `null` or `undefined` when the fee is not known (an asynchronous
 	 * payment whose balance transaction is not there yet): the payment is then booked with no fee, and the fee is not
-	 * booked later (the payment is booked once, and a re-send is answered `duplicate`). A value that is not a whole number
+	 * booked later (the payment is booked once, and a re-send is answered `duplicate`). The answer lists such a payment in
+	 * `body.feeUnknown` and `warn` says it is booked at the gross amount. A value that is not a whole number
 	 * from 0 to the amount paid is refused 422 `bad_event`.
 	 */
 	paymentFee?: (event: unknown) => number | null | undefined;
 	/**
 	 * Optional: where the handler says that it applied a delivery but did not book a money line (a non-USD invoice, refund,
-	 * payout or dispute: outcome `non_usd`). Called once per such delivery, after the transaction committed, with one line of text.
+	 * payout or dispute: outcome `non_usd`), or booked a payment without its Stripe fee (`atm: fee_unknown: ...`, outcome
+	 * `applied`). Called once per such delivery, after the transaction committed, with one line of text.
 	 * Default: the line goes to stderr. A throw here is caught (the delivery is committed, so it is still answered 200
 	 * `non_usd`): the line goes to stderr instead, with the error's message.
 	 */
@@ -2857,6 +2859,12 @@ export type WebhookResponse = {
 		wroteRows?: boolean;
 		/** `non_usd`: what was not booked, one `<kind> <Stripe id> <amount> <currency>` per money line. */
 		skipped?: string[];
+		/**
+		 * `applied`, only when not empty: the payments of this delivery that the books hold without their Stripe fee
+		 * (`fee_known: false`, at the gross amount), one `<invoice id> <amount paid> cents` each, with a note when the
+		 * delivery knew a fee the books did not take because the first delivery had booked the payment without it.
+		 */
+		feeUnknown?: string[];
 	};
 };
 
@@ -3194,6 +3202,12 @@ export type ReconcileResult = {
 	 * deliberately did not book. Empty when there are none.
 	 */
 	skipped: Record<string, number>;
+	/**
+	 * The log's `payment.succeeded` events dated in the period whose payload says `fee_known: false`: payments booked at
+	 * their gross amount because the handler was given no Stripe fee, and never given one later. 0 when every payment in
+	 * the period has its fee (or an event has no `fee_known`).
+	 */
+	feeUnknown: number;
 };
 
 // ---- Reading a school's folder: events, journals and reports (the library form of `atm journal` and `atm report`) ----
@@ -3217,11 +3231,16 @@ export type ReportOutput = { report: ReportName; text: string };
 /** The `money.skipped` events (a non-USD invoice, refund, payout or dispute the handler applied but did not book), counted. */
 export type SkippedNonUsd = { inMonth: number; total: number };
 
+/** The `payment.succeeded` events whose payload says `fee_known: false` (booked gross, no fee line), counted. */
+export type FeeUnknownPayments = { inMonth: number; total: number };
+
 export type ReportRun = {
 	journal: JournalRun;
 	reports: ReportOutput[];
 	/** Money the reports leave out because it is not in USD: in the month built, and in all the school's events. */
 	skippedNonUsd: SkippedNonUsd;
+	/** Payments the reports show without their Stripe fee: in the month built, and in all the school's events. */
+	feeUnknown: FeeUnknownPayments;
 };
 
 /** Thrown by `reportMonth` when hledger cannot be run: not installed, not on PATH, or failing. The message is one line. */

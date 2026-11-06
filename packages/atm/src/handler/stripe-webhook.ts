@@ -86,14 +86,15 @@
  *   `payment.refunded` (what that event refunded), and a `payout.paid` a `payout.paid`, all to the outbox beside the
  *   credit events. No webhook event carries Stripe's fee (it is the `fee` of the charge's balance transaction), so the
  *   optional `deps.paymentFee` supplies it, read from Stripe by the caller before the call; without it the payment books
- *   no fee line. The fee is fixed at the first delivery of the invoice: it is not booked later. A payout names no family
+ *   no fee line and the answer says so (`body.feeUnknown`, and a `deps.warn` line). The fee is fixed at the first delivery of the invoice: it is not booked later (a re-send that knows the fee is told so, not booked). A payout names no family
  *   and no school, so it is booked to `deps.schoolId` whatever its `account` says: serve each school from its own
  *   endpoint, on the school's own Stripe account (a Connect endpoint would send every connected account's payouts here).
  *   Not built: `payout.failed` (a payout that fails after `payout.paid` is not reversed) and disputes' money lines.
  *
  * Answers (Stripe retries every non-2xx for up to three days)
  *
- *   200 applied            rows, outbox and claim done committed (also when the event changes nothing)
+ *   200 applied            rows, outbox and claim done committed (also when the event changes nothing); `body.feeUnknown`
+ *                          lists a payment the books hold without its Stripe fee, and `deps.warn` says so
  *   200 non_usd            as `applied`, but an invoice, refund, payout or dispute not in USD left no money line: each left a
  *                          `money.skipped` event, `body.skipped` names them, and `deps.warn` (default stderr) says so
  *   200 duplicate          the Stripe event id is already done; nothing else is touched
@@ -232,6 +233,8 @@ type Applied =
 			wroteRows: boolean;
 			/** The money lines this delivery left unbooked for want of USD, from its `money.skipped` markers. */
 			skipped: string[];
+			/** The payments the books hold without their Stripe fee (`feeUnknownLines`). */
+			feeUnknown: string[];
 	  }
 	| { kind: "unknown_school" }
 	| { kind: "refused"; refusal: StripeEventRefusal };
@@ -610,6 +613,54 @@ const skippedLines = (events: readonly AtmEvent[]): string[] =>
 				`${String(payload.kind)} ${String(payload.id)} ${String(payload.amount)} ${String(payload.currency)}`,
 		);
 
+/**
+ * The payments of a delivery that the books hold without their Stripe fee, one line each: `<invoice id> <amount paid> cents`.
+ * Read from the outbox after the delivery appended its events, because the outbox keeps the first event of an idem: a payment
+ * booked by an earlier delivery stays as that delivery booked it, whatever fee this one knew. The payments looked at are
+ * the ones the delivery decided and, for an `invoice.paid`, the invoice's own (`stripe:<invoice id>`), which a re-send of an
+ * applied invoice does not decide again. When this delivery knew a fee (`fee`) and the held payment has none, the line says
+ * the fee is known now and was not booked (D1: a fee that arrives later is never booked).
+ */
+const feeUnknownLines = ({
+	db,
+	env,
+	school,
+	events,
+	invoiceId,
+	fee,
+}: {
+	db: SqlDatabase;
+	env: AtmEnv;
+	school: string;
+	events: readonly AtmEvent[];
+	invoiceId: string | undefined;
+	fee: number | undefined;
+}): string[] => {
+	const idems = new Set(
+		events
+			.filter((event) => event.event_type === "payment.succeeded")
+			.map((event) => event.idem),
+	);
+	if (invoiceId) idems.add(`stripe:${invoiceId}`);
+	const lines: string[] = [];
+	for (const idem of idems) {
+		const [held] = db.all<{ body: string }>(
+			`SELECT body FROM ledger_outbox WHERE school_id = ? AND env = ? AND idem = ?`,
+			[school, env, idem],
+		);
+		if (!held) continue;
+		const booked = JSON.parse(held.body) as AtmEvent;
+		if (booked.payload.fee_known !== false) continue;
+		const line = `${String(booked.payload.id)} ${String(booked.payload.amount_paid)} cents`;
+		lines.push(
+			typeof fee === "number"
+				? `${line} (fee ${fee} known now, not booked: the first delivery booked the payment without it)`
+				: line,
+		);
+	}
+	return lines;
+};
+
 const TRAILING_FULL_STOP = /\.$/;
 
 /**
@@ -623,8 +674,12 @@ const withPaymentNote = (
 	const booked = payment.find(
 		(line) => line.event_type === "payment.succeeded",
 	);
+	const gross =
+		booked?.payload.fee_known === false
+			? " It is booked at the gross amount, without a Stripe fee (fee_known false), and the fee is not booked later."
+			: "";
 	const note = booked
-		? `The payment itself is booked (payment.succeeded, idem ${booked.idem}) because Stripe has collected it; the delivery that is applied after the cause is fixed does not book it again. A refund or dispute of it waits (409) until that delivery is applied; if the cause is never fixed (the member is refunded instead), it is never booked, the income stays, and the refund has to be entered by hand.`
+		? `The payment itself is booked (payment.succeeded, idem ${booked.idem}) because Stripe has collected it; the delivery that is applied after the cause is fixed does not book it again.${gross} A refund or dispute of it waits (409) until that delivery is applied; if the cause is never fixed (the member is refunded instead), it is never booked, the income stays, and the refund has to be entered by hand.`
 		: "The payment is not in USD, so it is not booked as money; a money.skipped marker says so.";
 	return {
 		...refusal,
@@ -829,6 +884,17 @@ const applyOnce = ({
 		events: result.events.length,
 		wroteRows: result.rowChanges !== null,
 		skipped,
+		feeUnknown: feeUnknownLines({
+			db,
+			env,
+			school,
+			events: result.events,
+			invoiceId:
+				event.type === "invoice.paid"
+					? (stringAt(event.object, "id") ?? undefined)
+					: undefined,
+			fee,
+		}),
 	};
 };
 
@@ -859,6 +925,32 @@ const nonUsd = (
 		wroteRows: applied.wroteRows,
 		skipped: applied.skipped,
 		message,
+	});
+};
+
+/**
+ * A delivery applied whose payment the books hold at its gross amount, with no Stripe fee. Still `200 applied` (the credits
+ * are granted and a retry could not book the fee: the outbox keeps the first payment of an invoice), but `body.feeUnknown`
+ * lists the payments and a line goes out loud. The fee is the caller's (`WebhookDeps.paymentFee`): the line says which of
+ * the two it is, no dependency or a dependency that did not know.
+ */
+const withoutFee = (
+	deps: WebhookDeps,
+	event: StripeEvent,
+	applied: Extract<Applied, { kind: "applied" }>,
+): WebhookResponse => {
+	const why = deps.paymentFee
+		? "paymentFee did not know the fee"
+		: "no paymentFee dependency is configured";
+	sayAloud(
+		deps,
+		`atm: fee_unknown: ${event.id} (${event.type}) was applied, but ${applied.feeUnknown.length} payment(s) are booked at the gross amount with no Stripe fee (${why}): ${applied.feeUnknown.join("; ")}. The fee is not booked later: expenses:billing:stripe-fees and net income are off by it, and assets:stripe keeps it after a payout.`,
+	);
+	return reply(200, "applied", {
+		stripeEventId: event.id,
+		events: applied.events,
+		wroteRows: applied.wroteRows,
+		feeUnknown: applied.feeUnknown,
 	});
 };
 
@@ -904,6 +996,8 @@ const settle = (
 		}
 		if (applied.kind === "applied" && applied.skipped.length > 0)
 			return nonUsd(deps, event, applied);
+		if (applied.kind === "applied" && applied.feeUnknown.length > 0)
+			return withoutFee(deps, event, applied);
 		if (applied.kind === "applied")
 			return reply(200, "applied", {
 				stripeEventId: event.id,

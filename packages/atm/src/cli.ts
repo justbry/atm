@@ -25,6 +25,7 @@ import {
 } from "./ledger/reconcile-files.js";
 
 import {
+	feeUnknownNote,
 	HledgerError,
 	REPORT_CHOICES,
 	REPORT_FORMATS,
@@ -228,6 +229,8 @@ const reportCommand = program
 				);
 				const note = skippedNote({ ...run, month: opts.month });
 				if (note !== null) process.stderr.write(note);
+				const feeNote = feeUnknownNote({ ...run, month: opts.month });
+				if (feeNote !== null) process.stderr.write(feeNote);
 			}),
 	);
 exitTwoOnUsageError(reportCommand);
