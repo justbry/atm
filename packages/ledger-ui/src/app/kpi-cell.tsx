@@ -7,37 +7,6 @@ import {
 	type TableGrain,
 } from "../data/kpi-document.ts";
 
-/** Intl formats by cell-rules `formats` (en-US), for figures that are not document cells (the money of a plan). */
-const formatOptions: Record<KpiFormat, Intl.NumberFormatOptions> = {
-	money: { style: "currency" },
-	money0: {
-		style: "currency",
-		minimumFractionDigits: 0,
-		maximumFractionDigits: 0,
-	},
-	integer: {},
-	percent1: {
-		style: "percent",
-		minimumFractionDigits: 1,
-		maximumFractionDigits: 1,
-	},
-};
-const numberFormats = new Map<string, Intl.NumberFormat>();
-export function numberFormat(
-	format: KpiFormat,
-	currency: string,
-): Intl.NumberFormat {
-	const key = `${format}:${currency}`;
-	const known = numberFormats.get(key);
-	if (known) return known;
-	const made = new Intl.NumberFormat("en-US", {
-		...formatOptions[format],
-		currency: currency.toUpperCase(),
-	});
-	numberFormats.set(key, made);
-	return made;
-}
-
 const minorUnitsPerUnit = 100;
 const decimals: Record<"money" | "money0", number> = { money: 2, money0: 0 };
 const percent = 100;

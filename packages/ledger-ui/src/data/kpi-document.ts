@@ -129,15 +129,6 @@ export type KpiQuery = {
 	pinLocked: boolean;
 };
 
-/** @deprecated The books levels of cell-rules v3, retired by the audiences of `disclosure.ts`; kept only while
- * `School.booksLevel` and S0's View as still read them (the S1b build moves them to `resolveViewAs`). */
-export type BooksLevel =
-	| "public"
-	| "member"
-	| "governance"
-	| "finance_admin"
-	| "owner";
-
 export const cellKind = (cell: Cell): CellKind =>
 	typeof cell === "number"
 		? "number"

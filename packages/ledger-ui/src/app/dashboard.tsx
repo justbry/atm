@@ -1582,7 +1582,6 @@ export function Dashboard({
 									<option
 										key={id}
 										value={id}
-										class={id === preset?.id ? "on" : undefined}
 										data-test="preset-option"
 										data-preset={id}
 									>
