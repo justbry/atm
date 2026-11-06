@@ -1,17 +1,18 @@
 {
 	"slice": "S2",
 	"notes": [
-		"Routes: #/<school>/bookings?range=&offset=&filter=. range is day or week (absent: week); offset is an integer of days or weeks from the clock's today or its week (weeks start on Monday; absent: 0); filter is outcome, approval or cutoff (absent: all). The presets are today (day, 0), tomorrow (day, 1), this-week (week, 0) and next-week (week, 1); a step keeps the range and moves offset by one; a preset or a step keeps the filter.",
+		"Mockup: frozen at atm dev 742105b64 (disclosure v2, #125). Bookings' day and week periods are chosen in the one period control of the top bar (S7 builds it); the pane only names the period.",
+		"Period hash grammar. S0's money period is month= (period.ts: YYYY-MM, or YYYY-MM-DD..YYYY-MM-DD); Bookings neither reads nor writes it, so the money period comes back when you leave Bookings. On #/<school>/bookings the period is range= and offset=: range is day or week (absent, or anything else: week); offset is an integer (absent or malformed: 0). range=day is the day offset days from the clock's today; range=week is Monday to Sunday, offset weeks from the week that holds today. Unlike month=, a Bookings period may lie after today (bookings ahead). The defaults are left out of the hash. The period control on the Bookings tab offers Today (range=day), Tomorrow (range=day&offset=1), This week (neither), Next week (offset=1), and its previous and next steps move offset by one and keep range; it keeps filter= and as=.",
+		"filter=outcome|approval|cutoff (absent: all) is the pane's chips; a period change keeps it.",
+		"View as: as=owner|finance|admin|governance|member|public (mockup SUBS); absent, it is the signed-in person's own (Vibes of Light: Kim R., owner; B4 Uni: Jo A., admin with the finance grant, so finance). A value the person may not preview is ignored (mockup vaAllowed: owner and finance only by the owner, admin by the owner or a finance admin, governance, member and public by anyone who holds that audience). owner, finance and admin see the pane; governance, member and public see only lock-panel (data-lock admins_only), because bookings follow ManageBookings, not the audience.",
 		"Data: src/data/bookings.ts. The Reader gives bookings({ school, from, to }) (brief A item 2 joined with brief D attendance); the overdue group is a second read over the 62 days that end the day before from. The Writer gives recordOutcome and cancelBooking; Confirm all attended is one recordOutcome per row of its group that needs an outcome, in row order. needsOutcome and insideCutoff in the contract are the only rules the UI applies.",
-		"root.dataset.route is set once the Bookings pane shows the route's list.",
-		"booking-range (data-range today|tomorrow|this-week|next-week) and booking-filter (data-filter all|outcome|approval|cutoff) carry class 'on' when selected; booking-step carries data-step -1 or 1. booking-range-label is the mockup's <b> (Today, Tomorrow, Yesterday, '<Wkd> <Mon> <d>', This week, Next week, Last week, 'Week of <Mon> <d>'); booking-range-dates its dates. The filter chips count the shown range plus the overdue group.",
+		"root.dataset.route is set once the Bookings pane shows the route's list, or its lock panel.",
+		"booking-range-label is the pane's period name (mockup #bchips b: Today, Tomorrow, Yesterday, '<Wkd> <Mon> <d>', This week, Next week, Last week, 'Week of <Mon> <d>'); booking-range-dates is its dates followed by ' · change it in the period control'. booking-filter (data-filter all|outcome|approval|cutoff) carries class 'on' when selected; the chips count the shown range plus the overdue group.",
 		"booking-day is a group row (mockup tr.day) with data-day YYYY-MM-DD or overdue; booking-bulk sits in it with the same data-day when more than one of its bookings needs an outcome. booking-row is a booking (mockup tr.row) with data-booking; inside it booking-time (HH:MM, with '<Mon> <d> ' before it in the overdue group), booking-service (the service name only), booking-member (the attendee's name only, 'Guest' for a guest) and booking-status. booking-action (data-action confirm|noshow|release, data-booking) are the row's buttons: confirm and noshow when the booking needs an outcome, release on a confirmed booking that has not started. booking-empty is the 'Nothing booked on…' or 'No bookings…' line, booking-note the line under the table.",
 		"After a write starts, its row shows 'pending' in booking-status and no booking-action; the toast (the shell's, hooked toast) comes when the Writer answers. dialog is the modal (mockup #md), with dialog-title, dialog-confirm, dialog-cancel and, for a release inside the cutoff, the waive-cutoff checkbox; Escape closes it.",
-		"Not mapped (no field or route in briefs A and D): the Billing column ('Free', '<n> sessions held', 'Paid $40.00'), the series badge ('weekly · 3 left'), Remind host on a booking waiting for approval, Cancel and refund on a paid booking, the toast's Undo, and the dialogs' credit previews. No entry checks them."
+		"Not checked here: the period control itself (S7), the Billing column, the series badge ('weekly · 3 left'), Remind host, Cancel and refund on a paid booking, the toast's Undo and the dialogs' credit previews."
 	],
 	"hooks": [
-		"booking-range",
-		"booking-step",
 		"booking-range-label",
 		"booking-range-dates",
 		"booking-filter",
@@ -30,7 +31,8 @@
 		"dialog-title",
 		"dialog-confirm",
 		"dialog-cancel",
-		"waive-cutoff"
+		"waive-cutoff",
+		"lock-panel"
 	],
 	"moves": {
 		"fields": [
@@ -43,13 +45,12 @@
 	"entries": [
 		{
 			"id": "bk-default-week",
-			"source": "mockup headless (bookings(), vol): bPer {k:'wk',off:0} is 'This week', Nov 2 – Nov 8, 4 day groups and 5 rows, bulk on Wed Nov 4 (2 need an outcome), chips 'Needs outcome (2)', 'Waiting for approval (1)', 'Inside cutoff (1)' (bk_5kd: 6 h to start, cut 720 min); smoke.mjs 'bk default week', 'bk week day headers', 'bk week rows', 'bk bulk on wed'",
+			"source": "frozen mockup (atm dev 742105b64): the pane's period line is bLabel() 'This week' and '<dates> · change it in the period control' (the presets and steps moved to the top bar's period control, S7); 4 day groups and 5 rows, bulk on Wed Nov 4 (2 need an outcome), chips 'Needs outcome (2)', 'Waiting for approval (1)', 'Inside cutoff (1)' (bk_5kd: 6 h to start, cut 720 min); smoke.mjs 'bk default week', 'bk week day headers', 'bk week rows', 'bk bulk on wed'",
 			"route": "#/vol/bookings?theme=light",
 			"expect": {
 				"text": {
 					"[data-test=booking-range-label]": "This week",
-					"[data-test=booking-range-dates]": "Nov 2 – Nov 8",
-					"[data-test=booking-range].on": "This week",
+					"[data-test=booking-range-dates]": "Nov 2 – Nov 8 · change it in the period control",
 					"[data-test=booking-filter].on": "All",
 					"[data-test=booking-bulk][data-day=\"2026-11-04\"]": "Confirm all attended (2)",
 					"[data-test=booking-row][data-booking=bk_6qq] [data-test=booking-member]": {
@@ -78,12 +79,6 @@
 					"[data-test=booking-note]": "Credits are reserved when a booking is made, spent when it's attended, and released when it's cancelled before the item's cutoff. Cutoffs come from each item, not one school-wide number."
 				},
 				"contains": {
-					"[data-test=booking-range]": [
-						"Today",
-						"Tomorrow",
-						"This week",
-						"Next week"
-					],
 					"[data-test=booking-filter]": [
 						"All",
 						"Needs outcome (2)",
@@ -108,15 +103,14 @@
 					"[data-test=booking-day]": 4,
 					"[data-test=booking-row]": 5,
 					"[data-test=booking-bulk]": 1,
-					"[data-test=booking-range]": 4,
-					"[data-test=booking-step]": 2,
 					"[data-test=booking-filter]": 4,
 					"[data-test=booking-day][data-day=\"overdue\"]": 0,
 					"[data-test=booking-action][data-booking=bk_6qq]": 2,
 					"[data-test=booking-action][data-booking=bk_8zz]": 2,
 					"[data-test=booking-action][data-booking=bk_5kd]": 1,
 					"[data-test=booking-action][data-action=release][data-booking=bk_7hq]": 1,
-					"[data-test=dialog]": 0
+					"[data-test=dialog]": 0,
+					"[data-test=lock-panel]": 0
 				}
 			},
 			"shot": {
@@ -149,19 +143,12 @@
 		},
 		{
 			"id": "bk-today-overdue",
-			"source": "mockup headless: [data-bp='day:0'] gives 'Today', Nov 5; the two Nov 4 bookings that need an outcome sit in 'Overdue: needs an outcome (2)' with its bulk 'over', then Thu Nov 5; overdue rows show their date; smoke.mjs 'bk today overdue'",
-			"route": "#/vol/bookings?theme=light",
-			"steps": [
-				{
-					"click": "[data-test=booking-range][data-range=today]"
-				}
-			],
+			"source": "frozen mockup (atm dev 742105b64): the period control's Today (bPer day:0) gives 'Today', 'Nov 5 · change it in the period control'; the two Nov 4 bookings that need an outcome sit in 'Overdue: needs an outcome (2)' with its bulk 'over', then Thu Nov 5; overdue rows show their date; smoke.mjs 'bk today overdue'",
+			"route": "#/vol/bookings?range=day&theme=light",
 			"expect": {
-				"hash": "range=day",
 				"text": {
 					"[data-test=booking-range-label]": "Today",
-					"[data-test=booking-range-dates]": "Nov 5",
-					"[data-test=booking-range].on": "Today",
+					"[data-test=booking-range-dates]": "Nov 5 · change it in the period control",
 					"[data-test=booking-bulk][data-day=\"overdue\"]": "Confirm all attended (2)",
 					"[data-test=booking-row][data-booking=bk_6qq] [data-test=booking-time]": "Nov 4 10:00",
 					"[data-test=booking-row][data-booking=bk_8zz] [data-test=booking-time]": "Nov 4 17:00",
@@ -198,7 +185,7 @@
 			},
 			"shot": {
 				"full": true,
-				"mockupSteps": "document.querySelector('.tab[data-p=bk]').click();document.querySelector('#bchips [data-bp=\"day:0\"]').click()"
+				"mockupSteps": "document.querySelector('.tab[data-p=bk]').click();document.querySelector('#pp [data-bp=\"day:0\"]').click()"
 			}
 		},
 		{
@@ -303,18 +290,12 @@
 		},
 		{
 			"id": "bk-tomorrow-empty",
-			"source": "mockup headless: [data-bp='day:1'] gives 'Tomorrow', Nov 6: the overdue group, then 'Nothing booked on Nov 6.'; smoke.mjs 'bk tomorrow empty'",
-			"route": "#/vol/bookings?theme=light",
-			"steps": [
-				{
-					"click": "[data-test=booking-range][data-range=tomorrow]"
-				}
-			],
+			"source": "frozen mockup (atm dev 742105b64): Tomorrow (bPer day:1), Nov 6: the overdue group, then 'Nothing booked on Nov 6.'; smoke.mjs 'bk tomorrow empty'",
+			"route": "#/vol/bookings?range=day&offset=1&theme=light",
 			"expect": {
 				"text": {
 					"[data-test=booking-range-label]": "Tomorrow",
-					"[data-test=booking-range-dates]": "Nov 6",
-					"[data-test=booking-range].on": "Tomorrow",
+					"[data-test=booking-range-dates]": "Nov 6 · change it in the period control",
 					"[data-test=booking-empty]": "Nothing booked on Nov 6.",
 					"[data-test=booking-row][data-booking=bk_8zz] [data-test=booking-member]": {
 						"text": "Mia R.",
@@ -330,19 +311,12 @@
 		},
 		{
 			"id": "bk-next-week",
-			"source": "mockup headless: [data-bp='wk:1'] gives 'Next week', Nov 9 – Nov 15: the 2 overdue rows, Tue Nov 10 and Thu Nov 12, 4 rows; smoke.mjs 'bk next week (2 + 2 overdue pending)'",
-			"route": "#/vol/bookings?theme=light",
-			"steps": [
-				{
-					"click": "[data-test=booking-range][data-range=next-week]"
-				}
-			],
+			"source": "frozen mockup (atm dev 742105b64): Next week (bPer wk:1), Nov 9 – Nov 15: the 2 overdue rows, Tue Nov 10 and Thu Nov 12, 4 rows; smoke.mjs 'bk next week (2 + 2 overdue pending)'",
+			"route": "#/vol/bookings?offset=1&theme=light",
 			"expect": {
-				"hash": "offset=1",
 				"text": {
 					"[data-test=booking-range-label]": "Next week",
-					"[data-test=booking-range-dates]": "Nov 9 – Nov 15",
-					"[data-test=booking-range].on": "Next week",
+					"[data-test=booking-range-dates]": "Nov 9 – Nov 15 · change it in the period control",
 					"[data-test=booking-bulk][data-day=\"overdue\"]": "Confirm all attended (2)",
 					"[data-test=booking-row][data-booking=bk_9ab] [data-test=booking-member]": {
 						"text": "Ana P.",
@@ -377,44 +351,32 @@
 			}
 		},
 		{
-			"id": "bk-step-week",
-			"source": "mockup [data-bstep='1'] from Next week: bLabel 'Week of Nov 16', Nov 16 – Nov 22, no preset on, only the overdue rows; smoke.mjs 'bk step week'",
-			"route": "#/vol/bookings?range=week&offset=1&theme=light",
-			"steps": [
-				{
-					"click": "[data-test=booking-step][data-step=\"1\"]"
-				}
-			],
+			"id": "bk-week-of",
+			"source": "frozen mockup (atm dev 742105b64): two weeks on (the control's › from Next week, bPer wk:2): bLabel 'Week of Nov 16', Nov 16 – Nov 22, only the overdue rows; smoke.mjs 'bk step week'",
+			"route": "#/vol/bookings?offset=2&theme=light",
 			"expect": {
-				"hash": "offset=2",
 				"text": {
 					"[data-test=booking-range-label]": "Week of Nov 16",
-					"[data-test=booking-range-dates]": "Nov 16 – Nov 22",
+					"[data-test=booking-range-dates]": "Nov 16 – Nov 22 · change it in the period control",
 					"[data-test=booking-row][data-booking=bk_6qq] [data-test=booking-member]": {
 						"text": "Ana P.",
 						"moves": true
 					}
 				},
 				"count": {
-					"[data-test=booking-range].on": 0,
 					"[data-test=booking-row]": 2,
 					"[data-test=booking-day][data-day=\"overdue\"]": 1
 				}
 			}
 		},
 		{
-			"id": "bk-step-back",
-			"source": "mockup [data-bstep='-1'] from This week: 'Last week', Oct 26 – Nov 1, nothing booked and nothing overdue before it: 'No bookings in this period. Try This week.'",
-			"route": "#/vol/bookings?theme=light",
-			"steps": [
-				{
-					"click": "[data-test=booking-step][data-step=\"-1\"]"
-				}
-			],
+			"id": "bk-last-week",
+			"source": "frozen mockup (atm dev 742105b64): the week before (bPer wk:-1): 'Last week', Oct 26 – Nov 1, nothing booked and nothing overdue before it: 'No bookings in this period. Try This week.'",
+			"route": "#/vol/bookings?offset=-1&theme=light",
 			"expect": {
 				"text": {
 					"[data-test=booking-range-label]": "Last week",
-					"[data-test=booking-range-dates]": "Oct 26 – Nov 1",
+					"[data-test=booking-range-dates]": "Oct 26 – Nov 1 · change it in the period control",
 					"[data-test=booking-empty]": "No bookings in this period. Try This week."
 				},
 				"count": {
@@ -424,28 +386,13 @@
 			}
 		},
 		{
-			"id": "bk-step-day",
-			"source": "mockup [data-bstep='1'] at day grain: Today, then 'Tomorrow' (the Tomorrow preset on), then 'Sat Nov 7' (bLabel weekday and date) with bk_rq1 after the overdue group",
-			"route": "#/vol/bookings?range=day&offset=0&theme=light",
-			"steps": [
-				{
-					"click": "[data-test=booking-step][data-step=\"1\"]",
-					"expect": {
-						"text": {
-							"[data-test=booking-range-label]": "Tomorrow",
-							"[data-test=booking-range].on": "Tomorrow"
-						}
-					}
-				},
-				{
-					"click": "[data-test=booking-step][data-step=\"1\"]"
-				}
-			],
+			"id": "bk-day-later",
+			"source": "frozen mockup (atm dev 742105b64): two days on (bPer day:2): bLabel '<weekday> <date>' 'Sat Nov 7', with bk_rq1 after the overdue group",
+			"route": "#/vol/bookings?range=day&offset=2&theme=light",
 			"expect": {
-				"hash": "offset=2",
 				"text": {
 					"[data-test=booking-range-label]": "Sat Nov 7",
-					"[data-test=booking-range-dates]": "Nov 7",
+					"[data-test=booking-range-dates]": "Nov 7 · change it in the period control",
 					"[data-test=booking-row][data-booking=bk_rq1] [data-test=booking-member]": {
 						"text": "Lee T.",
 						"moves": true
@@ -453,8 +400,34 @@
 					"[data-test=booking-row][data-booking=bk_rq1] [data-test=booking-status]": "Waiting for approval"
 				},
 				"count": {
-					"[data-test=booking-range].on": 0,
 					"[data-test=booking-row]": 3
+				}
+			}
+		},
+		{
+			"id": "bk-yesterday",
+			"source": "frozen mockup (atm dev 742105b64): the day before (bPer day:-1): 'Yesterday', Nov 4; nothing is overdue before it, so the Nov 4 group holds both bookings that need an outcome, with its bulk",
+			"route": "#/vol/bookings?range=day&offset=-1&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=booking-range-label]": "Yesterday",
+					"[data-test=booking-range-dates]": "Nov 4 · change it in the period control",
+					"[data-test=booking-bulk][data-day=\"2026-11-04\"]": "Confirm all attended (2)",
+					"[data-test=booking-row][data-booking=bk_6qq] [data-test=booking-time]": "10:00",
+					"[data-test=booking-row][data-booking=bk_8zz] [data-test=booking-member]": {
+						"text": "Mia R.",
+						"moves": true
+					}
+				},
+				"contains": {
+					"[data-test=booking-day][data-day=\"2026-11-04\"]": [
+						"Wed Nov 4 · 2 bookings"
+					]
+				},
+				"count": {
+					"[data-test=booking-row]": 2,
+					"[data-test=booking-day]": 1,
+					"[data-test=booking-day][data-day=\"overdue\"]": 0
 				}
 			}
 		},
@@ -565,21 +538,8 @@
 		},
 		{
 			"id": "bk-empty-school",
-			"source": "mockup Lotus Lane Yoga (nw, B:[]): 'No bookings in this period.' on This week, ' Try This week.' added on any other range, chips counting 0",
+			"source": "frozen mockup (atm dev 742105b64): Lotus Lane Yoga (nw, B:[]) on This week: 'No bookings in this period.', chips counting 0",
 			"route": "#/nw/bookings?theme=light",
-			"steps": [
-				{
-					"click": "[data-test=booking-range][data-range=next-week]",
-					"expect": {
-						"text": {
-							"[data-test=booking-empty]": "No bookings in this period. Try This week."
-						}
-					}
-				},
-				{
-					"click": "[data-test=booking-range][data-range=this-week]"
-				}
-			],
 			"expect": {
 				"text": {
 					"[data-test=booking-empty]": "No bookings in this period.",
@@ -596,6 +556,124 @@
 					"[data-test=booking-row]": 0,
 					"[data-test=booking-day]": 0,
 					"[data-test=booking-bulk]": 0
+				}
+			}
+		},
+		{
+			"id": "bk-empty-school-next-week",
+			"source": "frozen mockup (atm dev 742105b64): Lotus Lane Yoga on Next week: ' Try This week.' is added off This week",
+			"route": "#/nw/bookings?offset=1&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=booking-empty]": "No bookings in this period. Try This week.",
+					"[data-test=booking-range-label]": "Next week"
+				},
+				"count": {
+					"[data-test=booking-row]": 0
+				}
+			}
+		},
+		{
+			"id": "bk-lock-governance",
+			"source": "frozen mockup (atm dev 742105b64) bookings(): View as governance (VW(s).admin false) hides the pane behind lockPanel('Owners and admins see bookings', '…ManageBookings, not the audience.', { code: 'admins_only', icon: 'calendar' }); smoke.mjs 'view as: governance preview locks Members and Bookings'",
+			"route": "#/vol/bookings?as=governance&theme=light",
+			"expect": {
+				"contains": {
+					"[data-test=lock-panel][data-lock=admins_only]": [
+						"Owners and admins see bookings",
+						"Not a school-books surface: bookings carry minors' schedules (safeguarding), so they follow ManageBookings, not the audience."
+					]
+				},
+				"count": {
+					"[data-test=lock-panel]": 1,
+					"[data-test=booking-row]": 0,
+					"[data-test=booking-day]": 0,
+					"[data-test=booking-filter]": 0,
+					"[data-test=booking-range-label]": 0,
+					"[data-test=booking-note]": 0,
+					"[data-test=booking-empty]": 0
+				},
+				"absent": ["Ana P.", "Mia R.", "Consult 30", "This week"]
+			}
+		},
+		{
+			"id": "bk-lock-member",
+			"source": "frozen mockup (atm dev 742105b64) bookings(): View as member (VW(s).admin false) hides the pane behind lockPanel('Owners and admins see bookings', '…ManageBookings, not the audience.', { code: 'admins_only', icon: 'calendar' }); smoke.mjs 'view as: governance preview locks Members and Bookings'",
+			"route": "#/vol/bookings?as=member&theme=light",
+			"expect": {
+				"contains": {
+					"[data-test=lock-panel][data-lock=admins_only]": [
+						"Owners and admins see bookings",
+						"Not a school-books surface: bookings carry minors' schedules (safeguarding), so they follow ManageBookings, not the audience."
+					]
+				},
+				"count": {
+					"[data-test=lock-panel]": 1,
+					"[data-test=booking-row]": 0,
+					"[data-test=booking-day]": 0,
+					"[data-test=booking-filter]": 0,
+					"[data-test=booking-range-label]": 0,
+					"[data-test=booking-note]": 0,
+					"[data-test=booking-empty]": 0
+				},
+				"absent": ["Ana P.", "Mia R.", "Consult 30", "This week"]
+			}
+		},
+		{
+			"id": "bk-lock-public",
+			"source": "frozen mockup (atm dev 742105b64) bookings(): View as public (VW(s).admin false) hides the pane behind lockPanel('Owners and admins see bookings', '…ManageBookings, not the audience.', { code: 'admins_only', icon: 'calendar' }); smoke.mjs 'view as: governance preview locks Members and Bookings'",
+			"route": "#/vol/bookings?as=public&theme=light",
+			"expect": {
+				"contains": {
+					"[data-test=lock-panel][data-lock=admins_only]": [
+						"Owners and admins see bookings",
+						"Not a school-books surface: bookings carry minors' schedules (safeguarding), so they follow ManageBookings, not the audience."
+					]
+				},
+				"count": {
+					"[data-test=lock-panel]": 1,
+					"[data-test=booking-row]": 0,
+					"[data-test=booking-day]": 0,
+					"[data-test=booking-filter]": 0,
+					"[data-test=booking-range-label]": 0,
+					"[data-test=booking-note]": 0,
+					"[data-test=booking-empty]": 0
+				},
+				"absent": ["Ana P.", "Mia R.", "Consult 30", "This week"]
+			}
+		},
+		{
+			"id": "bk-as-admin",
+			"source": "frozen mockup (atm dev 742105b64) VW(): View as admin (and owner, finance) is an admin audience: the pane, not the lock",
+			"route": "#/vol/bookings?as=admin&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=booking-row][data-booking=bk_6qq] [data-test=booking-member]": {
+						"text": "Ana P.",
+						"moves": true
+					},
+					"[data-test=booking-range-label]": "This week"
+				},
+				"count": {
+					"[data-test=lock-panel]": 0,
+					"[data-test=booking-row]": 5
+				}
+			}
+		},
+		{
+			"id": "bk-as-not-allowed",
+			"source": "frozen mockup (atm dev 742105b64) vaAllowed(): at B4 Uni Jo A. is a finance admin, who may not preview the owner, so as=owner is ignored and the pane shows as for Jo A.",
+			"route": "#/b4u/bookings?as=owner&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=booking-row][data-booking=bk_b12] [data-test=booking-member]": {
+						"text": "Dana W.",
+						"moves": true
+					}
+				},
+				"count": {
+					"[data-test=lock-panel]": 0,
+					"[data-test=booking-row]": 1
 				}
 			}
 		},
@@ -675,9 +753,7 @@
 						"count": {
 							"[data-test=booking-action][data-booking=bk_6qq]": 0
 						},
-						"absent": [
-							"Attendance confirmed"
-						]
+						"absent": ["Attendance confirmed"]
 					}
 				},
 				{
@@ -726,11 +802,7 @@
 							"[data-test=dialog-cancel]": "Cancel"
 						},
 						"contains": {
-							"[data-test=dialog]": [
-								"Consult 30",
-								"bk_6qq",
-								"Ana P."
-							]
+							"[data-test=dialog]": ["Consult 30", "bk_6qq", "Ana P."]
 						},
 						"count": {
 							"[data-test=dialog]": 1
@@ -979,35 +1051,8 @@
 		},
 		{
 			"id": "bk-b4u-week",
-			"source": "mockup headless (b4u): This week holds bk_b12 (Wed Nov 4, Dana W., needs an outcome), one booking so no bulk; Today shows it as overdue (1), still no bulk, and 'Nothing booked on Nov 5.'",
+			"source": "frozen mockup (atm dev 742105b64) (b4u): This week holds bk_b12 (Wed Nov 4, Dana W., needs an outcome), one booking so no bulk",
 			"route": "#/b4u/bookings?theme=light",
-			"steps": [
-				{
-					"click": "[data-test=booking-range][data-range=today]",
-					"expect": {
-						"text": {
-							"[data-test=booking-empty]": "Nothing booked on Nov 5.",
-							"[data-test=booking-row][data-booking=bk_b12] [data-test=booking-time]": "Nov 4 15:00",
-							"[data-test=booking-row][data-booking=bk_b12] [data-test=booking-member]": {
-								"text": "Dana W.",
-								"moves": true
-							}
-						},
-						"contains": {
-							"[data-test=booking-day][data-day=\"overdue\"]": [
-								"Overdue: needs an outcome (1)"
-							]
-						},
-						"count": {
-							"[data-test=booking-row]": 1,
-							"[data-test=booking-bulk]": 0
-						}
-					}
-				},
-				{
-					"click": "[data-test=booking-range][data-range=this-week]"
-				}
-			],
 			"expect": {
 				"text": {
 					"[data-test=booking-range-label]": "This week",
@@ -1023,12 +1068,8 @@
 					"[data-test=booking-row][data-booking=bk_b12] [data-test=booking-status]": "Needs outcome"
 				},
 				"contains": {
-					"[data-test=booking-day]": [
-						"Wed Nov 4 · 1 booking"
-					],
-					"[data-test=booking-row][data-booking=bk_b12]": [
-						"Dr. Lee"
-					],
+					"[data-test=booking-day]": ["Wed Nov 4 · 1 booking"],
+					"[data-test=booking-row][data-booking=bk_b12]": ["Dr. Lee"],
 					"[data-test=booking-filter]": [
 						"Needs outcome (1)",
 						"Waiting for approval (0)",
@@ -1044,9 +1085,34 @@
 			}
 		},
 		{
+			"id": "bk-b4u-today",
+			"source": "frozen mockup (atm dev 742105b64) (b4u) Today: bk_b12 is overdue (1), still no bulk, then 'Nothing booked on Nov 5.'",
+			"route": "#/b4u/bookings?range=day&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=booking-empty]": "Nothing booked on Nov 5.",
+					"[data-test=booking-row][data-booking=bk_b12] [data-test=booking-time]": "Nov 4 15:00",
+					"[data-test=booking-row][data-booking=bk_b12] [data-test=booking-member]": {
+						"text": "Dana W.",
+						"moves": true
+					},
+					"[data-test=booking-row][data-booking=bk_b12] [data-test=booking-status]": "Needs outcome"
+				},
+				"contains": {
+					"[data-test=booking-day][data-day=\"overdue\"]": [
+						"Overdue: needs an outcome (1)"
+					]
+				},
+				"count": {
+					"[data-test=booking-row]": 1,
+					"[data-test=booking-bulk]": 0
+				}
+			}
+		},
+		{
 			"id": "bk-b4u-next-week-release",
 			"source": "mockup headless (b4u) Next week: the overdue bk_b12, then Mon Nov 9, Tue Nov 10, Wed Nov 11 (Tutoring, Dr. Lee); bk_b11 starts in 100 h, cut 2880 min, so Release hold is quick: brief D cancel { reason }, toast 'Hold released for Omar F.'",
-			"route": "#/b4u/bookings?range=week&offset=1&theme=light",
+			"route": "#/b4u/bookings?offset=1&theme=light",
 			"steps": [
 				{
 					"click": "[data-test=booking-action][data-action=release][data-booking=bk_b11]",
