@@ -1,0 +1,1106 @@
+{
+	"slice": "S2",
+	"notes": [
+		"Routes: #/<school>/bookings?range=&offset=&filter=. range is day or week (absent: week); offset is an integer of days or weeks from the clock's today or its week (weeks start on Monday; absent: 0); filter is outcome, approval or cutoff (absent: all). The presets are today (day, 0), tomorrow (day, 1), this-week (week, 0) and next-week (week, 1); a step keeps the range and moves offset by one; a preset or a step keeps the filter.",
+		"Data: src/data/bookings.ts. The Reader gives bookings({ school, from, to }) (brief A item 2 joined with brief D attendance); the overdue group is a second read over the 62 days that end the day before from. The Writer gives recordOutcome and cancelBooking; Confirm all attended is one recordOutcome per row of its group that needs an outcome, in row order. needsOutcome and insideCutoff in the contract are the only rules the UI applies.",
+		"root.dataset.route is set once the Bookings pane shows the route's list.",
+		"booking-range (data-range today|tomorrow|this-week|next-week) and booking-filter (data-filter all|outcome|approval|cutoff) carry class 'on' when selected; booking-step carries data-step -1 or 1. booking-range-label is the mockup's <b> (Today, Tomorrow, Yesterday, '<Wkd> <Mon> <d>', This week, Next week, Last week, 'Week of <Mon> <d>'); booking-range-dates its dates. The filter chips count the shown range plus the overdue group.",
+		"booking-day is a group row (mockup tr.day) with data-day YYYY-MM-DD or overdue; booking-bulk sits in it with the same data-day when more than one of its bookings needs an outcome. booking-row is a booking (mockup tr.row) with data-booking; inside it booking-time (HH:MM, with '<Mon> <d> ' before it in the overdue group), booking-service (the service name only), booking-member (the attendee's name only, 'Guest' for a guest) and booking-status. booking-action (data-action confirm|noshow|release, data-booking) are the row's buttons: confirm and noshow when the booking needs an outcome, release on a confirmed booking that has not started. booking-empty is the 'Nothing booked on…' or 'No bookings…' line, booking-note the line under the table.",
+		"After a write starts, its row shows 'pending' in booking-status and no booking-action; the toast (the shell's, hooked toast) comes when the Writer answers. dialog is the modal (mockup #md), with dialog-title, dialog-confirm, dialog-cancel and, for a release inside the cutoff, the waive-cutoff checkbox; Escape closes it.",
+		"Not mapped (no field or route in briefs A and D): the Billing column ('Free', '<n> sessions held', 'Paid $40.00'), the series badge ('weekly · 3 left'), Remind host on a booking waiting for approval, Cancel and refund on a paid booking, the toast's Undo, and the dialogs' credit previews. No entry checks them."
+	],
+	"hooks": [
+		"booking-range",
+		"booking-step",
+		"booking-range-label",
+		"booking-range-dates",
+		"booking-filter",
+		"booking-day",
+		"booking-bulk",
+		"booking-row",
+		"booking-time",
+		"booking-service",
+		"booking-member",
+		"booking-status",
+		"booking-action",
+		"booking-empty",
+		"booking-note",
+		"toast",
+		"dialog",
+		"dialog-title",
+		"dialog-confirm",
+		"dialog-cancel",
+		"waive-cutoff"
+	],
+	"moves": {
+		"fields": [
+			"bookings.bookings[].attendee.name",
+			"bookings.bookings[].service",
+			"bookings.bookings[].hosts[].name",
+			"schools[].name"
+		]
+	},
+	"entries": [
+		{
+			"id": "bk-default-week",
+			"source": "mockup headless (bookings(), vol): bPer {k:'wk',off:0} is 'This week', Nov 2 – Nov 8, 4 day groups and 5 rows, bulk on Wed Nov 4 (2 need an outcome), chips 'Needs outcome (2)', 'Waiting for approval (1)', 'Inside cutoff (1)' (bk_5kd: 6 h to start, cut 720 min); smoke.mjs 'bk default week', 'bk week day headers', 'bk week rows', 'bk bulk on wed'",
+			"route": "#/vol/bookings?theme=light",
+			"expect": {
+				"text": {
+					"[data-test=booking-range-label]": "This week",
+					"[data-test=booking-range-dates]": "Nov 2 – Nov 8",
+					"[data-test=booking-range].on": "This week",
+					"[data-test=booking-filter].on": "All",
+					"[data-test=booking-bulk][data-day=\"2026-11-04\"]": "Confirm all attended (2)",
+					"[data-test=booking-row][data-booking=bk_6qq] [data-test=booking-member]": {
+						"text": "Ana P.",
+						"moves": true
+					},
+					"[data-test=booking-row][data-booking=bk_8zz] [data-test=booking-member]": {
+						"text": "Mia R.",
+						"moves": true
+					},
+					"[data-test=booking-row][data-booking=bk_5kd] [data-test=booking-member]": {
+						"text": "Ivy N.",
+						"moves": true
+					},
+					"[data-test=booking-row][data-booking=bk_6qq] [data-test=booking-service]": {
+						"text": "Consult 30",
+						"moves": true
+					},
+					"[data-test=booking-row][data-booking=bk_6qq] [data-test=booking-time]": "10:00",
+					"[data-test=booking-row][data-booking=bk_6qq] [data-test=booking-status]": "Needs outcome",
+					"[data-test=booking-row][data-booking=bk_5kd] [data-test=booking-status]": "Inside 12h cutoff",
+					"[data-test=booking-row][data-booking=bk_rq1] [data-test=booking-status]": "Waiting for approval",
+					"[data-test=booking-action][data-action=confirm][data-booking=bk_6qq]": "Confirm attended",
+					"[data-test=booking-action][data-action=noshow][data-booking=bk_6qq]": "No-show",
+					"[data-test=booking-action][data-action=release][data-booking=bk_5kd]": "Release hold",
+					"[data-test=booking-note]": "Credits are reserved when a booking is made, spent when it's attended, and released when it's cancelled before the item's cutoff. Cutoffs come from each item, not one school-wide number."
+				},
+				"contains": {
+					"[data-test=booking-range]": [
+						"Today",
+						"Tomorrow",
+						"This week",
+						"Next week"
+					],
+					"[data-test=booking-filter]": [
+						"All",
+						"Needs outcome (2)",
+						"Waiting for approval (1)",
+						"Inside cutoff (1)"
+					],
+					"[data-test=booking-day]": [
+						"Wed Nov 4 · 2 bookings",
+						"Thu Nov 5 · Today · 1 booking",
+						"Sat Nov 7 · 1 booking",
+						"Sun Nov 8 · 1 booking"
+					],
+					"[data-test=booking-row][data-booking=bk_8zz]": [
+						"17:00",
+						"Massage 90",
+						"bk_8zz",
+						"Kim",
+						"Mia R."
+					]
+				},
+				"count": {
+					"[data-test=booking-day]": 4,
+					"[data-test=booking-row]": 5,
+					"[data-test=booking-bulk]": 1,
+					"[data-test=booking-range]": 4,
+					"[data-test=booking-step]": 2,
+					"[data-test=booking-filter]": 4,
+					"[data-test=booking-day][data-day=\"overdue\"]": 0,
+					"[data-test=booking-action][data-booking=bk_6qq]": 2,
+					"[data-test=booking-action][data-booking=bk_8zz]": 2,
+					"[data-test=booking-action][data-booking=bk_5kd]": 1,
+					"[data-test=booking-action][data-action=release][data-booking=bk_7hq]": 1,
+					"[data-test=dialog]": 0
+				}
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "document.querySelector('.tab[data-p=bk]').click()"
+			}
+		},
+		{
+			"id": "bk-tab-click",
+			"source": "mockup .tab[data-p=bk] opens the Bookings pane on This week",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=tab][data-tab=bookings]"
+				}
+			],
+			"expect": {
+				"hash": "#/vol/bookings",
+				"text": {
+					"[data-test=booking-range-label]": "This week",
+					"[data-test=booking-row][data-booking=bk_7hq] [data-test=booking-member]": {
+						"text": "Jon K.",
+						"moves": true
+					}
+				},
+				"count": {
+					"[data-test=booking-row]": 5
+				}
+			}
+		},
+		{
+			"id": "bk-today-overdue",
+			"source": "mockup headless: [data-bp='day:0'] gives 'Today', Nov 5; the two Nov 4 bookings that need an outcome sit in 'Overdue: needs an outcome (2)' with its bulk 'over', then Thu Nov 5; overdue rows show their date; smoke.mjs 'bk today overdue'",
+			"route": "#/vol/bookings?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=booking-range][data-range=today]"
+				}
+			],
+			"expect": {
+				"hash": "range=day",
+				"text": {
+					"[data-test=booking-range-label]": "Today",
+					"[data-test=booking-range-dates]": "Nov 5",
+					"[data-test=booking-range].on": "Today",
+					"[data-test=booking-bulk][data-day=\"overdue\"]": "Confirm all attended (2)",
+					"[data-test=booking-row][data-booking=bk_6qq] [data-test=booking-time]": "Nov 4 10:00",
+					"[data-test=booking-row][data-booking=bk_8zz] [data-test=booking-time]": "Nov 4 17:00",
+					"[data-test=booking-row][data-booking=bk_5kd] [data-test=booking-time]": "18:00",
+					"[data-test=booking-row][data-booking=bk_8zz] [data-test=booking-member]": {
+						"text": "Mia R.",
+						"moves": true
+					},
+					"[data-test=booking-row][data-booking=bk_6qq] [data-test=booking-member]": {
+						"text": "Ana P.",
+						"moves": true
+					},
+					"[data-test=booking-row][data-booking=bk_8zz] [data-test=booking-status]": "Needs outcome"
+				},
+				"contains": {
+					"[data-test=booking-day][data-day=\"overdue\"]": [
+						"Overdue: needs an outcome (2)"
+					],
+					"[data-test=booking-day][data-day=\"2026-11-05\"]": [
+						"Thu Nov 5 · Today · 1 booking"
+					],
+					"[data-test=booking-filter]": [
+						"Needs outcome (2)",
+						"Waiting for approval (0)",
+						"Inside cutoff (1)"
+					]
+				},
+				"count": {
+					"[data-test=booking-day]": 2,
+					"[data-test=booking-row]": 3,
+					"[data-test=booking-bulk]": 1,
+					"[data-test=booking-empty]": 0
+				}
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "document.querySelector('.tab[data-p=bk]').click();document.querySelector('#bchips [data-bp=\"day:0\"]').click()"
+			}
+		},
+		{
+			"id": "bk-bulk-overdue",
+			"source": "mockup bulkConfirm('over'): every overdue booking that needs an outcome is confirmed, the rows turn pending, the bulk button goes, toast 'Attendance confirmed for 2 bookings.'; brief D: one outcome call per booking (no bulk route), in row order; smoke.mjs 'bulk gone after confirm', 'bulk toast'",
+			"route": "#/vol/bookings?range=day&offset=0&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=booking-bulk][data-day=\"overdue\"]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "recordOutcome",
+						"args": [
+							{
+								"school": "vol",
+								"bookingId": "bk_6qq",
+								"state": "attended"
+							}
+						]
+					},
+					{
+						"method": "recordOutcome",
+						"args": [
+							{
+								"school": "vol",
+								"bookingId": "bk_8zz",
+								"state": "attended"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": "Attendance confirmed for 2 bookings.",
+					"[data-test=booking-row][data-booking=bk_6qq] [data-test=booking-member]": {
+						"text": "Ana P.",
+						"moves": true
+					}
+				},
+				"contains": {
+					"[data-test=booking-row][data-booking=bk_6qq] [data-test=booking-status]": [
+						"pending"
+					],
+					"[data-test=booking-row][data-booking=bk_8zz] [data-test=booking-status]": [
+						"pending"
+					]
+				},
+				"count": {
+					"[data-test=booking-bulk]": 0,
+					"[data-test=booking-action][data-booking=bk_6qq]": 0,
+					"[data-test=booking-action][data-booking=bk_8zz]": 0,
+					"[data-test=booking-action][data-booking=bk_5kd]": 1
+				}
+			}
+		},
+		{
+			"id": "bk-bulk-day",
+			"source": "mockup bulkConfirm('2026-11-04'): the Wednesday group's 'Confirm all attended (2)'; one outcome call per booking, in row order (startsAt ascending)",
+			"route": "#/vol/bookings?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=booking-bulk][data-day=\"2026-11-04\"]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "recordOutcome",
+						"args": [
+							{
+								"school": "vol",
+								"bookingId": "bk_6qq",
+								"state": "attended"
+							}
+						]
+					},
+					{
+						"method": "recordOutcome",
+						"args": [
+							{
+								"school": "vol",
+								"bookingId": "bk_8zz",
+								"state": "attended"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": "Attendance confirmed for 2 bookings.",
+					"[data-test=booking-row][data-booking=bk_8zz] [data-test=booking-member]": {
+						"text": "Mia R.",
+						"moves": true
+					}
+				},
+				"count": {
+					"[data-test=booking-bulk]": 0,
+					"[data-test=booking-action][data-booking=bk_8zz]": 0
+				}
+			}
+		},
+		{
+			"id": "bk-tomorrow-empty",
+			"source": "mockup headless: [data-bp='day:1'] gives 'Tomorrow', Nov 6: the overdue group, then 'Nothing booked on Nov 6.'; smoke.mjs 'bk tomorrow empty'",
+			"route": "#/vol/bookings?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=booking-range][data-range=tomorrow]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=booking-range-label]": "Tomorrow",
+					"[data-test=booking-range-dates]": "Nov 6",
+					"[data-test=booking-range].on": "Tomorrow",
+					"[data-test=booking-empty]": "Nothing booked on Nov 6.",
+					"[data-test=booking-row][data-booking=bk_8zz] [data-test=booking-member]": {
+						"text": "Mia R.",
+						"moves": true
+					}
+				},
+				"count": {
+					"[data-test=booking-day][data-day=\"overdue\"]": 1,
+					"[data-test=booking-day]": 1,
+					"[data-test=booking-row]": 2
+				}
+			}
+		},
+		{
+			"id": "bk-next-week",
+			"source": "mockup headless: [data-bp='wk:1'] gives 'Next week', Nov 9 – Nov 15: the 2 overdue rows, Tue Nov 10 and Thu Nov 12, 4 rows; smoke.mjs 'bk next week (2 + 2 overdue pending)'",
+			"route": "#/vol/bookings?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=booking-range][data-range=next-week]"
+				}
+			],
+			"expect": {
+				"hash": "offset=1",
+				"text": {
+					"[data-test=booking-range-label]": "Next week",
+					"[data-test=booking-range-dates]": "Nov 9 – Nov 15",
+					"[data-test=booking-range].on": "Next week",
+					"[data-test=booking-bulk][data-day=\"overdue\"]": "Confirm all attended (2)",
+					"[data-test=booking-row][data-booking=bk_9ab] [data-test=booking-member]": {
+						"text": "Ana P.",
+						"moves": true
+					},
+					"[data-test=booking-row][data-booking=bk_3cd] [data-test=booking-member]": {
+						"text": "Lee T.",
+						"moves": true
+					},
+					"[data-test=booking-row][data-booking=bk_9ab] [data-test=booking-time]": "14:00"
+				},
+				"contains": {
+					"[data-test=booking-day]": [
+						"Overdue: needs an outcome (2)",
+						"Tue Nov 10 · 1 booking",
+						"Thu Nov 12 · 1 booking"
+					],
+					"[data-test=booking-row][data-booking=bk_3cd]": [
+						"Group event",
+						"Kim, Ravi"
+					],
+					"[data-test=booking-filter]": [
+						"Needs outcome (2)",
+						"Waiting for approval (0)",
+						"Inside cutoff (0)"
+					]
+				},
+				"count": {
+					"[data-test=booking-day]": 3,
+					"[data-test=booking-row]": 4
+				}
+			}
+		},
+		{
+			"id": "bk-step-week",
+			"source": "mockup [data-bstep='1'] from Next week: bLabel 'Week of Nov 16', Nov 16 – Nov 22, no preset on, only the overdue rows; smoke.mjs 'bk step week'",
+			"route": "#/vol/bookings?range=week&offset=1&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=booking-step][data-step=\"1\"]"
+				}
+			],
+			"expect": {
+				"hash": "offset=2",
+				"text": {
+					"[data-test=booking-range-label]": "Week of Nov 16",
+					"[data-test=booking-range-dates]": "Nov 16 – Nov 22",
+					"[data-test=booking-row][data-booking=bk_6qq] [data-test=booking-member]": {
+						"text": "Ana P.",
+						"moves": true
+					}
+				},
+				"count": {
+					"[data-test=booking-range].on": 0,
+					"[data-test=booking-row]": 2,
+					"[data-test=booking-day][data-day=\"overdue\"]": 1
+				}
+			}
+		},
+		{
+			"id": "bk-step-back",
+			"source": "mockup [data-bstep='-1'] from This week: 'Last week', Oct 26 – Nov 1, nothing booked and nothing overdue before it: 'No bookings in this period. Try This week.'",
+			"route": "#/vol/bookings?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=booking-step][data-step=\"-1\"]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=booking-range-label]": "Last week",
+					"[data-test=booking-range-dates]": "Oct 26 – Nov 1",
+					"[data-test=booking-empty]": "No bookings in this period. Try This week."
+				},
+				"count": {
+					"[data-test=booking-row]": 0,
+					"[data-test=booking-day]": 0
+				}
+			}
+		},
+		{
+			"id": "bk-step-day",
+			"source": "mockup [data-bstep='1'] at day grain: Today, then 'Tomorrow' (the Tomorrow preset on), then 'Sat Nov 7' (bLabel weekday and date) with bk_rq1 after the overdue group",
+			"route": "#/vol/bookings?range=day&offset=0&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=booking-step][data-step=\"1\"]",
+					"expect": {
+						"text": {
+							"[data-test=booking-range-label]": "Tomorrow",
+							"[data-test=booking-range].on": "Tomorrow"
+						}
+					}
+				},
+				{
+					"click": "[data-test=booking-step][data-step=\"1\"]"
+				}
+			],
+			"expect": {
+				"hash": "offset=2",
+				"text": {
+					"[data-test=booking-range-label]": "Sat Nov 7",
+					"[data-test=booking-range-dates]": "Nov 7",
+					"[data-test=booking-row][data-booking=bk_rq1] [data-test=booking-member]": {
+						"text": "Lee T.",
+						"moves": true
+					},
+					"[data-test=booking-row][data-booking=bk_rq1] [data-test=booking-status]": "Waiting for approval"
+				},
+				"count": {
+					"[data-test=booking-range].on": 0,
+					"[data-test=booking-row]": 3
+				}
+			}
+		},
+		{
+			"id": "bk-filter-approval",
+			"source": "mockup chip [data-b=apr] on This week: only bk_rq1 (state requested), in its day group; smoke.mjs 'bk filter approval'",
+			"route": "#/vol/bookings?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=booking-filter][data-filter=approval]"
+				}
+			],
+			"expect": {
+				"hash": "filter=approval",
+				"text": {
+					"[data-test=booking-filter].on": "Waiting for approval (1)",
+					"[data-test=booking-row][data-booking=bk_rq1] [data-test=booking-member]": {
+						"text": "Lee T.",
+						"moves": true
+					},
+					"[data-test=booking-row][data-booking=bk_rq1] [data-test=booking-service]": {
+						"text": "Facial",
+						"moves": true
+					},
+					"[data-test=booking-row][data-booking=bk_rq1] [data-test=booking-time]": "11:00",
+					"[data-test=booking-row][data-booking=bk_rq1] [data-test=booking-status]": "Waiting for approval"
+				},
+				"contains": {
+					"[data-test=booking-day][data-day=\"2026-11-07\"]": [
+						"Sat Nov 7 · 1 booking"
+					]
+				},
+				"count": {
+					"[data-test=booking-row]": 1,
+					"[data-test=booking-day]": 1,
+					"[data-test=booking-bulk]": 0
+				}
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "document.querySelector('.tab[data-p=bk]').click();document.querySelector('#bchips [data-b=apr]').click()"
+			}
+		},
+		{
+			"id": "bk-filter-outcome",
+			"source": "mockup chip [data-b=out] on This week: the two Nov 4 bookings; 'All' turns the filter off",
+			"route": "#/vol/bookings?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=booking-filter][data-filter=outcome]",
+					"expect": {
+						"text": {
+							"[data-test=booking-filter].on": "Needs outcome (2)",
+							"[data-test=booking-row][data-booking=bk_6qq] [data-test=booking-member]": {
+								"text": "Ana P.",
+								"moves": true
+							}
+						},
+						"count": {
+							"[data-test=booking-row]": 2
+						}
+					}
+				},
+				{
+					"click": "[data-test=booking-filter][data-filter=all]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=booking-filter].on": "All"
+				},
+				"count": {
+					"[data-test=booking-row]": 5
+				}
+			}
+		},
+		{
+			"id": "bk-filter-cutoff",
+			"source": "mockup chip [data-b=cut] on This week: bk_5kd only (starts in 6 h, its cutoff is 720 min)",
+			"route": "#/vol/bookings?filter=cutoff&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=booking-filter].on": "Inside cutoff (1)",
+					"[data-test=booking-row][data-booking=bk_5kd] [data-test=booking-member]": {
+						"text": "Ivy N.",
+						"moves": true
+					},
+					"[data-test=booking-row][data-booking=bk_5kd] [data-test=booking-status]": "Inside 12h cutoff"
+				},
+				"count": {
+					"[data-test=booking-row]": 1
+				}
+			}
+		},
+		{
+			"id": "bk-filter-empty",
+			"source": "mockup bookings(): a filter that keeps nothing reads 'No bookings match.', plus ' Try This week.' off This week (Next week, Inside cutoff: the overdue rows are filtered too)",
+			"route": "#/vol/bookings?range=week&offset=1&filter=cutoff&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=booking-empty]": "No bookings match. Try This week."
+				},
+				"count": {
+					"[data-test=booking-row]": 0,
+					"[data-test=booking-day]": 0
+				}
+			}
+		},
+		{
+			"id": "bk-empty-school",
+			"source": "mockup Lotus Lane Yoga (nw, B:[]): 'No bookings in this period.' on This week, ' Try This week.' added on any other range, chips counting 0",
+			"route": "#/nw/bookings?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=booking-range][data-range=next-week]",
+					"expect": {
+						"text": {
+							"[data-test=booking-empty]": "No bookings in this period. Try This week."
+						}
+					}
+				},
+				{
+					"click": "[data-test=booking-range][data-range=this-week]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=booking-empty]": "No bookings in this period.",
+					"[data-test=booking-range-label]": "This week"
+				},
+				"contains": {
+					"[data-test=booking-filter]": [
+						"Needs outcome (0)",
+						"Waiting for approval (0)",
+						"Inside cutoff (0)"
+					]
+				},
+				"count": {
+					"[data-test=booking-row]": 0,
+					"[data-test=booking-day]": 0,
+					"[data-test=booking-bulk]": 0
+				}
+			}
+		},
+		{
+			"id": "bk-confirm",
+			"source": "mockup [data-act=confirm] (quick): the row turns pending and loses its actions, toast 'Attendance confirmed for <name>.'; the mockup's template doubles the period after a name that ends in '.', the app writes one. Brief D outcome { state: attended }",
+			"route": "#/vol/bookings?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=booking-action][data-action=confirm][data-booking=bk_6qq]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "recordOutcome",
+						"args": [
+							{
+								"school": "vol",
+								"bookingId": "bk_6qq",
+								"state": "attended"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": {
+						"text": "Attendance confirmed for Ana P.",
+						"moves": true
+					}
+				},
+				"contains": {
+					"[data-test=booking-row][data-booking=bk_6qq] [data-test=booking-status]": [
+						"pending"
+					]
+				},
+				"count": {
+					"[data-test=booking-action][data-booking=bk_6qq]": 0,
+					"[data-test=booking-action][data-booking=bk_8zz]": 2,
+					"[data-test=booking-bulk]": 0,
+					"[data-test=dialog]": 0
+				}
+			}
+		},
+		{
+			"id": "bk-confirm-pending",
+			"source": "protocol §7 hold writer: while recordOutcome is pending the row shows pending, offers no action and nothing claims the outcome yet; the toast comes when the Writer answers",
+			"route": "#/vol/bookings?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=booking-action][data-action=confirm][data-booking=bk_6qq]",
+					"expect": {
+						"writes": [
+							{
+								"method": "recordOutcome",
+								"args": [
+									{
+										"school": "vol",
+										"bookingId": "bk_6qq",
+										"state": "attended"
+									}
+								]
+							}
+						],
+						"text": {
+							"[data-test=booking-row][data-booking=bk_6qq] [data-test=booking-member]": {
+								"text": "Ana P.",
+								"moves": true
+							}
+						},
+						"contains": {
+							"[data-test=booking-row][data-booking=bk_6qq] [data-test=booking-status]": [
+								"pending"
+							]
+						},
+						"count": {
+							"[data-test=booking-action][data-booking=bk_6qq]": 0
+						},
+						"absent": [
+							"Attendance confirmed"
+						]
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "recordOutcome",
+						"args": [
+							{
+								"school": "vol",
+								"bookingId": "bk_6qq",
+								"state": "attended"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": {
+						"text": "Attendance confirmed for Ana P.",
+						"moves": true
+					}
+				},
+				"count": {
+					"[data-test=booking-action][data-booking=bk_6qq]": 0
+				}
+			}
+		},
+		{
+			"id": "bk-noshow",
+			"source": "mockup [data-act=noshow] opens ACT.noshow: 'Mark no-show · <school>', the booking line 'Consult 30 · bk_6qq · Ana P. · <key>', Cancel and 'Mark no-show'; on OK the row turns pending and the toast is the generic 'Sent…'. Brief D outcome { state: no_show }",
+			"route": "#/vol/bookings?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=booking-action][data-action=noshow][data-booking=bk_6qq]",
+					"expect": {
+						"writes": [],
+						"text": {
+							"[data-test=dialog-title]": {
+								"text": "Mark no-show · Vibes of Light",
+								"moves": true
+							},
+							"[data-test=dialog-confirm]": "Mark no-show",
+							"[data-test=dialog-cancel]": "Cancel"
+						},
+						"contains": {
+							"[data-test=dialog]": [
+								"Consult 30",
+								"bk_6qq",
+								"Ana P."
+							]
+						},
+						"count": {
+							"[data-test=dialog]": 1
+						}
+					}
+				},
+				{
+					"click": "[data-test=dialog-confirm]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "recordOutcome",
+						"args": [
+							{
+								"school": "vol",
+								"bookingId": "bk_6qq",
+								"state": "no_show"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": "Sent. It shows as pending, then in the ledger after the next ship (≤5 min).",
+					"[data-test=booking-row][data-booking=bk_6qq] [data-test=booking-member]": {
+						"text": "Ana P.",
+						"moves": true
+					}
+				},
+				"contains": {
+					"[data-test=booking-row][data-booking=bk_6qq] [data-test=booking-status]": [
+						"pending"
+					]
+				},
+				"count": {
+					"[data-test=dialog]": 0,
+					"[data-test=booking-action][data-booking=bk_6qq]": 0
+				}
+			}
+		},
+		{
+			"id": "bk-noshow-cancel",
+			"source": "mockup modal Cancel (#mc closeM): nothing is written",
+			"route": "#/vol/bookings?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=booking-action][data-action=noshow][data-booking=bk_8zz]"
+				},
+				{
+					"click": "[data-test=dialog-cancel]"
+				}
+			],
+			"expect": {
+				"writes": [],
+				"text": {
+					"[data-test=booking-row][data-booking=bk_8zz] [data-test=booking-status]": "Needs outcome",
+					"[data-test=booking-row][data-booking=bk_8zz] [data-test=booking-member]": {
+						"text": "Mia R.",
+						"moves": true
+					}
+				},
+				"count": {
+					"[data-test=dialog]": 0,
+					"[data-test=booking-action][data-booking=bk_8zz]": 2
+				}
+			}
+		},
+		{
+			"id": "bk-dialog-escape",
+			"source": "mockup keydown Escape closes the modal (closeM): nothing is written",
+			"route": "#/vol/bookings?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=booking-action][data-action=noshow][data-booking=bk_8zz]"
+				},
+				{
+					"key": "Escape",
+					"target": "[data-test=dialog]"
+				}
+			],
+			"expect": {
+				"writes": [],
+				"text": {
+					"[data-test=booking-row][data-booking=bk_8zz] [data-test=booking-member]": {
+						"text": "Mia R.",
+						"moves": true
+					}
+				},
+				"count": {
+					"[data-test=dialog]": 0,
+					"[data-test=booking-action][data-booking=bk_8zz]": 2
+				}
+			}
+		},
+		{
+			"id": "bk-release-quick",
+			"source": "mockup [data-act=release] outside the cutoff (bk_7hq starts in 70 h, cut 1440 min) is quick: no dialog, the row turns pending, toast 'Hold released for <name>.' (one period, as bk-confirm). Brief D cancel { reason }, no waiveCutoff",
+			"route": "#/vol/bookings?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=booking-action][data-action=release][data-booking=bk_7hq]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "cancelBooking",
+						"args": [
+							{
+								"school": "vol",
+								"bookingId": "bk_7hq",
+								"reason": "admin_release"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": {
+						"text": "Hold released for Jon K.",
+						"moves": true
+					}
+				},
+				"contains": {
+					"[data-test=booking-row][data-booking=bk_7hq] [data-test=booking-status]": [
+						"pending"
+					]
+				},
+				"count": {
+					"[data-test=dialog]": 0,
+					"[data-test=booking-action][data-booking=bk_7hq]": 0
+				}
+			}
+		},
+		{
+			"id": "bk-release-inside-cutoff-waive",
+			"source": "mockup [data-act=release] inside the cutoff (bk_5kd: 6 h to start, cut 720 min) opens ACT.release: 'Release hold · <school>', 'Facial · bk_5kd · Ivy N. · <key>', the 'Waive the late-cancel forfeit' box, Cancel and 'Release hold'; ticked, brief D cancel { reason, waiveCutoff: true }; toast 'Sent…'",
+			"route": "#/vol/bookings?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=booking-action][data-action=release][data-booking=bk_5kd]",
+					"expect": {
+						"writes": [],
+						"text": {
+							"[data-test=dialog-title]": {
+								"text": "Release hold · Vibes of Light",
+								"moves": true
+							},
+							"[data-test=dialog-confirm]": "Release hold"
+						},
+						"contains": {
+							"[data-test=dialog]": [
+								"Facial",
+								"bk_5kd",
+								"Ivy N.",
+								"Waive the late-cancel forfeit"
+							]
+						},
+						"count": {
+							"[data-test=dialog]": 1,
+							"[data-test=waive-cutoff]:checked": 0
+						}
+					}
+				},
+				{
+					"click": "[data-test=waive-cutoff]",
+					"expect": {
+						"count": {
+							"[data-test=waive-cutoff]:checked": 1
+						}
+					}
+				},
+				{
+					"click": "[data-test=dialog-confirm]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "cancelBooking",
+						"args": [
+							{
+								"school": "vol",
+								"bookingId": "bk_5kd",
+								"reason": "admin_release",
+								"waiveCutoff": true
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": "Sent. It shows as pending, then in the ledger after the next ship (≤5 min).",
+					"[data-test=booking-row][data-booking=bk_5kd] [data-test=booking-member]": {
+						"text": "Ivy N.",
+						"moves": true
+					}
+				},
+				"contains": {
+					"[data-test=booking-row][data-booking=bk_5kd] [data-test=booking-status]": [
+						"pending"
+					]
+				},
+				"count": {
+					"[data-test=dialog]": 0,
+					"[data-test=booking-action][data-booking=bk_5kd]": 0
+				}
+			}
+		},
+		{
+			"id": "bk-release-inside-cutoff-forfeit",
+			"source": "mockup ACT.release inside the cutoff, box not ticked: the late cancel stands, brief D cancel { reason, waiveCutoff: false }",
+			"route": "#/vol/bookings?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=booking-action][data-action=release][data-booking=bk_5kd]"
+				},
+				{
+					"click": "[data-test=dialog-confirm]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "cancelBooking",
+						"args": [
+							{
+								"school": "vol",
+								"bookingId": "bk_5kd",
+								"reason": "admin_release",
+								"waiveCutoff": false
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": "Sent. It shows as pending, then in the ledger after the next ship (≤5 min).",
+					"[data-test=booking-row][data-booking=bk_5kd] [data-test=booking-member]": {
+						"text": "Ivy N.",
+						"moves": true
+					}
+				},
+				"count": {
+					"[data-test=dialog]": 0
+				}
+			}
+		},
+		{
+			"id": "bk-b4u-week",
+			"source": "mockup headless (b4u): This week holds bk_b12 (Wed Nov 4, Dana W., needs an outcome), one booking so no bulk; Today shows it as overdue (1), still no bulk, and 'Nothing booked on Nov 5.'",
+			"route": "#/b4u/bookings?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=booking-range][data-range=today]",
+					"expect": {
+						"text": {
+							"[data-test=booking-empty]": "Nothing booked on Nov 5.",
+							"[data-test=booking-row][data-booking=bk_b12] [data-test=booking-time]": "Nov 4 15:00",
+							"[data-test=booking-row][data-booking=bk_b12] [data-test=booking-member]": {
+								"text": "Dana W.",
+								"moves": true
+							}
+						},
+						"contains": {
+							"[data-test=booking-day][data-day=\"overdue\"]": [
+								"Overdue: needs an outcome (1)"
+							]
+						},
+						"count": {
+							"[data-test=booking-row]": 1,
+							"[data-test=booking-bulk]": 0
+						}
+					}
+				},
+				{
+					"click": "[data-test=booking-range][data-range=this-week]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=booking-range-label]": "This week",
+					"[data-test=booking-row][data-booking=bk_b12] [data-test=booking-member]": {
+						"text": "Dana W.",
+						"moves": true
+					},
+					"[data-test=booking-row][data-booking=bk_b12] [data-test=booking-service]": {
+						"text": "Tutoring",
+						"moves": true
+					},
+					"[data-test=booking-row][data-booking=bk_b12] [data-test=booking-time]": "15:00",
+					"[data-test=booking-row][data-booking=bk_b12] [data-test=booking-status]": "Needs outcome"
+				},
+				"contains": {
+					"[data-test=booking-day]": [
+						"Wed Nov 4 · 1 booking"
+					],
+					"[data-test=booking-row][data-booking=bk_b12]": [
+						"Dr. Lee"
+					],
+					"[data-test=booking-filter]": [
+						"Needs outcome (1)",
+						"Waiting for approval (0)",
+						"Inside cutoff (0)"
+					]
+				},
+				"count": {
+					"[data-test=booking-row]": 1,
+					"[data-test=booking-day]": 1,
+					"[data-test=booking-bulk]": 0,
+					"[data-test=booking-action][data-booking=bk_b12]": 2
+				}
+			}
+		},
+		{
+			"id": "bk-b4u-next-week-release",
+			"source": "mockup headless (b4u) Next week: the overdue bk_b12, then Mon Nov 9, Tue Nov 10, Wed Nov 11 (Tutoring, Dr. Lee); bk_b11 starts in 100 h, cut 2880 min, so Release hold is quick: brief D cancel { reason }, toast 'Hold released for Omar F.'",
+			"route": "#/b4u/bookings?range=week&offset=1&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=booking-action][data-action=release][data-booking=bk_b11]",
+					"expect": {
+						"count": {
+							"[data-test=dialog]": 0
+						}
+					}
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "cancelBooking",
+						"args": [
+							{
+								"school": "b4u",
+								"bookingId": "bk_b11",
+								"reason": "admin_release"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": {
+						"text": "Hold released for Omar F.",
+						"moves": true
+					},
+					"[data-test=booking-row][data-booking=bk_b13] [data-test=booking-member]": {
+						"text": "Kai W.",
+						"moves": true
+					},
+					"[data-test=booking-row][data-booking=bk_b14] [data-test=booking-member]": {
+						"text": "Lia W.",
+						"moves": true
+					}
+				},
+				"contains": {
+					"[data-test=booking-day]": [
+						"Overdue: needs an outcome (1)",
+						"Mon Nov 9 · 1 booking",
+						"Tue Nov 10 · 1 booking",
+						"Wed Nov 11 · 1 booking"
+					],
+					"[data-test=booking-row][data-booking=bk_b11] [data-test=booking-status]": [
+						"pending"
+					]
+				},
+				"count": {
+					"[data-test=booking-row]": 4,
+					"[data-test=booking-action][data-booking=bk_b11]": 0,
+					"[data-test=booking-action][data-action=release][data-booking=bk_b13]": 1
+				}
+			}
+		}
+	]
+}
