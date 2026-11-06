@@ -1,0 +1,25 @@
+{
+	"scores": {
+		"testability": 7,
+		"convergence": 6,
+		"antiGaming": 8,
+		"simplicity": 8,
+		"cost": 8
+	},
+	"overall": 6,
+	"blockers": [
+		"gate B lints orchestrator G files (bundle.json, golden json) -> unfixable by builder; exclude mart/bun.lock, orchestrator pre-runs gates on G, red gate on protected paths = orchestrator fix"
+	],
+	"mustFix": [
+		"cell rule underspecified (contrib coverage, derived inputs, band edges, quarterly preset)",
+		"import-mart never checks pinned sha; live already 70fb44d5",
+		"fixtures dir size exclusion gameable: fixtures import nothing from src, only entry imports fixtures",
+		"objection round skips panel cap",
+		"duplicate key in key step; sentinel per unit"
+	],
+	"wouldChange": [
+		"imagesViewed false -> cite dom/mock text, or re-ask",
+		"cap builder runs per slice (12)",
+		"document v3 cell shape mapping to {hidden}; S8 adapter performs it"
+	]
+}

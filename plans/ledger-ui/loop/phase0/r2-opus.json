@@ -1,0 +1,26 @@
+{
+	"scores": {
+		"testability": 7,
+		"convergence": 7,
+		"antiGaming": 7,
+		"simplicity": 8,
+		"cost": 8
+	},
+	"overall": 7,
+	"blockers": [
+		"cell rule written twice with no full spec; contrib covers only some KPIs; no GOLDEN-DISPUTE path; fix: protected cell-rules.json + dispute line"
+	],
+	"mustFix": [
+		"quarterly grain only reachable by empty presets; allow synthetic state docs",
+		"example: duplicate key 'key'; owner entry with suppressed cell",
+		"live bundle hash now 70fb44d5 != b30adc28; --from required, hash check vs state, --atm-commit arg, snapshot committed",
+		"builders see all golden; holdout entries + hygiene literal check; enforce data-test names",
+		"reviewer worktree lacks E; absolute path reads W state/runs -> copy pack to /tmp/ledger-ui-review/S<k>-r<n>/",
+		"objection round skips budget check; track sliceRuns <= 18"
+	],
+	"wouldChange": [
+		"restart panel budget",
+		"after revert, tell builder what regressed",
+		"per-slice cap on builder runs and wall time; count mockup shots; preview_wait_for after reload"
+	]
+}

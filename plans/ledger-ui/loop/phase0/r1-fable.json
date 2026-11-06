@@ -1,0 +1,33 @@
+{
+	"scores": {
+		"testability": 7,
+		"convergence": 8,
+		"antiGaming": 7,
+		"simplicity": 8,
+		"cost": 8
+	},
+	"overall": 7,
+	"blockers": [
+		{
+			"where": "§5 gate H",
+			"what": "dist scan hits Preact runtime innerHTML/dangerouslySetInnerHTML",
+			"fix": "dist only for ajv,zod,node:,new Function,eval("
+		}
+	],
+	"mustFix": [
+		"dark mockshots: mockup has no prefers-color-scheme; dark only via .app.dark class",
+		"protect package.json, tsconfig.json, vite.config.ts, bun.lock; gate P must check working tree",
+		"PASS check after objection round missing",
+		"revert compares to best mean, record bestCommit",
+		"golden example inconsistent; per-cell scoped text",
+		"golden completeness rule (viewer x view x grain)",
+		"reviewer outputs readable by siblings in shared W",
+		"per-slice 8192 size cap needs written raise path"
+	],
+	"wouldChange": [
+		"merge matrix into golden (shot flag); fix tool paths; happy-dom location",
+		"full shots only round 1 or when mustFix cites aesthetics/width",
+		"spec-only states scored against spec v3 + golden rule"
+	],
+	"note": "full raw JSON in thread result; condensed here"
+}
