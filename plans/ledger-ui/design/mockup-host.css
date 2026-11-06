@@ -1,0 +1,7 @@
+/* Host tokens the mockup uses but does not define (it expects its chat host to supply them).
+   Injected into the mockup for reference screenshots; src/theme.css uses the same values. Protocol v4 §7. */
+:root {
+	--font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+	--font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+	--radius: 10px;
+}

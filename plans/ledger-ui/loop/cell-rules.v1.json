@@ -1,0 +1,230 @@
+{
+	"version": 1,
+	"source": "spec v3 'Export content and suppression' 2 to 4, applied to the mart bundle's contrib arrays; formulas verified against bundle values (heavy-refunds and disputes, months 2 and 6)",
+	"rule": {
+		"minContributors": 5,
+		"maxShare": 0.6,
+		"zeroIsExact": "a cell whose value is 0 is shown exactly for every viewer that may see its kind (no holder contributes)",
+		"missingContrib": "a contrib entry of null with a non-zero value is not_computed"
+	},
+	"policies": {
+		"contrib": "rule (a) and (b) on bundle.contrib[key][periodIndex] = [holders, largestShare]",
+		"self": "each unit is a distinct holder: shown when value is 0 or value >= 5",
+		"derived": "suppressed when any input is suppressed or locked; not_computed when the denominator is 0; else the bundle's own value",
+		"exact": "always shown to viewers that may see its kind"
+	},
+	"kpis": {
+		"gross_collected": {
+			"kind": "amount",
+			"policy": "contrib",
+			"contrib": "gross_collected",
+			"format": "usd"
+		},
+		"stripe_fees": {
+			"kind": "amount",
+			"policy": "contrib",
+			"contrib": "gross_collected",
+			"format": "usd"
+		},
+		"payouts": {
+			"kind": "amount",
+			"policy": "contrib",
+			"contrib": "gross_collected",
+			"format": "usd"
+		},
+		"refunds": {
+			"kind": "amount",
+			"policy": "contrib",
+			"contrib": "refunds",
+			"format": "usd"
+		},
+		"refunds_count": {
+			"kind": "count",
+			"policy": "contrib",
+			"contrib": "refunds",
+			"format": "integer"
+		},
+		"disputes_lost": {
+			"kind": "amount",
+			"policy": "contrib",
+			"contrib": "disputes_lost",
+			"format": "usd"
+		},
+		"dispute_fees": {
+			"kind": "amount",
+			"policy": "contrib",
+			"contrib": "disputes_lost",
+			"format": "usd"
+		},
+		"disputes_opened": {
+			"kind": "count",
+			"policy": "self",
+			"format": "integer"
+		},
+		"paying_members": {
+			"kind": "count",
+			"policy": "contrib",
+			"contrib": "gross_collected",
+			"format": "integer"
+		},
+		"payments_count": {
+			"kind": "count",
+			"policy": "contrib",
+			"contrib": "gross_collected",
+			"format": "integer"
+		},
+		"new_paying_members": {
+			"kind": "count",
+			"policy": "self",
+			"format": "integer"
+		},
+		"credits_granted": {
+			"kind": "count",
+			"policy": "contrib",
+			"contrib": "credits_consumed",
+			"format": "integer",
+			"note": "proxy: holders who use credits"
+		},
+		"credits_consumed": {
+			"kind": "count",
+			"policy": "contrib",
+			"contrib": "credits_consumed",
+			"format": "integer",
+			"note": "provider rule of spec v3 2(b) not applicable: the mart has no provider contrib"
+		},
+		"credits_expired": {
+			"kind": "count",
+			"policy": "contrib",
+			"contrib": "credits_expired",
+			"format": "integer"
+		},
+		"net_income": {
+			"kind": "amount",
+			"policy": "derived",
+			"inputs": [
+				"gross_collected",
+				"stripe_fees",
+				"refunds",
+				"disputes_lost",
+				"dispute_fees"
+			],
+			"formula": "gross - fees - refunds - disputes_lost - dispute_fees",
+			"format": "usd"
+		},
+		"refund_rate": {
+			"kind": "amount",
+			"policy": "derived",
+			"inputs": ["refunds", "gross_collected"],
+			"denominator": "gross_collected",
+			"format": "percent1"
+		},
+		"dispute_rate": {
+			"kind": "count",
+			"policy": "derived",
+			"inputs": ["disputes_opened", "payments_count"],
+			"denominator": "payments_count",
+			"format": "percent1"
+		},
+		"arpa": {
+			"kind": "amount",
+			"policy": "derived",
+			"inputs": ["gross_collected", "paying_members"],
+			"denominator": "paying_members",
+			"format": "usd"
+		},
+		"breakage_rate": {
+			"kind": "count",
+			"policy": "derived",
+			"inputs": ["credits_expired", "credits_granted"],
+			"denominator": "credits_granted",
+			"format": "percent1",
+			"note": "atm returns 0 when credits_granted is 0; the adapter returns not_computed"
+		},
+		"revenue_by_tier:*": {
+			"kind": "amount",
+			"policy": "contrib",
+			"contrib": "revenue_by_tier:<tier>",
+			"format": "usd",
+			"source": "bundle.tiers"
+		},
+		"credits_outstanding": {
+			"kind": "count",
+			"policy": "blocked",
+			"reason": "Credits outstanding is wrong in atm today: renewal resets are not posted, so the balance goes negative."
+		},
+		"mrr": {
+			"kind": "amount",
+			"policy": "demo-only",
+			"source": "bundle.mrr.mrr_cents",
+			"label": "derived, demo only",
+			"format": "usd"
+		},
+		"arr": {
+			"kind": "amount",
+			"policy": "demo-only",
+			"source": "12 x bundle.mrr.mrr_cents",
+			"label": "derived, demo only",
+			"format": "usd"
+		},
+		"churned_members": {
+			"kind": "count",
+			"policy": "demo-only",
+			"source": "bundle.mrr.churned_members",
+			"label": "derived, demo only",
+			"format": "integer"
+		}
+	},
+	"complementary": [
+		{
+			"total": "gross_collected",
+			"terms": "revenue_by_tier:*",
+			"rule": "in a period where the total is shown and exactly one term is hidden, hide the next smallest shown term"
+		}
+	],
+	"viewers": {
+		"owner": { "amount": "exact", "count": "exact", "openPeriod": "shown" },
+		"finance": { "amount": "rule", "count": "rule", "openPeriod": "shown" },
+		"admin": {
+			"amount": "locked",
+			"count": "band",
+			"openPeriod": "open_period"
+		},
+		"locked": {
+			"amount": "locked",
+			"count": "exact",
+			"openPeriod": "open_period"
+		},
+		"demo": {
+			"amount": "rule",
+			"count": "rule",
+			"openPeriod": "open_period",
+			"demoOnly": "shown with label"
+		}
+	},
+	"band": {
+		"formula": "{ lt: 5 * (floor(value / 5) + 1) }",
+		"examples": { "0": "<5", "4": "<5", "7": "<10", "23": "<25" }
+	},
+	"quarter": {
+		"when": "the document is requested with grain quarter (state 'small school'), or the preset has fewer than 10 active payers over the rolling 12 months",
+		"amountsAndEventCounts": "sum of the quarter's months up to the clock month",
+		"distinctCounts": ["paying_members", "credits_granted"],
+		"distinctCountsCell": "not_computed: distinct holders per quarter are not in the mart",
+		"rates": "recomputed from the quarter's summed inputs; arpa is not_computed (needs distinct paying members)",
+		"rule": "a quarter cell passes the cell rule only if every month in it passes (conservative)",
+		"openPeriod": "the quarter that contains the clock month is the open period and is partial"
+	},
+	"labels": {
+		"suppressed": "Hidden: fewer than 5 families or one family over 60%",
+		"locked": "Locked",
+		"not_computed": "Not computed",
+		"open_period": "This period is still open",
+		"blocked": "Blocked"
+	},
+	"formats": {
+		"usd": "en-US currency, 2 decimals, from integer cents: 62300 -> $623.00",
+		"integer": "en-US grouping: 1308 -> 1,308",
+		"percent1": "fraction x 100, 1 decimal: 0.024 -> 2.4%",
+		"lt": "<N"
+	}
+}

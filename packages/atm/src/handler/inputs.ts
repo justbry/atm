@@ -513,6 +513,33 @@ export const readInputs = (
 	return read;
 };
 
+/**
+ * The applied inputs of one school and env that are not marked shipped yet, in applied order, for the shipper. A refusal is
+ * never shipped, so it is never returned. An erased row comes back as a tombstone (its `body` is cleared by the erasure).
+ */
+export const readUnshippedInputs = (
+	db: SqlDatabase,
+	filter: { env: AtmEnv; school: string },
+): StoredInput[] =>
+	db
+		.all<InputRow>(
+			`SELECT * FROM atm_event_inputs WHERE env = ? AND school_id = ? AND outcome = 'applied' AND shipped_at IS NULL ORDER BY applied_order`,
+			[filter.env, filter.school],
+		)
+		.map(storedInputOf);
+
+/** The applied inputs whose `batch_key` is `batchKey`, in applied order: the rows of one shipped (or about to be shipped) object. */
+export const readInputsOfBatch = (
+	db: SqlDatabase,
+	filter: { env: AtmEnv; school: string; batchKey: string },
+): StoredInput[] =>
+	db
+		.all<InputRow>(
+			`SELECT * FROM atm_event_inputs WHERE env = ? AND school_id = ? AND outcome = 'applied' AND batch_key = ? ORDER BY applied_order`,
+			[filter.env, filter.school, filter.batchKey],
+		)
+		.map(storedInputOf);
+
 /** The handler's SQLite behind the `InputsSource` interface the replay reads through. */
 export const sqliteInputsSource = (
 	db: SqlDatabase,
@@ -539,8 +566,8 @@ export const shippedSeedKey = (args: {
  * the operator's erasure does, and calls this beside it). Every stored input of the holder becomes a tombstone: `body`,
  * `subject_key`, `payment_refs`, `booking_refs`, `fee` and `raw_sha256` are cleared and `erased_at` is set; the row keeps
  * what names no person (`env`, `event_id`, `school_id`, `type`, `mapping`, `stripe_created`, `outcome`, `applied_order`,
- * `input_id`, `batch_key`, ...). The holder's seed is deleted. Every shipped batch that held one of its rows, and its shipped
- * seed object, is queued in `atm_input_erasures` for the shipper to rewrite or delete. Other holders' inputs, the contexts
+ * `input_id`, `batch_key`, ...). The holder's seed is deleted. Every batch that was assigned one of its rows (put or about to
+ * be), and the object of its seed (shipped or not: a put may have landed without its mark), is queued in `atm_input_erasures` for the shipper to rewrite or delete. Other holders' inputs, the contexts
  * and the ledger's money events are not touched. Idempotent: the second call finds nothing and returns zeros.
  */
 export const eraseStoredInputs = (
@@ -552,7 +579,7 @@ export const eraseStoredInputs = (
 	let queued = 0;
 	const queue = (objectKey: string, kind: "batch" | "seed") => {
 		queued += db.run(
-			`INSERT INTO atm_input_erasures (env, school_id, object_key, kind, queued_at, replacement_key, done_at) VALUES (?, ?, ?, ?, ?, NULL, NULL) ON CONFLICT (env, school_id, object_key) DO NOTHING`,
+			`INSERT INTO atm_input_erasures (env, school_id, object_key, kind, queued_at, replacement_key, done_at) VALUES (?, ?, ?, ?, ?, NULL, NULL) ON CONFLICT (env, school_id, object_key) DO UPDATE SET queued_at = excluded.queued_at, replacement_key = NULL, done_at = NULL WHERE atm_input_erasures.done_at IS NOT NULL`,
 			[env, school, objectKey, kind, nowMs],
 		).changes;
 	};
@@ -561,12 +588,13 @@ export const eraseStoredInputs = (
 		[env, school, subjectKey],
 	))
 		queue(batch_key, "batch");
-	const [seed] = db.all<{ shipped_at: number | null }>(
-		`SELECT shipped_at FROM atm_input_seeds WHERE env = ? AND subject_key = ?`,
+	// A seed row is queued whether or not it is marked shipped: a put that landed and a mark that did not (a crash) leaves an
+	// object nothing else points at. Deleting an object that was never put is nothing to do.
+	const [seed] = db.all<{ found: number }>(
+		`SELECT 1 AS found FROM atm_input_seeds WHERE env = ? AND subject_key = ?`,
 		[env, subjectKey],
 	);
-	if (seed && seed.shipped_at !== null)
-		queue(shippedSeedKey({ school, env, subjectKey }), "seed");
+	if (seed) queue(shippedSeedKey({ school, env, subjectKey }), "seed");
 	const inputs = db.run(
 		`UPDATE atm_event_inputs SET body = NULL, subject_key = NULL, payment_refs = NULL, booking_refs = NULL, fee = NULL, raw_sha256 = NULL, erased_at = ? WHERE env = ? AND school_id = ? AND subject_key = ?`,
 		[nowMs, env, school, subjectKey],

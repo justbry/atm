@@ -9,7 +9,14 @@ import { resolvePolicy } from "./billing/policy.js";
 import type { BillingPolicy, Menu } from "./billing/types.js";
 import { engineCommandTypes, runEngineCommand } from "./engine.js";
 import { bunSqlite } from "./handler/bun-sqlite.js";
+import { inputsStatus, sqliteInputsSource } from "./handler/inputs.js";
+import { assertInputTables } from "./handler/schema.js";
 import { journalMonth, readEvents } from "./ledger/files.js";
+import {
+	InputsDestinationError,
+	R2_ENV,
+	resolveInputsDestination,
+} from "./ledger/inputs-destination.js";
 import { ReconcileInputError } from "./ledger/reconcile.js";
 import {
 	formatReconcile,
@@ -29,11 +36,21 @@ import {
 	shareStatement,
 } from "./ledger/share-statement.js";
 import { shipOutbox } from "./ledger/ship.js";
+import {
+	folderInputsSource,
+	inputsShipStatus,
+	shipInputs,
+} from "./ledger/ship-inputs.js";
 import { simulate } from "./ledger/simulate.js";
+import {
+	InputsSimulateError,
+	simulateFromInputs,
+} from "./ledger/simulate-inputs.js";
 import { outboxStatus } from "./ledger/status.js";
 import { addScenarioCommands, runScenarioSimulate } from "./scenario/cli.js";
 import { FolderStore } from "./store/folder-store.js";
-import type { AtmCatalogRow } from "./types.js";
+import { R2Store } from "./store/r2-store.js";
+import type { AtmCatalogRow, AtmEnv } from "./types.js";
 
 /** How long `atm ship` waits for the handler's write lock on a busy database. */
 const BUSY_TIMEOUT_MS = 5000;
@@ -348,6 +365,166 @@ const shipCommand = program
 	);
 exitTwoOnUsageError(shipCommand);
 
+// ---- atm inputs ship (stored inputs, part C) ----
+
+type InputsShipOptions = {
+	db: string;
+	school: string;
+	env: string;
+	root?: string;
+	r2Bucket?: string;
+	r2Endpoint?: string;
+	r2Prefix?: string;
+	json?: boolean;
+};
+
+/** The folder or the bucket the objects go to; a refusal in the options is one line, exit 2. */
+const inputsStore = async (opts: InputsShipOptions) => {
+	let destination: ReturnType<typeof resolveInputsDestination>;
+	try {
+		destination = resolveInputsDestination(opts, process.env);
+	} catch (error) {
+		if (error instanceof InputsDestinationError)
+			throw new InputError(error.message);
+		throw error;
+	}
+	if (destination.kind === "r2") return new R2Store(destination.options);
+	// A typo in --root would otherwise make a new folder and mark every row shipped into it.
+	const root = await stat(destination.root).catch(() => null);
+	if (!root?.isDirectory())
+		throw new InputError(
+			`--root ${destination.root} is not an existing folder; create it first (atm inputs ship does not create the root, so that a typo in it ships nothing)`,
+		);
+	return new FolderStore({ root: destination.root });
+};
+
+const inputsShip = async (opts: InputsShipOptions): Promise<void> => {
+	if (opts.env !== "live" && opts.env !== "test")
+		throw new InputError("--env must be live or test");
+	const env = opts.env;
+	const store = await inputsStore(opts);
+	const database = new Database(opts.db, { readwrite: true });
+	try {
+		database.exec(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS}`);
+		const db = bunSqlite(database);
+		assertInputTables(db);
+		// A typo in --school would otherwise ship nothing and exit 0; an empty table has nothing to lose to one.
+		const schools = db
+			.all<{ school_id: string }>(
+				"SELECT DISTINCT school_id FROM atm_event_inputs ORDER BY school_id",
+			)
+			.map((row) => row.school_id);
+		if (schools.length > 0 && !schools.includes(opts.school))
+			throw new InputError(
+				`--school ${opts.school} has no rows in atm_event_inputs of ${opts.db}; schools there: ${schools.join(", ")}`,
+			);
+		const result = await shipInputs({
+			db,
+			store,
+			school: opts.school,
+			env,
+			nowMs: Date.now,
+		});
+		for (const conflict of result.conflicts)
+			process.stderr.write(`conflict ${conflict.key}: ${conflict.message}\n`);
+		if (result.erasures.pending > 0)
+			process.stderr.write(
+				`erasure pending: ${result.erasures.pending} shipped object(s) of an erased holder are not rewritten or deleted yet; run atm inputs ship again\n`,
+			);
+		const status = inputsShipStatus({
+			db,
+			school: opts.school,
+			env,
+			nowMs: Date.now,
+		});
+		if (opts.json)
+			writeJson({
+				ok: result.conflicts.length === 0 && result.erasures.pending === 0,
+				school: opts.school,
+				env,
+				batches: result.batches.length,
+				shipped: result.shipped,
+				contexts: result.contexts,
+				seeds: result.seeds,
+				conflicts: result.conflicts.map(({ key, message }) => ({
+					key,
+					message,
+				})),
+				erasuresSettled: result.erasures.settled,
+				erasuresPending: result.erasures.pending,
+				unshipped: status.unshipped,
+				oldestUnshippedAgeMs: status.oldestUnshippedAgeMs,
+			});
+		else {
+			for (const batch of result.batches)
+				process.stdout.write(
+					`${batch.status} ${batch.key}: ${batch.inputs} inputs\n`,
+				);
+			process.stdout.write(
+				`${result.shipped} inputs shipped in ${result.batches.length} batches, ${result.contexts} contexts, ${result.seeds} seeds; ${result.conflicts.length} conflicts; erasures settled ${result.erasures.settled}, pending ${result.erasures.pending}\n`,
+			);
+		}
+		if (result.conflicts.length > 0 || result.erasures.pending > 0)
+			process.exitCode = EXIT_CONFLICT;
+	} finally {
+		database.close();
+	}
+};
+
+/**
+ * Commander echoes an unknown flag with its attached value (`--flag=value`, `-fvalue`); a secret given that way, quotes in it
+ * included, must not reach the log.
+ */
+const UNKNOWN_LONG_OPTION_VALUE = /(unknown option '--[^='\n]+)=[^\n]*'$/m;
+const UNKNOWN_SHORT_OPTION_VALUE = /(unknown option '-[^-'\n])[^\n]*'$/m;
+const redactUnknownOptionValue = (text: string): string =>
+	text
+		.replace(UNKNOWN_LONG_OPTION_VALUE, "$1'")
+		.replace(UNKNOWN_SHORT_OPTION_VALUE, "$1'");
+
+const inputsCommand = program
+	.command("inputs")
+	.description(
+		"the stored Stripe inputs the webhook handler keeps (see: inputs ship)",
+	);
+exitTwoOnUsageError(inputsCommand);
+
+const inputsShipCommand = inputsCommand
+	.command("ship")
+	.description(
+		`ship a school's unshipped stored inputs (atm_event_inputs) from the handler's SQLite file to <root>/schools/<id>/inputs/<env>/date=YYYY-MM-DD/batch-*.jsonl (UTC commit day), with the contexts/ and seeds/ they refer to, create-only, safe to rerun, run it from cron before \`atm ship\`. First settles the erasure queue: a shipped batch that held an erased holder's facts is rewritten under a new key with the tombstone and the old object deleted. Exits 0 when done (also when there was nothing to ship), 1 when a key already holds different bytes (conflict lines on stderr) or an erasure is still pending, 2 on any other error (one line on stderr). R2 credentials are read from the environment only (${R2_ENV.accessKeyId}, ${R2_ENV.secretAccessKey}, optional ${R2_ENV.sessionToken}); the R2 path has not been run against R2`,
+	)
+	.requiredOption("--db <file>", "the SQLite file the webhook handler writes")
+	.requiredOption("--school <id>", "school id, as in schools/<id>/")
+	.requiredOption("--env <live|test>", "the Stripe mode whose inputs to ship")
+	.option(
+		"--root <folder>",
+		"an existing folder that holds (or will hold) schools/<id>/",
+	)
+	.option(
+		"--r2-bucket <name>",
+		`an R2 bucket, instead of --root (or ${R2_ENV.bucket})`,
+	)
+	.option(
+		"--r2-endpoint <url>",
+		`the bucket's S3 endpoint, with --r2-bucket (or ${R2_ENV.endpoint})`,
+	)
+	.option(
+		"--r2-prefix <prefix>",
+		`keep every key under this prefix (or ${R2_ENV.prefix})`,
+	)
+	.option(
+		"--json",
+		"print one JSON line ({ok, school, env, batches, shipped, contexts, seeds, conflicts: [{key, message}], erasuresSettled, erasuresPending, unshipped, oldestUnshippedAgeMs}) instead of the lines per batch",
+	)
+	.configureOutput({
+		outputError: (text, write) => write(redactUnknownOptionValue(text)),
+	})
+	.action((opts: InputsShipOptions) =>
+		unattended("inputs ship", opts.json === true, () => inputsShip(opts)),
+	);
+exitTwoOnUsageError(inputsShipCommand);
+
 program
 	.command("reconcile")
 	.description(
@@ -452,6 +629,11 @@ type SimulateOptions = {
 	policy?: string;
 	currentMenu?: string;
 	currentCatalog?: string;
+	inputs?: string;
+	env?: string;
+	effectiveFrom?: string;
+	currentPolicy?: string;
+	allowBaselineDrift?: boolean;
 	json?: boolean;
 };
 
@@ -492,22 +674,158 @@ const catalogFrom = async (
 	return rows as AtmCatalogRow[];
 };
 
-const policyFrom = async (path: string): Promise<BillingPolicy> => {
-	const overrides = await readInputFile("--policy", path);
+const policyFrom = async (
+	path: string,
+	flag = "--policy",
+): Promise<BillingPolicy> => {
+	const overrides = await readInputFile(flag, path);
 	try {
 		return resolvePolicy(overrides);
 	} catch (error) {
-		throw new InputError(`--policy ${path}: ${oneLine(error)}`);
+		throw new InputError(`${flag} ${path}: ${oneLine(error)}`);
 	}
 };
 
 const SIMULATE_MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 
+const assertSchoolFolder = (school: string): void => {
+	// `--school ..` or `a/../b` would read some other folder's events as the school's (as `atm reconcile` refuses).
+	if (
+		school === "" ||
+		school === "." ||
+		school === ".." ||
+		basename(school) !== school
+	)
+		throw new InputError(
+			`--school ${JSON.stringify(school)} must be one folder name under schools/`,
+		);
+};
+
+/** The handler's SQLite, opened read-only, behind the `InputsSource` the replay reads through. Nothing is written. */
+const readStoredInputs = async (path: string, env: AtmEnv, school: string) => {
+	const found = await stat(path).catch(() => null);
+	if (!found) throw new InputError(`--inputs ${path} does not exist`);
+	if (found.isDirectory()) {
+		// a shipped copy of the inputs (`atm inputs ship`): the same InputsRead, from a store root
+		const read = await folderInputsSource(path).read({ env, school });
+		if (read.inputs.length === 0 && read.refused.length === 0)
+			throw new InputError(
+				`no inputs under ${path}/schools/${school}/inputs/${env}: run atm inputs ship, or point --inputs at the handler's database`,
+			);
+		return read;
+	}
+	let database: Database;
+	try {
+		database = new Database(path, { readonly: true });
+	} catch (error) {
+		throw new InputError(
+			`--inputs ${path} cannot be opened as SQLite: ${oneLine(error)}`,
+		);
+	}
+	try {
+		const db = bunSqlite(database);
+		let status: ReturnType<typeof inputsStatus>;
+		try {
+			status = inputsStatus(db, { env, school });
+		} catch (error) {
+			throw new InputError(
+				`--inputs ${path} cannot be read as the handler's database: ${oneLine(error)}`,
+			);
+		}
+		if (!status.available)
+			throw new InputError(
+				`${path} holds no stored inputs for school ${school} (${env}): the handler stores them from atm 0.9.0, so a what-if on the grant rules covers only the history after that; run atm simulate without --inputs for the command-level what-if on the whole log`,
+			);
+		return await sqliteInputsSource(db, path).read({ env, school });
+	} finally {
+		database.close();
+	}
+};
+
+const runSimulateFromInputs = async (
+	opts: SimulateOptions & { root: string; school: string },
+): Promise<void> => {
+	assertSchoolFolder(opts.school);
+	if (opts.env !== "live" && opts.env !== "test")
+		throw new InputError("--env must be live or test with --inputs");
+	const env: AtmEnv = opts.env;
+	if (opts.catalog || opts.currentCatalog)
+		throw new InputError(
+			"--catalog and --current-catalog are not used with --inputs: the catalog follows the menu",
+		);
+	if (opts.month !== undefined && !SIMULATE_MONTH.test(opts.month))
+		throw new InputError(`--month ${opts.month} is not YYYY-MM`);
+	let effectiveFrom: number | undefined;
+	if (opts.effectiveFrom !== undefined) {
+		effectiveFrom = Date.parse(opts.effectiveFrom);
+		if (Number.isNaN(effectiveFrom))
+			throw new InputError(
+				`--effective-from ${opts.effectiveFrom} is not an ISO instant (2026-03-01T00:00:00Z)`,
+			);
+	}
+	const candidate = {
+		menu: opts.menu ? await menuFrom("--menu", opts.menu) : undefined,
+		policy: opts.policy ? await policyFrom(opts.policy) : undefined,
+	};
+	const current = {
+		menu: opts.currentMenu
+			? await menuFrom("--current-menu", opts.currentMenu)
+			: undefined,
+		policy: opts.currentPolicy
+			? await policyFrom(opts.currentPolicy, "--current-policy")
+			: undefined,
+	};
+	const { events } = await readEvents(opts.root, opts.school);
+	if (events.length === 0)
+		throw new InputError(
+			`no events under ${opts.root}/schools/${opts.school}/events`,
+		);
+	const stored = await readStoredInputs(
+		opts.inputs as string,
+		env,
+		opts.school,
+	);
+	let result: ReturnType<typeof simulateFromInputs>;
+	try {
+		result = simulateFromInputs({
+			events,
+			inputs: stored,
+			env,
+			school: opts.school,
+			candidate,
+			current,
+			...(effectiveFrom === undefined ? {} : { effectiveFrom }),
+			month: opts.month,
+			allowBaselineDrift: opts.allowBaselineDrift === true,
+		});
+	} catch (error) {
+		if (error instanceof InputsSimulateError)
+			throw new InputError(error.message);
+		throw error;
+	}
+	if (opts.json) {
+		const {
+			events: _candidateEvents,
+			balances: _balances,
+			deliveries,
+			...rest
+		} = result;
+		writeJson({
+			ok: true,
+			school: opts.school,
+			env,
+			...rest,
+			deliveries: deliveries.filter((d) => d.kind !== "same"),
+		});
+	} else process.stdout.write(`${result.summary}\n`);
+	if (result.differences > 0) process.exitCode = EXIT_CONFLICT;
+};
+
 const runSimulate = async (opts: SimulateOptions): Promise<void> => {
 	if (opts.profile || opts.scenario) {
-		if (opts.root || opts.school)
+		if (opts.root || opts.school || opts.inputs)
 			throw new InputError(
-				"--profile and --scenario generate a scenario; --root and --school replay a log. Give one or the other",
+				"--profile and --scenario generate a scenario; --root, --school and --inputs replay a log. Give one or the other",
 			);
 		return runScenarioSimulate(opts, scenarioKit);
 	}
@@ -515,16 +833,20 @@ const runSimulate = async (opts: SimulateOptions): Promise<void> => {
 		throw new InputError(
 			"give --root and --school to replay a log, or --profile <name> (atm scenarios list) to simulate a scenario",
 		);
-	// `--school ..` or `a/../b` would read some other folder's events as the school's (as `atm reconcile` refuses).
-	if (
-		opts.school === "" ||
-		opts.school === "." ||
-		opts.school === ".." ||
-		basename(opts.school) !== opts.school
-	)
-		throw new InputError(
-			`--school ${JSON.stringify(opts.school)} must be one folder name under schools/`,
-		);
+	if (opts.inputs !== undefined)
+		return runSimulateFromInputs({
+			...opts,
+			root: opts.root,
+			school: opts.school,
+		});
+	for (const [flag, value] of [
+		["--env", opts.env],
+		["--effective-from", opts.effectiveFrom],
+		["--current-policy", opts.currentPolicy],
+		["--allow-baseline-drift", opts.allowBaselineDrift],
+	] as const)
+		if (value !== undefined) throw new InputError(`${flag} is for --inputs`);
+	assertSchoolFolder(opts.school);
 	if (opts.menu && opts.catalog)
 		throw new InputError("give --menu or --catalog, not both");
 	if (opts.currentMenu && opts.currentCatalog)
@@ -573,7 +895,7 @@ const runSimulate = async (opts: SimulateOptions): Promise<void> => {
 const simulateCommand = program
 	.command("simulate")
 	.description(
-		"a what-if: replay a school's event log against a candidate menu or policy and diff balances, posting totals (by month and account) and the commands' decisions against the log; writes nothing. It re-decides credits only: it cannot change what Stripe charged, and the grant rules (upgrade grants, amounts from invoices) are not in the log's commands. Needs the menu or catalog rows the log was written under. Exits 0 with no differences, 1 with differences, 2 for input it cannot use (one line on stderr)",
+		"a what-if: replay a school's event log against a candidate menu or policy and diff balances, posting totals (by month and account) and the commands' decisions against the log; writes nothing. It re-decides credits only: it cannot change what Stripe charged, and the grant rules (upgrade grants, amounts from invoices) are not in the log's commands. Needs the menu or catalog rows the log was written under. Exits 0 with no differences, 1 with differences, 2 for input it cannot use (one line on stderr). With --inputs (the handler's stored Stripe inputs) it is a what-if on the grant rules instead: see the options below",
 	)
 	.option("--root <folder>", "the folder that holds schools/<id>/")
 	.option("--school <id>", "school id, as in schools/<id>/")
@@ -614,8 +936,25 @@ const simulateCommand = program
 		"report only this month's posting totals and commands (balances stay as of the last event)",
 	)
 	.option(
+		"--inputs <sqlite file | folder>",
+		"the handler's SQLite database, or a folder `atm inputs ship` shipped them to: decide the stored Stripe inputs again (the grant rules: upgradeGrant, what an invoice grants, a menu's prices and tiers) with the recorded menu and policy, which must reproduce the log, and then with the candidate. Opened read-only; writes nothing. Needs --env. --menu and --policy are optional (none is the identity); --current-menu and --current-policy replace the recorded ones; --catalog and --current-catalog are not used",
+	)
+	.option("--env <live|test>", "with --inputs: the Stripe mode of the inputs")
+	.option(
+		"--effective-from <ISO instant>",
+		"with --inputs: the candidate applies to inputs created from this instant on (default: from the start)",
+	)
+	.option(
+		"--current-policy <file>",
+		"with --inputs: the policy the inputs were decided under, instead of the stored one",
+	)
+	.option(
+		"--allow-baseline-drift",
+		"with --inputs: go on when the replay with the recorded menu and policy does not reproduce the log (exit 2 otherwise); the drift is reported, not counted",
+	)
+	.option(
 		"--json",
-		"print one JSON line ({ok, school, balances, balanceChanges, postingChanges, transactions, changed, refused, unaffected, differences, asOf, summary}) instead of the summary",
+		"print one JSON line ({ok, school, balances, balanceChanges, postingChanges, transactions, changed, refused, unaffected, differences, asOf, summary}; with --inputs: {ok, school, env, baseline, deliveries (the changes), balanceChanges, postingChanges, transactions, notReplayable, replayed, refused, notSimulated, unaffected, differences, asOf, summary}) instead of the summary",
 	)
 	.action((opts: SimulateOptions) =>
 		unattended("simulate", opts.json === true, () => runSimulate(opts)),

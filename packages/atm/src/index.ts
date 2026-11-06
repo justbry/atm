@@ -61,7 +61,13 @@ import {
 	planOutbox as planOutboxImpl,
 	shipOutbox as shipOutboxImpl,
 } from "./ledger/ship.js";
+import * as shipInputsModule from "./ledger/ship-inputs.js";
 import { simulate as simulateImpl } from "./ledger/simulate.js";
+import {
+	InputsSimulateError as InputsSimulateErrorImpl,
+	replayInputs as replayInputsImpl,
+	simulateFromInputs as simulateFromInputsImpl,
+} from "./ledger/simulate-inputs.js";
 import { outboxStatus as outboxStatusImpl } from "./ledger/status.js";
 import {
 	canonicalize as canonicalizeImpl,
@@ -132,7 +138,12 @@ import type {
 	HandlerMigrationResult,
 	HledgerErrorConstructor,
 	HoldBookingInput,
+	InputsBatch,
 	InputsRead,
+	InputsShipStatus,
+	InputsSimulateErrorConstructor,
+	InputsSimulateInput,
+	InputsSimulation,
 	InputsSource,
 	InputsStatus,
 	InvoiceGrantInput,
@@ -175,6 +186,8 @@ import type {
 	RedeemSessionGiftCodeResult,
 	ReplayErrorConstructor,
 	ReplayGapErrorConstructor,
+	ReplayInputsOptions,
+	ReplayInputsResult,
 	ReportChoice,
 	ReportFormat,
 	ReportName,
@@ -183,13 +196,17 @@ import type {
 	RowTable,
 	ScenarioBundle,
 	SettleBookingInput,
+	SettleInputErasuresResult,
 	ShareStatement,
+	ShipInputsInput,
+	ShipInputsResult,
 	ShipOutboxInput,
 	ShipOutboxResult,
 	SignatureVerdict,
 	SqlDatabase,
 	StaleRevisionConstructor,
 	Store,
+	StoredInput,
 	StripeEventInput,
 	StripeEventResult,
 	StripeOp,
@@ -339,6 +356,29 @@ export const replayEvents = (input: {
  */
 export const simulate = (input: AtmSimulateInput): AtmSimulation =>
 	simulateImpl(input);
+
+/**
+ * A what-if on the grant rules, from the Stripe inputs the handler stored: they are decided again through the same rules with
+ * the menu and policy each was handled under (the baseline, which must equal the log) and then with a candidate, and set against
+ * the log: per delivery, per holder balance, and posting totals by month. `inputs` is the result of any `InputsSource.read`
+ * (`sqliteInputsSource`). What is not stored (history before the inputs were, an erased holder, a holder whose rows moved by a
+ * write nothing records, a refund after a credit hold) is carried over unchanged and counted in `notReplayable`. Credits only: it
+ * cannot change what Stripe charged. Writes nothing. Throws `InputsSimulateError` for input it cannot use, among them a baseline
+ * that does not reproduce the log (unless `allowBaselineDrift`).
+ */
+export const simulateFromInputs = (
+	input: InputsSimulateInput,
+): InputsSimulation => simulateFromInputsImpl(input);
+
+/** The replay `simulateFromInputs` is made of, for a caller that wants the decisions themselves: the inputs in applied order, the log's other commands between them. */
+export const replayInputs = (
+	options: ReplayInputsOptions,
+): ReplayInputsResult => replayInputsImpl(options);
+
+/** Thrown by `simulateFromInputs` for input it cannot use. */
+export const InputsSimulateError: InputsSimulateErrorConstructor =
+	InputsSimulateErrorImpl;
+export type InputsSimulateError = InstanceType<InputsSimulateErrorConstructor>;
 
 /** Thrown by `replayEvents` where the engine disagrees with the log; `eventId` names the event. */
 export const ReplayError: ReplayErrorConstructor = ReplayErrorImpl;
@@ -854,6 +894,75 @@ export const eraseStoredInputs = (
 	args: { env: AtmEnv; school: string; subjectKey: string; nowMs: number },
 ): { inputs: number; seeds: number; queued: number } =>
 	storedInputs.eraseStoredInputs(db, args);
+
+// ---- Shipping the stored inputs ----
+
+/**
+ * The names of the shipped input objects, all under `schools/<school>/inputs/<env>/` (never inside `events/`): a batch
+ * `date=<UTC day of the commit>/batch-<first applied order, 12 digits>-<16 hex>.jsonl`, a context `contexts/ctx-<hash>.json`, a
+ * seed `seeds/seed-<16 hex of the holder's hash>.json`.
+ */
+export const inputObjectKey: {
+	batch(args: {
+		school: string;
+		env: AtmEnv;
+		date: string;
+		firstOrder: number;
+		sha256: string;
+	}): string;
+	context(args: { school: string; env: AtmEnv; contextHash: string }): string;
+	seed(args: { school: string; env: AtmEnv; subjectKey: string }): string;
+	prefix(args: { school: string; env: AtmEnv }): string;
+} = shipInputsModule.inputObjectKey;
+
+/**
+ * The plan of a shipment of stored inputs: the rows as one batch per UTC commit day, each object's key and bytes a pure function
+ * of its rows (canonical JSON lines in applied order; an erased row is a tombstone; the key holds the first order and a prefix of the
+ * text's sha256). Throws on a refused row, a row of another school or env, or an event id that is not plain characters.
+ */
+export const planInputs = (args: {
+	school: string;
+	env: AtmEnv;
+	rows: readonly StoredInput[];
+}): InputsBatch[] => shipInputsModule.planInputs(args);
+
+/**
+ * The inputs shipper, for any `Store`: settles the erasure queue first (a shipped batch that held an erased holder's facts is
+ * rewritten under a new key with the tombstone and the old object deleted; a shipped seed is deleted), puts the unshipped
+ * contexts, seeds and input batches create-only (equal bytes already there is success, different bytes is a conflict, nothing
+ * written), and marks the rows. Only committed rows ship, a refusal never does, an erased row ships as a tombstone. Safe to
+ * rerun; a crash between put and mark is repaired by running it again. Run it before `shipOutbox`. It has not been run
+ * against R2; see the README, "Shipping the stored inputs".
+ */
+export const shipInputs = (input: ShipInputsInput): Promise<ShipInputsResult> =>
+	shipInputsModule.shipInputs(input);
+
+/** The erasure step of `shipInputs` alone. `pending` rows are still queued: the old object may still hold the facts. */
+export const settleInputErasures = (
+	input: ShipInputsInput,
+): Promise<SettleInputErasuresResult> =>
+	shipInputsModule.settleInputErasures(input);
+
+/** The unshipped inputs and the open erasure queue of a school and env, with the age of the oldest of each. Reads only. */
+export const inputsShipStatus = (args: {
+	db: SqlDatabase;
+	school: string;
+	env: AtmEnv;
+	nowMs: () => number;
+}): InputsShipStatus => shipInputsModule.inputsShipStatus(args);
+
+/** A shipped copy in any `Store` behind the `InputsSource` interface: the same `InputsRead` as `sqliteInputsSource`. */
+export const storeInputsSource = (store: Store): InputsSource =>
+	shipInputsModule.storeInputsSource(store);
+
+/** A shipped copy in a folder (a `FolderStore` over `root`) behind the `InputsSource` interface. */
+export const folderInputsSource = (root: string): InputsSource =>
+	shipInputsModule.folderInputsSource(root);
+
+/** The `appliedOrder` ranges missing between the first and last input read (a refusal takes an order and is not shipped). */
+export const inputOrderGaps = (
+	read: Pick<InputsRead, "inputs" | "refused">,
+): { from: number; to: number }[] => shipInputsModule.inputOrderGaps(read);
 
 // ---- The shipper: the outbox to the log ----
 

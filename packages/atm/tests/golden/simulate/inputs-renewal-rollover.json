@@ -1,0 +1,149 @@
+{
+  "balances": {
+    "current": [
+      {
+        "holder": "family:fam_8k2",
+        "feature": "visit",
+        "avail": 4,
+        "held": 0
+      }
+    ],
+    "candidate": [
+      {
+        "holder": "family:fam_8k2",
+        "feature": "visit",
+        "avail": 3,
+        "held": 0
+      }
+    ]
+  },
+  "balanceChanges": [
+    {
+      "holder": "family:fam_8k2",
+      "feature": "visit",
+      "current": {
+        "avail": 4,
+        "held": 0
+      },
+      "candidate": {
+        "avail": 3,
+        "held": 0
+      }
+    }
+  ],
+  "postingChanges": [
+    {
+      "month": "2026-02",
+      "account": "credits:avail:family:fam_8k2:visit",
+      "commodity": "VISIT",
+      "current": "2",
+      "candidate": "1"
+    },
+    {
+      "month": "2026-02",
+      "account": "credits:expired",
+      "commodity": "VISIT",
+      "current": "0",
+      "candidate": "1"
+    }
+  ],
+  "transactions": [
+    {
+      "month": "2026-01",
+      "current": 2,
+      "candidate": 2
+    },
+    {
+      "month": "2026-02",
+      "current": 2,
+      "candidate": 3
+    }
+  ],
+  "asOf": "2026-02-15T18:00:00.001Z",
+  "unaffected": {
+    "events": 0,
+    "byType": {}
+  },
+  "baseline": {
+    "identical": true,
+    "inputs": 2,
+    "carriedPayments": 0,
+    "mismatches": []
+  },
+  "deliveries": [
+    {
+      "eventId": "evt_in_1",
+      "type": "invoice.paid",
+      "appliedOrder": 1,
+      "subjectKey": "sch_vol|live|family:fam_8k2",
+      "at": "2026-01-15T18:00:00.000Z",
+      "kind": "same",
+      "recorded": {
+        "refused": null,
+        "events": 2,
+        "granted": {
+          "visit": 2
+        },
+        "removed": {},
+        "rowsDigest": "{\"deletes\":[],\"upserts\":[{\"data\":{\"config\":null,\"id\":\"family:fam_8k2\",\"internal_id\":\"cus_family:fam_8k2\",\"overage_allowed\":null,\"processor\":null,\"spend_limits\":null,\"usage_alerts\":null,\"usage_limits\":null},\"id\":\"cus_family:fam_8k2\",\"table\":\"customer\"},{\"data\":{\"access_starts_at\":null,\"created_at\":1768500000000,\"customer_license_link_id\":null,\"ended_at\":null,\"id\":\"cp_tier\",\"internal_customer_id\":\"cus_family:fam_8k2\",\"internal_entity_id\":null,\"internal_product_id\":\"prod_tier_sparkle-2_month\",\"options\":[],\"quantity\":1,\"starts_at\":1768500000000,\"status\":\"active\"},\"id\":\"cp_tier\",\"table\":\"customerProducts\"},{\"data\":{\"additional_balance\":0,\"adjustment\":0,\"balance\":2,\"created_at\":1768500000000,\"customer_product_id\":\"cp_tier\",\"entitlement_id\":\"ent_tier_sparkle-2_month_visit_month\",\"expires_at\":null,\"external_id\":null,\"id\":\"ce_tier_visit_month\",\"internal_customer_id\":\"cus_family:fam_8k2\",\"internal_entity_id\":null,\"internal_feature_id\":\"feat_visit\",\"next_reset_at\":1771178400000,\"reset_cycle_anchor\":null,\"unlimited\":false,\"usage_allowed\":false},\"id\":\"ce_tier_visit_month\",\"table\":\"customerEntitlements\"},{\"data\":{\"addonIds\":[],\"anchor\":1768500000000,\"cycleEnd\":1771178400000,\"cycleStart\":1768500000000,\"endedAt\":null,\"holder\":{\"customerId\":\"family:fam_8k2\",\"orgId\":\"sch_vol\"},\"identity\":{\"customerId\":\"family:fam_8k2\",\"orgId\":\"sch_vol\"},\"interval\":\"month\",\"invoices\":{\"in_1\":{\"granted\":[{\"epoch\":1,\"feature\":\"visit\",\"invoiceId\":\"in_1\",\"rolloverExpiresAt\":1773597600000,\"rowId\":\"ce_tier_visit_month\",\"units\":2}],\"paid\":26000,\"paidAt\":1768500000000,\"removed\":false}},\"membership\":null,\"quantity\":1,\"retired\":{},\"rows\":{\"ce_tier_visit_month\":1},\"subscriptionId\":\"sub_1\",\"tierId\":\"sparkle-2\",\"v\":1},\"id\":\"grants\",\"table\":\"atm_grants\"}]}",
+        "booking": null
+      },
+      "candidate": {
+        "refused": null,
+        "events": 2,
+        "granted": {
+          "visit": 2
+        },
+        "removed": {},
+        "rowsDigest": "{\"deletes\":[],\"upserts\":[{\"data\":{\"config\":null,\"id\":\"family:fam_8k2\",\"internal_id\":\"cus_family:fam_8k2\",\"overage_allowed\":null,\"processor\":null,\"spend_limits\":null,\"usage_alerts\":null,\"usage_limits\":null},\"id\":\"cus_family:fam_8k2\",\"table\":\"customer\"},{\"data\":{\"access_starts_at\":null,\"created_at\":1768500000000,\"customer_license_link_id\":null,\"ended_at\":null,\"id\":\"cp_tier\",\"internal_customer_id\":\"cus_family:fam_8k2\",\"internal_entity_id\":null,\"internal_product_id\":\"prod_tier_sparkle-2_month\",\"options\":[],\"quantity\":1,\"starts_at\":1768500000000,\"status\":\"active\"},\"id\":\"cp_tier\",\"table\":\"customerProducts\"},{\"data\":{\"additional_balance\":0,\"adjustment\":0,\"balance\":2,\"created_at\":1768500000000,\"customer_product_id\":\"cp_tier\",\"entitlement_id\":\"ent_tier_sparkle-2_month_visit_month\",\"expires_at\":null,\"external_id\":null,\"id\":\"ce_tier_visit_month\",\"internal_customer_id\":\"cus_family:fam_8k2\",\"internal_entity_id\":null,\"internal_feature_id\":\"feat_visit\",\"next_reset_at\":1771178400000,\"reset_cycle_anchor\":null,\"unlimited\":false,\"usage_allowed\":false},\"id\":\"ce_tier_visit_month\",\"table\":\"customerEntitlements\"},{\"data\":{\"addonIds\":[],\"anchor\":1768500000000,\"cycleEnd\":1771178400000,\"cycleStart\":1768500000000,\"endedAt\":null,\"holder\":{\"customerId\":\"family:fam_8k2\",\"orgId\":\"sch_vol\"},\"identity\":{\"customerId\":\"family:fam_8k2\",\"orgId\":\"sch_vol\"},\"interval\":\"month\",\"invoices\":{\"in_1\":{\"granted\":[{\"epoch\":1,\"feature\":\"visit\",\"invoiceId\":\"in_1\",\"rolloverExpiresAt\":1773597600000,\"rowId\":\"ce_tier_visit_month\",\"units\":2}],\"paid\":26000,\"paidAt\":1768500000000,\"removed\":false}},\"membership\":null,\"quantity\":1,\"retired\":{},\"rows\":{\"ce_tier_visit_month\":1},\"subscriptionId\":\"sub_1\",\"tierId\":\"sparkle-2\",\"v\":1},\"id\":\"grants\",\"table\":\"atm_grants\"}]}",
+        "booking": null
+      }
+    },
+    {
+      "eventId": "evt_cycle",
+      "type": "invoice.paid",
+      "appliedOrder": 2,
+      "subjectKey": "sch_vol|live|family:fam_8k2",
+      "at": "2026-02-15T18:00:00.000Z",
+      "kind": "changed",
+      "recorded": {
+        "refused": null,
+        "events": 3,
+        "granted": {
+          "visit": 2
+        },
+        "removed": {},
+        "rowsDigest": "{\"deletes\":[],\"upserts\":[{\"data\":{\"additional_balance\":0,\"adjustment\":0,\"balance\":2,\"created_at\":1768500000000,\"customer_product_id\":\"cp_tier\",\"entitlement_id\":\"ent_tier_sparkle-2_month_visit_month\",\"expires_at\":null,\"external_id\":null,\"id\":\"ce_tier_visit_month\",\"internal_customer_id\":\"cus_family:fam_8k2\",\"internal_entity_id\":null,\"internal_feature_id\":\"feat_visit\",\"next_reset_at\":1773597600000,\"reset_cycle_anchor\":null,\"unlimited\":false,\"usage_allowed\":false,\"usage_attribution\":{}},\"id\":\"ce_tier_visit_month\",\"table\":\"customerEntitlements\"},{\"data\":{\"balance\":2,\"cus_ent_id\":\"ce_tier_visit_month\",\"entities\":{},\"expires_at\":1773597600000,\"id\":\"roll_01KHH7B68000000HVYDB6BDQZV:1_1\",\"usage\":0},\"id\":\"roll_01KHH7B68000000HVYDB6BDQZV:1_1\",\"table\":\"rollovers\"},{\"data\":{\"addonIds\":[],\"anchor\":1768500000000,\"cycleEnd\":1773597600000,\"cycleStart\":1771178400000,\"endedAt\":null,\"holder\":{\"customerId\":\"family:fam_8k2\",\"orgId\":\"sch_vol\"},\"identity\":{\"customerId\":\"family:fam_8k2\",\"orgId\":\"sch_vol\"},\"interval\":\"month\",\"invoices\":{\"in_1\":{\"granted\":[{\"epoch\":1,\"feature\":\"visit\",\"invoiceId\":\"in_1\",\"rolloverExpiresAt\":1773597600000,\"rowId\":\"ce_tier_visit_month\",\"units\":2}],\"paid\":26000,\"paidAt\":1768500000000,\"removed\":false},\"in_cycle\":{\"granted\":[{\"epoch\":2,\"feature\":\"visit\",\"invoiceId\":\"in_cycle\",\"rolloverExpiresAt\":1776276000000,\"rowId\":\"ce_tier_visit_month\",\"units\":2}],\"paid\":26000,\"paidAt\":1771178400000,\"removed\":false}},\"membership\":null,\"quantity\":1,\"retired\":{},\"rows\":{\"ce_tier_visit_month\":2},\"subscriptionId\":\"sub_1\",\"tierId\":\"sparkle-2\",\"v\":1},\"id\":\"grants\",\"table\":\"atm_grants\"}]}",
+        "booking": null
+      },
+      "candidate": {
+        "refused": null,
+        "events": 4,
+        "granted": {
+          "visit": 2
+        },
+        "removed": {
+          "visit": 1
+        },
+        "rowsDigest": "{\"deletes\":[],\"upserts\":[{\"data\":{\"additional_balance\":0,\"adjustment\":0,\"balance\":2,\"created_at\":1768500000000,\"customer_product_id\":\"cp_tier\",\"entitlement_id\":\"ent_tier_sparkle-2_month_visit_month\",\"expires_at\":null,\"external_id\":null,\"id\":\"ce_tier_visit_month\",\"internal_customer_id\":\"cus_family:fam_8k2\",\"internal_entity_id\":null,\"internal_feature_id\":\"feat_visit\",\"next_reset_at\":1773597600000,\"reset_cycle_anchor\":null,\"unlimited\":false,\"usage_allowed\":false,\"usage_attribution\":{}},\"id\":\"ce_tier_visit_month\",\"table\":\"customerEntitlements\"},{\"data\":{\"balance\":1,\"cus_ent_id\":\"ce_tier_visit_month\",\"entities\":{},\"expires_at\":1773597600000,\"id\":\"roll_01KHH7B68000000HVYDB6BDQZV:1_1\",\"usage\":0},\"id\":\"roll_01KHH7B68000000HVYDB6BDQZV:1_1\",\"table\":\"rollovers\"},{\"data\":{\"addonIds\":[],\"anchor\":1768500000000,\"cycleEnd\":1773597600000,\"cycleStart\":1771178400000,\"endedAt\":null,\"holder\":{\"customerId\":\"family:fam_8k2\",\"orgId\":\"sch_vol\"},\"identity\":{\"customerId\":\"family:fam_8k2\",\"orgId\":\"sch_vol\"},\"interval\":\"month\",\"invoices\":{\"in_1\":{\"granted\":[{\"epoch\":1,\"feature\":\"visit\",\"invoiceId\":\"in_1\",\"rolloverExpiresAt\":1773597600000,\"rowId\":\"ce_tier_visit_month\",\"units\":2}],\"paid\":26000,\"paidAt\":1768500000000,\"removed\":false},\"in_cycle\":{\"granted\":[{\"epoch\":2,\"feature\":\"visit\",\"invoiceId\":\"in_cycle\",\"rolloverExpiresAt\":1776276000000,\"rowId\":\"ce_tier_visit_month\",\"units\":2}],\"paid\":26000,\"paidAt\":1771178400000,\"removed\":false}},\"membership\":null,\"quantity\":1,\"retired\":{},\"rows\":{\"ce_tier_visit_month\":2},\"subscriptionId\":\"sub_1\",\"tierId\":\"sparkle-2\",\"v\":1},\"id\":\"grants\",\"table\":\"atm_grants\"}]}",
+        "booking": null
+      }
+    }
+  ],
+  "notReplayable": {
+    "decisions": 0,
+    "holders": 0,
+    "firstStoredAt": "2026-01-15T18:00:20.000Z",
+    "firstStoredEventId": "evt_in_1",
+    "items": []
+  },
+  "replayed": {
+    "holders": 1,
+    "inputs": 2,
+    "carriedCommands": 0
+  },
+  "refused": [],
+  "notSimulated": [],
+  "differences": 4,
+  "summary": "simulate: 2 stored inputs of school sch_vol (live) replayed against the candidate, balances as of 2026-02-15T18:00:00.001Z; 4 differences\nbaseline: the replay reproduces the log (2 inputs)\nreplayed: 2 inputs of 1 holders, 0 carried commands\ndeliveries decided differently: 1\n  2026-02-15T18:00:00.000Z invoice.paid evt_cycle changed: granted 2 visit -> 2 visit; taken back none -> 1 visit\nbalances that differ: 1\n  family:fam_8k2 visit: avail 4 -> 3, held 0 -> 0\nposting totals that differ: 2\n  2026-02 credits:avail:family:fam_8k2:visit VISIT: 2 -> 1\n  2026-02 credits:expired VISIT: 0 -> 1\ncommands the candidate refuses: none\ninputs: 2 stored for school sch_vol (live), from 2026-01-15T18:00:20.000Z (first: evt_in_1); 1 holders replayed.\nunaffected: 0 events no replayed input or command made, carried over as they are; a replay re-decides credits only and cannot change what Stripe charged"
+}

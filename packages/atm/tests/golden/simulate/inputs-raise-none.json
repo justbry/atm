@@ -1,0 +1,241 @@
+{
+  "balances": {
+    "current": [
+      {
+        "holder": "family:fam_C",
+        "feature": "visit",
+        "avail": 43,
+        "held": 0
+      }
+    ],
+    "candidate": [
+      {
+        "holder": "family:fam_C",
+        "feature": "visit",
+        "avail": 24,
+        "held": 0
+      }
+    ]
+  },
+  "balanceChanges": [
+    {
+      "holder": "family:fam_C",
+      "feature": "visit",
+      "current": {
+        "avail": 43,
+        "held": 0
+      },
+      "candidate": {
+        "avail": 24,
+        "held": 0
+      }
+    }
+  ],
+  "postingChanges": [
+    {
+      "month": "2026-11",
+      "account": "credits:adjust",
+      "commodity": "VISIT",
+      "current": "-19",
+      "candidate": "0"
+    },
+    {
+      "month": "2026-11",
+      "account": "credits:avail:family:fam_C:visit",
+      "commodity": "VISIT",
+      "current": "43",
+      "candidate": "24"
+    }
+  ],
+  "transactions": [
+    {
+      "month": "2026-11",
+      "current": 3,
+      "candidate": 2
+    },
+    {
+      "month": "2027-02",
+      "current": 1,
+      "candidate": 1
+    }
+  ],
+  "asOf": "2027-02-03T12:00:52Z",
+  "unaffected": {
+    "events": 0,
+    "byType": {}
+  },
+  "baseline": {
+    "identical": true,
+    "inputs": 6,
+    "carriedPayments": 0,
+    "mismatches": []
+  },
+  "deliveries": [
+    {
+      "eventId": "evt_1UYPLjScrubTest0HgE5IQaq",
+      "type": "customer.subscription.created",
+      "appliedOrder": 1,
+      "subjectKey": "spike-school|test|family:fam_C",
+      "at": "2026-11-05T12:00:58.000Z",
+      "kind": "same",
+      "recorded": {
+        "refused": null,
+        "events": 0,
+        "granted": {},
+        "removed": {},
+        "rowsDigest": "{\"deletes\":[],\"upserts\":[{\"data\":{\"addonIds\":[],\"anchor\":null,\"cycleEnd\":null,\"cycleStart\":null,\"endedAt\":null,\"holder\":{\"customerId\":\"family:fam_C\",\"orgId\":\"spike-school\"},\"identity\":null,\"interval\":null,\"invoices\":{},\"membership\":{\"at\":1793880058000,\"cancelAtPeriodEnd\":false,\"endsAt\":null,\"interval\":\"year\",\"quantity\":2,\"renewsAt\":1825416052000,\"status\":\"active\",\"subscriptionId\":\"sub_1UYPLgScrubTest00QHxzguf\",\"tierId\":\"sparkle\"},\"quantity\":1,\"retired\":{},\"rows\":{},\"subscriptionId\":null,\"tierId\":null,\"v\":1},\"id\":\"grants\",\"table\":\"atm_grants\"}]}",
+        "booking": null
+      },
+      "candidate": {
+        "refused": null,
+        "events": 0,
+        "granted": {},
+        "removed": {},
+        "rowsDigest": "{\"deletes\":[],\"upserts\":[{\"data\":{\"addonIds\":[],\"anchor\":null,\"cycleEnd\":null,\"cycleStart\":null,\"endedAt\":null,\"holder\":{\"customerId\":\"family:fam_C\",\"orgId\":\"spike-school\"},\"identity\":null,\"interval\":null,\"invoices\":{},\"membership\":{\"at\":1793880058000,\"cancelAtPeriodEnd\":false,\"endsAt\":null,\"interval\":\"year\",\"quantity\":2,\"renewsAt\":1825416052000,\"status\":\"active\",\"subscriptionId\":\"sub_1UYPLgScrubTest00QHxzguf\",\"tierId\":\"sparkle\"},\"quantity\":1,\"retired\":{},\"rows\":{},\"subscriptionId\":null,\"tierId\":null,\"v\":1},\"id\":\"grants\",\"table\":\"atm_grants\"}]}",
+        "booking": null
+      }
+    },
+    {
+      "eventId": "evt_1UYPLjScrubTest0SA5UBhP8",
+      "type": "invoice.paid",
+      "appliedOrder": 2,
+      "subjectKey": "spike-school|test|family:fam_C",
+      "at": "2026-11-05T12:00:58.000Z",
+      "kind": "same",
+      "recorded": {
+        "refused": null,
+        "events": 2,
+        "granted": {
+          "visit": 24
+        },
+        "removed": {},
+        "rowsDigest": "{\"deletes\":[],\"upserts\":[{\"data\":{\"config\":null,\"id\":\"family:fam_C\",\"internal_id\":\"cus_family:fam_C\",\"overage_allowed\":null,\"processor\":null,\"spend_limits\":null,\"usage_alerts\":null,\"usage_limits\":null},\"id\":\"cus_family:fam_C\",\"table\":\"customer\"},{\"data\":{\"access_starts_at\":null,\"created_at\":1793880058000,\"customer_license_link_id\":null,\"ended_at\":null,\"id\":\"cp_tier\",\"internal_customer_id\":\"cus_family:fam_C\",\"internal_entity_id\":null,\"internal_product_id\":\"prod_tier_sparkle_year\",\"options\":[],\"quantity\":2,\"starts_at\":1793880058000,\"status\":\"active\"},\"id\":\"cp_tier\",\"table\":\"customerProducts\"},{\"data\":{\"additional_balance\":0,\"adjustment\":0,\"balance\":24,\"created_at\":1793880058000,\"customer_product_id\":\"cp_tier\",\"entitlement_id\":\"ent_tier_sparkle_year_visit_year\",\"expires_at\":null,\"external_id\":null,\"id\":\"ce_tier_visit_year\",\"internal_customer_id\":\"cus_family:fam_C\",\"internal_entity_id\":null,\"internal_feature_id\":\"feat_visit\",\"next_reset_at\":1825416052000,\"reset_cycle_anchor\":null,\"unlimited\":false,\"usage_allowed\":false},\"id\":\"ce_tier_visit_year\",\"table\":\"customerEntitlements\"},{\"data\":{\"addonIds\":[],\"anchor\":1793880052000,\"cycleEnd\":1825416052000,\"cycleStart\":1793880052000,\"endedAt\":null,\"holder\":{\"customerId\":\"family:fam_C\",\"orgId\":\"spike-school\"},\"identity\":{\"customerId\":\"family:fam_C\",\"orgId\":\"spike-school\"},\"interval\":\"year\",\"invoices\":{\"in_1UYPLgScrubTest0bekHz2bQ\":{\"granted\":[{\"epoch\":1,\"feature\":\"visit\",\"invoiceId\":\"in_1UYPLgScrubTest0bekHz2bQ\",\"rolloverExpiresAt\":1828008052000,\"rowId\":\"ce_tier_visit_year\",\"units\":24}],\"paid\":288000,\"paidAt\":1793880052000,\"removed\":false}},\"membership\":{\"at\":1793880058000,\"cancelAtPeriodEnd\":false,\"endsAt\":null,\"interval\":\"year\",\"quantity\":2,\"renewsAt\":1825416052000,\"status\":\"active\",\"subscriptionId\":\"sub_1UYPLgScrubTest00QHxzguf\",\"tierId\":\"sparkle\"},\"quantity\":2,\"retired\":{},\"rows\":{\"ce_tier_visit_year\":1},\"subscriptionId\":\"sub_1UYPLgScrubTest00QHxzguf\",\"tierId\":\"sparkle\",\"v\":1},\"id\":\"grants\",\"table\":\"atm_grants\"}]}",
+        "booking": null
+      },
+      "candidate": {
+        "refused": null,
+        "events": 2,
+        "granted": {
+          "visit": 24
+        },
+        "removed": {},
+        "rowsDigest": "{\"deletes\":[],\"upserts\":[{\"data\":{\"config\":null,\"id\":\"family:fam_C\",\"internal_id\":\"cus_family:fam_C\",\"overage_allowed\":null,\"processor\":null,\"spend_limits\":null,\"usage_alerts\":null,\"usage_limits\":null},\"id\":\"cus_family:fam_C\",\"table\":\"customer\"},{\"data\":{\"access_starts_at\":null,\"created_at\":1793880058000,\"customer_license_link_id\":null,\"ended_at\":null,\"id\":\"cp_tier\",\"internal_customer_id\":\"cus_family:fam_C\",\"internal_entity_id\":null,\"internal_product_id\":\"prod_tier_sparkle_year\",\"options\":[],\"quantity\":2,\"starts_at\":1793880058000,\"status\":\"active\"},\"id\":\"cp_tier\",\"table\":\"customerProducts\"},{\"data\":{\"additional_balance\":0,\"adjustment\":0,\"balance\":24,\"created_at\":1793880058000,\"customer_product_id\":\"cp_tier\",\"entitlement_id\":\"ent_tier_sparkle_year_visit_year\",\"expires_at\":null,\"external_id\":null,\"id\":\"ce_tier_visit_year\",\"internal_customer_id\":\"cus_family:fam_C\",\"internal_entity_id\":null,\"internal_feature_id\":\"feat_visit\",\"next_reset_at\":1825416052000,\"reset_cycle_anchor\":null,\"unlimited\":false,\"usage_allowed\":false},\"id\":\"ce_tier_visit_year\",\"table\":\"customerEntitlements\"},{\"data\":{\"addonIds\":[],\"anchor\":1793880052000,\"cycleEnd\":1825416052000,\"cycleStart\":1793880052000,\"endedAt\":null,\"holder\":{\"customerId\":\"family:fam_C\",\"orgId\":\"spike-school\"},\"identity\":{\"customerId\":\"family:fam_C\",\"orgId\":\"spike-school\"},\"interval\":\"year\",\"invoices\":{\"in_1UYPLgScrubTest0bekHz2bQ\":{\"granted\":[{\"epoch\":1,\"feature\":\"visit\",\"invoiceId\":\"in_1UYPLgScrubTest0bekHz2bQ\",\"rolloverExpiresAt\":1828008052000,\"rowId\":\"ce_tier_visit_year\",\"units\":24}],\"paid\":288000,\"paidAt\":1793880052000,\"removed\":false}},\"membership\":{\"at\":1793880058000,\"cancelAtPeriodEnd\":false,\"endsAt\":null,\"interval\":\"year\",\"quantity\":2,\"renewsAt\":1825416052000,\"status\":\"active\",\"subscriptionId\":\"sub_1UYPLgScrubTest00QHxzguf\",\"tierId\":\"sparkle\"},\"quantity\":2,\"retired\":{},\"rows\":{\"ce_tier_visit_year\":1},\"subscriptionId\":\"sub_1UYPLgScrubTest00QHxzguf\",\"tierId\":\"sparkle\",\"v\":1},\"id\":\"grants\",\"table\":\"atm_grants\"}]}",
+        "booking": null
+      }
+    },
+    {
+      "eventId": "evt_1UYPLsScrubTest0jcExLWkU",
+      "type": "invoice.paid",
+      "appliedOrder": 3,
+      "subjectKey": "spike-school|test|family:fam_C",
+      "at": "2026-11-05T12:01:07.000Z",
+      "kind": "changed",
+      "recorded": {
+        "refused": null,
+        "events": 3,
+        "granted": {
+          "visit": 19
+        },
+        "removed": {},
+        "rowsDigest": "{\"deletes\":[],\"upserts\":[{\"data\":{\"access_starts_at\":null,\"created_at\":1793880058000,\"customer_license_link_id\":null,\"ended_at\":null,\"id\":\"cp_tier\",\"internal_customer_id\":\"cus_family:fam_C\",\"internal_entity_id\":null,\"internal_product_id\":\"prod_tier_sparkle_year\",\"options\":[],\"quantity\":4,\"starts_at\":1793880058000,\"status\":\"active\"},\"id\":\"cp_tier\",\"table\":\"customerProducts\"},{\"data\":{\"additional_balance\":0,\"adjustment\":0,\"balance\":43,\"created_at\":1793880058000,\"customer_product_id\":\"cp_tier\",\"entitlement_id\":\"ent_tier_sparkle_year_visit_year\",\"expires_at\":null,\"external_id\":null,\"id\":\"ce_tier_visit_year\",\"internal_customer_id\":\"cus_family:fam_C\",\"internal_entity_id\":null,\"internal_feature_id\":\"feat_visit\",\"next_reset_at\":1825416052000,\"reset_cycle_anchor\":null,\"unlimited\":false,\"usage_allowed\":false},\"id\":\"ce_tier_visit_year\",\"table\":\"customerEntitlements\"},{\"data\":{\"addonIds\":[],\"anchor\":1793880052000,\"cycleEnd\":1825416052000,\"cycleStart\":1793880052000,\"endedAt\":null,\"holder\":{\"customerId\":\"family:fam_C\",\"orgId\":\"spike-school\"},\"identity\":{\"customerId\":\"family:fam_C\",\"orgId\":\"spike-school\"},\"interval\":\"year\",\"invoices\":{\"in_1UYPLgScrubTest0bekHz2bQ\":{\"granted\":[{\"epoch\":1,\"feature\":\"visit\",\"invoiceId\":\"in_1UYPLgScrubTest0bekHz2bQ\",\"rolloverExpiresAt\":1828008052000,\"rowId\":\"ce_tier_visit_year\",\"units\":24}],\"paid\":288000,\"paidAt\":1793880052000,\"removed\":false},\"in_1UYPLpScrubTest07yNCRWAF\":{\"granted\":[{\"epoch\":1,\"feature\":\"visit\",\"invoiceId\":\"in_1UYPLpScrubTest07yNCRWAF\",\"rolloverExpiresAt\":1828008052000,\"rowId\":\"ce_tier_visit_year\",\"units\":19}],\"paid\":216987,\"paidAt\":1801656052000,\"removed\":false}},\"membership\":{\"at\":1793880058000,\"cancelAtPeriodEnd\":false,\"endsAt\":null,\"interval\":\"year\",\"quantity\":2,\"renewsAt\":1825416052000,\"status\":\"active\",\"subscriptionId\":\"sub_1UYPLgScrubTest00QHxzguf\",\"tierId\":\"sparkle\"},\"quantity\":4,\"retired\":{},\"rows\":{\"ce_tier_visit_year\":1},\"subscriptionId\":\"sub_1UYPLgScrubTest00QHxzguf\",\"tierId\":\"sparkle\",\"v\":1},\"id\":\"grants\",\"table\":\"atm_grants\"}]}",
+        "booking": null
+      },
+      "candidate": {
+        "refused": null,
+        "events": 2,
+        "granted": {},
+        "removed": {},
+        "rowsDigest": "{\"deletes\":[],\"upserts\":[{\"data\":{\"access_starts_at\":null,\"created_at\":1793880058000,\"customer_license_link_id\":null,\"ended_at\":null,\"id\":\"cp_tier\",\"internal_customer_id\":\"cus_family:fam_C\",\"internal_entity_id\":null,\"internal_product_id\":\"prod_tier_sparkle_year\",\"options\":[],\"quantity\":4,\"starts_at\":1793880058000,\"status\":\"active\"},\"id\":\"cp_tier\",\"table\":\"customerProducts\"},{\"data\":{\"addonIds\":[],\"anchor\":1793880052000,\"cycleEnd\":1825416052000,\"cycleStart\":1793880052000,\"endedAt\":null,\"holder\":{\"customerId\":\"family:fam_C\",\"orgId\":\"spike-school\"},\"identity\":{\"customerId\":\"family:fam_C\",\"orgId\":\"spike-school\"},\"interval\":\"year\",\"invoices\":{\"in_1UYPLgScrubTest0bekHz2bQ\":{\"granted\":[{\"epoch\":1,\"feature\":\"visit\",\"invoiceId\":\"in_1UYPLgScrubTest0bekHz2bQ\",\"rolloverExpiresAt\":1828008052000,\"rowId\":\"ce_tier_visit_year\",\"units\":24}],\"paid\":288000,\"paidAt\":1793880052000,\"removed\":false},\"in_1UYPLpScrubTest07yNCRWAF\":{\"granted\":[],\"paid\":216987,\"paidAt\":1801656052000,\"removed\":false}},\"membership\":{\"at\":1793880058000,\"cancelAtPeriodEnd\":false,\"endsAt\":null,\"interval\":\"year\",\"quantity\":2,\"renewsAt\":1825416052000,\"status\":\"active\",\"subscriptionId\":\"sub_1UYPLgScrubTest00QHxzguf\",\"tierId\":\"sparkle\"},\"quantity\":4,\"retired\":{},\"rows\":{\"ce_tier_visit_year\":1},\"subscriptionId\":\"sub_1UYPLgScrubTest00QHxzguf\",\"tierId\":\"sparkle\",\"v\":1},\"id\":\"grants\",\"table\":\"atm_grants\"}]}",
+        "booking": null
+      }
+    },
+    {
+      "eventId": "evt_1UYPLsScrubTest0vgpr9xJA",
+      "type": "customer.subscription.updated",
+      "appliedOrder": 4,
+      "subjectKey": "spike-school|test|family:fam_C",
+      "at": "2026-11-05T12:01:07.000Z",
+      "kind": "changed",
+      "recorded": {
+        "refused": null,
+        "events": 0,
+        "granted": {},
+        "removed": {},
+        "rowsDigest": "{\"deletes\":[],\"upserts\":[{\"data\":{\"addonIds\":[],\"anchor\":1793880052000,\"cycleEnd\":1825416052000,\"cycleStart\":1793880052000,\"endedAt\":null,\"holder\":{\"customerId\":\"family:fam_C\",\"orgId\":\"spike-school\"},\"identity\":{\"customerId\":\"family:fam_C\",\"orgId\":\"spike-school\"},\"interval\":\"year\",\"invoices\":{\"in_1UYPLgScrubTest0bekHz2bQ\":{\"granted\":[{\"epoch\":1,\"feature\":\"visit\",\"invoiceId\":\"in_1UYPLgScrubTest0bekHz2bQ\",\"rolloverExpiresAt\":1828008052000,\"rowId\":\"ce_tier_visit_year\",\"units\":24}],\"paid\":288000,\"paidAt\":1793880052000,\"removed\":false},\"in_1UYPLpScrubTest07yNCRWAF\":{\"granted\":[{\"epoch\":1,\"feature\":\"visit\",\"invoiceId\":\"in_1UYPLpScrubTest07yNCRWAF\",\"rolloverExpiresAt\":1828008052000,\"rowId\":\"ce_tier_visit_year\",\"units\":19}],\"paid\":216987,\"paidAt\":1801656052000,\"removed\":false}},\"membership\":{\"at\":1793880067000,\"cancelAtPeriodEnd\":false,\"endsAt\":null,\"interval\":\"year\",\"quantity\":4,\"renewsAt\":1825416052000,\"status\":\"active\",\"subscriptionId\":\"sub_1UYPLgScrubTest00QHxzguf\",\"tierId\":\"sparkle\"},\"quantity\":4,\"retired\":{},\"rows\":{\"ce_tier_visit_year\":1},\"subscriptionId\":\"sub_1UYPLgScrubTest00QHxzguf\",\"tierId\":\"sparkle\",\"v\":1},\"id\":\"grants\",\"table\":\"atm_grants\"}]}",
+        "booking": null
+      },
+      "candidate": {
+        "refused": null,
+        "events": 0,
+        "granted": {},
+        "removed": {},
+        "rowsDigest": "{\"deletes\":[],\"upserts\":[{\"data\":{\"addonIds\":[],\"anchor\":1793880052000,\"cycleEnd\":1825416052000,\"cycleStart\":1793880052000,\"endedAt\":null,\"holder\":{\"customerId\":\"family:fam_C\",\"orgId\":\"spike-school\"},\"identity\":{\"customerId\":\"family:fam_C\",\"orgId\":\"spike-school\"},\"interval\":\"year\",\"invoices\":{\"in_1UYPLgScrubTest0bekHz2bQ\":{\"granted\":[{\"epoch\":1,\"feature\":\"visit\",\"invoiceId\":\"in_1UYPLgScrubTest0bekHz2bQ\",\"rolloverExpiresAt\":1828008052000,\"rowId\":\"ce_tier_visit_year\",\"units\":24}],\"paid\":288000,\"paidAt\":1793880052000,\"removed\":false},\"in_1UYPLpScrubTest07yNCRWAF\":{\"granted\":[],\"paid\":216987,\"paidAt\":1801656052000,\"removed\":false}},\"membership\":{\"at\":1793880067000,\"cancelAtPeriodEnd\":false,\"endsAt\":null,\"interval\":\"year\",\"quantity\":4,\"renewsAt\":1825416052000,\"status\":\"active\",\"subscriptionId\":\"sub_1UYPLgScrubTest00QHxzguf\",\"tierId\":\"sparkle\"},\"quantity\":4,\"retired\":{},\"rows\":{\"ce_tier_visit_year\":1},\"subscriptionId\":\"sub_1UYPLgScrubTest00QHxzguf\",\"tierId\":\"sparkle\",\"v\":1},\"id\":\"grants\",\"table\":\"atm_grants\"}]}",
+        "booking": null
+      }
+    },
+    {
+      "eventId": "evt_1UYPLiScrubTest0KZc7Ei8d",
+      "type": "invoice_payment.paid",
+      "appliedOrder": 5,
+      "subjectKey": "spike-school|test|family:fam_C",
+      "at": "2026-11-05T12:00:58.000Z",
+      "kind": "same",
+      "recorded": {
+        "refused": null,
+        "events": 0,
+        "granted": {},
+        "removed": {},
+        "rowsDigest": "null",
+        "booking": null
+      },
+      "candidate": {
+        "refused": null,
+        "events": 0,
+        "granted": {},
+        "removed": {},
+        "rowsDigest": "null",
+        "booking": null
+      }
+    },
+    {
+      "eventId": "evt_1UYPLrScrubTest0h7j1Y7g7",
+      "type": "invoice_payment.paid",
+      "appliedOrder": 6,
+      "subjectKey": "spike-school|test|family:fam_C",
+      "at": "2026-11-05T12:01:07.000Z",
+      "kind": "same",
+      "recorded": {
+        "refused": null,
+        "events": 0,
+        "granted": {},
+        "removed": {},
+        "rowsDigest": "null",
+        "booking": null
+      },
+      "candidate": {
+        "refused": null,
+        "events": 0,
+        "granted": {},
+        "removed": {},
+        "rowsDigest": "null",
+        "booking": null
+      }
+    }
+  ],
+  "notReplayable": {
+    "decisions": 0,
+    "holders": 0,
+    "firstStoredAt": "2026-11-05T12:01:18.000Z",
+    "firstStoredEventId": "evt_1UYPLjScrubTest0HgE5IQaq",
+    "items": []
+  },
+  "replayed": {
+    "holders": 1,
+    "inputs": 6,
+    "carriedCommands": 0
+  },
+  "refused": [],
+  "notSimulated": [],
+  "differences": 5,
+  "summary": "simulate: 6 stored inputs of school spike-school (test) replayed against the candidate, balances as of 2027-02-03T12:00:52Z; 5 differences\nbaseline: the replay reproduces the log (6 inputs)\nreplayed: 6 inputs of 1 holders, 0 carried commands\ndeliveries decided differently: 2\n  2026-11-05T12:01:07.000Z invoice.paid evt_1UYPLsScrubTest0jcExLWkU changed: granted 19 visit -> none; taken back none -> none\n  2026-11-05T12:01:07.000Z customer.subscription.updated evt_1UYPLsScrubTest0vgpr9xJA changed: granted none -> none; taken back none -> none\nbalances that differ: 1\n  family:fam_C visit: avail 43 -> 24, held 0 -> 0\nposting totals that differ: 2\n  2026-11 credits:adjust VISIT: -19 -> 0\n  2026-11 credits:avail:family:fam_C:visit VISIT: 43 -> 24\ncommands the candidate refuses: none\ninputs: 6 stored for school spike-school (test), from 2026-11-05T12:01:18.000Z (first: evt_1UYPLjScrubTest0HgE5IQaq); 1 holders replayed.\nunaffected: 0 events no replayed input or command made, carried over as they are; a replay re-decides credits only and cannot change what Stripe charged"
+}

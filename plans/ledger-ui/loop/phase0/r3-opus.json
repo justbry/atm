@@ -1,0 +1,27 @@
+{
+	"scores": {
+		"testability": 7,
+		"convergence": 8,
+		"antiGaming": 7,
+		"simplicity": 8,
+		"cost": 7
+	},
+	"overall": 7,
+	"blockers": [
+		"preview caps below recipe's own count (~86 vs 70, ~113 vs 90); one evaluate per shot awaiting data-route; cap as formula; cap hit = orchestrator fault"
+	],
+	"mustFix": [
+		"completeness union not views x viewers product",
+		"no mid-step expect / expect.writes for pending + writer calls",
+		"literal check bans required static copy with digits; limit to data entries or literalOk",
+		"revert reset drops G (dispute) commits; revert builder commits only",
+		"holdout leaks via gates.txt to gate-fix builder and via W/runs reads; redact, or draw at gate time with post-commit seed",
+		"probes only S1; per-slice aggregate sentinel/null probes",
+		"builder cap checked only per round; dispute round-not-counted missing in pseudocode"
+	],
+	"wouldChange": [
+		"money format per document currency (non-usd eur)",
+		"owner exact vs spec table 'exact when rules pass' -> owner decision in reference-diff",
+		"stale banner + verified badge required in S1"
+	]
+}
