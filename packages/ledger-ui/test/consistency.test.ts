@@ -102,14 +102,8 @@ describe("C2: atm's read-slice views agree with the export", () => {
 	const withViews = presets.filter((preset) =>
 		existsSync(join(snapshot, "views", preset)),
 	);
-	test("five presets replay in atm's read slice", () => {
-		expect(withViews).toEqual([
-			"child-only",
-			"fee-oracle",
-			"free-only",
-			"one-payer-tier",
-			"tiny-school",
-		]);
+	test("every preset replays in atm's read slice (atm #127)", () => {
+		expect(withViews).toEqual(presets);
 	});
 	for (const preset of withViews) {
 		test(preset, () => {

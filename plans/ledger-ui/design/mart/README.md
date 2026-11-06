@@ -19,12 +19,14 @@ Inputs (golden-backed): `events/<preset>/events.jsonl` (the event stream the fix
 | `mv_mrr_monthly` | month: MRR, ARR, new/expansion/contraction/churned, active/new/churned members | derived | no atm KPI |
 | `mv_tier_monthly` | month x tier: payers, gross, largest holder share | facts | gross by tier |
 | `mv_contributions` | KPI cell: distinct holders, largest share | facts | feeds the suppression rules |
+| `mv_contributions_ytd` | KPI x month, year to date (January through that month, each holder summed over the span): distinct holders, largest share | facts | feeds the year-total rule; December is the whole year |
 | `mv_bookings_daily` | day x service: sessions, holders | `credit.held` (start = lock expiry - 2h) | no atm KPI |
 | `mv_cohort` | first-paid cohort x age: active, size | derived | no atm KPI |
 | `mv_credits_outstanding` | month x feature: avail + held units | postings | matches atm's own closing balances, which are wrong (below) |
 | `mv_cash_monthly` | month: Stripe balance, payouts | postings | no atm KPI |
 
 `out/bundle.json` is the dashboard's cache (one object per preset, with hashes and reconcile counts); `out/dashboard.html` inlines it.
+Per preset, `contrib[kpi][i]` is `[holders, largest share]` for period `i`, and `contribYtd[kpi][i]` the same over the year to date through period `i` (null before the year's first contributor). A year total over the closed months through `i` takes the cell rule (at least 5 holders, largest at most 60%) from `contribYtd[kpi][i]`.
 
 ## Limits
 
