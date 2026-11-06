@@ -1,0 +1,138 @@
+{
+	"source": "The mockup's SC table (plans/ledger-ui/design/mockup.html at atm dev 742105b64, schools vol, b4u, map, nw, har): basis, basisFrom, stripe, zeffy, keys and rules, as its Settings drawer shows them on 2026-11-05.",
+	"schools": {
+		"vol": {
+			"school": "vol",
+			"basis": "cash",
+			"basisFrom": "2026-12-01",
+			"stripe": {
+				"connected": true,
+				"account": "Vibes of Light LLC",
+				"mode": "live",
+				"last4": "k3Qm",
+				"missing": []
+			},
+			"zeffy": {
+				"connected": false
+			},
+			"keys": [
+				{
+					"id": "k1",
+					"kind": "pk",
+					"label": "Website",
+					"prefix": "b4u_pk_live_Xk3",
+					"used": "2 min ago"
+				},
+				{
+					"id": "k2",
+					"kind": "sk",
+					"label": "Booking server",
+					"prefix": "b4u_sk_live_Qm8",
+					"used": "yesterday"
+				},
+				{
+					"id": "k3",
+					"kind": "rd",
+					"label": "Bookkeeper, expires Dec 5",
+					"prefix": "ro_41",
+					"used": "Nov 3"
+				}
+			],
+			"bookingRules": {
+				"cancelCutoffHours": 24,
+				"noShow": "spend",
+				"lateCancel": "spend"
+			}
+		},
+		"b4u": {
+			"school": "b4u",
+			"basis": "cash",
+			"basisFrom": "2026-12-01",
+			"stripe": {
+				"connected": true,
+				"account": "B4 Uni",
+				"mode": "live",
+				"last4": "9aTx",
+				"missing": []
+			},
+			"zeffy": {
+				"connected": true,
+				"last4": "7Hq2"
+			},
+			"keys": [
+				{
+					"id": "k9",
+					"kind": "pk",
+					"label": "Website",
+					"prefix": "b4u_pk_live_Zr2",
+					"used": "today"
+				}
+			],
+			"bookingRules": {
+				"cancelCutoffHours": 48,
+				"noShow": "release",
+				"lateCancel": "release"
+			}
+		},
+		"map": {
+			"school": "map",
+			"basis": "cash",
+			"basisFrom": "2026-12-01",
+			"stripe": {
+				"connected": true,
+				"account": "Maple Pilates Inc.",
+				"mode": "live",
+				"last4": "p2Lw",
+				"missing": ["Invoices (write)", "Refunds (write)"]
+			},
+			"zeffy": {
+				"connected": false
+			},
+			"keys": [],
+			"bookingRules": {
+				"cancelCutoffHours": 24,
+				"noShow": "spend",
+				"lateCancel": "release"
+			}
+		},
+		"har": {
+			"school": "har",
+			"basis": "cash",
+			"basisFrom": "2026-12-01",
+			"stripe": {
+				"connected": true,
+				"account": "Harbor Arts Academy Inc.",
+				"mode": "live",
+				"last4": "h8Ra",
+				"missing": []
+			},
+			"zeffy": {
+				"connected": true,
+				"last4": "2Lkq"
+			},
+			"keys": [],
+			"bookingRules": {
+				"cancelCutoffHours": 24,
+				"noShow": "spend",
+				"lateCancel": "release"
+			}
+		},
+		"nw": {
+			"school": "nw",
+			"basis": "cash",
+			"basisFrom": "2026-12-01",
+			"stripe": {
+				"connected": false
+			},
+			"zeffy": {
+				"connected": false
+			},
+			"keys": [],
+			"bookingRules": {
+				"cancelCutoffHours": 24,
+				"noShow": "spend",
+				"lateCancel": "release"
+			}
+		}
+	}
+}
