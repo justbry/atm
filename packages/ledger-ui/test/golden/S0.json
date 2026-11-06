@@ -1,0 +1,221 @@
+{
+	"slice": "S0",
+	"hooks": [
+		"brand",
+		"school-switcher",
+		"school-option",
+		"period-button",
+		"period-option",
+		"period-prev",
+		"period-next",
+		"tab",
+		"tab-badge",
+		"help-button",
+		"help-link",
+		"settings-button",
+		"pane",
+		"scope-note"
+	],
+	"entries": [
+		{
+			"id": "shell-default",
+			"source": "mockup headless: .top brand 'atm', #sw 'Vibes of Light', #pb 'Nov 2026', 7 .tab labels and badges (plans/ledger-ui/loop/tools/s0-text.mjs); mockup #113: #kview 'You see all members' in the top bar for an owner or admin of one school",
+			"route": "#/vol/plans?theme=light",
+			"expect": {
+				"text": {
+					"[data-test=brand]": "atm",
+					"[data-test=school-switcher]": "Vibes of Light",
+					"[data-test=period-button]": "Nov 2026",
+					"[data-test=tab][data-tab=plans] [data-test=tab-badge]": "draft",
+					"[data-test=tab][data-tab=bookings] [data-test=tab-badge]": "2",
+					"[data-test=tab][data-tab=promos] [data-test=tab-badge]": "1",
+					"[data-test=scope-note]": "You see all members"
+				},
+				"count": {
+					"[data-test=tab]": 7,
+					"[data-test=tab-badge]": 3,
+					"#app.light": 1,
+					"[data-test=pane]": 1
+				},
+				"contains": {
+					"[data-test=tab]": [
+						"Plans",
+						"Dashboard",
+						"Members",
+						"Bookings",
+						"Promos",
+						"Ledger",
+						"Reports"
+					]
+				}
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": ""
+			}
+		},
+		{
+			"id": "switcher-open",
+			"source": "mockup headless: #sw click lists 5 [data-sc] rows with attention counts 4, 4, 2, stale 1",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=school-switcher]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=school-option]": 5
+				},
+				"contains": {
+					"[data-test=school-option]": [
+						"All schools",
+						"Vibes of Light",
+						"B4 Uni",
+						"Maple Pilates",
+						"stale",
+						"Lotus Lane Yoga"
+					]
+				}
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "document.querySelector('#sw').click()"
+			}
+		},
+		{
+			"id": "switch-school",
+			"source": "mockup headless: choosing [data-sc=b4u] makes #sw read 'B4 Uni'",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=school-switcher]"
+				},
+				{
+					"click": "[data-test=school-option][data-school=b4u]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=school-switcher]": "B4 Uni"
+				},
+				"hash": "#/b4u/plans"
+			}
+		},
+		{
+			"id": "period-open",
+			"source": "mockup headless: #pb click lists the five presets with their ranges; on Ledger, where the mockup shows the period group (renderHead: all, led, rep), settled from GOLDEN-DISPUTE S0 r1",
+			"route": "#/vol/ledger?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=period-button]"
+				}
+			],
+			"expect": {
+				"contains": {
+					"[data-test=period-option]": [
+						"This month",
+						"Nov 2026",
+						"Last month",
+						"Oct 2026",
+						"Last 3 months",
+						"Sep – Nov 2026",
+						"Year to date",
+						"Jan 1 – Nov 5, 2026",
+						"Custom range"
+					]
+				}
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "document.querySelector('.tab[data-p=led]').click();document.querySelector('#pb').click()"
+			}
+		},
+		{
+			"id": "period-step",
+			"source": "mockup headless: #pprev gives 'Oct 2026'; #pnext twice stops at 'Nov 2026' (no month after the clock's); on Ledger, where the mockup shows the period group (renderHead: all, led, rep), settled from GOLDEN-DISPUTE S0 r1",
+			"route": "#/vol/ledger?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=period-prev]",
+					"expect": {
+						"text": {
+							"[data-test=period-button]": "Oct 2026"
+						}
+					}
+				},
+				{
+					"click": "[data-test=period-next]"
+				},
+				{
+					"click": "[data-test=period-next]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=period-button]": "Nov 2026"
+				}
+			}
+		},
+		{
+			"id": "tab-switch",
+			"source": "mockup: a .tab click shows its pane; protocol §3 hash grammar",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=tab][data-tab=dashboard]"
+				}
+			],
+			"expect": {
+				"hash": "#/vol/dashboard",
+				"count": {
+					"[data-test=pane]": 1
+				}
+			}
+		},
+		{
+			"id": "theme-dark",
+			"source": "mockup: applyTheme() puts 'dark' on .app",
+			"route": "#/vol/plans?theme=dark",
+			"expect": {
+				"count": {
+					"#app.dark": 1,
+					"#app.light": 0
+				}
+			}
+		},
+		{
+			"id": "help-open",
+			"source": "mockup headless: #hb click lists four links",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=help-button]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=help-link]": 4
+				},
+				"contains": {
+					"[data-test=help-link]": [
+						"School SDK",
+						"Ledger event reference",
+						"Reports with hledger and DuckDB",
+						"Copy a prompt for an AI assistant"
+					]
+				}
+			}
+		},
+		{
+			"id": "scope-note-all-schools",
+			"source": "mockup #113 renderHead: #kview hidden on All schools",
+			"route": "#/all/all?theme=light",
+			"expect": {
+				"count": {
+					"[data-test=scope-note]": 0
+				}
+			}
+		}
+	]
+}

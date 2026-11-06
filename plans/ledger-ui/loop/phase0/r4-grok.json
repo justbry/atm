@@ -1,0 +1,27 @@
+{
+	"scores": {
+		"testability": 7,
+		"convergence": 7,
+		"antiGaming": 8,
+		"simplicity": 8,
+		"cost": 8
+	},
+	"overall": 7,
+	"blockers": [
+		"gate command cwd: archive keeps prefixes; run in packages/ledger-ui; add cell-rules to archive",
+		"C3 owner=row contradicts blocked credits_outstanding",
+		"golden-only red resets past the G fix and does not advance n: loop",
+		"shots exceed cap: drop extras; 18 full only (39 calls, cap 40); mockup once (57, cap 60)",
+		"client doc carries fixtureHash/kpisHash: oracle for suppressed cells (spec v3); remove source"
+	],
+	"mustFix": [
+		"nothing forces data:true / moves on S2-S7",
+		"C1 path is .json.gz",
+		"objection non-pass fall-through unclear"
+	],
+	"wouldChange": [
+		"settled overrides in reviewer prompt",
+		"restart prompt includes postmortem",
+		"Promos owned by no slice"
+	]
+}

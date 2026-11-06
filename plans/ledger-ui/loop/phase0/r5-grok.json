@@ -1,0 +1,19 @@
+{
+	"scores": {
+		"testability": 8,
+		"convergence": 8,
+		"antiGaming": 8,
+		"simplicity": 9,
+		"cost": 9
+	},
+	"overall": 8,
+	"blockers": [
+		"archive has no .git; runner from builder commit: drop archive, orchestrator runs P in W first, then gates in packages/ledger-ui with file list"
+	],
+	"mustFix": ["C2: free-only month views have no money object"],
+	"wouldChange": [
+		"cell-rules wins over spec prose in reviewer prompt",
+		"drop 'hard-coded KPI cannot survive C4' claim",
+		"mockup recipe call count explained"
+	]
+}
