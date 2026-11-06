@@ -146,11 +146,15 @@ type Endpoint = {
 	fees: { failing: boolean };
 };
 
-const makeEndpoint = (bundle: ScenarioBundle, school: string): Endpoint => {
+const makeEndpoint = (
+	bundle: ScenarioBundle,
+	school: string,
+	databaseFile: string,
+): Endpoint => {
 	const { scenario } = bundle;
 	const { menu, priceIds, env: explicitEnv } = scenario;
 	const env: AtmEnv = explicitEnv ?? "live";
-	const raw = new Database(":memory:");
+	const raw = new Database(databaseFile);
 	const db = bunSqlite(raw);
 	db.exec(HANDLER_DDL);
 	db.exec(BOOKING_TABLES);
@@ -626,6 +630,11 @@ export type RunBundleOptions = {
 	redeliver?: boolean;
 	/** Which KPI channels to run (default all; a missing hledger or duckdb is skipped, not failed). */
 	channels?: readonly ("atm" | "hledger" | "duckdb")[];
+	/**
+	 * Where a school's handler database lives (default `:memory:`). A file lets a caller drive the real `atm` commands on what the
+	 * handler wrote (`tests/golden-e2e-check.test.ts`); the file is opened, not created for the caller, and is left in place.
+	 */
+	databaseFor?: (school: string) => string;
 };
 
 /** Runs the bundle end to end in a temporary folder. Call `dispose()` when the run's files are no longer needed. */
@@ -640,7 +649,7 @@ export const runBundle = async (
 	const endpoints = new Map(
 		[...new Set([scenario.school, ...schools])].map((school) => [
 			school,
-			makeEndpoint(bundle, school),
+			makeEndpoint(bundle, school, options.databaseFor?.(school) ?? ":memory:"),
 		]),
 	);
 	const endpointOf = (school: string | undefined): Endpoint => {
