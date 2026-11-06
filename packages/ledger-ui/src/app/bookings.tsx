@@ -7,14 +7,17 @@ import {
 	insideCutoff,
 	needsOutcome,
 } from "../data/bookings.ts";
+import type { MembersSummary } from "../data/members.ts";
 import type { Reader } from "../data/reader.ts";
 import type { Clock, School } from "../data/types.ts";
 import type { Writer } from "../data/writer.ts";
 import { BookingDialog } from "./booking-dialog.tsx";
 import {
+	consequenceLine,
 	cutoffHours,
 	endSentence,
 	failedToast,
+	reminderFailedToast,
 	reminderToast,
 	sentToast,
 } from "./booking-text.ts";
@@ -37,6 +40,7 @@ import { plural } from "./wording.ts";
 type Filter = "outcome" | "approval" | "cutoff";
 type View = BookingsPeriod & { filter: Filter | null };
 type Dialog = { action: "noshow" | "release"; booking: Booking };
+type BookingRules = MembersSummary["bookingRules"];
 
 /** Brief A caps a range at 62 days: the overdue group reads that many days before the range. */
 const overdueDays = 62;
@@ -100,6 +104,8 @@ type RowProps = {
 	booking: Booking;
 	withDate: boolean;
 	pending: boolean;
+	/** The reminder for this booking is on its way. */
+	reminding: boolean;
 	school: School;
 	clock: Clock;
 	onConfirm: (booking: Booking) => void;
@@ -141,6 +147,7 @@ function statusBadges(
 function RowActions({
 	booking,
 	pending,
+	reminding,
 	clock,
 	onConfirm,
 	onNoShow,
@@ -166,7 +173,7 @@ function RowActions({
 				data-test="booking-action"
 				data-action="remind"
 				data-booking={booking.id}
-				{...writesOff}
+				{...(reminding ? { disabled: true } : writesOff)}
 				onClick={() => onRemind(booking)}
 			>
 				<Icon name="mail" />
@@ -292,6 +299,7 @@ function BookingRow(props: RowProps): JSX.Element {
 					<RowActions
 						booking={booking}
 						pending={pending}
+						reminding={props.reminding}
 						clock={clock}
 						onConfirm={props.onConfirm}
 						onNoShow={props.onNoShow}
@@ -317,7 +325,7 @@ type Loaded = {
 	key: string;
 	inRange: Booking[];
 	before: Booking[];
-	lateCancel: "spend" | "release";
+	rules: BookingRules;
 };
 
 /** One filter chip: the route's `filter=` value (null for All), its hook slug and its text. */
@@ -361,6 +369,8 @@ export function Bookings({
 	/** The key whose read was rejected, and the count of tries that asks the effect to read again. */
 	const [failedKey, setFailedKey] = useState<string | null>(null);
 	const [attempt, setAttempt] = useState(0);
+	/** The bookings whose Remind host is on its way. */
+	const [reminding, setReminding] = useState<ReadonlySet<string>>(new Set());
 	const setPending = (
 		update: (before: ReadonlySet<string>) => ReadonlySet<string>,
 	): void => onPendingBookings(school.id, update);
@@ -383,14 +393,17 @@ export function Bookings({
 					key,
 					inRange: inRange.bookings,
 					before: before.bookings,
-					lateCancel: summary.bookingRules.lateCancel,
+					rules: summary.bookingRules,
 				});
+			if (current) setFailedKey((before) => (before === key ? null : before));
 		};
 		load().catch(() => {
 			if (current) setFailedKey(key);
 		});
 		return () => {
 			current = false;
+			/* The failure belongs to the week on screen: leaving it forgets it, so coming back reads again. */
+			setFailedKey((before) => (before === key ? null : before));
 		};
 	}, [reader, school.id, from, to, key, option.admin, attempt]);
 	const shown = loaded?.key === key ? loaded : null;
@@ -399,16 +412,6 @@ export function Bookings({
 		if (shown || failed || !option.admin) onRendered();
 	});
 	if (!option.admin) return <LockPanel lock={bookingsLock} icon="calendar" />;
-	if (failed)
-		return (
-			<LoadFailed
-				what="the bookings"
-				onRetry={() => {
-					setFailedKey(null);
-					setAttempt((before) => before + 1);
-				}}
-			/>
-		);
 
 	const waiting: Check = ({ id }) => pending.has(id);
 	const canRecord: Check = (booking) =>
@@ -500,7 +503,7 @@ export function Bookings({
 	};
 	const startRelease = (booking: Booking): void => {
 		const forfeits =
-			insideCutoff(booking, clock) && shown?.lateCancel === "spend";
+			insideCutoff(booking, clock) && shown?.rules.lateCancel === "spend";
 		if (forfeits) setDialog({ action: "release", booking });
 		else
 			send(
@@ -525,8 +528,21 @@ export function Bookings({
 
 	const chooseFilter = (filter: Filter | null): void =>
 		navigate(withQuery(route, "filter", filter));
-	const remind = ({ hosts }: Booking): void =>
+	/** The toast only after the server has taken the reminder. */
+	const remind = async ({ id, hosts }: Booking): Promise<void> => {
+		setReminding((before) => new Set([...before, id]));
+		try {
+			await writer.remindHost({ school: school.id, bookingId: id });
+		} catch {
+			onToast(reminderFailedToast);
+			return;
+		} finally {
+			setReminding(
+				(before) => new Set([...before].filter((each) => each !== id)),
+			);
+		}
 		onToast(reminderToast(hosts.map(({ name }) => name)));
+	};
 	/** The member's drawer is the Members tab's; the shared parameters stay and this tab's `filter=` goes. */
 	const openMember = ({ attendee }: Booking): void => {
 		if (!attendee) return;
@@ -599,6 +615,7 @@ export function Bookings({
 					booking={booking}
 					withDate={group.withDate}
 					pending={waiting(booking)}
+					reminding={reminding.has(booking.id)}
 					school={school}
 					clock={clock}
 					onConfirm={confirm}
@@ -606,7 +623,9 @@ export function Bookings({
 						setDialog({ action: "noshow", booking: chosen })
 					}
 					onRelease={startRelease}
-					onRemind={remind}
+					onRemind={(chosen) => {
+						remind(chosen);
+					}}
 					onOpenMember={openMember}
 				/>
 			)),
@@ -656,30 +675,54 @@ export function Bookings({
 					</button>
 				))}
 			</div>
-			<table>
-				<thead>
-					<tr>
-						<th class="bookings-when">When</th>
-						<th>Booking</th>
-						<th>Member</th>
-						<th>Billing</th>
-						<th>Status</th>
-						<th>
-							<span class="visually-hidden">Actions</span>
-						</th>
-					</tr>
-				</thead>
-				<tbody>{body}</tbody>
-			</table>
-			<p class="mut bookings-note" data-test="booking-note">
-				<Icon name="info" /> {bookingsNote}
-			</p>
+			{failed ? (
+				<LoadFailed
+					what="the bookings"
+					onRetry={() => {
+						setFailedKey(null);
+						setAttempt((before) => before + 1);
+					}}
+				/>
+			) : (
+				<>
+					<table>
+						<thead>
+							<tr>
+								<th class="bookings-when">When</th>
+								<th>Booking</th>
+								<th>Member</th>
+								<th>Billing</th>
+								<th>Status</th>
+								<th>
+									<span class="visually-hidden">Actions</span>
+								</th>
+							</tr>
+						</thead>
+						<tbody>{body}</tbody>
+					</table>
+					<p class="mut bookings-note" data-test="booking-note">
+						<Icon name="info" /> {bookingsNote}
+					</p>
+				</>
+			)}
 			{dialog && (
 				<BookingDialog
 					title={`${dialog.action === "noshow" ? "Mark no-show" : "Release hold"} · ${school.name}`}
 					detail={dialogLine}
 					confirmLabel={
 						dialog.action === "noshow" ? "Mark no-show" : "Release hold"
+					}
+					consequence={(waive) =>
+						shown
+							? consequenceLine({
+									action: dialog.action,
+									waive,
+									rules: shown.rules,
+									booking: dialog.booking,
+									creditUnit: school.creditUnit,
+									memberName: attendeeName(dialog.booking),
+								})
+							: null
 					}
 					waiveLabel={
 						dialog.action === "release"

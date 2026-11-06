@@ -27,6 +27,7 @@ import {
 	type Section,
 	SettingsDialog,
 	saveFailed,
+	useDialogChain,
 } from "./settings-shared.tsx";
 import { keepLoading } from "./use-loaded.ts";
 import { exitPreviewTitle, type Viewing } from "./viewing.ts";
@@ -123,6 +124,7 @@ function BasisSection({
 						key={basis}
 						type="button"
 						class={basis === selected ? "on" : undefined}
+						aria-pressed={basis === selected}
 						data-test="basis-option"
 						data-basis={basis}
 						{...writeOff}
@@ -305,17 +307,18 @@ function KeysSection({
 	onToast,
 	onModal,
 }: Section): JSX.Element {
-	const closeModal = (): void => onModal(null);
+	const dialogs = useDialogChain(onModal);
+	const closeModal = dialogs.close;
 	const startCreate = (kind: ApiKeyKind): void => {
 		const live = settings.keys.filter((key) => key.kind === kind).length;
 		if (kind !== "rd" && live >= maxLiveKeysPerKind) {
 			onToast("Two live keys of this kind already. Revoke one first.");
 			return;
 		}
-		onModal(
+		const afterCreate = dialogs.show(
 			<KeyCreateDialog
 				kind={kind}
-				onCancel={closeModal}
+				onCancel={dialogs.close}
 				onCreate={async (label) => {
 					const created = await writer.createKey({
 						school: school.id,
@@ -326,10 +329,10 @@ function KeysSection({
 						...current,
 						keys: [...current.keys, created.key],
 					}));
-					onModal(
+					afterCreate(
 						<KeyCreatedDialog
 							created={created}
-							onDone={closeModal}
+							onDone={dialogs.close}
 							onToast={onToast}
 						/>,
 					);

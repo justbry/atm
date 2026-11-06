@@ -20,7 +20,12 @@ import {
 import type { Reader } from "../data/reader.ts";
 import type { Clock, School } from "../data/types.ts";
 import type { Writer } from "../data/writer.ts";
-import { endSentence, failedToast, reminderToast } from "./booking-text.ts";
+import {
+	endSentence,
+	failedToast,
+	reminderFailedToast,
+	reminderToast,
+} from "./booking-text.ts";
 import { saveFile } from "./download.ts";
 import { saveCsv } from "./download-button.tsx";
 import { Icon } from "./icon.tsx";
@@ -680,6 +685,19 @@ function Roster({
 		else if (chosen === "csv") downloadPayments(person);
 		else if (chosen === "receipt") resendReceipt(person);
 	};
+	/** Remind host: the toast only after the server has taken the reminder. */
+	const remindHost = async (booking: MemberBooking): Promise<void> => {
+		setBusy({ bookingId: booking.id, action: "remind" });
+		try {
+			await writer.remindHost({ school: school.id, bookingId: booking.id });
+		} catch {
+			onToast(reminderFailedToast);
+			return;
+		} finally {
+			setBusy(null);
+		}
+		onToast(reminderToast(booking.hosts));
+	};
 	const bookingAction = (
 		person: Person,
 		action: BookingAction,
@@ -690,7 +708,7 @@ function Roster({
 			action === "release" &&
 			inside &&
 			summary.bookingRules.lateCancel === "spend";
-		if (action === "remind") onToast(reminderToast(booking.hosts));
+		if (action === "remind") remindHost(booking);
 		else if (action === "noshow")
 			startModal(person.id, { kind: "noshow", bookingId: booking.id });
 		else if (action === "refund")
@@ -965,11 +983,8 @@ function Roster({
 							invoiceItems: loaded.invoiceItems,
 							switchTiers: loaded.switchTiers,
 							insideCutoff: (booking) => insideCutoffOf(modalPerson, booking),
-							readAudit: () =>
-								reader.auditMember({
-									schoolId: school.id,
-									personId: modalPerson.id,
-								}),
+							readAudit: (personId) =>
+								reader.auditMember({ schoolId: school.id, personId }),
 							saveReport: (file) => writer.download(file),
 							onToast,
 							onDone: apply,

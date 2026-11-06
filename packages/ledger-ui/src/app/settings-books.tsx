@@ -30,7 +30,13 @@ import { pinMinimumLength } from "../data/settings.ts";
 import type { School } from "../data/types.ts";
 import type { Writer } from "../data/writer.ts";
 import { Icon } from "./icon.tsx";
-import { Field, type Section, SettingsDialog } from "./settings-shared.tsx";
+import {
+	Field,
+	type Follow,
+	type Section,
+	SettingsDialog,
+	useDialogChain,
+} from "./settings-shared.tsx";
 import type { Viewing } from "./viewing.ts";
 
 const disclosureSavedToast =
@@ -212,13 +218,12 @@ function StepUpDialog({
 	);
 }
 
-/** The save flow of a disclosure change (mockup `dovSave`): the validator's refusal, then the PIN, then (for a change
- * that opens Public) the mailed link. Returns what "Check and save" does. */
+/** The save flow of a disclosure change (mockup `dovSave`): the PIN, then (for a change that opens Public) the mailed
+ * link. Returns what "Check and save" does for a change the validator accepted. */
 function useDisclosureSave({
 	school,
 	writer,
 	draft,
-	check,
 	onSaved,
 	onToast,
 	onModal,
@@ -226,48 +231,42 @@ function useDisclosureSave({
 	school: School;
 	writer: Writer;
 	draft: DisclosureOverride;
-	check: ReturnType<typeof checkOverride>;
 	onSaved: () => void;
 	onToast: (text: string) => void;
 	onModal: (modal: ComponentChildren) => void;
-}): () => void {
-	const closeModal = (): void => onModal(null);
-	const applied = (): void => {
+}): (change: Exclude<DisclosureChange, "none">) => void {
+	const dialogs = useDialogChain(onModal);
+	/** The write is the server's: it is recorded and announced even if its dialog was closed meanwhile. */
+	const applied = (follow: Follow): void => {
 		onSaved();
-		closeModal();
+		follow(null);
 		onToast(disclosureSavedToast);
 	};
-	const askForLink = (minutes: number): void =>
-		onModal(
-			<StepUpDialog
-				minutes={minutes}
-				onCancel={closeModal}
-				onConfirm={async () => {
-					await writer.confirmDisclosureStepUp({ school: school.id });
-					applied();
-				}}
-			/>,
-		);
-	return () => {
-		const [first] = check.errors;
-		if (first) {
-			onToast(`Refused: 400 ${first.code}`);
-			return;
-		}
-		const { change } = check;
-		if (change === "none") return;
-		onModal(
+	return (change) => {
+		const afterPin = dialogs.show(
 			<PinDialog
 				change={change}
-				onCancel={closeModal}
+				onCancel={dialogs.close}
 				onSave={async (pin) => {
 					const result = await writer.saveDisclosure({
 						school: school.id,
 						override: draft,
 						pin,
 					});
-					if (result.status === "step_up") askForLink(result.expiresInMinutes);
-					else applied();
+					if (result.status !== "step_up") {
+						applied(afterPin);
+						return;
+					}
+					const afterLink = afterPin(
+						<StepUpDialog
+							minutes={result.expiresInMinutes}
+							onCancel={dialogs.close}
+							onConfirm={async () => {
+								await writer.confirmDisclosureStepUp({ school: school.id });
+								applied(afterLink);
+							}}
+						/>,
+					);
 				}}
 			/>,
 		);
@@ -338,8 +337,13 @@ function OverrideEditor({
 	onSelect: (selection: OverrideSelection) => void;
 	onEdit: (change: OverrideEdit) => void;
 	onReset: () => void;
-	onSave: () => void;
+	onSave: (change: Exclude<DisclosureChange, "none">) => void;
 }): JSX.Element {
+	/** The change "Check and save" would send: none while the validator refuses or the draft changes nothing. */
+	const savable =
+		dirty && check.errors.length === 0 && check.change !== "none"
+			? check.change
+			: null;
 	const rule: Partial<DisclosureRule> =
 		effective.disclose[selection.ruleClass]?.[selection.ruleAudience] ?? {};
 	const kpis = ruleClasses.flatMap((kpiClass) => file.classes[kpiClass]);
@@ -514,10 +518,8 @@ function OverrideEditor({
 						type="button"
 						class="btn p"
 						data-test="disclosure-save"
-						disabled={
-							!dirty || check.errors.length > 0 || check.change === "none"
-						}
-						onClick={onSave}
+						disabled={savable === null}
+						onClick={() => savable && onSave(savable)}
 					>
 						<Icon name="check" />
 						Check and save
@@ -552,7 +554,6 @@ export function BooksSection({
 		school,
 		writer,
 		draft,
-		check,
 		onSaved: () => setSaved(draft),
 		onToast,
 		onModal,

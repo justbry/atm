@@ -375,6 +375,23 @@ test("the Code view has one live region, and the parse error is not a second ale
 	expect(count("[data-test=plan-yaml-message][aria-live=polite]")).toBe(1);
 	expect(count("[data-test=plan-yaml-message] [role=alert]")).toBe(0);
 	expect(count("[data-test=plan-yaml-message] [aria-live]")).toBe(0);
+	expect(count(".kcode [aria-live], .kcode output, .kcode [role=status]")).toBe(
+		1,
+	);
+});
+
+test("a plan with no price shows its priceText wording and no price or Choose button", async () => {
+	await open("#/b4u/plans?mode=preview&show=draft&theme=light");
+	const board = card("board");
+	expect(text(`${board} [data-test=plan-card-price]`)).toBe("Not for sale");
+	expect(count(`${board} [data-test=plan-card-period]`)).toBe(0);
+	expect(count(`${board} [data-test=plan-choose]`)).toBe(0);
+	expect(count(`${board} [data-test=plan-size]`)).toBe(0);
+	expect(text(`${board} .pr`)).not.toContain("$0.00");
+	expect(count(`${card("sparkle")} [data-test=plan-choose]`)).toBe(1);
+	await click("[data-test=plan-billing][data-billing=year]");
+	expect(text(`${board} [data-test=plan-card-price]`)).toBe("Not for sale");
+	expect(count(`${board} [data-test=plan-choose]`)).toBe(0);
 });
 
 test("the review says 'keeps' for one current member and 'keep' for more", async () => {

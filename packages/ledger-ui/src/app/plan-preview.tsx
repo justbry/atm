@@ -10,6 +10,7 @@ import {
 	monthlyAmount,
 	type PlanChange,
 	type PlanKind,
+	priceText,
 	slug,
 	yearlyAmount,
 } from "./plans-menu.ts";
@@ -43,8 +44,9 @@ type CardModel = {
 	name: string;
 	blurb: string;
 	hidden: boolean;
-	/** One unit's price now, and in the live version (undefined when the plan is not live). */
-	amount: number;
+	/** One unit's price now, undefined when the plan has none for the period, and in the live version (undefined when
+	 * the plan is not live). */
+	amount: number | undefined;
 	publishedAmount: number | undefined;
 	/** "month", "year" or "" for a pack charged once. */
 	period: string;
@@ -52,6 +54,8 @@ type CardModel = {
 	grants: MenuGrant[];
 	once: boolean;
 	inLive: boolean;
+	/** What a plan with no price says in its place (`priceText`: "Not for sale"). */
+	unpriced?: string;
 };
 
 const percentBase = 100;
@@ -116,13 +120,14 @@ export function PlanPreview({
 				name: tier.name,
 				blurb: tier.blurb,
 				hidden: !tier.public && !showingLive,
-				amount: pick(tier) ?? 0,
+				amount: pick(tier),
 				publishedAmount: before ? pick(before) : undefined,
 				period: yearlyPrice ? "year" : "month",
 				quantities: tier.quantities,
 				grants: tier.grants,
 				once: false,
 				inLive: before !== undefined,
+				unpriced: priceText(menu, tier),
 			};
 		}),
 		...menu.addons.map((addon): CardModel => {
@@ -148,7 +153,9 @@ export function PlanPreview({
 		const size = model.quantities
 			? (sizes[model.id] ?? model.quantities[0] ?? 1)
 			: 1;
-		const listPrice = model.amount * size;
+		const { amount, unpriced } = model;
+		const forSale = amount !== undefined;
+		const listPrice = (amount ?? 0) * size;
 		const price =
 			promo && model.kind === "tiers"
 				? discounted(listPrice, promo.value)
@@ -157,7 +164,10 @@ export function PlanPreview({
 			model.publishedAmount === undefined ? null : model.publishedAmount * size;
 		const changed = !showingLive && changedIds.has(model.id);
 		const showWas =
-			changed && publishedPrice !== null && publishedPrice !== listPrice;
+			forSale &&
+			changed &&
+			publishedPrice !== null &&
+			publishedPrice !== listPrice;
 		const open = (): void => onEdit(model.kind, model.id);
 		return (
 			// biome-ignore lint/a11y/noStaticElementInteractions: a click anywhere on the card is a shortcut for the Edit button inside it, which is the keyboard and screen-reader way in
@@ -195,22 +205,28 @@ export function PlanPreview({
 				</div>
 				{model.blurb && <div class="mut">{model.blurb}</div>}
 				<div class="pr">
-					{showWas && (
-						<s data-test="plan-card-was">
-							{formatMoney(publishedPrice, menu.currency)}
-						</s>
+					{forSale ? (
+						<>
+							{showWas && (
+								<s data-test="plan-card-was">
+									{formatMoney(publishedPrice, menu.currency)}
+								</s>
+							)}
+							{price !== listPrice && (
+								<s>{formatMoney(listPrice, menu.currency)}</s>
+							)}
+							<span data-test="plan-card-price">
+								{formatMoney(price, menu.currency)}
+							</span>
+							<small data-test="plan-card-period">
+								{model.period ? `/ ${model.period}` : "one time"}
+							</small>
+						</>
+					) : (
+						<span data-test="plan-card-price">{unpriced}</span>
 					)}
-					{price !== listPrice && (
-						<s>{formatMoney(listPrice, menu.currency)}</s>
-					)}
-					<span data-test="plan-card-price">
-						{formatMoney(price, menu.currency)}
-					</span>
-					<small data-test="plan-card-period">
-						{model.period ? `/ ${model.period}` : "one time"}
-					</small>
 				</div>
-				{model.quantities && (
+				{forSale && model.quantities && (
 					<div class="szs">
 						<small class="mut">How many</small>
 						{model.quantities.map((quantity) => (
@@ -248,17 +264,19 @@ export function PlanPreview({
 						</li>
 					))}
 				</ul>
-				<button
-					type="button"
-					class="btn p go"
-					data-test="plan-choose"
-					onClick={(event) => {
-						event.stopPropagation();
-						onToast(chooseToast);
-					}}
-				>
-					Choose {model.name}
-				</button>
+				{forSale && (
+					<button
+						type="button"
+						class="btn p go"
+						data-test="plan-choose"
+						onClick={(event) => {
+							event.stopPropagation();
+							onToast(chooseToast);
+						}}
+					>
+						Choose {model.name}
+					</button>
+				)}
 			</div>
 		);
 	};

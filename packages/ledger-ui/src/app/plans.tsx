@@ -40,6 +40,7 @@ import {
 	tierCount,
 	withDraft,
 } from "./plans-menu.ts";
+import { parseMenu } from "./plans-yaml.ts";
 import { type Route, type SchoolTab, withQuery } from "./route.ts";
 import { keepLoading } from "./use-loaded.ts";
 import { usePlanYaml } from "./use-plan-yaml.ts";
@@ -112,12 +113,15 @@ const modeOf = (query: URLSearchParams): Mode => {
  * the button, and the button is described by it. */
 function reviewReason(facts: {
 	preview: boolean;
+	/** The Code view's text does not parse, so the draft is not what the text says. */
+	yamlBroken: boolean;
 	problemCount: number;
 	stripeConnected: boolean;
 	saveStatus: SaveStatus;
 	changeCount: number;
 }): string | undefined {
 	if (facts.preview) return exitPreviewTitle;
+	if (facts.yamlBroken) return "Fix the YAML first";
 	if (facts.problemCount > 0) return "Fix the problems first";
 	if (!facts.stripeConnected) return "Connect Stripe first";
 	if (facts.saveStatus === "saving") return "Saving the draft…";
@@ -248,8 +252,15 @@ export function Plans({
 	const defaultShow: PreviewSource = changes.length > 0 ? "draft" : "live";
 	const show =
 		askedShow === "live" || askedShow === "draft" ? askedShow : defaultShow;
+	const yamlBroken =
+		session.yamlText !== null &&
+		!parseMenu(session.yamlText, {
+			version: session.version,
+			previous: session.draft,
+		}).ok;
 	const reason = reviewReason({
 		preview: view.preview,
+		yamlBroken,
 		problemCount: problemList.length,
 		stripeConnected: summary.stripeConnected,
 		saveStatus,
@@ -337,7 +348,8 @@ export function Plans({
 		} else if (changes.length === 0) {
 			onToast("Add a membership first.");
 			open("tiers", null);
-		} else if (problemList.length > 0)
+		} else if (yamlBroken) onToast("Fix the YAML first.");
+		else if (problemList.length > 0)
 			onToast("Fix the problems in the plan first.");
 		else setReviewing(true);
 	};

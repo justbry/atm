@@ -1,5 +1,5 @@
 import type { ComponentChildren, JSX } from "preact";
-import { useEffect, useId, useState } from "preact/hooks";
+import { useEffect, useId, useRef, useState } from "preact/hooks";
 import { type DownloadFile, jsonMediaType } from "../data/ledger.ts";
 import type {
 	InvoiceItem,
@@ -38,6 +38,7 @@ import {
 	type WriteContext,
 } from "./members-writes.ts";
 import { currencySymbol, formatMoney } from "./money.ts";
+import { plural } from "./wording.ts";
 
 /** What the Members tab can ask the person's modal for. */
 export type Action =
@@ -61,7 +62,8 @@ export type ModalContext = {
 	/** Whether the booking is inside its cutoff (the server says so, in the person's attention). */
 	insideCutoff: (booking: MemberBooking) => boolean;
 	/** "Audit member": the server's replay of the person's log, balance and Stripe. */
-	readAudit: () => Promise<MemberAudit>;
+	/** The audit of one person. The modal runs it once per person it is opened for, however often the pane renders. */
+	readAudit: (personId: string) => Promise<MemberAudit>;
 	/** "Export report": the Writer's download. */
 	saveReport: (file: DownloadFile) => Promise<void>;
 	onToast: (text: string) => void;
@@ -1005,6 +1007,12 @@ function RoleModal({
 	);
 }
 
+/** "Clean." or the count of steps the server marked as failed ("1 problem."). */
+const auditLabel = ({ clean, steps }: MemberAudit): string =>
+	clean
+		? "Clean."
+		: `${plural(steps.filter(({ ok }) => !ok).length, "problem")}.`;
+
 const auditFailedText = "Could not run the audit. Try again.";
 const reportFailedToast = "Could not save the report. Try again.";
 
@@ -1014,9 +1022,13 @@ function AuditModal({ context }: { context: ModalContext }): JSX.Element {
 	const { write, readAudit, saveReport, onToast } = context;
 	const [audit, setAudit] = useState<MemberAudit | "failed" | null>(null);
 	const [saving, setSaving] = useState(false);
+	const personId = write.person.id;
+	/** The pane builds a new `readAudit` on every render: the effect below must not run again for that. */
+	const readLatest = useRef(readAudit);
+	readLatest.current = readAudit;
 	useEffect(() => {
 		let current = true;
-		readAudit().then(
+		readLatest.current(personId).then(
 			(read) => {
 				if (current) setAudit(read);
 			},
@@ -1027,7 +1039,7 @@ function AuditModal({ context }: { context: ModalContext }): JSX.Element {
 		return () => {
 			current = false;
 		};
-	}, [readAudit]);
+	}, [personId]);
 	const exportReport = async (): Promise<void> => {
 		if (audit === null || audit === "failed") return;
 		setSaving(true);
@@ -1055,9 +1067,7 @@ function AuditModal({ context }: { context: ModalContext }): JSX.Element {
 			preview={
 				read ? (
 					<>
-						<b class={read.clean ? "ok" : "err"}>
-							{read.clean ? "Clean." : "1 problem."}
-						</b>{" "}
+						<b class={read.clean ? "ok" : "err"}>{auditLabel(read)}</b>{" "}
 						{read.verdict}
 					</>
 				) : undefined

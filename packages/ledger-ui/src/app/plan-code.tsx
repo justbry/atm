@@ -148,10 +148,10 @@ export function PlanCode({
 						Reset to published
 					</button>
 					<span class="sp" />
-					<output class={`kpill ${pill.tone}`} data-test="plan-yaml-status">
+					<span class={`kpill ${pill.tone}`} data-test="plan-yaml-status">
 						<Icon name={pill.icon} />
 						{pill.label}
-					</output>
+					</span>
 				</div>
 				<p class="kmut" id={helpId} data-test="plan-yaml-help">
 					<Icon name="info" /> Comments are not saved: plans are stored as JSON.
@@ -196,6 +196,7 @@ export function PlanCode({
 						}}
 					/>
 				</div>
+				{/* The one live region of the view: the status pill repeats what this says, so it is not announced twice. */}
 				<div class="kmsg" aria-live="polite" data-test="plan-yaml-message">
 					{!parsed.ok ? (
 						<>

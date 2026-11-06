@@ -209,7 +209,7 @@ const tierUnit = (menu: Menu, tier: MenuTier): string =>
 export function priceText(menu: Menu, item: MenuTier | MenuAddon): string {
 	if ("prices" in item) {
 		const month = monthlyAmount(item);
-		if (!(item.public || month)) return "Not for sale";
+		if (month === undefined || !(item.public || month)) return "Not for sale";
 		const year = yearlyAmount(item);
 		const per = item.quantities ? ` per ${tierUnit(menu, item)}` : "";
 		return `${formatMoney(month ?? 0, menu.currency)}${per} / month${

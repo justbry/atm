@@ -164,7 +164,7 @@ test("the Ledger, Reports and Promos say what they could not load, and Try again
 		const { reader, calls } = failingOnce(method);
 		await open(hash, { reader });
 		expect(element("[role=alert]").textContent).toContain(
-			`Could not load ${what}. Try again.`,
+			`Could not load ${what}.`,
 		);
 		expect(count(rendered)).toBe(0);
 		tryAgain().click();

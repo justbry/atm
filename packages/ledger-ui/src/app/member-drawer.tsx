@@ -155,7 +155,7 @@ function BookingRow({
 			icon={icon}
 			label={label}
 			reason={reason}
-			locked={locked && action !== "remind"}
+			locked={locked}
 			tone="s"
 			hook="booking-action"
 			action={action}
@@ -449,7 +449,9 @@ export function MemberDrawer({
 							· <b>{projection.held}</b> held for bookings
 						</>
 					)}
-					{expires !== null ? ` · expire ${expires}` : ""} · rollover 0
+					{expires !== null ? ` · expire ${expires}` : ""}
+					{balance.rolledOver !== undefined &&
+						` · rollover ${balance.rolledOver}`}
 					<BalanceBar balance={balance} projection={projection} />
 				</div>
 			)}

@@ -1,5 +1,6 @@
 import type { JSX } from "preact";
 import { useState } from "preact/hooks";
+import type { ConsequenceLine } from "./booking-text.ts";
 import { Dialog } from "./dialog.tsx";
 
 type BookingDialogProps = {
@@ -10,6 +11,8 @@ type BookingDialogProps = {
 	confirmLabel: string;
 	/** The label of the "Waive the late-cancel forfeit" box, for a release inside the cutoff; without it, no box. */
 	waiveLabel?: string | undefined;
+	/** What the action does to the member's credits, from the Waive box; null (or nothing) leaves the line out. */
+	consequence?: ((waive: boolean) => ConsequenceLine | null) | undefined;
 	onConfirm: (waiveCutoff: boolean) => void;
 	onCancel: () => void;
 };
@@ -21,10 +24,12 @@ export function BookingDialog({
 	detail,
 	confirmLabel,
 	waiveLabel,
+	consequence,
 	onConfirm,
 	onCancel,
 }: BookingDialogProps): JSX.Element {
 	const [waive, setWaive] = useState(false);
+	const line = consequence?.(waive);
 	return (
 		<Dialog title={title} onClose={onCancel}>
 			<div class="mut">{detail}</div>
@@ -39,6 +44,13 @@ export function BookingDialog({
 						/>{" "}
 						{waiveLabel}
 					</label>
+				</div>
+			)}
+			{line && (
+				<div class="prev" aria-live="polite">
+					{line.before}
+					{line.strong && <b>{line.strong}</b>}
+					{line.after}
 				</div>
 			)}
 			<div class="mf">

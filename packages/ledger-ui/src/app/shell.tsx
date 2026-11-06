@@ -13,6 +13,7 @@ import type { Reader } from "../data/reader.ts";
 import type { Clock, School } from "../data/types.ts";
 import type { Writer } from "../data/writer.ts";
 import { CoreIcon, type CoreIconName } from "./core-icon.tsx";
+import { DialogSlot, useSlotOpener } from "./dialog-slot.tsx";
 import type { Change as RosterChange } from "./members-model.ts";
 import type { PaneName } from "./panes.tsx";
 import { parsePeriod, snapPeriod } from "./period.ts";
@@ -120,6 +121,7 @@ export function Shell({
 	const [toast, setToast] = useState<{ text: string } | null>(null);
 	/** A modal over the drawer (a Settings dialog), handed up by the settings so it sits outside the drawer. */
 	const [modal, setModal] = useState<ComponentChildren>(null);
+	useSlotOpener(modal !== null);
 	/** The Members tab shows the member portal instead of the roster when the route asks for one (`portal=`). */
 	const membersOpen = route.tab === "members" && !route.query.has("portal");
 	const paneName: PaneName | null =
@@ -466,7 +468,7 @@ export function Shell({
 					/>
 				)}
 			</SettingsDrawer>
-			{modal}
+			{modal !== null && <DialogSlot>{modal}</DialogSlot>}
 			<div
 				class={toast ? "toast on" : "toast"}
 				data-test={toast || !membersOpen ? "toast" : undefined}

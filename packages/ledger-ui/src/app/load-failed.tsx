@@ -13,7 +13,7 @@ export function LoadFailed({
 	return (
 		<div class="note" role="alert">
 			<Icon name="alert" />
-			<span>Could not load {what}. Try again.</span>
+			<span>Could not load {what}.</span>
 			<span class="sp" />
 			<button type="button" class="btn s" onClick={onRetry}>
 				Try again

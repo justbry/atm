@@ -1,5 +1,5 @@
 import type { JSX, RefObject } from "preact";
-import { useId, useState } from "preact/hooks";
+import { useId } from "preact/hooks";
 import type { ViewAs } from "../data/disclosure.ts";
 import type { Clock, School } from "../data/types.ts";
 import {
@@ -68,8 +68,8 @@ export function TopBar({
 }: TopBarProps): JSX.Element {
 	const switcherList = useId();
 	const viewAsList = useId();
-	/** Only the checkbox reads it until Reports compares periods; kept here so it outlives the popover. */
-	const [compare, setCompare] = useState(false);
+	/** The Compare checkbox is the route's `compare=1`, which Reports reads. */
+	const compare = route.query.get("compare") === "1";
 	const { today } = clock;
 	const schoolName = school?.name ?? "All schools";
 
@@ -192,7 +192,9 @@ export function TopBar({
 									: "Each school's own time zone"
 							}
 							compare={compare}
-							onCompareChange={setCompare}
+							onCompareChange={(checked) =>
+								navigate(withQuery(route, "compare", checked ? "1" : null))
+							}
 							onChoose={(chosen, shut) => {
 								if (shut) close();
 								navigate(

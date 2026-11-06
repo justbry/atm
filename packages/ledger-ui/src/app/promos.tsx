@@ -11,6 +11,7 @@ import {
 import { failedToast } from "./booking-text.ts";
 import { type BooksPaneProps, smallCount } from "./books-pane.ts";
 import { Dialog } from "./dialog.tsx";
+import { DialogSlot, useSlotOpener } from "./dialog-slot.tsx";
 import { Icon } from "./icon.tsx";
 import { LoadFailed } from "./load-failed.tsx";
 import { formatMoney } from "./money.ts";
@@ -352,6 +353,7 @@ export function Promos({
 	const [revealed, setRevealed] = useState<string[]>([]);
 	const [disabling, setDisabling] = useState<string | null>(null);
 	const [dialog, setDialog] = useState<Dialogs | null>(null);
+	useSlotOpener(dialog !== null);
 	useLayoutEffect(() => {
 		if (loaded || status.failed) onRendered();
 	});
@@ -577,25 +579,27 @@ export function Promos({
 					No promos yet.
 				</p>
 			)}
-			{dialog?.step === "form" && (
-				<PromoForm
-					schoolName={school.name}
-					unit={unit}
-					currency={currency}
-					defaultExpires={`${clock.today.slice(0, 4)}-12-31`}
-					create={create}
-					onCancel={() => setDialog(null)}
-				/>
-			)}
-			{dialog?.step === "created" && (
-				<PromoCreated
-					schoolName={school.name}
-					promo={dialog.promo}
-					summary={`${typeLabel(dialog.promo.type, unit)} · ${valueText(dialog.promo, currency, unit)} · expires ${dialog.promo.expiresOn}`}
-					copy={copy}
-					onDone={() => setDialog(null)}
-				/>
-			)}
+			<DialogSlot>
+				{dialog?.step === "form" && (
+					<PromoForm
+						schoolName={school.name}
+						unit={unit}
+						currency={currency}
+						defaultExpires={`${clock.today.slice(0, 4)}-12-31`}
+						create={create}
+						onCancel={() => setDialog(null)}
+					/>
+				)}
+				{dialog?.step === "created" && (
+					<PromoCreated
+						schoolName={school.name}
+						promo={dialog.promo}
+						summary={`${typeLabel(dialog.promo.type, unit)} · ${valueText(dialog.promo, currency, unit)} · expires ${dialog.promo.expiresOn}`}
+						copy={copy}
+						onDone={() => setDialog(null)}
+					/>
+				)}
+			</DialogSlot>
 		</>
 	);
 }

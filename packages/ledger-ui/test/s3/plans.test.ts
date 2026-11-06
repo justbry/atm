@@ -166,6 +166,33 @@ test("typed YAML is applied after a pause, once, and a draft with problems is no
 	expect(text(glowPrice)).toBe("$72.00 / month · $702.00 / year");
 });
 
+test("Review and publish is off with a reason while the Code text does not parse, and publishes nothing", async () => {
+	const writer = createFixtureWriter({ mode: "instant" });
+	await open("#/vol/plans?mode=code&theme=light", { writer });
+	const original = element<HTMLTextAreaElement>("[data-test=plan-yaml]").value;
+	await fill(
+		"[data-test=plan-yaml]",
+		original
+			.replace("      month: 70\n", "      month: 71\n")
+			.replace("name: Sparkle", 'name: "Spark'),
+	);
+	await wait(400);
+	await settle();
+	const review = element<HTMLButtonElement>("[data-test=plan-review]");
+	expect(review.disabled).toBe(true);
+	expect(review.title).toBe("Fix the YAML first");
+	expect(document.body.textContent).toContain("Fix the YAML first");
+	await fill(
+		"[data-test=plan-yaml]",
+		original.replace("      month: 70\n", "      month: 71\n"),
+	);
+	await wait(400);
+	await settle();
+	expect(element<HTMLButtonElement>("[data-test=plan-review]").title).not.toBe(
+		"Fix the YAML first",
+	);
+});
+
 test("Format rewrites the standard layout, and says so when the text does not parse", async () => {
 	await open("#/vol/plans?mode=code&theme=light");
 	const original = element<HTMLTextAreaElement>("[data-test=plan-yaml]").value;

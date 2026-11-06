@@ -1,5 +1,5 @@
 import type { ComponentChildren, JSX } from "preact";
-import { useId, useState } from "preact/hooks";
+import { useId, useRef, useState } from "preact/hooks";
 import type { SchoolSettings as SettingsData } from "../data/settings.ts";
 import type { School } from "../data/types.ts";
 import type { Writer } from "../data/writer.ts";
@@ -21,8 +21,8 @@ export type Section = {
 };
 
 /** A dialog over the drawer (mockup `#md`): a title, a body, Cancel and the confirming action. Escape, a click on the
- * backdrop and Cancel close it; Tab stays inside; focus starts on the first field, else on the first button. The
- * action stays busy until it answers, and says so if it fails. */
+ * backdrop and Cancel close it, except while the action is on its way; Tab stays inside; focus starts on the first
+ * field, else on the first button. The action stays busy until it answers, and says so if it fails. */
 export function SettingsDialog({
 	title,
 	icon,
@@ -67,6 +67,7 @@ export function SettingsDialog({
 				</>
 			}
 			onClose={onCancel}
+			busy={busy}
 		>
 			{children}
 			{failed && (
@@ -81,6 +82,7 @@ export function SettingsDialog({
 						type="button"
 						class="btn"
 						data-test="dialog-cancel"
+						disabled={busy}
 						onClick={onCancel}
 					>
 						Cancel
@@ -100,6 +102,33 @@ export function SettingsDialog({
 			</div>
 		</Dialog>
 	);
+}
+
+/** What shows the dialog that follows: it does so only while the dialog it follows is still the one on screen. */
+export type Follow = (next: ComponentChildren) => Follow;
+
+/** A Settings section's way to put dialogs on screen (`onModal`) so a write's continuation cannot reach a dialog that is
+ * gone: `show` returns the `Follow` of the dialog it shows, and `close` takes the dialog away. A `Follow` called after
+ * the dialog was closed or replaced does nothing and returns one that does nothing. */
+export function useDialogChain(onModal: Section["onModal"]): {
+	show: (dialog: ComponentChildren) => Follow;
+	close: () => void;
+} {
+	const latest = useRef(0);
+	const show = (dialog: ComponentChildren): Follow => {
+		latest.current += 1;
+		const ticket = latest.current;
+		onModal(dialog);
+		const follow: Follow = (next) =>
+			latest.current === ticket ? show(next) : follow;
+		return follow;
+	};
+	return {
+		show,
+		close: () => {
+			show(null);
+		},
+	};
 }
 
 /** A labelled field of a dialog (hook `dialog-field`, by `data-field`). */

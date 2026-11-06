@@ -381,7 +381,7 @@ test("the fixture Reader answers a range inclusively and a school without bookin
 	).toEqual([]);
 });
 
-test("a booking waiting for approval offers Remind host, which toasts the host names and writes nothing", async () => {
+test("a booking waiting for approval offers Remind host, which writes the reminder and toasts the host names once the Writer has answered", async () => {
 	const writer = createFixtureWriter({ mode: "instant" });
 	const reader = readerWith((booking) =>
 		booking.id === "bk_rq1"
@@ -400,7 +400,38 @@ test("a booking waiting for approval offers Remind host, which toasts the host n
 	expect(count("[data-test=booking-action][data-booking=bk_rq1]")).toBe(1);
 	await click(remind);
 	expect(text("[data-test=toast]")).toBe("Reminder sent to Kim, Ravi.");
-	expect(writer.calls).toEqual([]);
+	expect(writer.calls).toEqual([
+		{
+			method: "remindHost",
+			args: [{ school: "vol", bookingId: "bk_rq1" }],
+		},
+	]);
+});
+
+test("Remind host toasts nothing while the write is on its way and says so when it fails", async () => {
+	const held = createFixtureWriter({ mode: "hold" });
+	await open("#/vol/bookings", { writer: held });
+	const remind = `[data-test=booking-action][data-action=remind][data-booking=bk_rq1]`;
+	await click(remind);
+	expect(held.calls.map(({ method }) => method)).toEqual(["remindHost"]);
+	expect(text("[data-test=toast]")).toBe("");
+	expect(element<HTMLButtonElement>(remind).disabled).toBe(true);
+	held.release();
+	await settle();
+	expect(text("[data-test=toast]")).toBe("Reminder sent to Kim.");
+
+	unmount?.();
+	document.body.innerHTML = "";
+	const failing: Writer = {
+		...createFixtureWriter({ mode: "instant" }),
+		remindHost: () => Promise.reject(new Error("offline")),
+	};
+	await open("#/vol/bookings", { writer: failing });
+	await click(remind);
+	expect(text("[data-test=toast]")).toBe(
+		"Could not send the reminder. Try again.",
+	);
+	expect(element<HTMLButtonElement>(remind).disabled).toBe(false);
 });
 
 test("Remind host is disabled under View as preview, like the other writes", async () => {
@@ -572,9 +603,8 @@ test("a rejected read says what could not load, and Try again reads it again", a
 		},
 	};
 	await open("#/vol/bookings", { reader: failing });
-	expect(text("[role=alert]")).toContain(
-		"Could not load the bookings. Try again.",
-	);
+	expect(text("[role=alert]")).toContain("Could not load the bookings.");
+	expect(text("[role=alert]")).not.toContain("Try again.");
 	expect(count("[data-test=booking-row]")).toBe(0);
 	const tryAgain = Array.from(
 		document.querySelectorAll<HTMLButtonElement>("button"),
@@ -585,4 +615,79 @@ test("a rejected read says what could not load, and Try again reads it again", a
 		await macrotask();
 	expect(count("[role=alert]")).toBe(0);
 	expect(count("[data-test=booking-row]")).toBeGreaterThan(0);
+});
+
+test("a failed week keeps its tools bar, and stepping to another week and back clears the error once the read succeeds", async () => {
+	const reader = createFixtureReader({ clock });
+	let offline = true;
+	const flaky: Reader = {
+		...reader,
+		bookings: (query) =>
+			offline ? Promise.reject(new Error("offline")) : reader.bookings(query),
+	};
+	await open("#/vol/bookings", { reader: flaky });
+	expect(count("[role=alert]")).toBe(1);
+	expect(count("[data-test=booking-range-label]")).toBe(1);
+	expect(count("[data-test=booking-filter]")).toBe(4);
+	offline = false;
+	await go("#/vol/bookings?offset=1");
+	expect(count("[role=alert]")).toBe(0);
+	await go("#/vol/bookings");
+	for (let turn = 0; turn < 50 && count("[role=alert]") > 0; turn += 1)
+		await macrotask();
+	expect(count("[role=alert]")).toBe(0);
+	expect(count("[data-test=booking-row]")).toBeGreaterThan(0);
+});
+
+const withoutBilling = ({ billing: _dropped, ...rest }: Booking): Booking =>
+	rest;
+
+test("the No-show dialog says what the school's rule does to the held credits", async () => {
+	const noShow = `[data-test=booking-action][data-action=noshow][data-booking=bk_8zz]`;
+	await open("#/vol/bookings");
+	await click(noShow);
+	expect(text("[data-test=dialog] .prev")).toBe(
+		"Rule: a no-show spends the sessions. 1 session are spent.",
+	);
+	unmount?.();
+	document.body.innerHTML = "";
+
+	await open("#/vol/bookings");
+	await click(
+		`[data-test=booking-action][data-action=noshow][data-booking=bk_6qq]`,
+	);
+	expect(text("[data-test=dialog] .prev")).toBe(
+		"No credits are involved. The no-show is recorded.",
+	);
+	unmount?.();
+	document.body.innerHTML = "";
+
+	await open("#/vol/bookings", {
+		reader: readerWith((booking) =>
+			booking.id === "bk_8zz" ? withoutBilling(booking) : booking,
+		),
+	});
+	await click(noShow);
+	expect(count("[data-test=dialog]")).toBe(1);
+	expect(count("[data-test=dialog] .prev")).toBe(0);
+});
+
+test("the inside-cutoff Release dialog quotes the forfeit and follows the Waive box", async () => {
+	const startingSoon = readerWith((booking) =>
+		booking.id === "bk_5kd"
+			? { ...booking, startsAt: "2026-11-05T13:00", endsAt: "2026-11-05T14:00" }
+			: booking,
+	);
+	await open("#/vol/bookings", { reader: startingSoon });
+	await click(
+		`[data-test=booking-action][data-action=release][data-booking=bk_5kd]`,
+	);
+	expect(text("[data-test=dialog] .prev")).toMatch(
+		/^Inside the \S+ cutoff, the school's rule forfeits 2 sessions\. Tick "Waive" to return them\.$/,
+	);
+	expect(text("[data-test=dialog] .prev b")).toBe("forfeits 2 sessions");
+	await click("[data-test=waive-cutoff]");
+	expect(text("[data-test=dialog] .prev")).toBe(
+		"2 sessions return to Ivy N.'s available balance.",
+	);
 });
