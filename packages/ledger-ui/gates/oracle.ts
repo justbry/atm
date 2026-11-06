@@ -783,6 +783,24 @@ export function kpiDocument(input: KpiDocumentInput): KpiDocument {
 			},
 		);
 
+	/** Mockup dlt: in the month table, each money or count cell's change against the month before, when both are
+	 * figures as this audience sees them. */
+	const monthTable = tables.month;
+	if (monthTable) {
+		const changes: Record<string, Array<number | null>> = {};
+		for (const { id, entry } of plainKpis) {
+			const cells = monthTable.series[id];
+			if (entry.kind === "rate" || !cells) continue;
+			changes[id] = cells.map((cell, index) => {
+				const before = cells[index - 1];
+				return typeof cell === "number" && typeof before === "number"
+					? cell - before
+					: null;
+			});
+		}
+		monthTable.changes = changes;
+	}
+
 	/** bkRules over the plans of a period (governance): one hidden plan hides the smallest shown one too. */
 	function complementPlans(table: KpiTable, periods: Period[]): void {
 		const ids = plainKpis
@@ -1143,9 +1161,11 @@ export function kpiDocument(input: KpiDocumentInput): KpiDocument {
 	// ---- The PIN-locked document: nothing shows until the PIN is entered (mockup bkLock)
 	if (pinLocked)
 		for (const table of Object.values(tables))
-			if (table)
+			if (table) {
 				for (const cells of Object.values(table.series))
 					cells.fill({ hidden: "locked", text: "Locked" });
+				delete table.changes;
+			}
 
 	const notes = [
 		...(policy.years.some((periodYear) => periodYear in yearScale)

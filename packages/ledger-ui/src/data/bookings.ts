@@ -43,6 +43,12 @@ export type Booking = {
 	/** The item's own cancel cutoff (`booking_events.change_cutoff_min`). */
 	cutoffMinutes: number;
 	seriesId: string | null;
+	/**
+	 * The series badge as the mockup's Status column shows it ("weekly · 3 left"), worded by the server. NOT in brief A
+	 * today: the fixtures fill it from the mockup and the S8 adapter leaves it out until a route provides it (an S8
+	 * gap). The UI shows it as it is and never counts what is left.
+	 */
+	seriesLabel?: string;
 	/** From brief D's `attendanceFor`: the outcome an admin recorded, or null when none is. */
 	attendance: Attendance | null;
 	/**

@@ -64,6 +64,10 @@ export type KpiTable = {
 	series: Record<string, Cell[]>;
 	/** Row order where the mockup sorts rows by value: per group (`donations_by_fund`), per period, the ids. */
 	order?: Record<string, string[][]>;
+	/** Month table only (mockup `dlt`): per money or count series, each cell's change against the month before, or
+	 * null when either is not a figure or the month is the first. The UI prints it ("Same as May", "▼ $6 vs May");
+	 * it never subtracts. */
+	changes?: Record<string, Array<number | null>>;
 };
 
 /** A period of the Dashboard's strip: the audience's grain, its state as the period control has it, `open` for the
