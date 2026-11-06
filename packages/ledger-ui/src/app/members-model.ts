@@ -16,6 +16,7 @@ import {
 } from "../data/members.ts";
 import type { IconName } from "./icon.tsx";
 import { monthAndDay } from "./period.ts";
+import type { Change as PortalChange } from "./portal-format.ts";
 import type { Viewing } from "./viewing.ts";
 
 /** What the Members tab does with the answers of the Reader and the Writer: the pending effects of a write (shown
@@ -84,10 +85,12 @@ export type Change =
 			paymentIntentId: string | null;
 	  }
 	| { kind: "role"; personId: string; role: RoleChange }
+	/** `other`: the portal sent a change that leaves the standing as it is (a new quantity). */
 	| {
 			kind: "membership";
 			membershipId: string;
-			change: "cancel_period_end" | "cancel_now" | "resume";
+			personId: string;
+			change: "cancel_period_end" | "cancel_now" | "resume" | "other";
 	  }
 	/** The booking has a write on its way: its attention reasons and its actions are off. */
 	| { kind: "booking"; bookingId: string };
@@ -112,10 +115,57 @@ export function pendingBookingIds(changes: Change[]): Set<string> {
 
 /** A plan change or a payment on its way holds the next one back (mockup `waiting`). */
 export const changeWaiting = (changes: Change[], personId: string): boolean =>
+	changes.some(
+		(change) => change.kind === "membership" && change.personId === personId,
+	) ||
 	ledgerChanges(changes, personId).some(
 		({ event }) =>
 			event.type === "membership.changed" || event.type === "payment.succeeded",
 	);
+
+/** The membership changes the shell keeps by profile id (the member portal's map, which the roster writes into as
+ * well) as the roster's changes, so that a cancel or resume made in either place shows in both. */
+export function membershipChangesOf(
+	members: Member[],
+	kept: Record<string, PortalChange>,
+): Change[] {
+	return members.flatMap((member): Change[] => {
+		if (member.profileId === null) return [];
+		const sent = kept[member.profileId];
+		if (!sent || (!sent.waiting && sent.ending === undefined)) return [];
+		const change = sent.ending
+			? sent.endsNow
+				? "cancel_now"
+				: "cancel_period_end"
+			: sent.ending === false
+				? "resume"
+				: "other";
+		return [
+			{
+				kind: "membership",
+				membershipId: member.membershipId,
+				personId: member.profileId,
+				change,
+			},
+		];
+	});
+}
+
+/** What the roster's finished write adds to the shell's membership map for the person: a cancel or resume sets the
+ * ending, any plan change marks the person as waiting for the ledger. */
+export function portalChangeOf(change: Change): PortalChange | null {
+	if (change.kind === "membership") {
+		if (change.change === "other") return { waiting: true };
+		return {
+			waiting: true,
+			ending: change.change !== "resume",
+			endsNow: change.change === "cancel_now",
+		};
+	}
+	if (change.kind === "ledger" && change.event.type === "membership.changed")
+		return { waiting: true };
+	return null;
+}
 
 /** The balance as the mockup's `proj` shows it: the Reader's, then each pending event. */
 export type Projection = {
@@ -201,6 +251,7 @@ export function standingOf(member: Member, changes: Change[]): Standing {
 			change.membershipId !== member.membershipId
 		)
 			continue;
+		if (change.change === "other") continue;
 		if (change.change === "cancel_period_end") cancelsAtPeriodEnd = true;
 		else if (change.change === "cancel_now") {
 			canceled = true;

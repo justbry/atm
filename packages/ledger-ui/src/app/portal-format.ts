@@ -26,12 +26,14 @@ const schoolDay = (seconds: number, timeZone: string): string =>
 
 /** What a change the member asked for has done so far, kept by the portal until the Reader says it itself:
  * `waiting` the request was sent (the ledger has not shipped it), `quantity` an increase, `scheduledQuantity` a
- * decrease that waits for the renewal, `ending` a cancel (true) or a resume (false). */
+ * decrease that waits for the renewal, `ending` a cancel (true) or a resume (false), `endsNow` a cancel the roster made
+ * with immediate effect. */
 export type Change = {
 	waiting: boolean;
 	quantity?: number;
 	scheduledQuantity?: number;
 	ending?: boolean;
+	endsNow?: boolean;
 };
 
 /** A member's plan as the portal writes it: the Reader's membership with the changes made in this session. */

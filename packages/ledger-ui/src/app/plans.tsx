@@ -12,6 +12,7 @@ import type { Clock, School } from "../data/types.ts";
 import type { Writer } from "../data/writer.ts";
 import { Icon } from "./icon.tsx";
 import { LockPanel } from "./lock-panel.tsx";
+import type { PaneProps } from "./panes.tsx";
 import { PlanCode } from "./plan-code.tsx";
 import { PlanDrawer } from "./plan-drawer.tsx";
 import {
@@ -33,6 +34,7 @@ import {
 	type PlansSession,
 	plansViewOf,
 	problems,
+	type SaveStatus,
 	slug,
 	stripeFactsOf,
 	tierCount,
@@ -95,6 +97,9 @@ async function loadSession(
 		draft,
 		summary,
 		yamlText: null,
+		saveStatus: "saved",
+		savesStarted: 0,
+		lastSave: Promise.resolve(true),
 	};
 }
 
@@ -102,9 +107,6 @@ const modeOf = (query: URLSearchParams): Mode => {
 	const asked = query.get("mode");
 	return asked === "preview" || asked === "code" ? asked : "edit";
 };
-
-/** Whether the draft's last `saveMenu` has been taken by the server. */
-type SaveStatus = "saved" | "saving" | "failed";
 
 /** Mockup `#prev`'s title: why Review and publish is off, or nothing when it is on. The pane shows it as text next to
  * the button, and the button is described by it. */
@@ -132,7 +134,7 @@ type PlansProps = {
 	navigate: (route: Route) => void;
 	/** The school's session, kept by the Shell for the life of the mount; undefined until it is read. */
 	session: PlansSession | undefined;
-	onSession: (schoolId: string, session: PlansSession) => void;
+	onSession: PaneProps["onSession"];
 	clock: Clock;
 	/** A publish gave these tiers another audience: their members read it from now on. */
 	onAudienceMoves: (
@@ -175,7 +177,6 @@ export function Plans({
 	} | null>(null);
 	const [reviewing, setReviewing] = useState(false);
 	const [publishing, setPublishing] = useState(false);
-	const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
 	const reasonId = useId();
 	const loaded = session !== undefined;
 	useEffect(() => {
@@ -199,25 +200,31 @@ export function Plans({
 		latest.current = next;
 		onSession(school.id, next);
 	};
-	/** The newest save, settled to whether the server took it. Saves go one after another, so the last to start is the
-	 * last the server has; Publish waits for it. */
-	const lastSave = useRef<Promise<boolean>>(Promise.resolve(true));
-	const savesStarted = useRef(0);
+	/** Saves go one after another, so the last to start is the last the server has. Its state is the session's, which
+	 * the Shell keeps: a save that settles after the tab was left still settles the status. */
 	const save = (menu: Menu): void => {
-		savesStarted.current += 1;
-		const mine = savesStarted.current;
-		setSaveStatus("saving");
-		const attempt = lastSave.current
+		const current = latest.current;
+		if (!current) return;
+		const mine = current.savesStarted + 1;
+		const attempt = current.lastSave
 			.then(() => writer.saveMenu(school.id, menu))
 			.then(
 				() => true,
 				() => false,
 			);
-		lastSave.current = attempt;
+		commit({
+			...current,
+			saveStatus: "saving",
+			savesStarted: mine,
+			lastSave: attempt,
+		});
 		attempt.then((saved) => {
 			if (!saved) onToast(saveFailedToast);
-			if (mine === savesStarted.current)
-				setSaveStatus(saved ? "saved" : "failed");
+			onSession(school.id, (before) =>
+				before.savesStarted === mine
+					? { ...before, saveStatus: saved ? "saved" : "failed" }
+					: before,
+			);
 		});
 	};
 	/** Makes `menu` the draft; a draft with problems stays on screen, unsaved. */
@@ -229,7 +236,7 @@ export function Plans({
 	const yaml = usePlanYaml({ latest, commit, save, onToast });
 
 	if (!session) return null;
-	const { live, draft, summary } = session;
+	const { live, draft, summary, saveStatus } = session;
 	const view = plansViewOf(viewing);
 	/** The per-plan members and revenue this row may not see (the disclosure's `plans-revenue` surface). */
 	const revenueLock = viewing.option.locks["plans-revenue"];
@@ -268,7 +275,7 @@ export function Plans({
 	 * session with `_pin` before the `publishMenu` call below. */
 	const publish = async (_pin: string): Promise<void> => {
 		setPublishing(true);
-		if (!(await lastSave.current)) {
+		if (!(await session.lastSave)) {
 			setPublishing(false);
 			onToast(saveFirstToast);
 			return;

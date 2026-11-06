@@ -12,6 +12,7 @@ import { failedToast } from "./booking-text.ts";
 import { type BooksPaneProps, smallCount } from "./books-pane.ts";
 import { Dialog } from "./dialog.tsx";
 import { Icon } from "./icon.tsx";
+import { LoadFailed } from "./load-failed.tsx";
 import { formatMoney } from "./money.ts";
 import { formatPeriod } from "./period.ts";
 import { type Route, withQuery } from "./route.ts";
@@ -345,15 +346,17 @@ export function Promos({
 	const { admin } = option;
 	const finance = seesIdentities(audience);
 	const owner = school.role === "owner";
-	const [loaded, change] = useLoaded(`${school.id}|${audience}`, () =>
+	const [loaded, change, status] = useLoaded(`${school.id}|${audience}`, () =>
 		reader.promos({ school: school.id, audience }),
 	);
 	const [revealed, setRevealed] = useState<string[]>([]);
 	const [disabling, setDisabling] = useState<string | null>(null);
 	const [dialog, setDialog] = useState<Dialogs | null>(null);
 	useLayoutEffect(() => {
-		if (loaded) onRendered();
+		if (loaded || status.failed) onRendered();
 	});
+	if (status.failed)
+		return <LoadFailed what="the promos" onRetry={status.retry} />;
 	if (!loaded) return null;
 
 	const { promos, currency, unit } = loaded;

@@ -21,7 +21,7 @@ import type { BooksPaneProps } from "./books-pane.ts";
 import { Donors } from "./donors.tsx";
 import { DownloadButton } from "./download-button.tsx";
 import { Icon, type IconName } from "./icon.tsx";
-import { suppressedText } from "./kpi-cell.tsx";
+import { LoadFailed } from "./load-failed.tsx";
 import { formatMoney } from "./money.ts";
 import {
 	monthAndDay,
@@ -30,7 +30,7 @@ import {
 	periodLabel,
 } from "./period.ts";
 import { PinLock } from "./pin-lock.tsx";
-import { dayMonthYear, Figure } from "./report-figure.tsx";
+import { cellText, Figure } from "./report-figure.tsx";
 import { type Route, withQuery } from "./route.ts";
 import { useLoaded } from "./use-loaded.ts";
 import { useViewing } from "./viewing.ts";
@@ -58,39 +58,6 @@ const documentFigure =
 			noun={noun}
 		/>
 	);
-
-/** A cell as the audience document's CSV writes it: its text, or nothing when it is hidden (the reason goes in the
- * next column). */
-function cellCsv(
-	cell: ReportCell,
-	money: boolean,
-	currency: string,
-	whole: boolean,
-): { value: string; hidden: string } {
-	if (typeof cell === "number")
-		return {
-			value: money ? formatMoney(cell, currency, whole) : String(cell),
-			hidden: "",
-		};
-	if ("lt" in cell)
-		return {
-			value: money
-				? `under ${formatMoney(cell.lt, currency, true)}`
-				: `<${cell.lt}`,
-			hidden: "",
-		};
-	if ("approx" in cell) return { value: String(cell.approx), hidden: "" };
-	if ("until" in cell)
-		return {
-			value: "",
-			hidden: `Published after ${dayMonthYear(cell.until)}`,
-		};
-	if ("who" in cell) return { value: "", hidden: `${cell.who} see this` };
-	return {
-		value: cell.hidden === "suppressed" ? suppressedText : "",
-		hidden: cell.text,
-	};
-}
 
 type DocumentRow = { line: string; kpi: string; value: string; hidden: string };
 const slug = (text: string): string =>
@@ -325,13 +292,9 @@ const statementRows: Array<{
 	},
 ];
 
-const changeText = (
-	now: number,
-	before: number,
-	currency: string,
-	label: string,
-): string =>
-	`${now - before >= 0 ? "▲" : "▼"} ${formatMoney(Math.abs(now - before), currency)} vs ${label}`;
+/** "▲ $X vs <period>": the server's change of the line, signed; the UI formats it and never subtracts. */
+const changeText = (change: number, currency: string, label: string): string =>
+	`${change >= 0 ? "▲" : "▼"} ${formatMoney(Math.abs(change), currency)} vs ${label}`;
 
 function StatementBody({
 	statement,
@@ -350,7 +313,7 @@ function StatementBody({
 	const before = previous
 		? {
 				period: { from: previous.from, to: previous.to },
-				amounts: previous.amounts,
+				changes: previous.changes,
 			}
 		: null;
 	const gifts = `${money(giftsOutstanding.amountCents)}${
@@ -418,8 +381,7 @@ function StatementBody({
 						{before && (
 							<i class="s" data-test="report-kpi-change">
 								{changeText(
-									amounts[field],
-									before.amounts[field],
+									before.changes[field],
 									currency,
 									periodLabel(before.period),
 								)}
@@ -843,7 +805,7 @@ export function Reports({
 	onToast,
 }: BooksPaneProps): JSX.Element | null {
 	const { query } = route;
-	const { audience } = useViewing().option;
+	const { audience, admin } = useViewing().option;
 	const documentAudience =
 		audience === "finance" || audience === "owner" ? null : audience;
 	const pinLocked = query.get("pin") === "locked" && needsPin(audience);
@@ -852,7 +814,7 @@ export function Reports({
 	const key = [school.id, audience, period.from, period.to, compare, pinLocked]
 		.map(String)
 		.join("|");
-	const [loaded] = useLoaded(key, async () => {
+	const [loaded, , status] = useLoaded(key, async () => {
 		if (pinLocked) return null;
 		const [rules, donors] = await Promise.all([
 			reader.schoolRules(school.id),
@@ -886,7 +848,7 @@ export function Reports({
 				};
 	});
 	useLayoutEffect(() => {
-		if (pinLocked || loaded) onRendered();
+		if (pinLocked || loaded || status.failed) onRendered();
 	});
 
 	if (pinLocked)
@@ -900,6 +862,8 @@ export function Reports({
 				}}
 			/>
 		);
+	if (status.failed)
+		return <LoadFailed what="the report" onRetry={status.retry} />;
 	if (!loaded) return null;
 
 	const { rules, donors, statement, document } = loaded;
@@ -967,7 +931,7 @@ export function Reports({
 				<Rules
 					rules={rules.rules}
 					unit={rules.unit}
-					canEdit={statement !== null}
+					canEdit={admin}
 					onEdit={() => onToast("Opening school settings in buzz-school…")}
 				/>
 			</div>
@@ -1044,6 +1008,6 @@ function documentRows(
 	return lines.map(({ line, kpi, cell, money }) => ({
 		line,
 		kpi,
-		...cellCsv(cell, money, currency, whole),
+		...cellText(cell, money, currency, whole),
 	}));
 }

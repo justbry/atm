@@ -331,7 +331,7 @@ function Portal(
 				profileId: member.profileId,
 				...(reason === "" ? {} : { reason }),
 			});
-			mergeChange(member.profileId, { ending: true });
+			mergeChange(member.profileId, { ending: true, endsNow: false });
 			onToast(`Membership will end on ${plan.endsOn}.`);
 		} catch {
 			fail(member.profileId);
@@ -345,7 +345,7 @@ function Portal(
 				school: school.id,
 				profileId: member.profileId,
 			});
-			mergeChange(member.profileId, { ending: false });
+			mergeChange(member.profileId, { ending: false, endsNow: false });
 			onToast("Membership resumed.");
 		} catch {
 			fail(member.profileId);

@@ -2,7 +2,12 @@ import "./panes.css";
 import type { ComponentType, JSX } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import type { BooksPaneProps } from "./books-pane.ts";
-import type { AudienceMove, PlansSession } from "./plans-menu.ts";
+import type { Change as RosterChange } from "./members-model.ts";
+import {
+	type AudienceMove,
+	diffMenus,
+	type PlansSession,
+} from "./plans-menu.ts";
 import type { Change } from "./portal-format.ts";
 import type { SchoolTab } from "./route.ts";
 
@@ -10,7 +15,10 @@ import type { SchoolTab } from "./route.ts";
 export type PaneProps = BooksPaneProps & {
 	/** Plans: the school's draft kept by the shell, and where a changed one goes. */
 	session: PlansSession | undefined;
-	onSession: (schoolId: string, session: PlansSession) => void;
+	onSession: (
+		schoolId: string,
+		session: PlansSession | ((before: PlansSession) => PlansSession),
+	) => void;
 	onOpenSettings: () => void;
 	/** The bookings this school has had an outcome or a release written for, kept by the shell: Bookings and Members
 	 * both show them as on their way until the ledger ships, whichever tab wrote them. */
@@ -27,6 +35,14 @@ export type PaneProps = BooksPaneProps & {
 		schoolId: string,
 		update: (before: Record<string, Change>) => Record<string, Change>,
 	) => void;
+	/** The writes of the Members roster (roles, grants, credits, invoices, refunds) whose effect the ledger has not shipped
+	 * yet, kept by the shell so that a period or tab change does not give them back. Membership cancels and resumes
+	 * are in `membershipChanges`, and bookings in `pendingBookings`, where the other tabs read them too. */
+	rosterChanges: RosterChange[];
+	onRosterChanges: (
+		schoolId: string,
+		update: (before: RosterChange[]) => RosterChange[],
+	) => void;
 	/** The tiers of this school a publish gave another audience, by tier id: the shell keeps them so that the member
 	 * portal reads the new audience, with a notice, until the Reader says it. */
 	audienceMoves: Record<string, AudienceMove>;
@@ -37,6 +53,11 @@ export type PaneProps = BooksPaneProps & {
 	/** The member portal covers the page while it is shown. */
 	onShownChange: (shown: boolean) => void;
 };
+/** Whether the Plans draft differs from the live menu (the tab's "draft" badge). It lives here, with the panes, so that
+ * the first page load does not carry the menu code. */
+export const plansDraftChanged = ({ live, draft }: PlansSession): boolean =>
+	diffMenus(live, draft).length > 0;
+
 /** A tab's pane, or the member portal, which takes the Members pane while the route has `portal=`. */
 export type PaneName = SchoolTab | "portal";
 

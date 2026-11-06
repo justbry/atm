@@ -228,8 +228,8 @@ export function createFixtureReader(options: { clock: Clock }): Reader {
 				],
 				clean: !broken,
 				verdict: broken
-					? "1 problem. Don't adjust the balance by hand yet: restore the missing command, then re-run."
-					: "Clean. Log, balance and Stripe agree.",
+					? "Don't adjust the balance by hand yet: restore the missing command, then re-run."
+					: "Log, balance and Stripe agree.",
 				reportFileName: `audit-${personId}.json`,
 			};
 		},

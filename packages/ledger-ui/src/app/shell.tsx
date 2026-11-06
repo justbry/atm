@@ -13,13 +13,10 @@ import type { Reader } from "../data/reader.ts";
 import type { Clock, School } from "../data/types.ts";
 import type { Writer } from "../data/writer.ts";
 import { CoreIcon, type CoreIconName } from "./core-icon.tsx";
+import type { Change as RosterChange } from "./members-model.ts";
 import type { PaneName } from "./panes.tsx";
 import { parsePeriod, snapPeriod } from "./period.ts";
-import {
-	type AudienceMove,
-	diffMenus,
-	type PlansSession,
-} from "./plans-menu.ts";
+import type { AudienceMove, PlansSession } from "./plans-menu.ts";
 import type { Change } from "./portal-format.ts";
 import {
 	allSchools,
@@ -88,6 +85,7 @@ function useLazy<Loaded>(
 const noAudienceMoves: Record<string, AudienceMove> = {};
 const noPendingBookings: ReadonlySet<string> = new Set();
 const noMembershipChanges: Record<string, Change> = {};
+const noRosterChanges: RosterChange[] = [];
 const loadPanes = () => import("./panes.tsx");
 const loadMenus = () => import("./menus.tsx");
 const loadSettings = () => import("./settings.tsx");
@@ -137,8 +135,16 @@ export function Shell({
 		Record<string, PlansSession>
 	>({});
 	const keepPlanSession = useCallback(
-		(schoolId: string, session: PlansSession) =>
-			setPlanSessions((kept) => ({ ...kept, [schoolId]: session })),
+		(
+			schoolId: string,
+			session: PlansSession | ((before: PlansSession) => PlansSession),
+		) =>
+			setPlanSessions((kept) => {
+				const before = kept[schoolId];
+				const next =
+					typeof session === "function" ? before && session(before) : session;
+				return next ? { ...kept, [schoolId]: next } : kept;
+			}),
 		[],
 	);
 	/** Each school's bookings with a write on their way, kept for the life of the mount so that a tab left and another
@@ -169,6 +175,19 @@ export function Shell({
 			setMembershipChanges((kept) => ({
 				...kept,
 				[schoolId]: update(kept[schoolId] ?? noMembershipChanges),
+			})),
+		[],
+	);
+	/** Each school's roster writes (roles, grants, credits, invoices, refunds) whose effect the ledger has not shipped,
+	 * kept for the life of the mount so that the Members tab opened again, or on another period, still shows them. */
+	const [rosterChanges, setRosterChanges] = useState<
+		Record<string, RosterChange[]>
+	>({});
+	const keepRosterChanges = useCallback(
+		(schoolId: string, update: (before: RosterChange[]) => RosterChange[]) =>
+			setRosterChanges((kept) => ({
+				...kept,
+				[schoolId]: update(kept[schoolId] ?? noRosterChanges),
 			})),
 		[],
 	);
@@ -205,6 +224,17 @@ export function Shell({
 
 	const school = schools.find((candidate) => candidate.id === route.schoolId);
 	const schoolId = school?.id;
+	/** Leaving a school ends its roster writes that are still pending: the Members tab of the school opened again reads
+	 * the people afresh. A period or tab change inside the school keeps them. */
+	useEffect(() => {
+		setRosterChanges((kept) =>
+			Object.keys(kept).every((keptSchoolId) => keptSchoolId === schoolId)
+				? kept
+				: schoolId !== undefined && kept[schoolId]
+					? { [schoolId]: kept[schoolId] }
+					: {},
+		);
+	}, [schoolId]);
 	const [loadedDisclosure, setLoadedDisclosure] = useState<Disclosure | null>(
 		null,
 	);
@@ -317,8 +347,9 @@ export function Shell({
 						const badge = tabBadge(
 							tab,
 							school,
-							planSession
-								? diffMenus(planSession.live, planSession.draft).length > 0
+							/* A session exists only once the panes have loaded, which is what can tell its draft from the live menu. */
+							planSession && panes
+								? panes.plansDraftChanged(planSession)
 								: school.tabBadges.plansDraft,
 						);
 						return (
@@ -397,6 +428,8 @@ export function Shell({
 								membershipChanges[school.id] ?? noMembershipChanges
 							}
 							onMembershipChanges={keepMembershipChanges}
+							rosterChanges={rosterChanges[school.id] ?? noRosterChanges}
+							onRosterChanges={keepRosterChanges}
 							audienceMoves={audienceMoves[school.id] ?? noAudienceMoves}
 							onAudienceMoves={keepAudienceMoves}
 							onOpenSettings={() => setSettingsOpen(true)}

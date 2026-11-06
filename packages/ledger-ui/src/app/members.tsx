@@ -14,7 +14,6 @@ import {
 	type MemberDetail,
 	type MembersReader,
 	type MembersSummary,
-	type MembersWriter,
 	type Person,
 	type SwitchTier,
 } from "../data/members.ts";
@@ -55,7 +54,9 @@ import {
 	capitalized,
 	formatDay,
 	insideCutoffOf,
+	membershipChangesOf,
 	paymentsOf,
+	portalChangeOf,
 	project,
 	roleLabels,
 	roleRank,
@@ -90,6 +91,9 @@ const roleFilters = [
 ] as const;
 
 /** The actions that open a modal with nothing to choose first (the others name a role, a booking or a person). */
+/** The receipt did not go out: the toast says so, never "resent". */
+const receiptFailedToast = "Could not resend the receipt. Try again.";
+
 const modalActions: Partial<Record<MenuAction, Action>> = {
 	invoice: { kind: "invoice" },
 	adjust: { kind: "adjust" },
@@ -344,7 +348,7 @@ function FinanceOnlyValue(): JSX.Element {
 type RosterProps = {
 	loaded: Loaded;
 	reader: Reader;
-	writer: MembersWriter;
+	writer: Writer;
 	school: School;
 	clock: Clock;
 	period: Period;
@@ -354,6 +358,10 @@ type RosterProps = {
 	onToast: (text: string) => void;
 	pendingBookings: ReadonlySet<string>;
 	onPendingBookings: PaneProps["onPendingBookings"];
+	rosterChanges: PaneProps["rosterChanges"];
+	onRosterChanges: PaneProps["onRosterChanges"];
+	membershipChanges: PaneProps["membershipChanges"];
+	onMembershipChanges: PaneProps["onMembershipChanges"];
 };
 
 type Menu = {
@@ -378,14 +386,19 @@ function Roster({
 	onToast,
 	pendingBookings,
 	onPendingBookings,
+	rosterChanges,
+	onRosterChanges,
+	membershipChanges,
+	onMembershipChanges,
 }: RosterProps): JSX.Element {
 	const { summary, capabilities } = loaded;
 	const { unit } = summary;
 	const [details, setDetails] = useState<Record<string, MemberDetail>>({});
-	const [ownChanges, setChanges] = useState<Change[]>([]);
-	/** What this tab wrote, and the bookings either tab has a write on the way for. */
+	/** What the roster wrote (the shell keeps it), the cancels, resumes and plan changes of the roster and of the
+	 * member portal, and the bookings any tab has a write on the way for. */
 	const changes: Change[] = [
-		...ownChanges,
+		...rosterChanges,
+		...membershipChangesOf(loaded.members, membershipChanges),
 		...[...pendingBookings].map(
 			(bookingId): Change => ({ kind: "booking", bookingId }),
 		),
@@ -506,6 +519,7 @@ function Roster({
 		members: rows.filter(({ person }) => person.role === "member").length,
 	};
 	const show = route.query.get("show");
+	const shownStatus = show === "attention" || show === "canceled" ? show : null;
 	const roleAsked = route.query.get("role");
 	const plan = route.query.get("plan");
 	const needle = search.toLowerCase();
@@ -542,7 +556,21 @@ function Roster({
 	// ---- Effects of writes
 
 	const apply = ({ changes: added, toast }: Applied): void => {
-		setChanges((before) => [...before, ...added]);
+		const kept = added.filter(
+			(change) => change.kind !== "booking" && change.kind !== "membership",
+		);
+		if (kept.length > 0)
+			onRosterChanges(school.id, (before) => [...before, ...kept]);
+		for (const change of added) {
+			const sent = portalChangeOf(change);
+			if (!sent || change.kind === "booking" || change.kind === "role")
+				continue;
+			const personId = change.personId;
+			onMembershipChanges(school.id, (before) => ({
+				...before,
+				[personId]: { ...before[personId], ...sent },
+			}));
+		}
 		const bookingIds = added.flatMap((change) =>
 			change.kind === "booking" ? [change.bookingId] : [],
 		);
@@ -624,6 +652,19 @@ function Roster({
 			),
 		});
 	};
+	/** The toast only after the server has accepted the receipt. */
+	const resendReceipt = async (person: Person): Promise<void> => {
+		try {
+			await writer.resendReceipt({
+				schoolId: school.id,
+				personId: person.id,
+			});
+		} catch {
+			onToast(receiptFailedToast);
+			return;
+		}
+		onToast(`Receipt resent to ${endSentence(person.name)}`);
+	};
 	const choose = (person: Person, chosen: MenuAction): void => {
 		const change = roleActions[chosen];
 		const opened: Action | undefined = change
@@ -637,8 +678,7 @@ function Roster({
 		if (chosen === "view-as-member")
 			navigate(withQuery(route, "portal", person.id));
 		else if (chosen === "csv") downloadPayments(person);
-		else if (chosen === "stripe") onToast("Opening Stripe dashboard…");
-		else onToast(`Receipt resent to ${endSentence(person.name)}`);
+		else if (chosen === "receipt") resendReceipt(person);
 	};
 	const bookingAction = (
 		person: Person,
@@ -756,14 +796,10 @@ function Roster({
 					<button
 						key={filter.slug}
 						type="button"
-						class={
-							filter.show ===
-							(show === "attention" || show === "canceled" ? show : null)
-								? "chip f on"
-								: "chip f"
-						}
+						class={filter.show === shownStatus ? "chip f on" : "chip f"}
 						data-test="member-filter"
 						data-filter={filter.slug}
+						aria-pressed={filter.show === shownStatus}
 						onClick={() => go("show", filter.show)}
 					>
 						{filter.slug === "attention" && <Icon name="alert" />}
@@ -814,54 +850,60 @@ function Roster({
 					);
 				})}
 			</div>
-			<table>
-				<thead>
-					<tr>
-						{columns.map(([column, label]) => (
-							<th key={column} data-test="members-column" data-column={column}>
-								{column === "available" ? (
-									`${capitalized(unit.other)} available`
-								) : column === "bar" || column === "actions" ? (
-									<span class="visually-hidden">{label}</span>
-								) : (
-									label
-								)}
-							</th>
-						))}
-					</tr>
-				</thead>
-				<tbody>
-					{listed.length === 0 ? (
+			<div class="members-table">
+				<table>
+					<thead>
 						<tr>
-							<td
-								colSpan={columns.length}
-								class="mut members-empty"
-								data-test="members-empty"
-							>
-								{people.length > 0
-									? "No members match."
-									: "No members yet. They appear here when someone buys a plan."}
-							</td>
+							{columns.map(([column, label]) => (
+								<th
+									key={column}
+									data-test="members-column"
+									data-column={column}
+								>
+									{column === "available" ? (
+										`${capitalized(unit.other)} available`
+									) : column === "bar" || column === "actions" ? (
+										<span class="visually-hidden">{label}</span>
+									) : (
+										label
+									)}
+								</th>
+							))}
 						</tr>
-					) : (
-						listed.map((row) => (
-							<MemberRow
-								key={row.person.id}
-								row={row}
-								changes={changes}
-								school={school}
-								unit={unit}
-								menuOpen={
-									menu?.personId === row.person.id && menu.place === "row"
-								}
-								onOpen={() => openDrawer(row.person.id)}
-								onMenu={toggleMenu(row.person.id, "row")}
-								onViewAs={() => choose(row.person, "view-as-member")}
-							/>
-						))
-					)}
-				</tbody>
-			</table>
+					</thead>
+					<tbody>
+						{listed.length === 0 ? (
+							<tr>
+								<td
+									colSpan={columns.length}
+									class="mut members-empty"
+									data-test="members-empty"
+								>
+									{people.length > 0
+										? "No members match."
+										: "No members yet. They appear here when someone buys a plan."}
+								</td>
+							</tr>
+						) : (
+							listed.map((row) => (
+								<MemberRow
+									key={row.person.id}
+									row={row}
+									changes={changes}
+									school={school}
+									unit={unit}
+									menuOpen={
+										menu?.personId === row.person.id && menu.place === "row"
+									}
+									onOpen={() => openDrawer(row.person.id)}
+									onMenu={toggleMenu(row.person.id, "row")}
+									onViewAs={() => choose(row.person, "view-as-member")}
+								/>
+							))
+						)}
+					</tbody>
+				</table>
+			</div>
 			<div class="legend" data-test="members-legend">
 				<span>
 					<i style={{ background: "var(--muted-foreground)", opacity: 0.55 }} />
@@ -923,6 +965,13 @@ function Roster({
 							invoiceItems: loaded.invoiceItems,
 							switchTiers: loaded.switchTiers,
 							insideCutoff: (booking) => insideCutoffOf(modalPerson, booking),
+							readAudit: () =>
+								reader.auditMember({
+									schoolId: school.id,
+									personId: modalPerson.id,
+								}),
+							saveReport: (file) => writer.download(file),
+							onToast,
 							onDone: apply,
 							onFailed: fail,
 							onCancel: () => setModal(null),
@@ -953,6 +1002,10 @@ export function Members({
 	onToast,
 	pendingBookings,
 	onPendingBookings,
+	rosterChanges,
+	onRosterChanges,
+	membershipChanges,
+	onMembershipChanges,
 }: {
 	reader: Reader;
 	writer: Writer;
@@ -966,6 +1019,11 @@ export function Members({
 	/** The school's bookings with a write on their way, kept by the shell (Bookings shows them too). */
 	pendingBookings: ReadonlySet<string>;
 	onPendingBookings: PaneProps["onPendingBookings"];
+	/** The roster's writes and the membership changes of the roster and the portal, kept by the shell. */
+	rosterChanges: PaneProps["rosterChanges"];
+	onRosterChanges: PaneProps["onRosterChanges"];
+	membershipChanges: PaneProps["membershipChanges"];
+	onMembershipChanges: PaneProps["onMembershipChanges"];
 }): JSX.Element | null {
 	const asked = route.query.get("month");
 	const period = useViewedPeriod(
@@ -1028,6 +1086,10 @@ export function Members({
 			onToast={onToast}
 			pendingBookings={pendingBookings}
 			onPendingBookings={onPendingBookings}
+			rosterChanges={rosterChanges}
+			onRosterChanges={onRosterChanges}
+			membershipChanges={membershipChanges}
+			onMembershipChanges={onMembershipChanges}
 		/>
 	);
 }

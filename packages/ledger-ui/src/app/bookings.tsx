@@ -25,12 +25,12 @@ import {
 	readBookingsPeriod,
 } from "./bookings-period.ts";
 import { Icon, type IconName } from "./icon.tsx";
+import { LoadFailed } from "./load-failed.tsx";
 import { LockPanel } from "./lock-panel.tsx";
 import { formatMoney } from "./money.ts";
 import type { PaneProps } from "./panes.tsx";
 import { addDays, monthAndDay, weekdayName } from "./period.ts";
 import { type Route, withQuery } from "./route.ts";
-import { keepLoading } from "./use-loaded.ts";
 import { exitPreviewTitle, useViewing } from "./viewing.ts";
 import { plural } from "./wording.ts";
 
@@ -358,6 +358,9 @@ export function Bookings({
 	const { from, to } = bookingsDays(view, clock.today);
 	const key = `${school.id}/${from}/${to}`;
 	const [loaded, setLoaded] = useState<Loaded | null>(null);
+	/** The key whose read was rejected, and the count of tries that asks the effect to read again. */
+	const [failedKey, setFailedKey] = useState<string | null>(null);
+	const [attempt, setAttempt] = useState(0);
 	const setPending = (
 		update: (before: ReadonlySet<string>) => ReadonlySet<string>,
 	): void => onPendingBookings(school.id, update);
@@ -383,16 +386,29 @@ export function Bookings({
 					lateCancel: summary.bookingRules.lateCancel,
 				});
 		};
-		load().catch(keepLoading);
+		load().catch(() => {
+			if (current) setFailedKey(key);
+		});
 		return () => {
 			current = false;
 		};
-	}, [reader, school.id, from, to, key, option.admin]);
+	}, [reader, school.id, from, to, key, option.admin, attempt]);
 	const shown = loaded?.key === key ? loaded : null;
+	const failed = failedKey === key;
 	useLayoutEffect(() => {
-		if (shown || !option.admin) onRendered();
+		if (shown || failed || !option.admin) onRendered();
 	});
 	if (!option.admin) return <LockPanel lock={bookingsLock} icon="calendar" />;
+	if (failed)
+		return (
+			<LoadFailed
+				what="the bookings"
+				onRetry={() => {
+					setFailedKey(null);
+					setAttempt((before) => before + 1);
+				}}
+			/>
+		);
 
 	const waiting: Check = ({ id }) => pending.has(id);
 	const canRecord: Check = (booking) =>

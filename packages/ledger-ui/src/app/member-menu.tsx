@@ -64,6 +64,8 @@ type MenuItem = {
 	destructive?: boolean;
 	/** A hint on an item that is on. */
 	hint?: string;
+	/** Where an item that is a link goes (it opens in a new tab). */
+	href?: string;
 };
 
 /** Everything the menu and the drawer's buttons need to know about one person. */
@@ -206,13 +208,31 @@ function menuItems(context: PersonContext): Array<MenuItem | null> {
 			{ hint: "Download this member's payment history as CSV" },
 		),
 	);
-	if (member)
+	if (member) {
+		const { stripeDashboardUrl } = detail;
 		items.push(
 			null,
-			item("audit", "Audit member", "check"),
-			item("stripe", "View in Stripe", "ext"),
-			item("receipt", "Resend receipt", "mail"),
+			item(
+				"audit",
+				"Audit member",
+				"check",
+				capabilityReason(capabilities, "audit", "menu"),
+			),
+			item(
+				"stripe",
+				"View in Stripe",
+				"ext",
+				stripeDashboardUrl === null ? "Not on Stripe" : "",
+				stripeDashboardUrl === null ? {} : { href: stripeDashboardUrl },
+			),
+			item(
+				"receipt",
+				"Resend receipt",
+				"mail",
+				capabilityReason(capabilities, "resendReceipt", "menu"),
+			),
 		);
+	}
 	return items;
 }
 
@@ -249,6 +269,8 @@ export function MenuButton({
 	);
 }
 
+/** The items that can be used: buttons that are on, and the Stripe link. */
+const enabledItems = "button:not([disabled]), a[href]";
 const compactWidth = 600;
 const menuGap = 4;
 const screenMargin = 8;
@@ -297,9 +319,7 @@ export function MemberMenu({
 	}, [anchor]);
 	useEffect(() => {
 		if (focusFirst)
-			menu.current
-				?.querySelector<HTMLElement>("button:not([disabled])")
-				?.focus();
+			menu.current?.querySelector<HTMLElement>(enabledItems)?.focus();
 	}, [focusFirst]);
 	useEffect(() => {
 		const onClick = (event: MouseEvent): void => {
@@ -328,13 +348,12 @@ export function MemberMenu({
 		event: JSX.TargetedKeyboardEvent<HTMLDivElement>,
 	): void => {
 		if (event.key === "Tab") {
-			onClose(false);
+			/* Focus goes back to the ⋯ button first, so that Tab moves on from there, not from a menu that is gone. */
+			onClose(true);
 			return;
 		}
 		const enabled = [
-			...event.currentTarget.querySelectorAll<HTMLElement>(
-				"button:not([disabled])",
-			),
+			...event.currentTarget.querySelectorAll<HTMLElement>(enabledItems),
 		];
 		const current = enabled.indexOf(event.target as HTMLElement);
 		const targets: Record<string, number> = {
@@ -364,25 +383,42 @@ export function MemberMenu({
 					<hr key={`rule-${index}`} />
 				) : (
 					<Fragment key={entry.action}>
-						<button
-							type="button"
-							role="menuitem"
-							tabIndex={-1}
-							class={entry.destructive ? "d" : undefined}
-							data-test="member-menu-item"
-							data-action={entry.action}
-							disabled={entry.reason !== ""}
-							aria-describedby={
-								entry.reason === ""
-									? undefined
-									: `${menuId}-${entry.action}-reason`
-							}
-							title={entry.reason === "" ? entry.hint : entry.reason}
-							onClick={() => onChoose(entry.action)}
-						>
-							<Icon name={entry.icon} />
-							{entry.label}
-						</button>
+						{entry.href !== undefined && entry.reason === "" ? (
+							<a
+								role="menuitem"
+								tabIndex={-1}
+								data-test="member-menu-item"
+								data-action={entry.action}
+								href={entry.href}
+								target="_blank"
+								rel="noopener"
+								title={entry.hint}
+								onClick={() => onChoose(entry.action)}
+							>
+								<Icon name={entry.icon} />
+								{entry.label}
+							</a>
+						) : (
+							<button
+								type="button"
+								role="menuitem"
+								tabIndex={-1}
+								class={entry.destructive ? "d" : undefined}
+								data-test="member-menu-item"
+								data-action={entry.action}
+								disabled={entry.reason !== ""}
+								aria-describedby={
+									entry.reason === ""
+										? undefined
+										: `${menuId}-${entry.action}-reason`
+								}
+								title={entry.reason === "" ? entry.hint : entry.reason}
+								onClick={() => onChoose(entry.action)}
+							>
+								<Icon name={entry.icon} />
+								{entry.label}
+							</button>
+						)}
 						{entry.reason !== "" && (
 							<span
 								id={`${menuId}-${entry.action}-reason`}

@@ -390,3 +390,48 @@ test("the review says 'keeps' for one current member and 'keep' for more", async
 		"4 current members keep the version they bought.",
 	);
 });
+
+test("leaving the tab mid-save keeps the save's status: pending on return, failed if it failed meanwhile", async () => {
+	const { writer, pending, failing } = controlledWriter();
+	await open("#/vol/plans?theme=light", { writer });
+	await editSparkleMonth("21");
+	expect(element<HTMLButtonElement>(review).disabled).toBe(true);
+	await click("[data-tab=dashboard]");
+	await click("[data-tab=plans]");
+	// The save is still on its way: the pane must not say "saved".
+	expect(element<HTMLButtonElement>(review).disabled).toBe(true);
+	expect(text(`#${element(review).getAttribute("aria-describedby")}`)).toBe(
+		"Saving the draft…",
+	);
+	pending[0]?.resolve();
+	await settle();
+	expect(element<HTMLButtonElement>(review).disabled).toBe(false);
+
+	// A save that is rejected while the tab is away is failed on return, with Retry save.
+	let rejectSave: () => void = () => {};
+	const slow: Writer = {
+		...writer,
+		saveMenu: () =>
+			new Promise<void>((_resolve, reject) => {
+				rejectSave = () => reject(new Error("offline"));
+			}),
+	};
+	unmount?.();
+	document.body.innerHTML = "";
+	failing.value = false;
+	await open("#/vol/plans?theme=light", { writer: slow });
+	await editSparkleMonth("22");
+	await click("[data-tab=dashboard]");
+	rejectSave();
+	await settle();
+	await click("[data-tab=plans]");
+	expect(element<HTMLButtonElement>(review).disabled).toBe(true);
+	expect(
+		text(`#${element(review).getAttribute("aria-describedby")}`),
+	).toContain("could not be saved");
+	expect(
+		[...document.querySelectorAll("button")].some(({ textContent }) =>
+			textContent?.includes("Retry save"),
+		),
+	).toBe(true);
+});

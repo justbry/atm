@@ -1,15 +1,17 @@
 import type { ComponentChildren, JSX } from "preact";
 import { useEffect, useId, useState } from "preact/hooks";
+import type { DownloadFile } from "../data/ledger.ts";
 import type {
 	InvoiceItem,
 	Member,
+	MemberAudit,
 	MemberBooking,
 	MemberDetail,
 	SwitchTier,
 } from "../data/members.ts";
 import { cutoffHours } from "./booking-text.ts";
 import { Dialog } from "./dialog.tsx";
-import { Icon } from "./icon.tsx";
+import { Icon, type IconName } from "./icon.tsx";
 import {
 	type Applied,
 	type Change,
@@ -58,6 +60,11 @@ export type ModalContext = {
 	switchTiers: SwitchTier[];
 	/** Whether the booking is inside its cutoff (the server says so, in the person's attention). */
 	insideCutoff: (booking: MemberBooking) => boolean;
+	/** "Audit member": the server's replay of the person's log, balance and Stripe. */
+	readAudit: () => Promise<MemberAudit>;
+	/** "Export report": the Writer's download. */
+	saveReport: (file: DownloadFile) => Promise<void>;
+	onToast: (text: string) => void;
 	onDone: (applied: Applied) => void;
 	onFailed: () => void;
 	onCancel: () => void;
@@ -95,7 +102,8 @@ type FrameProps = {
 	previewHook?: "modal-preview" | "modal-note";
 	confirm?: {
 		label: string;
-		tone: "p" | "d";
+		tone: "p" | "d" | "";
+		icon?: IconName;
 		disabled: boolean;
 		onConfirm: () => void;
 	};
@@ -152,6 +160,7 @@ function ModalFrame({
 						aria-busy={busy ? "true" : undefined}
 						onClick={confirm.onConfirm}
 					>
+						{confirm.icon && <Icon name={confirm.icon} />}
 						{confirm.label}
 					</button>
 				)}
@@ -996,27 +1005,48 @@ function RoleModal({
 	);
 }
 
-/** Each step of the audit appears after the one before it; the replay itself runs on the server (S8), so these are
- * the mockup's canned lines with the live balance in them. */
-const auditStepDelay = 300;
+/** What "Export report" saves: the audit as the server returned it, as JSON. */
+const reportMediaType = "application/json;charset=utf-8";
+const auditFailedText = "Could not run the audit. Try again.";
+const reportFailedToast = "Could not save the report. Try again.";
 
+/** The audit of one person: the server's steps in order, then its verdict. Until the server answers there is only a
+ * loading line, never a verdict; if it fails, the modal says so. */
 function AuditModal({ context }: { context: ModalContext }): JSX.Element {
-	const { write, member } = context;
-	const available = member?.balances[0]?.available ?? 0;
-	const steps = [
-		"Read 14 events from 3 batches; 2 repeats dropped",
-		"Every batch file matches the hash in its name",
-		"Replay through the engine reproduces each recorded change",
-		`Replayed balance ${available} equals live balance`,
-		`Held ${write.unit.other} match open bookings`,
-		"Stripe reconcile: all payments and refunds matched",
-	];
-	const [shown, setShown] = useState(0);
+	const { write, readAudit, saveReport, onToast } = context;
+	const [audit, setAudit] = useState<MemberAudit | "failed" | null>(null);
+	const [saving, setSaving] = useState(false);
 	useEffect(() => {
-		if (shown >= steps.length) return;
-		const timer = setTimeout(() => setShown(shown + 1), auditStepDelay);
-		return () => clearTimeout(timer);
-	}, [shown, steps.length]);
+		let current = true;
+		readAudit().then(
+			(read) => {
+				if (current) setAudit(read);
+			},
+			() => {
+				if (current) setAudit("failed");
+			},
+		);
+		return () => {
+			current = false;
+		};
+	}, [readAudit]);
+	const exportReport = async (): Promise<void> => {
+		if (audit === null || audit === "failed") return;
+		setSaving(true);
+		try {
+			await saveReport({
+				name: audit.reportFileName,
+				// The contract types a download as CSV; the report is JSON, so the media type is the file's own.
+				type: reportMediaType as DownloadFile["type"],
+				text: JSON.stringify(audit, null, 2),
+			});
+			onToast(`${audit.reportFileName} downloaded.`);
+		} catch {
+			onToast(reportFailedToast);
+		}
+		setSaving(false);
+	};
+	const read = audit === null || audit === "failed" ? null : audit;
 	return (
 		<ModalFrame
 			title={
@@ -1026,26 +1056,52 @@ function AuditModal({ context }: { context: ModalContext }): JSX.Element {
 			}
 			subtitle="Replays the event log and compares it with the live balance and Stripe"
 			preview={
-				shown < steps.length ? undefined : (
+				read ? (
 					<>
-						<b class="ok">Clean.</b> Log, balance and Stripe agree.
+						<b class={read.clean ? "ok" : "err"}>
+							{read.clean ? "Clean." : "1 problem."}
+						</b>{" "}
+						{read.verdict}
 					</>
-				)
+				) : undefined
 			}
+			previewHook="modal-preview"
+			{...(read && {
+				confirm: {
+					label: "Export report",
+					tone: "",
+					icon: "download",
+					disabled: false,
+					onConfirm: exportReport,
+				},
+			})}
 			cancelLabel="Close"
-			busy={false}
+			busy={saving}
 			onCancel={context.onCancel}
 		>
-			<ul class="steps">
-				{steps.slice(0, shown).map((step) => (
-					<li key={step}>
-						<span class="ok">
-							<Icon name="check" />
-						</span>
-						<span>{step}</span>
-					</li>
-				))}
-			</ul>
+			{audit === null && (
+				<p class="mut" data-test="audit-loading" aria-live="polite">
+					Replaying the log…
+				</p>
+			)}
+			{audit === "failed" && (
+				<p class="err" data-test="audit-failed" role="alert">
+					{auditFailedText}
+				</p>
+			)}
+			{read && (
+				<ul class="steps">
+					{read.steps.map((step, index) => (
+						// biome-ignore lint/suspicious/noArrayIndexKey: the steps are the server's ordered list; two may read alike
+						<li key={index}>
+							<span class={step.ok ? "ok" : "no"}>
+								<Icon name={step.ok ? "check" : "xCircle"} />
+							</span>
+							<span>{step.text}</span>
+						</li>
+					))}
+				</ul>
+			)}
 		</ModalFrame>
 	);
 }

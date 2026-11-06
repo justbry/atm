@@ -38,6 +38,9 @@ export const plansViewOf = ({
 	finance: option.value === "owner" || option.value === "finance",
 });
 
+/** Whether the draft's last `saveMenu` has been taken by the server. */
+export type SaveStatus = "saved" | "saving" | "failed";
+
 /** One school's Plans tab for the life of the mount: the live menu, the draft all three views show, and the facts
  * around them. The Shell keeps it, so a draft survives leaving the tab. */
 export type PlansSession = {
@@ -51,6 +54,13 @@ export type PlansSession = {
 	summary: PlanSummary;
 	/** The Code text as typed, kept while it differs from the layout or does not parse; null: the draft's own layout. */
 	yamlText: string | null;
+	/** Whether the draft's last save was taken. It lives here, not in the pane, so that leaving the tab mid-save does not
+	 * give back "saved" for a save that is still on its way or that failed. */
+	saveStatus: SaveStatus;
+	/** How many saves have started: only the newest settles `saveStatus`. */
+	savesStarted: number;
+	/** The newest save, settled to whether the server took it. Saves go one after another; Publish waits for it. */
+	lastSave: Promise<boolean>;
 };
 
 /** A tier whose audience a publish changed: what its members read from then on, and the day it moved. */

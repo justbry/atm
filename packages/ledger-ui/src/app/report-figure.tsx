@@ -10,6 +10,39 @@ import { monthName } from "./period.ts";
 export const dayMonthYear = (isoDate: string): string =>
 	`${Number(isoDate.slice(8))} ${monthName(isoDate)} ${isoDate.slice(0, 4)}`;
 
+/** A figure of an audience's document as text, the one reading of its cases that the page and the CSV both use: its
+ * `value` (empty when it is hidden), and the `hidden` reason (empty when it is shown). */
+export function cellText(
+	cell: ReportCell,
+	money: boolean,
+	currency: string,
+	whole: boolean,
+): { value: string; hidden: string } {
+	if (typeof cell === "number")
+		return {
+			value: money ? formatMoney(cell, currency, whole) : String(cell),
+			hidden: "",
+		};
+	if ("lt" in cell)
+		return {
+			value: money
+				? `under ${formatMoney(cell.lt, currency, true)}`
+				: `<${cell.lt}`,
+			hidden: "",
+		};
+	if ("approx" in cell) return { value: String(cell.approx), hidden: "" };
+	if ("until" in cell)
+		return {
+			value: "",
+			hidden: `Published after ${dayMonthYear(cell.until)}`,
+		};
+	if ("who" in cell) return { value: "", hidden: `${cell.who} see this` };
+	return {
+		value: cell.hidden === "suppressed" ? suppressedText : "",
+		hidden: cell.text,
+	};
+}
+
 /** One figure of an audience's document (mockup `kFigHtml`): a number as money or a count, `under $100` or `<10` for a
  * figure the cell rules round, and for one that is not shown the reason, never a 0. */
 export function Figure({
@@ -26,53 +59,49 @@ export function Figure({
 	/** What a count under the minimum counts, for its title. */
 	noun: string;
 }): ComponentChildren {
-	if (typeof cell === "number")
-		return money ? formatMoney(cell, currency, whole) : String(cell);
+	const { value, hidden } = cellText(cell, money, currency, whole);
+	if (typeof cell === "number") return value;
 	if ("lt" in cell)
 		return money ? (
-			`under ${formatMoney(cell.lt, currency, true)}`
+			value
 		) : (
 			<span
 				class="kapprox"
 				title={`Rounded to the nearest 10: fewer than ${smallCount} ${noun}`}
 			>
-				{`<${cell.lt}`}
+				{value}
 			</span>
 		);
 	if ("approx" in cell)
 		return (
 			<span class="kapprox" title={cell.why}>
-				{String(cell.approx)}
+				{value}
 			</span>
 		);
-	if ("until" in cell) {
-		const text = `Published after ${dayMonthYear(cell.until)}`;
+	if ("until" in cell)
 		return (
-			<span class="khid" data-hid="embargoed" title={text}>
+			<span class="khid" data-hid="embargoed" title={hidden}>
 				<Icon name="clock" />
-				{text}
+				{hidden}
 			</span>
 		);
-	}
-	if ("who" in cell) {
-		const text = `${cell.who} see this`;
+	if ("who" in cell)
 		return (
-			<span class="khid" data-hid={cell.hidden} title={text}>
+			<span class="khid" data-hid={cell.hidden} title={hidden}>
 				<Icon name="lock" />
-				{text}
+				{hidden}
 			</span>
 		);
-	}
 	if (cell.hidden === "suppressed")
 		return (
 			<span class="kcutv" title={cell.text}>
-				{suppressedText}
+				{value}
 			</span>
 		);
 	return (
 		<span class="khid" data-hid={cell.hidden} title={cell.text}>
 			<Icon name="lock" />
-			{cell.text}
+			{hidden}
 		</span>
 	);
 }

@@ -17,6 +17,7 @@ import {
 import { type BooksPaneProps, identitiesLockHeading } from "./books-pane.ts";
 import { DownloadButton } from "./download-button.tsx";
 import { Icon, type IconName } from "./icon.tsx";
+import { LoadFailed } from "./load-failed.tsx";
 import { LockPanel } from "./lock-panel.tsx";
 import { formatMoney, signedCount } from "./money.ts";
 import { monthAndDay, parsePeriod, weekdayName } from "./period.ts";
@@ -213,7 +214,7 @@ export function Ledger({
 	const key = [school.id, period.from, period.to, type, drill, promo, readable]
 		.map(String)
 		.join("|");
-	const [loaded] = useLoaded(key, async () => {
+	const [loaded, , status] = useLoaded(key, async () => {
 		if (!readable) return null;
 		const [page, promos] = await Promise.all([
 			reader.ledger({
@@ -235,7 +236,7 @@ export function Ledger({
 	});
 	const [opened, setOpened] = useState<string[]>([]);
 	useLayoutEffect(() => {
-		if (!readable || loaded !== null) onRendered();
+		if (!readable || loaded !== null || status.failed) onRendered();
 	});
 
 	if (pinLocked)
@@ -260,6 +261,8 @@ export function Ledger({
 				hooks="books"
 			/>
 		);
+	if (status.failed)
+		return <LoadFailed what="the ledger" onRetry={status.retry} />;
 	if (!loaded) return null;
 
 	const { page, promoCode } = loaded;

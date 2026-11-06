@@ -174,6 +174,8 @@ test("Tab leaves the menu, which closes", async () => {
 	await press(menuButton("m_204"), "ArrowDown");
 	await press(menuItem("view-as-member"), "Tab");
 	expect(count("[data-test=member-menu]")).toBe(0);
+	// Focus is back on the ⋯ button, so that Tab moves on from there, not from a menu that is gone.
+	expect(document.activeElement).toBe(element(menuButton("m_204")));
 });
 
 test("Escape in the menu of the drawer closes the menu only; the next Escape closes the drawer", async () => {

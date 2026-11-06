@@ -274,6 +274,9 @@ export function MemberDrawer({
 	const owner = capabilities.role === "owner";
 	const locked = viewer.preview;
 	const standing = member ? standingOf(member, changes) : null;
+	/** A canceled membership, or one set to end at the period's end, no longer renews. */
+	const ended =
+		standing?.canceled === true || standing?.cancelsAtPeriodEnd === true;
 	const reasons = attentionOf(person, standing?.canceled ?? false, changes);
 	const balance = member?.balances[0];
 	const projection = balance ? project(balance, person.id, changes) : null;
@@ -331,7 +334,9 @@ export function MemberDrawer({
 					{" "}
 					<AttentionBadges reasons={reasons} unitPlural={unit.other} />{" "}
 					<span class="badge" data-test="renews-badge">
-						renews {formatDay(member.currentPeriodEnd, school.timeZone)}
+						{ended
+							? `ends ${standing?.endsToday ? "today" : formatDay(member.currentPeriodEnd, school.timeZone)}`
+							: `renews ${formatDay(member.currentPeriodEnd, school.timeZone)}`}
 					</span>
 				</>
 			)}

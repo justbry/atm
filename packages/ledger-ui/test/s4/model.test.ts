@@ -142,6 +142,7 @@ test("cancels and resumes apply to the membership in order", () => {
 	): Change => ({
 		kind: "membership",
 		membershipId: member.membershipId,
+		personId: "m_012",
 		change: kind,
 	});
 	expect(standingOf(member, [])).toEqual({

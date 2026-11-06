@@ -279,6 +279,7 @@ export async function cancelMembership(
 			{
 				kind: "membership",
 				membershipId: member.membershipId,
+				personId: context.person.id,
 				change: now ? "cancel_now" : "cancel_period_end",
 			},
 			ledger(
@@ -310,6 +311,7 @@ export async function resumeMembership(
 			{
 				kind: "membership",
 				membershipId: member.membershipId,
+				personId: context.person.id,
 				change: "resume",
 			},
 			ledger(

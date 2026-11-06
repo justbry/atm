@@ -714,7 +714,8 @@ tr.tot td {
 .menu.on {
 	display: block;
 }
-.menu button {
+.menu button,
+.menu a {
 	display: flex;
 	gap: 6px;
 	align-items: center;
@@ -727,8 +728,10 @@ tr.tot td {
 	padding: 6px 8px;
 	border-radius: 5px;
 	cursor: pointer;
+	text-decoration: none;
 }
-.menu button:hover {
+.menu button:hover,
+.menu a:hover {
 	background: var(--secondary);
 }
 .menu hr {
@@ -1563,7 +1566,8 @@ tr.tot td {
 .kmenu button.d {
 	color: var(--destructive);
 }
-.kmenu button:focus-visible {
+.kmenu button:focus-visible,
+.kmenu a:focus-visible {
 	outline: 2px solid var(--ring);
 	outline-offset: -2px;
 }
@@ -1579,7 +1583,8 @@ tr.tot td {
 		border-radius: 14px 14px 0 0;
 		padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
 	}
-	.kmenu button {
+	.kmenu button,
+	.kmenu a {
 		padding: 12px 10px;
 	}
 }
@@ -2132,6 +2137,9 @@ svg.kc .col.on {
 	box-shadow: none;
 }
 .pane {
+	overflow-x: auto;
+}
+.members-table {
 	overflow-x: auto;
 }
 .tabs {

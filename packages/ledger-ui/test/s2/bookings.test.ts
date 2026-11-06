@@ -559,3 +559,30 @@ test("the filter chips and the table carry no inline styles", async () => {
 		count("[data-test=booking-empty][style], .bookings-empty[style]"),
 	).toBe(0);
 });
+
+test("a rejected read says what could not load, and Try again reads it again", async () => {
+	const reader = createFixtureReader({ clock });
+	let attempts = 0;
+	const failing: Reader = {
+		...reader,
+		bookings: (query) => {
+			attempts += 1;
+			if (attempts <= 2) return Promise.reject(new Error("offline"));
+			return reader.bookings(query);
+		},
+	};
+	await open("#/vol/bookings", { reader: failing });
+	expect(text("[role=alert]")).toContain(
+		"Could not load the bookings. Try again.",
+	);
+	expect(count("[data-test=booking-row]")).toBe(0);
+	const tryAgain = Array.from(
+		document.querySelectorAll<HTMLButtonElement>("button"),
+	).find(({ textContent }) => textContent === "Try again");
+	tryAgain?.click();
+	await settle();
+	for (let turn = 0; turn < 50 && count("[role=alert]") > 0; turn += 1)
+		await macrotask();
+	expect(count("[role=alert]")).toBe(0);
+	expect(count("[data-test=booking-row]")).toBeGreaterThan(0);
+});
