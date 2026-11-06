@@ -13,6 +13,8 @@ export type School = {
 	/** ISO 4217 code, e.g. `USD`. */
 	currency: string;
 	role: "owner" | "admin";
+	/** What the school calls a held credit (mockup `unit`): "1 session held", "2 sessions held". */
+	creditUnit: { one: string; other: string };
 	/** The signed-in person's books level here (mockup `bkDefault`): the Dashboard opens at it. */
 	booksLevel: BooksLevel;
 	/** The month the Dashboard opens on at the month grain (the mockup opens its fixture school on Jun); without it,

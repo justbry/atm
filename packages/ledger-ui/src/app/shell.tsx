@@ -2,6 +2,8 @@ import { Fragment, type JSX } from "preact";
 import { useCallback, useEffect, useId, useRef, useState } from "preact/hooks";
 import type { Reader } from "../data/reader.ts";
 import type { Clock, School } from "../data/types.ts";
+import type { Writer } from "../data/writer.ts";
+import type { Bookings } from "./bookings.tsx";
 import type { Dashboard } from "./dashboard.tsx";
 import { Icon, type IconName } from "./icon.tsx";
 import { formatPeriod, parsePeriod } from "./period.ts";
@@ -100,19 +102,21 @@ type ShellProps = {
 	schools: School[];
 	clock: Clock;
 	reader: Reader;
+	writer: Writer;
 	navigate: (route: Route) => void;
 	/** Called once a pane that loads data has rendered the route. */
 	onRendered: () => void;
 };
 
 /** The mockup's frame (lines 261 to 282): top bar with the scope note, tabs row, stale banner, the current tab's pane, the settings
- * drawer and the toast. The Dashboard fills its pane; later slices fill the others. While the drawer is open the regions
+ * drawer and the toast. The Dashboard and Bookings fill their panes; later slices fill the others. While the drawer is open the regions
  * behind it are inert; the toast stays out of that so it can still be announced. */
 export function Shell({
 	route,
 	schools,
 	clock,
 	reader,
+	writer,
 	navigate,
 	onRendered,
 }: ShellProps): JSX.Element {
@@ -129,6 +133,17 @@ export function Shell({
 				setDashboardPane(() => module.Dashboard),
 			);
 	}, [dashboardOpen, DashboardPane]);
+	/** The Bookings pane, loaded the same way. */
+	const [BookingsPane, setBookingsPane] = useState<typeof Bookings | null>(
+		null,
+	);
+	const bookingsOpen = route.tab === "bookings";
+	useEffect(() => {
+		if (bookingsOpen && !BookingsPane)
+			import("./bookings.tsx").then((module) =>
+				setBookingsPane(() => module.Bookings),
+			);
+	}, [bookingsOpen, BookingsPane]);
 	const settingsButton = useRef<HTMLButtonElement>(null);
 	const drawerId = useId();
 	const closeSettings = useCallback(() => {
@@ -350,6 +365,19 @@ export function Shell({
 						onToast={(text) => setToast({ text })}
 					/>
 				)}
+				{school && bookingsOpen && BookingsPane && (
+					<BookingsPane
+						key={school.id}
+						reader={reader}
+						writer={writer}
+						school={school}
+						clock={clock}
+						route={route}
+						navigate={navigate}
+						onRendered={onRendered}
+						onToast={(text) => setToast({ text })}
+					/>
+				)}
 			</section>
 			<SettingsDrawer
 				id={drawerId}
@@ -363,7 +391,11 @@ export function Shell({
 				}
 				onClose={closeSettings}
 			/>
-			<div class={toast ? "toast on" : "toast"} aria-live="polite">
+			<div
+				class={toast ? "toast on" : "toast"}
+				data-test="toast"
+				aria-live="polite"
+			>
 				{toast?.text}
 			</div>
 		</>

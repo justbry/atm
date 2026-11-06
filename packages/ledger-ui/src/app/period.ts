@@ -26,7 +26,7 @@ const isValidDate = (isoDate: string): boolean =>
 	isoDatePattern.test(isoDate) &&
 	!Number.isNaN(toDate(isoDate).getTime()) &&
 	toIsoDate(toDate(isoDate)) === isoDate;
-const addDays = (isoDate: string, days: number): string =>
+export const addDays = (isoDate: string, days: number): string =>
 	toIsoDate(new Date(toDate(isoDate).getTime() + days * dayMilliseconds));
 /** Only called with the first day of a month, so no month overflows. */
 const addMonths = (isoDate: string, months: number): string => {
@@ -51,8 +51,19 @@ const monthName = (isoDate: string): string =>
 	monthNames[Number(isoDate.slice(5, 7)) - 1] ?? "";
 const monthAndYear = (isoDate: string): string =>
 	`${monthName(isoDate)} ${isoDate.slice(0, 4)}`;
-const monthAndDay = (isoDate: string): string =>
+/** `Nov 4`. */
+export const monthAndDay = (isoDate: string): string =>
 	`${monthName(isoDate)} ${Number(isoDate.slice(8))}`;
+
+const weekdayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const weekdayIndex = (isoDate: string): number => toDate(isoDate).getUTCDay();
+/** `Wed`. */
+export const weekdayName = (isoDate: string): string =>
+	weekdayNames[weekdayIndex(isoDate)] ?? "";
+const daysPerWeek = 7;
+/** The Monday of the week that holds `isoDate`. */
+export const weekStart = (isoDate: string): string =>
+	addDays(isoDate, -((weekdayIndex(isoDate) + daysPerWeek - 1) % daysPerWeek));
 
 export const samePeriod = (first: Period, second: Period): boolean =>
 	first.from === second.from && first.to === second.to;

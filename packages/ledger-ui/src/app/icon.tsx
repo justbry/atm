@@ -14,9 +14,16 @@ const shapes = {
 		</>
 	),
 	chart: <path d="M4 20V11M10 20V5M16 20v-6M2 20h20" />,
+	check: <path d="M4 12l5 5L20 6" />,
 	chevronDown: <path d="M6 9l6 6 6-6" />,
 	chevronLeft: <path d="M15 6l-6 6 6 6" />,
 	chevronRight: <path d="M9 6l6 6-6 6" />,
+	clock: (
+		<>
+			<circle cx="12" cy="12" r="9" />
+			<path d="M12 7v5l3 2" />
+		</>
+	),
 	coin: (
 		<>
 			<circle cx="12" cy="12" r="9" />
@@ -95,6 +102,12 @@ const shapes = {
 			<circle cx="7.5" cy="7.5" r="1.3" />
 		</>
 	),
+	undo: (
+		<>
+			<path d="M9 14L4 9l5-5" />
+			<path d="M4 9h10a6 6 0 010 12h-3" />
+		</>
+	),
 	unlock: (
 		<>
 			<rect x="5" y="11" width="14" height="9" rx="2" />
@@ -113,6 +126,12 @@ const shapes = {
 			<path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" />
 			<circle cx="17" cy="9" r="2.4" />
 			<path d="M16 14.2c2.9.3 5 2.6 5 5.8" />
+		</>
+	),
+	xCircle: (
+		<>
+			<circle cx="12" cy="12" r="9" />
+			<path d="M9 9l6 6M15 9l-6 6" />
 		</>
 	),
 } satisfies Record<string, JSX.Element>;
