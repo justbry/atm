@@ -19,12 +19,13 @@ type Audience = "public" | "member" | "governance" | "finance" | "owner";
 export const membersVisibleTo: readonly Audience[] = ["finance", "owner"];
 export const previewLock = "Exit preview to act";
 
-/** What a viewer without finance sees in place of money per person (mockup `data-hid="no_grant"`): the strip's
- * income, payment amounts and history amounts. No `as=` value reaches it today (finance and owner both see money;
- * the mockup's "Admin" preview does), so the golden file does not check it. */
+/** What a viewer without finance sees in place of money (mockup `data-hid="no_grant"`): `title` on the strip's
+ * income, `personTitle` on a payment amount in the drawer (the history's amount has no title). The signed-in admin
+ * without the grant at Harbor Arts Academy (Rosa T.) sees it; the golden file checks it there. */
 export const financeOnly = {
 	text: "Finance only",
 	title: "Finance admins and the owner see money",
+	personTitle: "Finance admins and the owner see money per person",
 } as const;
 
 /** The lock panel the Members tab shows below `finance` (mockup `#mlock`, `data-lock="admins_only"`): who may see the

@@ -2993,6 +2993,154 @@
 				"full": true,
 				"mockupSteps": "document.querySelector('.tab[data-p=mem]').click();document.querySelector('#mb tr.row[data-id=m_012]').click()"
 			}
+		},
+		{
+			"id": "list-har",
+			"source": "mockup members() for Harbor Arts Academy (SC.har), Rosa T. signed in: an admin without the finance grant who also holds a Studio plan, so the roster shows (VW(s).admin) but money is not hers to see: the strip's income is 'Finance only' (financeOnly of src/data/members.ts, data-hid no_grant) for her Member audience's last published quarter; nobody needs attention, so the rows sort by role then name; plans/ledger-ui/design/smoke.mjs 'view as: admin preview shows the roster but money is Finance only' (the same view, as her own)",
+			"route": "#/har/members?theme=light",
+			"expect": {
+				"text": {
+					"[data-test=member-row]:nth-child(1) [data-test=member-name]": {
+						"text": "Hal B.",
+						"moves": true
+					},
+					"[data-test=member-row]:nth-child(2) [data-test=member-name]": "Fay O.",
+					"[data-test=member-row]:nth-child(3) [data-test=member-name]": {
+						"text": "Rosa T.",
+						"moves": true
+					},
+					"[data-test=member-row]:nth-child(4) [data-test=member-name]": "Ben A.",
+					"[data-test=member-row]:nth-child(5) [data-test=member-name]": "Cy L.",
+					"[data-test=member-row]:nth-child(6) [data-test=member-name]": "Dee M.",
+					"[data-test=members-stat][data-stat=outstanding] [data-test=stat-label]": "credits outstanding (incl. held)",
+					"[data-test=members-stat][data-stat=outstanding] [data-test=stat-value]": {
+						"text": "20",
+						"moves": true
+					},
+					"[data-test=members-stat][data-stat=income] [data-test=stat-label]": "income · Q2 2026",
+					"[data-test=members-stat][data-stat=income] [data-test=stat-value]": "Finance only",
+					"[data-test=members-stat][data-stat=attention] [data-test=stat-value]": "0",
+					"[data-test=member-filter][data-filter=attention]": "Needs attention (0)",
+					"[data-test=members-column][data-column=available]": "Credits available",
+					"[data-test=role-filter][data-role-filter=all]": "All 6",
+					"[data-test=role-filter][data-role-filter=admins]": "Owners & admins 3",
+					"[data-test=role-filter][data-role-filter=members]": "Members 3",
+					"[data-test=member-row][data-id=\"h_31\"] [data-test=you-tag]": "(you)",
+					"[data-test=member-row][data-id=\"h_31\"] [data-test=role-chip]": "Admin",
+					"[data-test=member-row][data-id=\"h_31\"] [data-test=member-plan]": "Studio ×1",
+					"[data-test=member-row][data-id=\"h_31\"] [data-test=member-available]": {
+						"text": "5/8",
+						"moves": true
+					},
+					"[data-test=member-row][data-id=\"h_31\"] [data-test=audience-chip]": "Audience: Member",
+					"[data-test=member-row][data-id=\"h_32\"] [data-test=member-available]": {
+						"text": "9/16 +2 held",
+						"moves": true
+					},
+					"[data-test=member-row][data-id=\"h_33\"] [data-test=member-available]": "2/8",
+					"[data-test=member-row][data-id=\"h_34\"] [data-test=audience-chip]": "Audience: Governance",
+					"[data-test=member-row][data-id=\"u_fay\"] [data-test=finance-chip]": "Finance",
+					"[data-test=member-row][data-id=\"u_fay\"] [data-test=audience-chip]": "Audience: Finance admin",
+					"[data-test=member-row][data-id=\"u_hal\"] [data-test=audience-chip]": "Audience: Owner · everything"
+				},
+				"count": {
+					"[data-test=member-row]": 6,
+					"[data-test=lock-panel]": 0,
+					"[data-test=members-stat]": 3,
+					"[data-test=members-note]": 0,
+					"[data-test=members-stat][data-stat=income] [data-hid=no_grant][title=\"Finance admins and the owner see money\"]": 1,
+					"[data-test=finance-chip]": 1,
+					"[data-test=member-row][data-id=\"h_31\"] [data-test=finance-chip]": 0,
+					"[data-test=attention-badge]": 0,
+					"[data-test=role-chip][data-role=owner]": 1,
+					"[data-test=role-chip][data-role=admin]": 2,
+					"[data-test=role-chip][data-role=member]": 3,
+					"[data-test=member-row][data-id=\"h_31\"] [data-test=audience-chip][data-audience=member][title=\"Audience: Adult with a live Studio membership: that tier names Member. An admin without the finance grant gets audiences like anyone else.\"]": 1,
+					"[data-test=member-row][data-id=\"h_32\"] [data-test=balance-bar]:not(.low)[title=\"used 5 · held 2 · available 9\"]": 1,
+					"[data-test=member-row][data-id=\"h_33\"] [data-test=balance-bar]:not(.low)[title=\"used 6 · held 0 · available 2\"]": 1
+				},
+				"absent": [
+					"$360.00",
+					"$120.00"
+				]
+			}
+		},
+		{
+			"id": "member-money-har-no-grant",
+			"source": "mockup open('h_32') and kMenuHtml at Harbor Arts Academy for Rosa T. (admin, no finance grant): money per person shows 'Finance only' (title 'Finance admins and the owner see money per person') in the payments and the history; Send invoice and Adjust are 'Finance only', Refund and roles are the owner's, Download CSV is for finance admins; the first step (a release with nothing pending) checks the drawer before the menu opens; plans/ledger-ui/design/smoke.mjs 'gate: drawer Download CSV disabled with the title', 'gate: menu Download CSV disabled with the title, refund says owner role'",
+			"route": "#/har/members?member=h_32&theme=light",
+			"steps": [
+				{
+					"release": true,
+					"expect": {
+						"text": {
+							"[data-test=drawer-head]": "h_32 · Harbor Arts Academy",
+							"[data-test=drawer-name]": {
+								"text": "Ben A.",
+								"moves": true
+							},
+							"[data-test=drawer-balance]": {
+								"text": "9 available of 16 · 2 held for bookings · expire Dec 1 · rollover 0",
+								"moves": true
+							},
+							"[data-test=drawer-note]": "Refunds need the owner role in Harbor Arts Academy.",
+							"[data-test=capability-line][data-line=audience]": "Audience: Member · Adult with a live Ensemble membership: that tier names Member."
+						},
+						"contains": {
+							"[data-test=payment-row]:nth-child(1)": [
+								"Nov 2, 26",
+								"Invoice paid, Ensemble",
+								"Finance only",
+								"Paid"
+							],
+							"[data-test=history-item]:nth-child(1)": [
+								"Payment",
+								"Finance only",
+								"Invoice paid, Ensemble",
+								"Nov 2 · stripe"
+							],
+							"[data-test=drawer-booking]": [
+								"Ensemble lesson · Nov 9 17:00",
+								"bk_h1 · Ms. Ode",
+								"2 credits held"
+							],
+							"[data-test=drawer-payments]": [
+								"29 rows"
+							]
+						},
+						"count": {
+							"[data-test=drawer-action][data-action=invoice][disabled][title=\"Finance only\"]": 1,
+							"[data-test=drawer-action][data-action=adjust][disabled][title=\"Finance only\"]": 1,
+							"[data-test=drawer-action][data-action=refund][disabled][title=\"Refunds need the owner role in this school\"]": 1,
+							"[data-test=drawer-action][data-action=view-as-member]:not([disabled])": 1,
+							"[data-test=payments-csv][disabled][title=\"Finance admins only\"]": 1,
+							"[data-test=payment-row]:nth-child(1) [data-hid=no_grant][title=\"Finance admins and the owner see money per person\"]": 1
+						},
+						"absent": [
+							"$240.00",
+							"+240.00"
+						]
+					}
+				},
+				{
+					"click": "[data-test=member-drawer] [data-test=member-menu-button]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=member-menu-item][data-action=invoice][disabled][title=\"Finance only\"]": 1,
+					"[data-test=member-menu-item][data-action=adjust][disabled][title=\"Finance only\"]": 1,
+					"[data-test=member-menu-item][data-action=refund][disabled][title=\"Owner role needed\"]": 1,
+					"[data-test=member-menu-item][data-action=make-admin][disabled][title=\"Owner role needed\"]": 1,
+					"[data-test=member-menu-item][data-action=csv][disabled][title=\"Finance admins only\"]": 1,
+					"[data-test=member-menu-item][data-action=release]:not([disabled])": 1,
+					"[data-test=member-menu-item][data-action=switch]:not([disabled])": 1,
+					"[data-test=member-menu-item][data-action=stripe]:not([disabled])": 1
+				},
+				"absent": [
+					"$240.00"
+				]
+			}
 		}
 	]
 }
