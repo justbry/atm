@@ -5,60 +5,25 @@
  * folder. A second Worker without `nodejs_compat` records what the flag is for.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtemp, readdir, readFile } from "node:fs/promises";
+import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, relative } from "node:path";
-import { Miniflare, type MiniflareOptions } from "miniflare";
+import { join } from "node:path";
+import { Miniflare } from "miniflare";
 import { readEvents } from "../src/ledger/files.js";
 import { membersOf } from "../src/ledger/summary.js";
 import { buildViews, writeViews } from "../src/ledger/views.js";
 import { FolderStore } from "../src/store/folder-store.js";
 import type { AtmCatalogRow } from "../src/types.js";
 import { bundleWorker } from "./worker-fixture/bundle.js";
+import {
+	bucketOf,
+	seedBucket,
+	workerOptions,
+} from "./worker-fixture/miniflare.js";
 
 const ROOT = join(import.meta.dir, "../fixtures/vibes-year");
 const SCHOOL = "sch_vol";
 const AS_OF = "2026-12-28T17:00:00Z";
-const COMPATIBILITY_DATE = "2026-07-01";
-const BUCKET = "BUCKET";
-
-const filesUnder = async (directory: string): Promise<string[]> => {
-	const found: string[] = [];
-	for (const entry of await readdir(directory, { withFileTypes: true })) {
-		const path = join(directory, entry.name);
-		if (entry.isDirectory()) found.push(...(await filesUnder(path)));
-		else found.push(path);
-	}
-	return found.sort();
-};
-
-const workerOptions = (
-	script: string,
-	compatibilityFlags: string[],
-): MiniflareOptions => ({
-	modules: [{ type: "ESModule", path: "worker.js", contents: script }],
-	compatibilityDate: COMPATIBILITY_DATE,
-	compatibilityFlags,
-	r2Buckets: [BUCKET],
-});
-
-/** The part of the bucket these tests use: Miniflare types it from `@cloudflare/workers-types`, which the package does not install. */
-type TestBucket = {
-	put(key: string, value: Uint8Array): Promise<unknown>;
-	get(key: string): Promise<{ text(): Promise<string> } | null>;
-};
-const bucketOf = async (miniflare: Miniflare): Promise<TestBucket> =>
-	(await miniflare.getR2Bucket(BUCKET)) as unknown as TestBucket;
-
-const seed = async (miniflare: Miniflare): Promise<void> => {
-	const bucket = await bucketOf(miniflare);
-	for (const path of await filesUnder(ROOT)) {
-		const key = relative(ROOT, path);
-		if (key === "expected.json") continue;
-		await bucket.put(key, await readFile(path));
-	}
-};
-
 const query = `/?school=${SCHOOL}&asOf=${encodeURIComponent(AS_OF)}`;
 
 let script: string;
@@ -70,7 +35,7 @@ describe("the read path in workerd", () => {
 	let miniflare: Miniflare;
 	beforeAll(async () => {
 		miniflare = new Miniflare(workerOptions(script, ["nodejs_compat"]));
-		await seed(miniflare);
+		await seedBucket(miniflare, ROOT);
 	}, 60_000);
 	afterAll(async () => {
 		await miniflare.dispose();
@@ -107,6 +72,14 @@ describe("the read path in workerd", () => {
 		const written = body.written as { created: string[]; unchanged: string[] };
 		expect(written.created).toEqual(nodeWritten.created);
 		expect((body.rewritten as { created: string[] }).created).toEqual([]);
+		// the reader, in workerd, verifies the generation writeViews just left: every object hashes as the manifest says
+		expect(body.verified).toEqual({
+			opened: true,
+			asOf: built.views.asOf,
+			objectCount: nodeWritten.created.length - 1,
+			checked: nodeWritten.created.length - 1,
+			failures: [],
+		});
 		const bucket = await bucketOf(miniflare);
 		for (const key of nodeWritten.created) {
 			const stored = await bucket.get(key);
@@ -115,6 +88,20 @@ describe("the read path in workerd", () => {
 				new TextDecoder().decode((await folder.get(key)).body),
 			);
 		}
+	}, 60_000);
+
+	test("an object that changed after the manifest is a view-mismatch in workerd too", async () => {
+		const bucket = await bucketOf(miniflare);
+		const monthKey = `schools/${SCHOOL}/views/months/2026-12.json`;
+		expect(await bucket.get(monthKey)).not.toBeNull();
+		await bucket.put(monthKey, new TextEncoder().encode("{}\n"));
+		const response = await miniflare.dispatchFetch(
+			`http://worker/verify${query.slice(1)}`,
+		);
+		const body = (await response.json()) as { failures: unknown[] };
+		expect(body.failures).toEqual([
+			{ ok: false, error: "view-mismatch", key: monthKey },
+		]);
 	}, 60_000);
 });
 

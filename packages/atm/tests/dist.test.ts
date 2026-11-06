@@ -297,13 +297,15 @@ describe("built library", () => {
 		const declarations = readFileSync(join(dir, "dist/worker.d.ts"), "utf8");
 		expect(declarations).toContain("export declare const readEventsFromStore");
 		expect(declarations).toContain("export declare const writeViews");
+		expect(declarations).toContain("export declare const readViewsFromStore");
+		expect(declarations).toContain("export declare class R2BindingStore");
 	});
 
 	test("the worker declarations typecheck against the built package alone", async () => {
 		await writeFile(
 			join(dir, "typed-worker.ts"),
 			[
-				'import { buildViews, memberSummary, membersOf, readEventsFromStore, writeViews, type MemberResult, type MembersResult, type Views, type ViewsResult, type WriteViewsResult } from "./dist/worker.js";',
+				'import { R2BindingStore, buildViews, memberSummary, membersOf, readEventsFromStore, readViewsFromStore, writeViews, type MemberResult, type MembersResult, type R2BucketBinding, type ViewRead, type MonthObject, type Views, type ViewsReader, type ViewReadError, type ViewsResult, type WriteViewsResult } from "./dist/worker.js";',
 				'import type { AtmEvent, Store } from "./dist/index.js";',
 				"declare const store: Store;",
 				"declare const asOf: Date;",
@@ -314,7 +316,11 @@ describe("built library", () => {
 				'const built: ViewsResult = buildViews(loaded, { school: "sch_vol", asOf });',
 				"declare const views: Views;",
 				'const written: Promise<WriteViewsResult> = writeViews(store, "sch_vol", views);',
-				"export { events, members, one, built, written };",
+				"declare const binding: R2BucketBinding;",
+				"const bound: Store = new R2BindingStore(binding);",
+				'const opened: Promise<ViewsReader | ViewReadError> = readViewsFromStore(bound, "sch_vol");',
+				'const month = async (reader: ViewsReader): Promise<ViewRead<MonthObject>> => reader.month("2026-12");',
+				"export { events, members, one, built, written, bound, opened, month };",
 			].join("\n"),
 		);
 		await writeFile(
