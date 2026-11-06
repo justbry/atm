@@ -183,11 +183,11 @@ describe("Stripe's payout.paid", () => {
 		expect(claim("evt_po_1")).toBeNull();
 	});
 
-	test("payout.failed and the other payout events are not mapped: answered ignored, nothing recorded", () => {
+	test("the other payout events are not mapped: answered ignored, nothing recorded (payout.failed is: tests/handler-payout-failed.test.ts)", () => {
 		const { deliver, outbox, claim } = harness();
 		for (const type of [
-			"payout.failed",
 			"payout.created",
+			"payout.canceled",
 			"payout.reconciliation_completed",
 		]) {
 			const event = payout();

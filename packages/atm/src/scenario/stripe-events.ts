@@ -10,6 +10,7 @@ import subscriptionCreatedTemplate from "../../fixtures/billing/stripe/customer.
 import subscriptionDeletedTemplate from "../../fixtures/billing/stripe/customer.subscription.deleted.json";
 import subscriptionUpdatedTemplate from "../../fixtures/billing/stripe/customer.subscription.updated.json";
 import invoicePaidTemplate from "../../fixtures/billing/stripe/invoice.paid.json";
+import payoutFailedTemplate from "../../fixtures/billing/stripe/payout.failed.json";
 import payoutPaidTemplate from "../../fixtures/billing/stripe/payout.paid.json";
 
 export const API_VERSION = "2025-10-29.clover";
@@ -27,6 +28,7 @@ const TEMPLATES: Record<string, unknown> = {
 	"customer.subscription.updated.json": subscriptionUpdatedTemplate,
 	"customer.subscription.deleted.json": subscriptionDeletedTemplate,
 	"payout.paid.json": payoutPaidTemplate,
+	"payout.failed.json": payoutFailedTemplate,
 };
 /**
  * The committed files are sandbox events (`livemode: false`); a test's synthetic event stands for the live endpoint the
@@ -306,6 +308,28 @@ export const payoutPaid = (e: {
 	at: number;
 }): RawEvent => {
 	const event = template("payout.paid.json");
+	event.id = e.eventId;
+	event.created = seconds(e.at);
+	event.data.object.id = e.payoutId;
+	event.data.object.amount = e.amount;
+	event.data.object.currency = e.currency ?? "usd";
+	return event;
+};
+
+/**
+ * A `payout.failed` event: the payout (`amount`, net of Stripe's fees) was sent and did not reach the bank, so the money is
+ * back in Stripe's balance. `at` is the event's time, later than the `payout.paid` it follows; a payout can fail without
+ * ever having been `paid`.
+ */
+export const payoutFailed = (e: {
+	eventId: string;
+	payoutId: string;
+	amount: number;
+	currency?: string;
+	/** Event time (ms): the event's `created`. */
+	at: number;
+}): RawEvent => {
+	const event = template("payout.failed.json");
 	event.id = e.eventId;
 	event.created = seconds(e.at);
 	event.data.object.id = e.payoutId;

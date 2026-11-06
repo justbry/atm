@@ -16,6 +16,7 @@ import {
 	type EventLine,
 	invoicePaid,
 	paymentIntentOf,
+	payoutFailed,
 	payoutPaid,
 	type RawEvent,
 	subscriptionEvent,
@@ -223,6 +224,19 @@ export const payoutOf = (o: {
 	if (o.type) event.type = o.type;
 	return event;
 };
+
+export const payoutFailedOf = (o: {
+	id: string;
+	payoutId: string;
+	amount: number;
+	at: number;
+}): RawEvent =>
+	payoutFailed({
+		eventId: o.id,
+		payoutId: o.payoutId,
+		amount: o.amount,
+		at: o.at,
+	});
 
 export const subscriptionOf = (o: {
 	type:
