@@ -536,6 +536,37 @@ export const replayInputs = (
 		}
 	};
 
+	/**
+	 * An invoice refused (422) before it was applied, or refused again, has already booked its payment line under the menu and
+	 * policy of its first refusal, and the outbox keeps that first line (first idem wins). The refused row keeps only the
+	 * last refusal's context (and an applied one is gone), so the first is not stored: the line is carried as the log has it.
+	 * It is money, which a what-if does not change. The baseline carries it where the input has an earlier attempt and the
+	 * log's line is not the one the recorded context decides now, and counts it; the candidate carries exactly those.
+	 */
+	const carryFirstPayments = (
+		input: StoredInput,
+		decided: readonly AtmEvent[],
+		logged: readonly AtmEvent[],
+	): AtmEvent[] => {
+		const mayCarry =
+			mode === "baseline"
+				? input.attempts > 1
+				: (against?.carriedPayments ?? []).includes(input.eventId);
+		if (!mayCarry) return [...decided];
+		return decided.map((e) => {
+			if (
+				e.event_type !== "payment.succeeded" &&
+				e.event_type !== "money.skipped"
+			)
+				return e;
+			const first = logged.find((l) => l.idem === e.idem);
+			if (!first) return e;
+			if (mode === "baseline" && canonicalize(first) !== canonicalize(e))
+				carriedPayments.add(input.eventId);
+			return first;
+		});
+	};
+
 	// ---- An input ----
 	const runInput = (input: StoredInput): void => {
 		if (input.subjectKey === null || input.fact === null) return;
@@ -653,7 +684,9 @@ export const replayInputs = (
 		executedHolders.add(holder.key);
 
 		if (result.refused) {
-			const made = fresh(result.refused.payment ?? []);
+			const made = fresh(
+				carryFirstPayments(input, result.refused.payment ?? [], logged),
+			);
 			byInput.set(input.eventId, {
 				appliedOrder: input.appliedOrder,
 				subjectKey: input.subjectKey,
@@ -690,25 +723,7 @@ export const replayInputs = (
 				for (const ref of input.paymentRefs ?? [])
 					if (!paymentIndex.has(ref)) paymentIndex.set(ref, invoiceId);
 		}
-		// An invoice refused (422) before it was applied has already booked its payment line, under the menu and policy of the
-		// refusal, and the outbox keeps that first line. The refused row is gone once the input is applied, so that context is
-		// not stored: the line is carried as the log has it. It is money, which a what-if does not change.
-		const earlierAttempt = isApplied && input.attempts > 1;
-		const made = fresh(
-			earlierAttempt
-				? result.events.map((e) => {
-						if (
-							e.event_type !== "payment.succeeded" &&
-							e.event_type !== "money.skipped"
-						)
-							return e;
-						const first = logged.find((l) => l.idem === e.idem);
-						if (first && canonicalize(first) !== canonicalize(e))
-							carriedPayments.add(input.eventId);
-						return first ?? e;
-					})
-				: result.events,
-		);
+		const made = fresh(carryFirstPayments(input, result.events, logged));
 		byInput.set(input.eventId, {
 			appliedOrder: input.appliedOrder,
 			subjectKey: input.subjectKey,
@@ -743,10 +758,38 @@ export const replayInputs = (
 	};
 
 	// ---- The pass ----
+	const live = inputs.inputs.filter((input) => input.erasedAt === null);
+	/**
+	 * A refusal that is refused again keeps its first `applied_order` but takes the holder's revision of its last attempt.
+	 * Decided at its first place it would sit behind rows it never saw (a revision gap that is not one), so it goes after the
+	 * last write that brought the holder to that revision. A refusal handled once stays where it is.
+	 */
+	const placeOf = (input: StoredInput): number => {
+		if (input.outcome === "applied" || input.revisionBefore === null)
+			return input.appliedOrder;
+		let place = input.appliedOrder;
+		for (const writer of live)
+			if (
+				writer.subjectKey === input.subjectKey &&
+				writer.revisionBefore !== null &&
+				writer.revisionAfter !== null &&
+				writer.revisionAfter > writer.revisionBefore &&
+				writer.revisionAfter <= input.revisionBefore &&
+				writer.appliedOrder > place
+			)
+				place = writer.appliedOrder;
+		return place === input.appliedOrder ? place : place + 0.5;
+	};
 	const order = [
-		...inputs.inputs.filter((input) => input.erasedAt === null),
+		...live,
 		...inputs.refused.filter((input) => input.reason !== "bad_event"),
-	].sort((a, b) => a.appliedOrder - b.appliedOrder);
+	]
+		.map((input) => ({ input, place: placeOf(input) }))
+		.sort(
+			(a, b) =>
+				a.place - b.place || a.input.appliedOrder - b.input.appliedOrder,
+		)
+		.map(({ input }) => input);
 	for (const input of order) runInput(input);
 	for (const holder of holders.values())
 		if (!holder.halted) flush(holder, Number.POSITIVE_INFINITY);
@@ -829,10 +872,15 @@ const accountNotReplayable = ({
 		subject: string | null,
 		reason: NotReplayable["reason"],
 		list: readonly AtmEvent[],
+		/** When the holder stopped, for a holder with no decision left to carry (an input that decided nothing). */
+		stoppedAtMs?: number,
 	) => {
-		if (list.length === 0) return;
+		if (list.length === 0 && stoppedAtMs === undefined) return;
 		const key = `${subject}\u0000${reason}`;
-		const times = list.map((e) => Date.parse(e.event_time));
+		const times =
+			list.length > 0
+				? list.map((e) => Date.parse(e.event_time))
+				: [stoppedAtMs as number];
 		const first = isoOf(Math.min(...times));
 		const known = items.get(key);
 		if (known) {
@@ -881,7 +929,17 @@ const accountNotReplayable = ({
 				(mutationOf(e)?.revision.after ?? Number.POSITIVE_INFINITY) >
 					(inputs.seeds.get(holder.key)?.revision ?? 0),
 		);
-		add(holder.key, holder.halted.reason, fromHalt);
+		// The input it stopped at is not a decision when it decided nothing (a dispute with no money, a refund of a payment the
+		// books never held), but a what-if on it is not covered, and the holder is said to be uncovered from there.
+		const haltedAt = allInputs.find(
+			(input) => `in:${input.appliedOrder}` === holder.halted?.token,
+		);
+		add(
+			holder.key,
+			holder.halted.reason,
+			fromHalt,
+			haltedAt ? haltedAt.stripeCreated * MS_PER_SECOND : undefined,
+		);
 	}
 	void executedHolders;
 	return [...items.values()].sort((a, b) =>
@@ -1371,7 +1429,7 @@ const summaryOf = (
 	lines.push(
 		`inputs: ${stored} stored for school ${input.school} (${input.env}), from ${first ?? "none"}${result.notReplayable.firstStoredEventId ? ` (first: ${result.notReplayable.firstStoredEventId})` : ""}; ${result.replayed.holders} holders replayed.`,
 	);
-	if (result.notReplayable.decisions > 0)
+	if (result.notReplayable.items.length > 0)
 		lines.push(
 			`not replayable: ${result.notReplayable.decisions} decisions of ${result.notReplayable.holders} holders could not be decided again and were carried over unchanged (${[...new Set(result.notReplayable.items.map((item) => item.reason))].join(", ")}). A what-if on the grant rules covers only the history the stored inputs reach${first ? `, from ${first} (the first delivery stored)` : ""}.`,
 		);
