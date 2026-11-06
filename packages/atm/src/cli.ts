@@ -722,7 +722,35 @@ const assertSchoolFolder = (school: string): void => {
 		);
 };
 
-/** The handler's SQLite, opened read-only, behind the `InputsSource` the replay reads through. Nothing is written. */
+/** Bytes 18 and 19 of a SQLite database header, its file format's read and write versions: 2 is WAL, 1 rollback. */
+const FILE_FORMAT_OFFSET = 18;
+const WAL_FORMAT = 2;
+const ROLLBACK_FORMAT = 1;
+
+/**
+ * The handler's SQLite, opened so that no file changes. With no `-wal` (or `-journal`) beside it, the file holds every
+ * committed row, so it is read whole into memory: on Linux even a read-only connection to a WAL database would create the
+ * `-wal` and `-shm` and, unable to checkpoint, leave them behind (`immutable=1` would avoid it, but Bun's bundled SQLite
+ * takes no URI filenames). With a `-wal` there, a read-only connection reads it without checkpointing, so the database and
+ * its `-wal` keep their bytes; only the shared `-shm` index moves, and a copied `-wal` without its `-shm` gets one. A
+ * read-write connection is never used: closing last, it would checkpoint the handler's `-wal` into the database.
+ */
+const openWithoutWriting = async (path: string): Promise<Database> => {
+	const live =
+		(await stat(`${path}-wal`).catch(() => null)) ??
+		(await stat(`${path}-journal`).catch(() => null));
+	const bytes = live ? null : await readFile(path);
+	// An empty file is an empty database to SQLite, and has no header to read into memory.
+	if (!bytes?.length) return new Database(path, { readonly: true });
+	// A WAL database read from memory has no `-wal` to use: the rollback format reads the same pages.
+	if (bytes[FILE_FORMAT_OFFSET] === WAL_FORMAT) {
+		bytes[FILE_FORMAT_OFFSET] = ROLLBACK_FORMAT;
+		bytes[FILE_FORMAT_OFFSET + 1] = ROLLBACK_FORMAT;
+	}
+	return Database.deserialize(bytes, true);
+};
+
+/** The handler's SQLite, opened without writing (`openWithoutWriting`), behind the `InputsSource` the replay reads through. */
 const readStoredInputs = async (path: string, env: AtmEnv, school: string) => {
 	const found = await stat(path).catch(() => null);
 	if (!found) throw new InputError(`--inputs ${path} does not exist`);
@@ -737,7 +765,7 @@ const readStoredInputs = async (path: string, env: AtmEnv, school: string) => {
 	}
 	let database: Database;
 	try {
-		database = new Database(path, { readonly: true });
+		database = await openWithoutWriting(path);
 	} catch (error) {
 		throw new InputError(
 			`--inputs ${path} cannot be opened as SQLite: ${oneLine(error)}`,
