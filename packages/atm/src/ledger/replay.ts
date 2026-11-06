@@ -184,7 +184,7 @@ const compareIds = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 type MutationRevision = { before: number; after: number };
 
-const mutationRevision = (e: AtmEvent): MutationRevision | null => {
+export const mutationRevision = (e: AtmEvent): MutationRevision | null => {
 	const mutation = (e.payload as { mutation?: { revision?: MutationRevision } })
 		.mutation;
 	return typeof mutation?.revision?.after === "number"

@@ -11,10 +11,17 @@
  * time of a booking (the only time on a booking is `payload.command.lock.expiresAt` of its `credit.held`, the instant
  * the hold lapses).
  */
+import type { SubjectState } from "@autumn/balance-engine";
 import { menuCatalogRows } from "../billing/grants.js";
 import type { Menu } from "../billing/types.js";
 import type { AtmCatalogRow, AtmEvent, AtmSubjectState } from "../types.js";
-import { ReplayError, ReplayGapError, replayEvents } from "./replay.js";
+import { byEventId, byText } from "./order.js";
+import {
+	mutationRevision,
+	ReplayError,
+	ReplayGapError,
+	replayEvents,
+} from "./replay.js";
 import { toCatalog } from "./run.js";
 import { decimalToUnits, isoInstant } from "./util.js";
 
@@ -28,7 +35,7 @@ export type FeatureSummary = {
 	 * Units the member has consumed for good: the net of the postings to `credits:spent:*` and `credits:forfeited` over the
 	 * member's events for the feature. A `credit.spent` (a finalized booking) and a `credit.forfeited` (a hold that
 	 * expired and confirmed, a no-show) add their units; a `credit.refunded` takes its units off again. Credits that lapsed
-	 * (`credit.expired`) or were released back are not used. Counted over the whole log, not from `asOf`.
+	 * (`credit.expired`) or were released back are not used. Counted over the events up to `asOf` (`eventsAsOf`).
 	 */
 	used: number;
 	/** The earliest instant a row that still holds credits at `asOf` expires; null when none of them expires. */
@@ -78,8 +85,36 @@ const SPENT_PREFIX = "credits:spent:";
 const FORFEITED_ACCOUNT = "credits:forfeited";
 const NO_DECIMALS = 0;
 
-const byId = (a: AtmEvent, b: AtmEvent) =>
-	a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+/**
+ * The events that had happened by `asOf`: `event_time` at or before it. `event_time`, not `ingest_time`: `asOf` asks what
+ * the school's members held at an instant, so a batch that reached the log late (a `late-*` batch, a re-ship) still counts
+ * from the instant it happened; `ingest_time` would answer a different question, what the log knew then, and would put
+ * the same grant on either side of `asOf` depending on when it shipped.
+ *
+ * An event of a subject's revision chain (one that carries a `mutation`) also leaves with every later revision of its
+ * subject: the engine's reset can be stamped hours before the payment that came first, and replaying the reset without
+ * that payment would be a replay gap, not a balance.
+ */
+export const eventsAsOf = (
+	events: readonly AtmEvent[],
+	asOf: Date,
+): AtmEvent[] => {
+	const asOfMs = asOf.getTime();
+	const cutAt = new Map<string, number>();
+	for (const event of events) {
+		const revision = mutationRevision(event);
+		if (revision === null || Date.parse(event.event_time) <= asOfMs) continue;
+		const known = cutAt.get(event.key);
+		if (known === undefined || revision.after < known)
+			cutAt.set(event.key, revision.after);
+	}
+	return events.filter((event) => {
+		if (Date.parse(event.event_time) > asOfMs) return false;
+		const revision = mutationRevision(event);
+		const cut = cutAt.get(event.key);
+		return revision === null || cut === undefined || revision.after < cut;
+	});
+};
 
 /** A key is a member when the log books credits or a plan to it: the keys of payments and payouts alone are not. */
 const isMemberEvent = (event: AtmEvent) =>
@@ -92,7 +127,7 @@ const catalogFromEvents = (
 	let latest: AtmEvent | null = null;
 	for (const event of events)
 		if (event.event_type === "catalog.published")
-			if (latest === null || byId(latest, event) < 0) latest = event;
+			if (latest === null || byEventId(latest, event) < 0) latest = event;
 	const menu = (latest?.payload as { menu?: unknown } | undefined)?.menu;
 	if (latest === null || typeof menu !== "object" || menu === null) return null;
 	return menuCatalogRows({ menu: menu as Menu, school: latest.school });
@@ -107,17 +142,6 @@ const unitsUsed = (event: AtmEvent): number => {
 		)
 			units += decimalToUnits(posting.amount, NO_DECIMALS);
 	return Number(units);
-};
-
-type Row = {
-	id: string;
-	internal_feature_id: string;
-	expires_at: number | null;
-};
-type RolloverRow = {
-	cus_ent_id: string;
-	balance: number;
-	expires_at: number | null;
 };
 
 /** Per holder and feature, the earliest expiry among rows that hold credits at `asOfMs`; the rows `balancesOf` counts. */
@@ -138,18 +162,18 @@ const nextExpiries = ({
 		const known = out.get(slot);
 		if (known === undefined || expiresAt < known) out.set(slot, expiresAt);
 	};
-	for (const [holder, state] of Object.entries(states)) {
+	for (const [holder, stored] of Object.entries(states)) {
+		// the same view of a stored state as `balancesOf` (replay.ts) takes: the engine's rows, typed
+		const state = stored as unknown as SubjectState;
 		const featureOfRow = new Map<string, string>();
-		for (const raw of state.customerEntitlements) {
-			const row = raw as unknown as Row & { balance: number };
+		for (const row of state.customerEntitlements) {
 			const feature =
 				catalog.features[row.internal_feature_id]?.id ??
 				row.internal_feature_id;
 			featureOfRow.set(row.id, feature);
 			if (row.balance > 0) note(holder, feature, row.expires_at);
 		}
-		for (const raw of state.rollovers) {
-			const row = raw as unknown as RolloverRow;
+		for (const row of state.rollovers) {
 			const feature = featureOfRow.get(row.cus_ent_id);
 			if (feature && row.balance > 0) note(holder, feature, row.expires_at);
 		}
@@ -172,12 +196,13 @@ const problemOf = (error: unknown): SummaryProblem => {
 	throw error;
 };
 
-/** Every member's summary as of `asOf`, or why the log cannot be replayed. Pure; returns instead of throwing for a log it cannot replay. */
+/** Every member's summary as of `asOf` (the events up to it, `eventsAsOf`), or why the log cannot be replayed. Pure; returns instead of throwing for a log it cannot replay. */
 export const membersOf = (
-	events: readonly AtmEvent[],
+	allEvents: readonly AtmEvent[],
 	asOf: Date,
 	options: SummaryOptions = {},
 ): MembersResult => {
+	const events = eventsAsOf(allEvents, asOf);
 	const catalogRows = options.catalog ?? catalogFromEvents(events);
 	if (catalogRows === null)
 		return {
@@ -220,7 +245,7 @@ export const membersOf = (
 		return member.features[feature];
 	};
 	const latestPlan = new Map<string, AtmEvent>();
-	for (const event of [...events].sort(byId)) {
+	for (const event of [...events].sort(byEventId)) {
 		if (!isMemberEvent(event)) continue;
 		const member = memberOf(event.key);
 		member.lastEventAt = event.event_time;
@@ -253,7 +278,7 @@ export const membersOf = (
 		ok: true,
 		asOf: asOfIso,
 		members: Object.fromEntries(
-			[...members.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+			[...members.entries()].sort(([a], [b]) => byText(a, b)),
 		),
 	};
 };

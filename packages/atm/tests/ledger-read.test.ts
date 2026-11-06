@@ -181,3 +181,67 @@ describe("readEventsFromStore over an in-memory store", () => {
 		);
 	});
 });
+
+describe("readEventsFromStore subrequests", () => {
+	const fillDays = async (objects: Map<string, string>, count: number) => {
+		const events = (
+			await readEvents(join(FIXTURES, "vibes-year"), "sch_vol")
+		).events.slice(0, count);
+		for (const [index, event] of events.entries())
+			objects.set(
+				batchKey(
+					"sch_x",
+					event.date,
+					`batch-${String(index).padStart(3, "0")}`,
+				),
+				`${lineOf(event)}\n`,
+			);
+		return events;
+	};
+
+	test("one flat paged listing of the events prefix, whatever the range: no listing per day", async () => {
+		const { store, objects, lists } = memoryStore(5);
+		const events = await fillDays(objects, 60);
+		const days = new Set(events.map((e) => e.date));
+		expect(days.size).toBeGreaterThan(8);
+		const from = [...days].sort()[2] as string;
+		await readEventsFromStore(store, "sch_x", { from });
+		expect(lists.every((o) => o.prefix === "schools/sch_x/events/")).toBe(true);
+		expect(lists.every((o) => o.delimiter === undefined)).toBe(true);
+		// 60 objects, 5 to a page: 12 pages, not 12 plus one per day
+		expect(lists.length).toBe(12);
+	});
+
+	test("batches are fetched at most 8 at a time, and more than one at a time", async () => {
+		const { store, objects } = memoryStore(1000);
+		await fillDays(objects, 40);
+		let open = 0;
+		let peak = 0;
+		const slow: Store = {
+			...store,
+			async get(key) {
+				open += 1;
+				peak = Math.max(peak, open);
+				await new Promise((resolve) => setTimeout(resolve, 2));
+				try {
+					return await store.get(key);
+				} finally {
+					open -= 1;
+				}
+			},
+		};
+		const got = await readEventsFromStore(slow, "sch_x");
+		expect(got.length).toBe(40);
+		expect(peak).toBe(8);
+	});
+
+	test("a range reads only the batches of its days", async () => {
+		const { store, objects, gets } = memoryStore(1000);
+		const events = await fillDays(objects, 40);
+		const days = [...new Set(events.map((e) => e.date))].sort();
+		const day = days[3] as string;
+		await readEventsFromStore(store, "sch_x", { from: day, to: day });
+		expect(gets.length).toBeGreaterThan(0);
+		for (const key of gets) expect(key).toContain(`/date=${day}/`);
+	});
+});

@@ -7,16 +7,22 @@ import { readEvents } from "../src/ledger/files.js";
 import { readEventsFromStore } from "../src/ledger/read.js";
 import {
 	buildViews,
+	manifestKey,
+	memberIndexKey,
 	memberViewKey,
+	memberViewName,
 	monthViewKey,
+	type Views,
 	writeViews,
 } from "../src/ledger/views.js";
 import { FolderStore } from "../src/store/folder-store.js";
 import { sha256Hex, utf8 } from "../src/store/store.js";
-import type { AtmCatalogRow, AtmEvent } from "../src/types.js";
+import type { AtmCatalogRow, AtmEvent, Store } from "../src/types.js";
+import { handBuiltLog, catalog as handCatalog } from "./ledger-read-log.js";
 
 const FIXTURES = join(import.meta.dir, "../fixtures");
-const AS_OF = new Date("2027-03-01T00:00:00Z");
+/** After the last event of vibes-multi (2027-03-01T07:30:00Z): these tests are about the whole log. */
+const AS_OF = new Date("2027-03-02T00:00:00Z");
 const catalog = JSON.parse(
 	readFileSync(join(FIXTURES, "vibes-multi/catalog.json"), "utf8"),
 ) as AtmCatalogRow[];
@@ -160,9 +166,13 @@ describe("writeViews", () => {
 		await withStore(async (store) => {
 			const views = await build();
 			const first = await writeViews(store, "sch_multi", views);
+			// the months, the members, the member index and the manifest
 			expect(first.created.length).toBe(
-				Object.keys(views.months).length + Object.keys(views.members).length,
+				Object.keys(views.months).length +
+					Object.keys(views.members).length +
+					2,
 			);
+			expect(first.stale).toBe(false);
 			expect(first.replaced).toEqual([]);
 			expect(first.unchanged).toEqual([]);
 			const second = await writeViews(store, "sch_multi", views);
@@ -179,11 +189,7 @@ describe("writeViews", () => {
 					(await store.get(memberViewKey("sch_multi", key))).body,
 				),
 			);
-			expect(stored).toEqual({
-				school: "sch_multi",
-				asOf: views.asOf,
-				...(summary as object),
-			});
+			expect(stored).toEqual({ school: "sch_multi", ...(summary as object) });
 			const listed = await store.list({
 				prefix: "schools/sch_multi/views/members/",
 			});
@@ -208,6 +214,7 @@ describe("writeViews", () => {
 				},
 			};
 			const result = await writeViews(store, "sch_multi", changed);
+			// the manifest's asOf, events and object count are the same, so it is not rewritten
 			expect(result.replaced).toEqual([
 				monthViewKey("sch_multi", month as string),
 			]);
@@ -228,5 +235,225 @@ describe("writeViews", () => {
 			catalog,
 		});
 		expect(result.ok && result.views).toEqual(expected);
+	});
+});
+
+const textOf = async (store: Store, key: string) =>
+	new TextDecoder().decode((await store.get(key)).body);
+
+/** A store that passes every call through and lets a test watch or break the writes. */
+const watched = (
+	inner: Store,
+	hooks: {
+		beforePutIfMatch?: (key: string) => Promise<void>;
+		beforeWrite?: (key: string, writes: number) => void;
+	} = {},
+) => {
+	const writes: string[] = [];
+	const store: Store = {
+		get: (key, range) => inner.get(key, range),
+		head: (key) => inner.head(key),
+		list: (options) => inner.list(options),
+		delete: (key, sha) => inner.delete(key, sha),
+		presign: (key, options) => inner.presign(key, options),
+		async putIfAbsent(key, body) {
+			hooks.beforeWrite?.(key, writes.length);
+			writes.push(key);
+			return inner.putIfAbsent(key, body);
+		},
+		async putIfMatch(key, body, etag) {
+			hooks.beforeWrite?.(key, writes.length);
+			await hooks.beforePutIfMatch?.(key);
+			writes.push(key);
+			return inner.putIfMatch(key, body, etag);
+		},
+	};
+	return { store, writes };
+};
+
+describe("writeViews: objects are content only, the manifest is the generation", () => {
+	const { events, at } = handBuiltLog();
+	const viewsAt = (asOf: number): Views => {
+		const result = buildViews(events, {
+			school: "sch_hand",
+			asOf: new Date(asOf),
+			catalog: handCatalog,
+		});
+		if (!result.ok) throw new Error(JSON.stringify(result.error));
+		return result.views;
+	};
+	const withStore = async (run: (store: FolderStore) => Promise<void>) => {
+		const root = await mkdtemp(join(tmpdir(), "atm-views-"));
+		try {
+			await run(new FolderStore({ root }));
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	};
+	const first = at.secondSpent + 1000;
+	const later = at.refunded + 1000;
+	const manifestOf = async (store: Store) =>
+		JSON.parse(await textOf(store, manifestKey("sch_hand")));
+
+	test("no month, member or index object holds asOf; the manifest records the run", async () => {
+		await withStore(async (store) => {
+			const views = viewsAt(later);
+			const result = await writeViews(store, "sch_hand", views);
+			const manifest = manifestKey("sch_hand");
+			for (const key of result.created) {
+				const text = await textOf(store, key);
+				if (key === manifest) continue;
+				expect(text).not.toContain("asOf");
+			}
+			expect(await manifestOf(store)).toEqual({
+				asOf: views.asOf,
+				generatedFrom: {
+					lastEventId: [...events].sort((a, b) => (a.id < b.id ? -1 : 1)).at(-1)
+						?.id,
+					eventCount: events.length,
+				},
+				// one month, one member, the index
+				objectCount: 3,
+			});
+			expect(views.generatedFrom.eventCount).toBe(events.length);
+		});
+	});
+
+	test("the manifest is written last", async () => {
+		await withStore(async (inner) => {
+			const { store, writes } = watched(inner);
+			await writeViews(store, "sch_hand", viewsAt(later));
+			expect(writes.at(-1)).toBe(manifestKey("sch_hand"));
+			expect(writes.length).toBe(4);
+		});
+	});
+
+	test("the member index lists each member's object name with its key and lastEventAt", async () => {
+		await withStore(async (store) => {
+			const views = viewsAt(later);
+			await writeViews(store, "sch_hand", views);
+			expect(
+				JSON.parse(await textOf(store, memberIndexKey("sch_hand"))),
+			).toEqual({
+				school: "sch_hand",
+				members: Object.values(views.members).map((member) => ({
+					name: memberViewName("sch_hand", member.key),
+					key: member.key,
+					lastEventAt: member.lastEventAt,
+				})),
+			});
+			expect(Object.values(views.members).length).toBe(1);
+		});
+	});
+
+	test("a second run with the same asOf writes nothing", async () => {
+		await withStore(async (inner) => {
+			await writeViews(inner, "sch_hand", viewsAt(later));
+			const { store, writes } = watched(inner);
+			const second = await writeViews(store, "sch_hand", viewsAt(later));
+			expect(writes).toEqual([]);
+			expect(second.created).toEqual([]);
+			expect(second.replaced).toEqual([]);
+			expect(second.unchanged.length).toBe(4);
+		});
+	});
+
+	test("a later asOf over an unchanged log rewrites only the manifest", async () => {
+		await withStore(async (inner) => {
+			await writeViews(inner, "sch_hand", viewsAt(later));
+			const next = viewsAt(later + 86_400_000);
+			const { store, writes } = watched(inner);
+			const second = await writeViews(store, "sch_hand", next);
+			expect(second.replaced).toEqual([manifestKey("sch_hand")]);
+			expect(second.created).toEqual([]);
+			expect(writes).toEqual([manifestKey("sch_hand")]);
+			expect((await manifestOf(inner)).asOf).toBe(next.asOf);
+		});
+	});
+
+	test("a stale writer (an earlier asOf than the stored manifest's) writes nothing and does not win", async () => {
+		await withStore(async (inner) => {
+			await writeViews(inner, "sch_hand", viewsAt(later));
+			const member = memberViewKey("sch_hand", `family:fam_hand`);
+			const before = await textOf(inner, member);
+			const manifest = await textOf(inner, manifestKey("sch_hand"));
+			const { store, writes } = watched(inner);
+			// asOf before the refund: the member and month objects would differ if it wrote
+			const stale = await writeViews(store, "sch_hand", viewsAt(first));
+			expect(stale.stale).toBe(true);
+			expect(writes).toEqual([]);
+			expect(await textOf(inner, member)).toBe(before);
+			expect(await textOf(inner, manifestKey("sch_hand"))).toBe(manifest);
+		});
+	});
+
+	test("a newer run that lands between the read and the put wins over this run's manifest", async () => {
+		await withStore(async (inner) => {
+			await writeViews(inner, "sch_hand", viewsAt(first));
+			const newest = viewsAt(later + 86_400_000);
+			let raced = false;
+			const { store } = watched(inner, {
+				beforePutIfMatch: async (key) => {
+					if (key !== manifestKey("sch_hand") || raced) return;
+					raced = true;
+					await writeViews(inner, "sch_hand", newest);
+				},
+			});
+			const result = await writeViews(store, "sch_hand", viewsAt(later));
+			expect(raced).toBe(true);
+			expect(result.stale).toBe(true);
+			expect((await manifestOf(inner)).asOf).toBe(newest.asOf);
+		});
+	});
+
+	test("a failure partway leaves the old manifest in place", async () => {
+		await withStore(async (inner) => {
+			const old = viewsAt(first);
+			await writeViews(inner, "sch_hand", old);
+			const manifestBefore = await textOf(inner, manifestKey("sch_hand"));
+			let failures = 0;
+			const { store, writes } = watched(inner, {
+				beforeWrite: (_key, written) => {
+					// the second object write fails, after the first landed
+					if (written === 1) {
+						failures += 1;
+						throw new Error("store went away");
+					}
+				},
+			});
+			await expect(
+				writeViews(store, "sch_hand", viewsAt(later)),
+			).rejects.toThrow(/store went away/);
+			expect(failures).toBe(1);
+			expect(writes.length).toBe(1);
+			expect(writes).not.toContain(manifestKey("sch_hand"));
+			expect(await textOf(inner, manifestKey("sch_hand"))).toBe(manifestBefore);
+			expect((await manifestOf(inner)).asOf).toBe(old.asOf);
+		});
+	});
+});
+
+describe("buildViews asOf cuts the log", () => {
+	test("months, members and generatedFrom of an asOf in the middle equal those of only the earlier events", async () => {
+		const events = await loadEvents();
+		const asOf = new Date("2027-01-15T00:00:00Z");
+		const earlier = events.filter(
+			(e) => Date.parse(e.event_time) <= asOf.getTime(),
+		);
+		expect(earlier.length).toBeGreaterThan(10);
+		expect(earlier.length).toBeLessThan(events.length);
+		const cut = buildViews(events, { school: "sch_multi", asOf, catalog });
+		const only = buildViews(earlier, { school: "sch_multi", asOf, catalog });
+		expect(cut.ok && cut.views).toEqual(only.ok && only.views);
+		if (!cut.ok) return;
+		expect(cut.views.generatedFrom.eventCount).toBe(earlier.length);
+		const lastMonth = Object.keys(cut.views.months).at(-1) as string;
+		expect(lastMonth).toBe("2027-01");
+		const total = Object.values(cut.views.months).reduce(
+			(sum, month) =>
+				sum + Object.values(month.counts).reduce((a, b) => a + b, 0),
+			0,
+		);
+		expect(total).toBe(earlier.length);
 	});
 });

@@ -1,13 +1,19 @@
 /**
- * Read models for the admin UI, built from the event log and written next to it:
- * `schools/<school>/views/months/YYYY-MM.json` and `schools/<school>/views/members/<hash>.json`. `buildViews` is pure;
+ * Read models for the admin UI, built from the event log and written next to it, all under `schools/<school>/views/`:
+ * `months/YYYY-MM.json`, `members/<hash>.json`, `members/index.json` and `manifest.json`. `buildViews` is pure;
  * `writeViews` puts the objects through a `Store`. Both are the Worker-safe side of atm (no `node:fs`, no `ajv`).
  *
  * A member's object name is a hash of the school and the holder key, never the key: an object listing (or a log line of
- * a path) does not carry a family id. The body holds the key, so a reader that lists the prefix can still show it.
- * The bodies hold no names or emails.
+ * a path) does not carry a family id. The body holds the key, and `members/index.json` lists every member's object name
+ * with its key and `lastEventAt`, so a reader opens one object for the list instead of listing the prefix and opening
+ * every body. The bodies hold no names or emails.
+ *
+ * The month, member and index objects are content only: they hold nothing about the run (no `asOf`), so the same events
+ * give the same bytes and a scheduled run rewrites only what changed. What the run was is in `manifest.json`, written
+ * last: readers take it as the generation pointer (a manifest at `asOf` means every object it counts was written for it).
  */
 import {
+	AlreadyExists,
 	Conflict,
 	NotFound,
 	putOnce,
@@ -17,7 +23,9 @@ import {
 	utf8,
 } from "../store/store.js";
 import type { AtmEvent, Store } from "../types.js";
+import { byText } from "./order.js";
 import {
+	eventsAsOf,
 	type MemberSummary,
 	membersOf,
 	type SummaryOptions,
@@ -49,9 +57,13 @@ export type MonthView = {
 	activeHolders: number;
 };
 
+/** Which events a run read: those up to `asOf`, as many as `eventCount`, the last by id `lastEventId` (null for none). */
+export type GeneratedFrom = { lastEventId: string | null; eventCount: number };
+
 export type Views = {
 	school: string;
 	asOf: string;
+	generatedFrom: GeneratedFrom;
 	months: Record<string, MonthView>;
 	members: Record<string, MemberSummary>;
 };
@@ -73,8 +85,6 @@ const ACTIVITY_TYPES = new Set([
 	"credit.forfeited",
 	"credit.refunded",
 ]);
-
-const byText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 const sortedRecord = <Value>(record: Record<string, Value>) =>
 	Object.fromEntries(Object.entries(record).sort(([a], [b]) => byText(a, b)));
@@ -123,13 +133,15 @@ const addPostings = (month: MonthAccumulator, event: AtmEvent): void => {
 };
 
 /**
- * The month and member views of a log as of `asOf`. Months are every `YYYY-MM` the events' dates fall in, ascending.
- * Members are `membersOf`'s; a log that cannot be replayed gives the reason (`ok: false`), and no views.
+ * The month and member views of a log as of `asOf`: of the events up to it (`eventsAsOf`: by `event_time`), so months,
+ * members and `generatedFrom` all describe the same cut of the log. Months are every `YYYY-MM` those events' dates fall
+ * in, ascending. Members are `membersOf`'s; a log that cannot be replayed gives the reason (`ok: false`), and no views.
  */
 export const buildViews = (
-	events: readonly AtmEvent[],
+	allEvents: readonly AtmEvent[],
 	{ school, asOf, ...options }: { school: string; asOf: Date } & SummaryOptions,
 ): ViewsResult => {
+	const events = eventsAsOf(allEvents, asOf);
 	const members = membersOf(events, asOf, options);
 	if (!members.ok) return members;
 	const months = new Map<string, MonthAccumulator>();
@@ -153,11 +165,16 @@ export const buildViews = (
 		addPostings(accumulator, event);
 		if (ACTIVITY_TYPES.has(event.event_type)) accumulator.active.add(event.key);
 	}
+	let lastEventId: string | null = null;
+	for (const event of events)
+		if (lastEventId === null || byText(lastEventId, event.id) < 0)
+			lastEventId = event.id;
 	return {
 		ok: true,
 		views: {
 			school,
 			asOf: isoInstant(asOf.getTime()),
+			generatedFrom: { lastEventId, eventCount: events.length },
 			months: sortedRecord(
 				Object.fromEntries(
 					[...months].map(([month, accumulator]) => {
@@ -202,7 +219,32 @@ export const memberViewKey = (school: string, key: string): string =>
 export const monthViewKey = (school: string, month: string): string =>
 	`schools/${school}/views/months/${month}.json`;
 
+export const memberIndexKey = (school: string): string =>
+	`schools/${school}/views/members/index.json`;
+
+export const manifestKey = (school: string): string =>
+	`schools/${school}/views/manifest.json`;
+
 const SAVE_ATTEMPTS = 3;
+
+type Saved = "created" | "replaced" | "unchanged";
+
+const readCurrent = async (
+	store: Store,
+	key: string,
+): Promise<Awaited<ReturnType<Store["get"]>> | null> => {
+	try {
+		return await store.get(key);
+	} catch (error) {
+		if (error instanceof NotFound) return null;
+		throw error;
+	}
+};
+
+const isRetryable = (error: unknown): boolean =>
+	error instanceof Stale ||
+	error instanceof Conflict ||
+	error instanceof AlreadyExists;
 
 /**
  * Writes the object only when its bytes would change (as `journalMonth` does on disk): "unchanged" when it already
@@ -213,15 +255,10 @@ const saveIfChanged = async (
 	store: Store,
 	key: string,
 	text: string,
-): Promise<"created" | "replaced" | "unchanged"> => {
+): Promise<Saved> => {
 	const body = utf8(text);
 	for (let attempt = 1; ; attempt += 1) {
-		let current: Awaited<ReturnType<Store["get"]>> | null = null;
-		try {
-			current = await store.get(key);
-		} catch (error) {
-			if (!(error instanceof NotFound)) throw error;
-		}
+		const current = await readCurrent(store, key);
 		try {
 			if (current === null) {
 				await putOnce(store, key, body);
@@ -231,8 +268,63 @@ const saveIfChanged = async (
 			await replaceIfMatch(store, key, body, current.etag);
 			return "replaced";
 		} catch (error) {
-			const retryable = error instanceof Stale || error instanceof Conflict;
-			if (!retryable || attempt >= SAVE_ATTEMPTS) throw error;
+			if (!isRetryable(error) || attempt >= SAVE_ATTEMPTS) throw error;
+		}
+	}
+};
+
+/** What a run records about itself, written last as `manifest.json`. */
+export type ViewsManifest = {
+	asOf: string;
+	generatedFrom: GeneratedFrom;
+	/** Objects the run wrote besides the manifest: the months, the members and the member index. */
+	objectCount: number;
+};
+
+const storedAsOfMs = (current: { body: Uint8Array } | null): number | null => {
+	if (current === null) return null;
+	try {
+		const { asOf } = JSON.parse(new TextDecoder().decode(current.body)) as {
+			asOf?: unknown;
+		};
+		const ms = typeof asOf === "string" ? Date.parse(asOf) : Number.NaN;
+		return Number.isNaN(ms) ? null : ms;
+	} catch {
+		return null;
+	}
+};
+
+/** The stored manifest is from a later `asOf` than this run's: a newer run has already published, this one is stale. */
+const isNewerThan = (current: { body: Uint8Array } | null, asOf: string) => {
+	const stored = storedAsOfMs(current);
+	return stored !== null && stored > Date.parse(asOf);
+};
+
+/**
+ * Puts the manifest unless a newer one is stored: "stale" then, and the object stays. The ETag read here is the one the
+ * conditional put sends, so a newer run that lands between the read and the put makes the put `Stale`; the loop reads
+ * again and answers "stale".
+ */
+const saveManifest = async (
+	store: Store,
+	key: string,
+	manifest: ViewsManifest,
+): Promise<Saved | "stale"> => {
+	const text = `${canonicalize(manifest)}\n`;
+	const body = utf8(text);
+	for (let attempt = 1; ; attempt += 1) {
+		const current = await readCurrent(store, key);
+		if (isNewerThan(current, manifest.asOf)) return "stale";
+		try {
+			if (current === null) {
+				await putOnce(store, key, body);
+				return "created";
+			}
+			if (new TextDecoder().decode(current.body) === text) return "unchanged";
+			await replaceIfMatch(store, key, body, current.etag);
+			return "replaced";
+		} catch (error) {
+			if (!isRetryable(error) || attempt >= SAVE_ATTEMPTS) throw error;
 		}
 	}
 };
@@ -241,34 +333,70 @@ export type WriteViewsResult = {
 	created: string[];
 	replaced: string[];
 	unchanged: string[];
+	/** True when a manifest of a later `asOf` is stored: this run's manifest was not written (and usually nothing else was). */
+	stale: boolean;
 };
 
 /**
- * `schools/<school>/views/months/YYYY-MM.json` for each month and `schools/<school>/views/members/<hash>.json` for each
- * member, as canonical JSON (sorted keys, one line, trailing newline), so the same views are the same bytes and a second
- * run writes nothing. Month and member objects of an earlier run that the log no longer produces are left alone.
+ * Writes the views as canonical JSON (sorted keys, one line, trailing newline), so the same views are the same bytes and
+ * a second run writes nothing:
+ *
+ * 1. If the stored `manifest.json` has a later `asOf` than `views.asOf`, returns `stale: true` and writes nothing (an
+ *    older run must not put older numbers over a newer run's).
+ * 2. Each month and member object and `members/index.json` (changed ones only; none holds `asOf`).
+ * 3. `manifest.json` last, conditionally on the ETag read just before (`putIfMatch`), and only if it differs; a newer
+ *    manifest that landed since step 1 wins (`stale: true`, though step 2 has by then written this run's objects). A run
+ *    that fails in step 2 leaves the old manifest, so a reader sees the last complete generation.
+ *
+ * Month and member objects of an earlier run that the log no longer produces are left alone.
  */
 export const writeViews = async (
 	store: Store,
 	school: string,
 	views: Views,
 ): Promise<WriteViewsResult> => {
-	const result: WriteViewsResult = { created: [], replaced: [], unchanged: [] };
+	const result: WriteViewsResult = {
+		created: [],
+		replaced: [],
+		unchanged: [],
+		stale: false,
+	};
+	const manifestPath = manifestKey(school);
+	if (isNewerThan(await readCurrent(store, manifestPath), views.asOf)) {
+		result.stale = true;
+		return result;
+	}
+	const memberNames = Object.entries(views.members).map(([key, summary]) => ({
+		name: memberViewName(school, key),
+		key,
+		lastEventAt: summary.lastEventAt,
+	}));
 	const objects: [string, unknown][] = [
 		...Object.entries(views.months).map(([month, view]): [string, unknown] => [
 			monthViewKey(school, month),
-			{ school, asOf: views.asOf, month, ...view },
+			{ school, month, ...view },
 		]),
 		...Object.entries(views.members).map(
 			([key, summary]): [string, unknown] => [
 				memberViewKey(school, key),
-				{ school, asOf: views.asOf, ...summary },
+				{ school, ...summary },
 			],
 		),
+		[
+			memberIndexKey(school),
+			{ school, members: memberNames.sort((a, b) => byText(a.name, b.name)) },
+		],
 	];
 	for (const [key, body] of objects.sort(([a], [b]) => byText(a, b))) {
 		const outcome = await saveIfChanged(store, key, `${canonicalize(body)}\n`);
 		result[outcome].push(key);
 	}
+	const outcome = await saveManifest(store, manifestPath, {
+		asOf: views.asOf,
+		generatedFrom: views.generatedFrom,
+		objectCount: objects.length,
+	});
+	if (outcome === "stale") result.stale = true;
+	else result[outcome].push(manifestPath);
 	return result;
 };

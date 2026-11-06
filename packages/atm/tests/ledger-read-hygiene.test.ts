@@ -34,7 +34,22 @@ const FORBIDDEN = [
 	/^@duckdb\//,
 	/^bun:/,
 ];
-const ALLOWED_CRYPTO = "node:crypto";
+const NODE_CRYPTO = "node:crypto";
+/**
+ * The files of THIS package that import `node:crypto`, reached from the entries: `ids.ts` and `util.ts` hash, `store.ts`
+ * hashes object bytes. A new importer in the walk fails the test below until it is added here on purpose.
+ *
+ * What this walk does not see: it follows relative imports inside `packages/atm` only. A bare specifier is recorded and
+ * not entered, so the workspace packages behind `@autumn/balance-engine` (and through it `@autumn/shared`) are not
+ * checked. They are not clean: an independent review found `shared/utils/chatState.ts` importing `node:crypto` and a
+ * module-level `process.env.NODE_ENV` read in `checkoutToUrl.ts`, both reached through `@autumn/shared`. Walking the
+ * bundle, not the sources, is the follow-up's job (whole-bundle hygiene).
+ */
+const CRYPTO_IMPORTERS_IN_PACKAGE = [
+	"src/ledger/ids.ts",
+	"src/ledger/util.ts",
+	"src/store/store.ts",
+];
 /** The one allowed edge to a forbidden module: Ajv, imported by `billing/menu.ts` and never run by the read path. */
 const KNOWN_EDGES = [
 	{ module: "ajv/dist/2020.js", from: "src/billing/menu.ts" },
@@ -73,6 +88,9 @@ const reachFrom = (entry: string): Reach => {
 	return { files, external };
 };
 
+const unlistedCryptoImporters = (importers: readonly string[]) =>
+	importers.filter((file) => !CRYPTO_IMPORTERS_IN_PACKAGE.includes(file));
+
 const forbidden = (reach: Reach) =>
 	reach.external.filter((e) =>
 		FORBIDDEN.some((pattern) => pattern.test(e.module)),
@@ -89,23 +107,28 @@ describe("the Worker read path's import graph", () => {
 		});
 	}
 
-	test("read.ts imports nothing at run time", () => {
+	test("read.ts imports nothing at run time but order.ts, which imports nothing", () => {
 		const reach = reachFrom("src/ledger/read.ts");
-		expect([...reach.files]).toEqual(["src/ledger/read.ts"]);
+		expect([...reach.files]).toEqual([
+			"src/ledger/read.ts",
+			"src/ledger/order.ts",
+		]);
 		expect(reach.external).toEqual([]);
 	});
 
-	test("node:crypto is reached by ids.ts, util.ts and store.ts only (a Worker needs `nodejs_compat` for them)", () => {
+	test("within this package, node:crypto is imported by exactly the listed files (a Worker needs `nodejs_compat` for them)", () => {
 		const importers = new Set<string>();
 		for (const entry of ENTRIES)
 			for (const e of reachFrom(entry).external)
-				if (e.module === ALLOWED_CRYPTO) importers.add(e.from);
-		console.info(`node:crypto importers: ${[...importers].sort().join(", ")}`);
-		expect([...importers].sort()).toEqual([
-			"src/ledger/ids.ts",
-			"src/ledger/util.ts",
-			"src/store/store.ts",
-		]);
+				if (e.module === NODE_CRYPTO) importers.add(e.from);
+		expect(unlistedCryptoImporters([...importers])).toEqual([]);
+		expect([...importers].sort()).toEqual(CRYPTO_IMPORTERS_IN_PACKAGE);
+	});
+
+	test("(control) an importer that is not on the list is reported", () => {
+		expect(
+			unlistedCryptoImporters([...CRYPTO_IMPORTERS_IN_PACKAGE, "src/x.ts"]),
+		).toEqual(["src/x.ts"]);
 	});
 
 	test("the known Ajv edge is still the only reason summary.ts and views.ts reach Ajv: remove the exception when this fails", () => {
