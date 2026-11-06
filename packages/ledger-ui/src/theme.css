@@ -2044,6 +2044,218 @@ svg.kc .col.on {
 	color: var(--muted-foreground);
 }
 
+/* Plans as YAML (mockup lines 328 to 348) and the figures a viewer may not see (lines 363, 364). */
+.kcode {
+	display: flex;
+	gap: 14px;
+	flex-wrap: wrap;
+	align-items: flex-start;
+}
+.kmain {
+	flex: 1 1 440px;
+	min-width: 0;
+}
+.kchg {
+	flex: 0 1 310px;
+	min-width: 240px;
+}
+.kchg .kc {
+	padding: 7px 0;
+	border-top: 1px solid var(--border);
+}
+.ktool {
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+	align-items: center;
+	margin-bottom: 6px;
+}
+.ktool .sp {
+	flex: 1;
+}
+.kpill {
+	display: inline-flex;
+	gap: 4px;
+	align-items: center;
+	font-size: 11px;
+	padding: 2px 9px;
+	border-radius: 9px;
+	border: 1px solid var(--border);
+	white-space: nowrap;
+}
+.kpill .i {
+	width: 12px;
+	height: 12px;
+}
+.kpill.ok {
+	color: var(--success);
+	border-color: var(--success);
+}
+.kpill.warn {
+	color: var(--warning);
+	border-color: var(--warning);
+}
+.kpill.bad {
+	color: var(--destructive);
+	border-color: var(--destructive);
+}
+.kmut {
+	margin: 0 0 8px;
+	font-size: 11px;
+	color: var(--muted-foreground);
+}
+.kmut .i {
+	width: 12px;
+	height: 12px;
+	vertical-align: -2px;
+	margin-right: 3px;
+}
+.ked {
+	display: flex;
+	height: clamp(280px, 56vh, 560px);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	background: var(--card);
+	overflow: hidden;
+}
+.ked:focus-within {
+	border-color: var(--ring);
+}
+.kgut {
+	flex: none;
+	box-sizing: border-box;
+	width: 46px;
+	overflow: hidden;
+	padding: 8px 0 28px;
+	background: var(--secondary);
+	color: var(--muted-foreground);
+	font: 12px / 18px var(--font-mono);
+	text-align: right;
+	user-select: none;
+}
+.kgut i {
+	display: block;
+	height: 18px;
+	padding-right: 8px;
+	font-style: normal;
+}
+.kgut i.bad {
+	color: var(--destructive);
+	font-weight: 700;
+	box-shadow: inset 3px 0 var(--destructive);
+}
+.kta {
+	flex: 1;
+	width: auto;
+	min-width: 0;
+	min-height: 0;
+	box-sizing: border-box;
+	padding: 8px 10px;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	resize: none;
+	font: 12px / 18px var(--font-mono);
+	white-space: pre;
+	overflow: auto;
+	tab-size: 2;
+	outline: 0;
+}
+.kta[readonly] {
+	color: var(--muted-foreground);
+}
+.kmsg {
+	margin-top: 8px;
+	display: grid;
+	gap: 3px;
+}
+.kmsg .i {
+	width: 13px;
+	height: 13px;
+	vertical-align: -2px;
+}
+@media (max-width: 600px) {
+	.kmain,
+	.kchg {
+		flex: 1 1 100%;
+		min-width: 0;
+	}
+	.ked {
+		height: clamp(240px, 50vh, 420px);
+	}
+}
+.link[disabled] {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+.khid {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	font-size: 10.5px;
+	font-weight: 500;
+	color: var(--muted-foreground);
+	white-space: normal;
+	text-align: left;
+}
+.khid .i {
+	width: 11px;
+	height: 11px;
+	flex: none;
+}
+.kapprox {
+	border-bottom: 1px dotted var(--muted-foreground);
+	cursor: help;
+}
+
+/* Plans: the mockup's inline styles as classes. */
+.count,
+.changes-count {
+	text-transform: none;
+	font-weight: 400;
+}
+.empty-row {
+	padding: 16px;
+}
+.add-row {
+	margin: 8px 0 4px;
+}
+.plan-note {
+	margin-top: 12px;
+}
+.setup-card {
+	margin-bottom: 12px;
+}
+.setup-next {
+	margin-top: 10px;
+}
+.preview-intro {
+	margin: 2px 0 10px;
+}
+.preview-empty {
+	text-align: center;
+	padding: 24px;
+}
+.grant-label {
+	font-size: 10px;
+}
+.grant-add {
+	margin-top: 6px;
+}
+.drawer-problems {
+	margin-top: 12px;
+}
+.change-name {
+	margin-top: 12px;
+}
+.change-detail {
+	margin-left: 2px;
+}
+/* The mockup keeps the Plans strip at four columns at every width. */
+.strip.s4.plan-strip {
+	grid-template-columns: repeat(4, 1fr);
+}
+
 /* Shell: the mockup's inline styles as classes. */
 .button-label {
 	margin: 0 4px;

@@ -45,3 +45,32 @@ export function viewedAudience(
 	const asked = audiences.find((audience) => audience === requested);
 	return asked && mayPreview(school, asked) ? asked : ownAudience(school);
 }
+
+/** The title of every write control while another audience than your own is shown (mockup `pvLock`). */
+export const exitPreviewTitle = "Exit preview to act";
+
+/** What a pane needs of the audience it is drawn for. */
+export type AudienceView = {
+	audience: Audience;
+	/** The audience is not the signed-in person's own: writes are off. */
+	preview: boolean;
+	/** Owner, finance admin or admin: sees the draft, Get started and the strip. */
+	admin: boolean;
+	/** Owner or finance admin: sees every figure. */
+	finance: boolean;
+};
+
+/** The audience a pane is drawn for: the route's `as=` when the person may preview it, else their own. */
+export function audienceView(
+	school: School,
+	asked: string | null,
+): AudienceView {
+	const audience = viewedAudience(school, asked);
+	return {
+		audience,
+		preview: audience !== ownAudience(school),
+		admin:
+			audience === "owner" || audience === "finance" || audience === "admin",
+		finance: audience === "owner" || audience === "finance",
+	};
+}
