@@ -239,12 +239,30 @@ svg.kc .col{fill:transparent;cursor:pointer}svg.kc .col:hover{fill:var(--border)
 .kflag:first-of-type{border-top:0}.kflag span:last-child{margin-left:auto}
 .kdot{width:7px;height:7px;border-radius:50%;flex:none}
 .kd-bad{background:var(--destructive)}.kd-warn{background:var(--warning)}
+.krole{font-size:10px;padding:1px 7px;border-radius:9px;border:1px solid var(--border);color:var(--muted-foreground);white-space:nowrap;display:inline-flex;align-items:center;font-weight:500}
+.krole .i{width:11px;height:11px;margin-right:3px}
+.kr-owner{color:var(--primary);border-color:var(--primary)}.kr-admin{color:var(--chart-1,var(--primary));border-color:var(--chart-1,var(--primary))}
+.kfin{font-size:10px;padding:1px 6px;border-radius:9px;border:1px dashed var(--success);color:var(--success);white-space:nowrap;display:inline-flex;align-items:center;margin-left:4px}
+.kfam{font-size:10px;color:var(--muted-foreground);display:inline-flex;align-items:center;gap:3px;margin-left:6px}
+.kfam .i{width:11px;height:11px}
+.knoplan{color:var(--muted-foreground);font-style:italic}
+.kview{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;color:var(--muted-foreground);border:1px solid var(--border);border-radius:999px;padding:2px 8px;white-space:nowrap}
+.kview .i{width:12px;height:12px}
+.kcap{margin:8px 0 12px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--secondary);display:grid;gap:3px}
+.kcap b{font-weight:600}
+.kscope{margin:0;padding:8px 14px;display:flex;gap:6px;align-items:center;border-bottom:1px solid var(--border);background:var(--secondary);font-size:11px}
+.kscope .i{width:13px;height:13px}
+.kfset{display:inline-flex;gap:6px;align-items:center}
+.menu button[disabled]{opacity:.5;cursor:not-allowed}
+.mp-fam{display:grid;gap:10px}
+.mp-fam .mp-card{margin:0}
 .kempty{height:126px;display:grid;place-items:center;color:var(--muted-foreground)}
 </style></head><body>
 <div class="app" id="app">
  <div class="top">
   <span class="logo">atm</span>
   <div class="pw"><button class="btn" id="sw" aria-haspopup="listbox"></button><div class="pop" id="sp" role="listbox"></div></div>
+  <span class="kview" id="kview" hidden></span>
   <span class="sp"></span>
   <div class="pgrp" id="per"><button class="btn ico" id="pprev" aria-label="Previous period" data-ic="cl"></button><div class="pw"><button class="btn" id="pb" aria-haspopup="dialog"></button><div class="pop r" id="pp"></div></div><button class="btn ico" id="pnext" aria-label="Next period" data-ic="cr"></button></div>
   <div class="pw"><button class="ib" id="hb" data-ic="help" title="Help and SDK" aria-label="Help and SDK"></button><div class="pop r" id="hp"></div></div>
@@ -269,7 +287,8 @@ svg.kc .col{fill:transparent;cursor:pointer}svg.kc .col:hover{fill:var(--border)
   <div class="strip" id="strip"></div>
   <div class="note" id="expnote" hidden></div>
   <div class="tools"><span class="sbox" data-ic="search"><input type="search" id="q" placeholder="Search name or id" aria-label="Search members"></span><span class="chip f on" data-s="">All</span><span class="chip f" data-s="att" id="attchip">Needs attention</span><span class="chip f" data-s="canceled">Canceled</span><span id="pfchip"></span><span class="sp"></span><span class="mut">Needs attention first</span></div>
-  <table><thead><tr><th>Member</th><th>Plan</th><th id="mh">Available</th><th></th><th>Expires</th><th></th></tr></thead><tbody id="mb"></tbody></table>
+  <div class="tools" id="rchips" role="group" aria-label="Role"></div>
+  <table><thead><tr><th>Member</th><th>Role</th><th>Plan</th><th id="mh">Available</th><th></th><th>Expires</th><th></th></tr></thead><tbody id="mb"></tbody></table>
   <div class="legend"><span><i style="background:var(--muted-foreground);opacity:.55"></i>used</span><span><i style="background:repeating-linear-gradient(135deg,var(--warning) 0 3px,transparent 3px 6px)"></i>held for bookings</span><span><i style="background:var(--primary)"></i>available</span></div>
  </section>
 
@@ -331,8 +350,8 @@ const SC={
   stripe:{connected:true,account:"B4 Uni",mode:"live",last4:"9aTx",missing:[]},zeffy:{connected:true,last4:"7Hq2"},
   keys:[{id:"k9",kind:"pk",label:"Website",prefix:"b4u_pk_live_Zr2",used:"today"}],
   pl:mkPlans([{id:"sparkle",name:"Sparkle",blurb:"Starter",pub:true,month:20,year:null,qty:null,grants:[{n:8,every:"month",roll:1}]},{id:"shine",name:"Shine",blurb:"Regular",pub:true,month:45,year:null,qty:[1,2],grants:[{n:12,every:"month",roll:1}]}],[]),
-  M:[["s_21","Dana W.","Shine ×2","active",10,12,"Dec 1"],["s_22","Omar F.","Sparkle ×1","active",1,8,"Dec 1"],["s_23","Pia L.","Shine ×1","active",22,24,"Dec 1"],["s_24","Raj S.","Sparkle ×1","active",14,16,"Dec 1"]],
-  B:[{id:"bk_b11",m:"s_22",svc:"Tutoring",when:"2026-11-09T16:00",n:1,state:"held",bs:"confirmed",hosts:["Dr. Lee"],cut:2880},{id:"bk_b12",m:"s_21",svc:"Tutoring",when:"2026-11-04T15:00",n:2,state:"held",bs:"confirmed",hosts:["Dr. Lee"],cut:2880}],
+  M:[["s_21","Dana W.","Shine ×2","active",10,12,"Dec 1"],["s_22","Omar F.","Sparkle ×1","active",1,8,"Dec 1"],["s_23","Pia L.","Shine ×1","active",22,24,"Dec 1"],["s_24","Raj S.","Sparkle ×1","active",14,16,"Dec 1"],["s_25","Kai W.","Sparkle ×1","active",5,8,"Dec 1"],["s_26","Lia W.","Sparkle ×1","active",6,8,"Dec 1"]],
+  B:[{id:"bk_b11",m:"s_22",svc:"Tutoring",when:"2026-11-09T16:00",n:1,state:"held",bs:"confirmed",hosts:["Dr. Lee"],cut:2880},{id:"bk_b13",m:"s_25",svc:"Tutoring",when:"2026-11-10T16:00",n:1,state:"held",bs:"confirmed",hosts:["Dr. Lee"],cut:2880},{id:"bk_b14",m:"s_26",svc:"Tutoring",when:"2026-11-11T15:30",n:1,state:"held",bs:"confirmed",hosts:["Dr. Lee"],cut:2880},{id:"bk_b12",m:"s_21",svc:"Tutoring",when:"2026-11-04T15:00",n:2,state:"held",bs:"confirmed",hosts:["Dr. Lee"],cut:2880}],
   K:[{id:"c_11",code:"UNI15",type:"member",val:15,used:2,max:0,exp:"2026-12-31",status:"active"}],
   E:[ev("2026-11-03T10:00","payment.succeeded","s_21","Invoice paid, Shine ×2","","+90.00","stripe",{k:"membership"}),ev("2026-11-03T10:00","credit.granted","s_21","Plan allowance","+12","","stripe"),ev("2026-11-02T14:10","credit.held","s_22","Held for Tutoring","−1","","family",{bk:"bk_b11"}),ev("2026-10-20T09:00","payment.succeeded","s_23","Invoice paid, Shine","","+45.00","stripe",{k:"membership"}),ev("2026-10-04T07:00","payout.paid","—","Payout to bank","","150.00","stripe")]},
  map:{name:"Maple Pilates",tz:"America/Toronto",cur:"C$",role:"owner",lag:26,unit:{one:"class",other:"classes"},rules:{cut:24,noShow:"spend",late:"release"},basis:"cash",basisSel:"cash",basisFrom:"2026-12-01",last:"mem",setup:{link:false},
@@ -344,15 +363,24 @@ const SC={
   stripe:{connected:false,missing:[]},zeffy:{connected:false},keys:[],pl:mkPlans([],[]),M:[],B:[],K:[],E:[]}
 };
 SC.nw.pl.version=0;
+// A role is what someone may do (owner | admin | member). A plan is what they pay for. An id in both R and M holds both. `fin` is the finance grant; owners have it implicitly.
+SC.vol.R=[{id:"u_kim",name:"Kim R.",role:"owner",you:true},{id:"u_rav",name:"Ravi S.",role:"admin",fin:true},{id:"m_093",name:"Ana P.",role:"admin"}];
+SC.b4u.R=[{id:"u_pri",name:"Priya N.",role:"owner"},{id:"u_tes",name:"Tess M.",role:"admin",fin:true},{id:"u_jo",name:"Jo A.",role:"admin",you:true}];
+SC.map.R=[{id:"u_noo",name:"Noor A.",role:"owner",you:true},{id:"u_cal",name:"Cal D.",role:"admin",fin:true},{id:"u_eli",name:"Eli Q.",role:"admin"}];
+SC.nw.R=[{id:"u_len",name:"Lena V.",role:"owner",you:true},{id:"u_bo",name:"Bo H.",role:"admin",fin:true},{id:"u_ula",name:"Ula K.",role:"admin"}];
+// Families: one adult (guardian) and learners share a family key. Guardians see the family; learners see only themselves.
+Object.values(SC).forEach(s=>{s.fam={};s.famName={}});
+SC.b4u.fam={s_21:{k:"fam_wu",r:"adult"},s_25:{k:"fam_wu",r:"teen"},s_26:{k:"fam_wu",r:"child"}};SC.b4u.famName={fam_wu:"Wu family"};
+SC.b4u.E.unshift(ev("2026-11-03T10:05","credit.granted","s_25","Plan allowance","+8","","stripe"),ev("2026-11-03T10:06","credit.granted","s_26","Plan allowance","+8","","stripe"));
 Object.values(SC).forEach(s=>s.E.forEach((e,i)=>{if(e.ty==="payment.succeeded"&&!e.pid)e.pid="pay_"+i+s.name.length}));
-const L={"payment.succeeded":"Payment","credit.granted":"{U} granted","credit.spent":"{U} used","credit.held":"{U} held","credit.released":"Hold released","credit.forfeited":"{U} forfeited","credit.depleted":"Out of {u}","payout.paid":"Payout","payment.refunded":"Refund","credit.refunded":"{U} returned","credit.expired":"{U} expired","credit.adjusted":"Adjustment","catalog.published":"Plans published","booking.outcome":"Attendance recorded","membership.changed":"Plan change"};
+const L={"payment.succeeded":"Payment","credit.granted":"{U} granted","credit.spent":"{U} used","credit.held":"{U} held","credit.released":"Hold released","credit.forfeited":"{U} forfeited","credit.depleted":"Out of {u}","payout.paid":"Payout","payment.refunded":"Refund","credit.refunded":"{U} returned","credit.expired":"{U} expired","credit.adjusted":"Adjustment","catalog.published":"Plans published","booking.outcome":"Attendance recorded","membership.changed":"Plan change","role.changed":"Role change"};
 const C={"credit.granted":"var(--success)","credit.spent":"var(--chart-1)","credit.held":"var(--chart-3,var(--warning))","credit.released":"var(--muted-foreground)","credit.forfeited":"var(--destructive)","credit.depleted":"var(--destructive)","credit.refunded":"var(--warning)","credit.adjusted":"var(--chart-5,var(--primary))","payment.succeeded":"var(--info)","payment.refunded":"var(--warning)","membership.changed":"var(--chart-4,var(--primary))"};
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const cap=s=>s[0].toUpperCase()+s.slice(1);
 const U=s=>cap(s.unit.other),un=(s,n)=>`${n} ${n===1?s.unit.one:s.unit.other}`;
 const fillU=(t,s)=>t.replace("{U}",U(s)).replace("{u}",s.unit.other);
 const lab=(e,s)=>e.ty==="payment.succeeded"?(e.k==="booking"?"Booking payment":e.k==="gift"?"Gift sold":"Payment"):e.ty==="payment.refunded"?(e.k==="booking"?"Booking refund":"Refund"):e.ty==="credit.granted"&&e.k==="gift_redeemed"?"Gift redeemed":fillU(L[e.ty]||e.ty,s);
-const evIcon=e=>e.ty==="payment.succeeded"?(e.k==="booking"?"ticket":e.k==="gift"?"gift":"coin"):({"payment.refunded":"undo","payout.paid":"bank","credit.granted":"plus","credit.spent":"check","credit.held":"clock","credit.released":"unlock","credit.forfeited":"ban","credit.depleted":"alert","credit.refunded":"undo","credit.expired":"clock","credit.adjusted":"sliders","catalog.published":"layers","booking.outcome":"check","membership.changed":"sliders"})[e.ty]||"dot";
+const evIcon=e=>e.ty==="payment.succeeded"?(e.k==="booking"?"ticket":e.k==="gift"?"gift":"coin"):({"payment.refunded":"undo","payout.paid":"bank","credit.granted":"plus","credit.spent":"check","credit.held":"clock","credit.released":"unlock","credit.forfeited":"ban","credit.depleted":"alert","credit.refunded":"undo","credit.expired":"clock","credit.adjusted":"sliders","catalog.published":"layers","booking.outcome":"check","membership.changed":"sliders","role.changed":"user"})[e.ty]||"dot";
 const MN=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],WD=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const TODAY="2026-11-05",NOW="2026-11-05T12:00",CYCLE={days:30,left:26};
 const D=s=>new Date(s+"T00:00:00Z"),S=d=>d.toISOString().slice(0,10);
@@ -460,6 +488,7 @@ function renderHead(){
  const all=cur==="all",s=all?null:sch();
  if(!all)s.last=tab;
  $("#sw").innerHTML=`${ic("building")}<span style="margin:0 4px">${all?"All schools":s.name}</span>${ic("cd")}`;
+ const kv=$("#kview");kv.hidden=all;if(!all){kv.innerHTML=`${ic("eye")}You see all members`;kv.title=`You are ${s.role==="owner"?"an owner":"an admin"} in ${s.name}. Owners and admins own the dashboard and see everyone's data. Members see only themselves and their family.`}
  $("#per").style.display=(all||tab==="led"||tab==="rep")?"":"none";
  $("#pb").innerHTML=`${ic("calendar")}<span style="margin:0 4px">${plabel(P.from,P.to)}</span>${ic("cd")}`;
  $("#pnext").disabled=shifted(P,1).from>TODAY;
@@ -470,6 +499,40 @@ function renderHead(){
  if(!all){const n=expiring(s).length;$("#pbadge").hidden=!n;$("#pbadge").textContent=n;$("#plbadge").hidden=!diff(s).length;const o=groups(s).out.filter(x=>!isPend(x)).length;$("#bkbadge").hidden=!o;$("#bkbadge").textContent=o}
  renderSP();renderPP();renderHP()}
 
+const ROLE_LABEL={owner:"Owner",admin:"Admin",member:"Member"},ROLE_RANK={owner:0,admin:1,member:2};
+const hasFin=r=>!!r&&(r.role==="owner"||!!r.fin);
+let rF="";
+// One row per person: plan holders (M) and role holders (R). A role holder with no plan has no tuple in M.
+function people(s){const by=new Map(s.M.map(m=>[m[0],{id:m[0],name:m[1],m,r:null}]));
+ (s.R||[]).forEach(r=>{const p=by.get(r.id);if(p)p.r=r;else by.set(r.id,{id:r.id,name:r.name,m:null,r})});
+ return[...by.values()].map(p=>({...p,role:p.r?p.r.role:"member"}))}
+const rolePill=(role)=>`<span class="krole kr-${role}">${ic(role==="member"?"user":"key")}${ROLE_LABEL[role]}</span>`;
+const finPill=p=>p.r&&p.r.role==="admin"&&p.r.fin?'<span class="kfin" title="Finance grant: can see money">Finance</span>':"";
+const famOf=(s,id)=>{const f=s.fam&&s.fam[id];return f?{...f,label:s.famName[f.k]||f.k,kin:Object.keys(s.fam).filter(x=>s.fam[x].k===f.k)}:null};
+// Why a role change is not allowed right now, or "".
+function roleGuard(s,p,kind){if(s.role!=="owner")return"Owner role needed";
+ if(p.role==="owner"&&kind==="remove"){const owners=(s.R||[]).filter(r=>r.role==="owner").length;
+  if(owners<=1)return"Last owner: add another owner first";
+  if(p.r.you)return"Owners can't demote themselves"}
+ return""}
+function roleMenu(s,p){const dis=k=>{const w=roleGuard(s,p,k);return w?` disabled title="${w}"`:""},it=(k,l,i)=>`<button role="menuitem" data-role="${k}" data-id="${p.id}"${dis(k)}>${ic(i)}${l}</button>`;
+ if(p.role==="owner")return it("remove","Remove owner role","ban");
+ if(p.role==="admin")return it("remove","Remove admin","ban")+it(p.r.fin?"revoke":"grant",p.r.fin?"Revoke finance":"Grant finance","coin");
+ return it("make","Make admin","key")}
+function roleModal(kind,id){const s=sch(),p=people(s).find(x=>x.id===id);if(!p)return;const why=roleGuard(s,p,kind);if(why){toast(why);return}
+ const T={make:[`Make ${p.name} an admin?`,`${p.name} will see every member, the dashboard and bookings in ${s.name}. Money stays off until you grant finance.`,`${p.name} is now an admin`],
+  remove:[p.role==="owner"?`Remove ${p.name} as owner?`:`Remove ${p.name} as admin?`,`${p.name} goes back to member access: only their own data and their family's. Any plan they hold stays.`,`${p.name} is now a member`],
+  grant:[`Grant finance to ${p.name}?`,`${p.name} will see money in the dashboard and ledger. Refunds stay owner only.`,`${p.name} has finance access`],
+  revoke:[`Revoke finance from ${p.name}?`,`${p.name} stops seeing money in the dashboard and ledger.`,`${p.name} no longer has finance access`]}[kind];
+ modal(`<h3 id="mt">${ic("key")} ${T[0]}</h3><p class="mut">${T[1]}</p><div class="prev">${ic("clock")} This applies at ${p.name}'s next sign-in refresh. Their access token lasts 5 minutes, so it can take up to 5 minutes to show.</div><div class="mf"><button class="btn" data-close>Cancel</button><button class="btn p" id="rgo">${ic("check")}Confirm</button></div>`);
+ $("#rgo").onclick=()=>{s.R=s.R||[];let r=s.R.find(x=>x.id===id);
+  if(kind==="make"){s.R.push({id,name:p.name,role:"admin"})}
+  else if(kind==="remove"){s.R=s.R.filter(x=>x.id!==id)}
+  else r.fin=kind==="grant";
+  s.E.unshift(ev(NOW,"role.changed",id,T[2],"","","admin",{pend:1}));
+  closeM();render();if($("#dr").classList.contains("on")&&$("#dr").dataset.id===id)open(id);toast(`${T[2]}. Applies at their next sign-in refresh (token lifetime 5 minutes).`)}}
+function roleChips(s,all){const n={"":all.length,oa:all.filter(p=>p.role!=="member").length,m:all.filter(p=>p.role==="member").length};
+ $("#rchips").innerHTML=`<span class="mut">Role</span>${[["","All"],["oa","Owners & admins"],["m","Members"]].map(([k,l])=>`<button class="chip ${rF===k?"on":""}" data-rf="${k}" aria-pressed="${rF===k}">${l} <span class="mut">${n[k]}</span></button>`).join("")}`}
 function members(){const s=sch(),q=$("#q").value.toLowerCase(),f=$(".f.on[data-s]")?.dataset.s||"";
  const nA=attN(s);$("#attchip").innerHTML=`${ic("alert")}Needs attention (${nA})`;$("#mh").textContent=`${U(s)} available`;
  const cm=calc(s.E,"2026-11-01","2026-11-30"),out=s.M.reduce((a,m)=>a+m[4]+heldOf(s,m[0]),0);
@@ -478,9 +541,14 @@ function members(){const s=sch(),q=$("#q").value.toLowerCase(),f=$(".f.on[data-s
  const ex=expiring(s),en=$("#expnote");en.hidden=!ex.length;
  if(ex.length)en.innerHTML=`${ic("alert")}<span>${ex.length} unredeemed gift${ex.length===1?"":"s"} expire${ex.length===1?"s":""} within 30 days (${ex.map(k=>`${mask(k.code)} · ${nice(k.exp)}`).join(", ")})</span><span class="sp"></span><button class="link" data-go="cod">View promos</button>`;
  $("#pfchip").innerHTML=planF?`<span class="chip on" id="pfx">Plan: ${planF} ×</span>`:"";
- const list=s.M.filter(m=>(!q||m.join(" ").toLowerCase().includes(q))&&(!f||(f==="att"?reasons(s,m).length:m[3]===f))&&(!planF||m[2].startsWith(planF))).sort((a,b)=>score(s,b)-score(s,a)||a[1].localeCompare(b[1]));
- $("#mb").innerHTML=list.length?list.map(m=>{const p=proj(s,m),rs=reasons(s,m);
- return`<tr class="row" data-id="${m[0]}"><td><b>${m[1]}</b><div class="mono mut">${m[0]}</div></td><td>${m[2]} ${rs.length?badges(rs):m[3]==="canceled"?'<span class="badge">Canceled</span>':""}${m.cx?' <span class="badge">Cancels Dec 1</span>':""}</td><td style="width:22%">${bar3(s,m)}</td><td class="r">${p.a0}${p.a!==p.a0?` <span class="badge b-warn" title="Shows after the pending change ships">${ic("clock")}→ ${p.a}</span>`:""}/${m[5]}${p.h?` <span class="badge" title="Held for upcoming bookings">+${p.h} held</span>`:""}</td><td>${m[6]}</td><td class="r"><button class="btn ico s" data-vm="${m[0]}" aria-label="View ${m[1]} as member" title="View as member">${ic("eye")}</button></td></tr>`}).join(""):`<tr><td colspan="6" class="mut" style="text-align:center;padding:22px">${s.M.length?"No members match.":"No members yet. They appear here when someone buys a plan."}</td></tr>`}
+ const all=people(s);roleChips(s,all);
+ const rs0=p=>p.m?reasons(s,p.m):[];
+ const list=all.filter(p=>(!q||`${p.id} ${p.name} ${p.m?p.m.join(" "):""} ${ROLE_LABEL[p.role]}`.toLowerCase().includes(q))&&(!f||(f==="att"?rs0(p).length:p.m&&p.m[3]===f))&&(!planF||(p.m&&p.m[2].startsWith(planF)))&&(!rF||(rF==="oa"?p.role!=="member":p.role==="member")))
+  .sort((a,b)=>(b.m?score(s,b.m):0)-(a.m?score(s,a.m):0)||ROLE_RANK[a.role]-ROLE_RANK[b.role]||a.name.localeCompare(b.name));
+ $("#mb").innerHTML=list.length?list.map(p=>{const m=p.m,fm=famOf(s,p.id),who=`<td><b>${p.name}</b>${p.r&&p.r.you?' <span class="mut">(you)</span>':""}${fm?`<span class="kfam" title="Family key ${fm.k}">${ic("users")}${fm.label}</span>`:""}<div class="mono mut">${p.id}</div></td><td>${rolePill(p.role)}${finPill(p)}</td>`;
+  if(!m)return`<tr class="row" data-id="${p.id}">${who}<td class="knoplan">No plan</td><td style="width:22%"></td><td class="r knoplan">no plan</td><td class="mut">—</td><td class="r"></td></tr>`;
+  const pj=proj(s,m),rs=reasons(s,m);
+  return`<tr class="row" data-id="${m[0]}">${who}<td>${m[2]} ${rs.length?badges(rs):m[3]==="canceled"?'<span class="badge">Canceled</span>':""}${m.cx?' <span class="badge">Cancels Dec 1</span>':""}</td><td style="width:22%">${bar3(s,m)}</td><td class="r">${pj.a0}${pj.a!==pj.a0?` <span class="badge b-warn" title="Shows after the pending change ships">${ic("clock")}→ ${pj.a}</span>`:""}/${m[5]}${pj.h?` <span class="badge" title="Held for upcoming bookings">+${pj.h} held</span>`:""}</td><td>${m[6]}</td><td class="r"><button class="btn ico s" data-vm="${m[0]}" aria-label="View ${m[1]} as member" title="View as member">${ic("eye")}</button></td></tr>`}).join(""):`<tr><td colspan="7" class="mut" style="text-align:center;padding:22px">${all.length?"No members match.":"No members yet. They appear here when someone buys a plan."}</td></tr>`}
 
 function bkBill(s,b){return b.paid?`<span class="badge">${ic("coin")}Paid ${money(b.paid,s.cur)}</span>`:b.n?`<span class="badge">${ic("clock")}${un(s,b.n)} held</span>`:`<span class="badge">Free</span>`}
 function bkStatus(s,b){const o=[];if(isPend(b))o.push(["pending","warn"]);if(b.bs==="requested")o.push(["Waiting for approval","warn"]);
@@ -680,7 +748,7 @@ function settings(){const all=cur==="all",s=all?null:sch(),own=!all&&s.role==="o
 function modal(h){$("#md").innerHTML=h;$("#bg").classList.add("on")}
 function closeDrawers(){["#dr","#set","#pe"].forEach(i=>$(i).classList.remove("on"))}
 function render(){renderHead();if(cur==="all")portfolio();else{members();bookings();ledger();reports();plans();codes();dashboard()}if($("#set").classList.contains("on"))settings();drawVM()}
-function setSchool(id){cur=id;tab=(id!=="all"&&SC[id].last)||"pl";xf=null;ed=null;planF=null;bF="";bPer={k:"wk",off:0};pv={yr:false,size:{},code:""};vm=null;dv="money";dsc="monthly-members";dm=SC[id]&&SC[id].kpi?5:10;closeDrawers();$("#q").value="";$$(".f[data-s]").forEach(x=>x.classList.toggle("on",x.dataset.s===""));closeP();render()}
+function setSchool(id){cur=id;tab=(id!=="all"&&SC[id].last)||"pl";xf=null;ed=null;planF=null;bF="";bPer={k:"wk",off:0};pv={yr:false,size:{},code:""};vm=null;rF="";dv="money";dsc="monthly-members";dm=SC[id]&&SC[id].kpi?5:10;closeDrawers();$("#q").value="";$$(".f[data-s]").forEach(x=>x.classList.toggle("on",x.dataset.s===""));closeP();render()}
 function closeP(){$$(".pop,.menu").forEach(p=>p.classList.remove("on"))}
 
 const KFIX=(()=>{const z=Array(12).fill(0),rep=(v,n)=>Array(n).fill(v);return{
@@ -734,7 +802,7 @@ function dashboard(){const el=$("#dash");if(!el||cur==="all")return;const s=sch(
   <div class="kgrid"><div class="kbox"><h6>Refund rate ${kleg(["Share of gross refunded"],["var(--chart-5)"])}</h6>${kline(d.rr,{fmt:kpct,color:"var(--chart-5)",thr:.1,max:Math.max(.12,...d.rr)})}</div>
   <div class="kbox"><h6>Dispute cost ${kleg(["Lost + fees"],["var(--chart-5)"])}</h6>${anyDis?kbars([d.dl.map((v,i)=>v+d.df[i])],{fmt:US0,cols:["var(--chart-5)"],names:["Cost"],tip:i=>`${MN[i]}: ${d.dn[i]} opened · cost ${US(d.dl[i]+d.df[i])}`}):`<div class="kempty">No disputes in 2026</div>`}</div>
   <div class="kbox" style="grid-column:1/-1"><h6>Needs a look</h6>${flags.length?flags.map(f=>`<div class="kflag" data-dm="${f.i}"><span class="kdot ${(f.rr&&d.rr[f.i]>.2)||(f.dn&&d.dn[f.i]>=5)?"kd-bad":"kd-warn"}"></span><span>${MN[f.i]}</span><span class="mut">${f.rr?"Refund rate "+kpct(d.rr[f.i]):""}${f.rr&&f.dn?" · ":""}${f.dn?d.dn[f.i]+" disputes":""}</span><span class="mut">Show ›</span></div>`).join(""):`<div class="mut">Nothing unusual in 2026.</div>`}</div></div>`}
- el.innerHTML=`<div class="kt"><div class="seg" role="group" aria-label="Dashboard view">${[["money","Money","coin"],["members","Members","users"],["risk","Risk","alert"]].map(([k,l,i])=>`<button class="${k===dv?"on":""}" data-dv="${k}">${ic(i)}${l}</button>`).join("")}</div><span class="badge">${ic("scale")}Cash basis · ${s.cur}</span><span class="badge ${fix?"b-warn":""}">${fix?"Fixture data: invented":"From this school's events"}</span>${fix?`<span class="sp"></span><div class="seg" role="group" aria-label="Fixture scenario">${Object.entries(s.kpi.scenarios).map(([k,v])=>`<button class="${k===dsc?"on":""}" data-dsc="${k}">${v.label}</button>`).join("")}</div>`:""}</div>
+ el.innerHTML=`<div class="kt"><div class="seg" role="group" aria-label="Dashboard view">${[["money","Money","coin"],["members","Members","users"],["risk","Risk","alert"]].map(([k,l,i])=>`<button class="${k===dv?"on":""}" data-dv="${k}">${ic(i)}${l}</button>`).join("")}</div><span class="badge">${ic("scale")}Cash basis · ${s.cur}</span><span class="badge ${fix?"b-warn":""}">${fix?"Fixture data: invented":"From this school's events"}</span><span class="badge" title="Members never see the dashboard; they get the member portal">${ic("lock")}Owners and admins only</span>${fix?`<span class="sp"></span><div class="seg" role="group" aria-label="Fixture scenario">${Object.entries(s.kpi.scenarios).map(([k,v])=>`<button class="${k===dsc?"on":""}" data-dsc="${k}">${v.label}</button>`).join("")}</div>`:""}</div>
  <div class="kmonths" role="group" aria-label="Month"><button data-dstep="-1" aria-label="Previous month">‹</button>${MN.map((x,i)=>`<button class="${i===dm?"on":""}" data-dm="${i}">${x}</button>`).join("")}<button data-dstep="1" aria-label="Next month">›</button><span class="mut" style="margin-left:6px">2026</span></div>
  ${fix&&dsc==="annual-prepay"?`<div class="note">${ic("alert")}<span>Cash basis: a yearly payer counts in the month paid, so every month after January looks empty. MRR and churn are not computed.</span></div>`:""}${body}`}
 const THEMES={
@@ -775,15 +843,24 @@ function mpBill(c){const{s,m,cx,ends,price,adm,refOk}=c,cu=s.cur;
  return`<div class="mp-card"><div class="mp-row"><div><h4>Next invoice</h4><div class="mp-muted">${cx?`None. Your membership ends ${ends}.`:`Dec 1 · ${money(price,cu)}`}</div></div></div></div>
  <div class="mp-card"><div class="mp-row"><div><h4>Payment method</h4><div class="mp-muted">Card details stay with Stripe.</div></div><button class="mp-btn" data-vact="card">${ic("card")}Update</button></div></div>
  <div class="mp-card"><h4 style="margin-bottom:8px">Invoices</h4>${rows?`<table class="mpt"><thead><tr><th>Date</th><th>Description</th><th class="r">Amount</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table>`:`<div class="mp-muted">No invoices yet.</div>`}</div>`}
+const FAM_ROLE={adult:"Adult",teen:"Teen",child:"Child"};
+// What a member's portal may list: themselves, plus the family if they are the adult. Learners never see other family members' money.
+function vmScope(s,m){const f=famOf(s,m[0]);if(!f)return{f:null,guardian:false,rows:[m]};const guardian=f.r==="adult";return{f,guardian,rows:guardian?f.kin.map(id=>s.M.find(x=>x[0]===id)).filter(Boolean):[m]}}
+function mpFam(c){const{s,m}=c,sc=vmScope(s,m);
+ if(!sc.f)return`<div class="mp-card mp-muted">No family on this account. You see only your own ${s.unit.other} and bookings.</div>`;
+ const card=r=>{const pr=proj(s,r),bks=s.B.filter(b=>b.m===r[0]&&b.state!=="done").sort((a,b)=>a.when<b.when?-1:1);
+  return`<div class="mp-card mp-fm" data-fm="${r[0]}"><div class="mp-row"><div><h4>${r[1]}${r[0]===m[0]?" (you)":""}</h4><div class="mp-muted">${FAM_ROLE[s.fam[r[0]].r]} · ${r[2]}</div></div><div style="text-align:right"><div class="mp-big" style="font-size:20px">${pr.a}</div><div class="mp-muted">${s.unit.other} available</div></div></div>${mpBar(pr,r)}<div class="mp-muted" style="margin-top:8px">${bks.length?bks.map(b=>`${b.svc} · ${nice(b.when.slice(0,10))} ${b.when.slice(11)}${b.n?` · ${un(s,b.n)} held`:""}`).join("<br>"):"No upcoming bookings."}</div></div>`};
+ return`<div class="mp-fam"><div class="mp-muted">${sc.guardian?`${sc.f.label}: as the adult you see everyone's ${s.unit.other} and bookings.`:`You see only your own ${s.unit.other} and bookings. The adult on the account sees the rest of the family.`}</div>${sc.rows.map(card).join("")}</div>`}
 function drawVM(){const el=$("#vm");if(!vm){el.hidden=true;el.innerHTML="";return}
  const s=sch(),m=s.M.find(x=>x[0]===vm.id);if(!m){vm=null;el.hidden=true;return}
  const st=el.scrollTop,th=THEMES[vm.theme],adm=vm.admin,own=s.role==="owner",{name,qty}=parsePlan(m),tier=s.pl.pub.tiers.find(t=>t.name===name);
  const cx=m[3]==="canceled"||!!m.cx,c={s,m,p:proj(s,m),tier,name,qty,cx,ends:m[3]==="canceled"?m[6]:"Dec 1",waiting:s.E.some(e=>e.pend&&e.m===m[0]&&(e.ty==="membership.changed"||e.ty==="payment.succeeded")),price:tier?tier.month*qty:0,adm,own,refOk:own&&!permMissing(s,"Refunds"),invOk:!permMissing(s,"Invoices")};
- const nb=s.B.filter(b=>b.m===m[0]&&b.state!=="done").length,tabs=[["home","Overview","user"],["bk",`Bookings${nb?` (${nb})`:""}`,"calendar"],["bill","Billing","card"]];
+ const nb=s.B.filter(b=>b.m===m[0]&&b.state!=="done").length,tabs=[["home","Overview","user"],["bk",`Bookings${nb?` (${nb})`:""}`,"calendar"],["bill","Billing","card"],["fam","Family","users"]],sc=vmScope(s,m);
  el.hidden=false;
- el.innerHTML=`<div class="vmbar"><span class="badge b-warn">${ic("eye")}Viewing as ${m[1]}</span><span class="mono mut">${m[0]} · ${s.name}</span><span class="sp"></span><label class="mut" for="vth">Site theme</label><select id="vth" aria-label="Site theme">${Object.entries(THEMES).map(([k,t])=>`<option value="${k}" ${k===vm.theme?"selected":""}>${t.n}</option>`).join("")}</select><label class="chk2"><input type="checkbox" id="vad" ${adm?"checked":""}> Admin tools</label><button class="btn s" id="vemb">${ic("plug")}Embed…</button><button class="btn s" id="vmx">${ic("xc")}Exit</button></div>
+ el.innerHTML=`<div class="vmbar"><span class="badge b-warn">${ic("eye")}Viewing as ${m[1]}</span><span class="mono mut">${m[0]} · ${s.name}</span><span class="sp"></span><label class="mut" for="vth">Site theme</label><select id="vth" aria-label="Site theme">${Object.entries(THEMES).map(([k,t])=>`<option value="${k}" ${k===vm.theme?"selected":""}>${t.n}</option>`).join("")}</select>${sc.f?`<span class="kfset" role="group" aria-label="Viewing as"><span class="mut">Viewing as:</span><span class="seg">${famOf(s,m[0]).kin.map(id=>`<button class="${id===m[0]?"on":""}" data-vfam="${id}" title="${s.M.find(x=>x[0]===id)[1]}">${FAM_ROLE[s.fam[id].r]}</button>`).join("")}</span></span>`:""}<label class="chk2"><input type="checkbox" id="vad" ${adm?"checked":""}> Admin tools</label><button class="btn s" id="vemb">${ic("plug")}Embed…</button><button class="btn s" id="vmx">${ic("xc")}Exit</button></div>
+ <div class="kscope" id="kscope">${ic("lock")}<b>Members see only themselves and their family.</b><span class="mut">In this portal: ${sc.f?(sc.guardian?`${sc.rows.map(r=>r[1]).join(", ")} (${sc.f.label})`:`${m[1]} only. Learners don't see other family members' money.`):`${m[1]} only (no family on this account).`}</span></div>
  <div class="vmnote">${ic("info")} This is the member portal as ${m[1]} sees it. Anything you do here is taken by you as admin and logged as an admin action. It never uses their session or PIN. Turn off Admin tools to see exactly what they see.</div>
- <div class="vmwrap"><div class="mpf" style="${themeVars(th)}"><div class="mph"><b>${s.name}</b><span>Classes</span><span>Schedule</span><span>Shop</span><span style="margin-left:auto">${m[1]}</span></div><div class="mpb"><div class="mp-tabs" role="tablist">${tabs.map(([k,l,i])=>`<button role="tab" class="${vm.tab===k?"on":""}" aria-selected="${vm.tab===k}" data-vtab="${k}">${ic(i)}${l}</button>`).join("")}</div>${vm.tab==="home"?mpHome(c):vm.tab==="bk"?mpBk(c):mpBill(c)}</div></div></div>`;
+ <div class="vmwrap"><div class="mpf" style="${themeVars(th)}"><div class="mph"><b>${s.name}</b><span>Classes</span><span>Schedule</span><span>Shop</span><span style="margin-left:auto">${m[1]}</span></div><div class="mpb"><div class="mp-tabs" role="tablist">${tabs.map(([k,l,i])=>`<button role="tab" class="${vm.tab===k?"on":""}" aria-selected="${vm.tab===k}" data-vtab="${k}">${ic(i)}${l}</button>`).join("")}</div>${vm.tab==="home"?mpHome(c):vm.tab==="bk"?mpBk(c):vm.tab==="fam"?mpFam(c):mpBill(c)}</div></div></div>`;
  el.scrollTop=st}
 function embedModal(){const s=sch(),th=THEMES[vm.theme],css=`:root {\n  --b4-bg: ${th.bg};\n  --b4-fg: ${th.fg};\n  --b4-card: ${th.card};\n  --b4-muted: ${th.muted};\n  --b4-border: ${th.border};\n  --b4-primary: ${th.pri};\n  --b4-on-primary: ${th.prifg};\n  --b4-radius: ${th.rad};\n  --b4-font: ${th.font.replace(/'/g,"\\'")};\n}`;
  modal(`<h3>${ic("plug")} Embed the member portal <span class="badge b-warn">Proposed</span></h3><div class="mut">${s.name} · the portal you are viewing, on your own site</div>
@@ -837,12 +914,27 @@ function bkRow(s,b,own){
 function hist(s,m,all){const evs=s.E.filter(e=>e.m===m[0]).sort((a,b)=>(b.pend?1:0)-(a.pend?1:0)||(a.d<b.d?1:-1));
  const show=all?evs:evs.slice(0,5);
  return show.map(e=>`<li class="${e.pend?"pd":""}" style="--c:${C[e.ty]||"var(--muted-foreground)"}"><b>${lab(e,s)}</b> ${e.cr||e.usd||""} ${e.tx}${e.bk?` <span class="mono mut">${e.bk}</span>`:""}${e.code?` <span class="mono mut">promo ${cname(s,e.code)}</span>`:""}<div class="t">${e.pend?"just now · you · ships within 5 min":`${nice(e.d.slice(0,10))} · ${e.src}`}</div></li>`).join("")+(!all&&evs.length>5?`<li style="--c:transparent"><button class="link" id="sa">Show all (${evs.length})</button></li>`:"")}
-function open(id,all){const s=sch(),m=s.M.find(x=>x[0]===id),rs=reasons(s,m),own=s.role==="owner",p=proj(s,m),bks=s.B.filter(b=>b.m===id&&b.state!=="done"),invOk=!permMissing(s,"Invoices"),refOk=own&&!permMissing(s,"Refunds");
+function capLine(s,p){const you=p.r&&p.r.you;
+ if(p.role==="member")return`<div class="kcap"><div>Sees: only themselves and their family</div></div>`;
+ return`<div class="kcap"><div><b>Sees:</b> every member, dashboard, bookings${you?" (you)":""}</div><div><b>Money:</b> ${hasFin(p.r)?"yes":"no"}${p.role==="owner"?" (owner)":""}${hasFin(p.r)?" · refunds are owner only":""}</div></div>`}
+function openPerson(p){const s=sch(),id=p.id;closeDrawers();
+ $("#dr").innerHTML=`<button class="x" aria-label="Close" id="drx">×</button><div class="mono mut">${id} · ${s.name}</div><h3 style="margin:2px 0 6px">${p.name}${p.r&&p.r.you?' <span class="mut">(you)</span>':""}</h3>${rolePill(p.role)}${finPill(p)} <span class="badge">No plan</span>
+ ${capLine(s,p)}
+ <div class="acts"><button class="btn" disabled title="No plan, so there is no member portal to view">${ic("eye")}View as member</button>
+  <div class="pw"><button class="btn ico" id="mb2" aria-label="More actions" aria-haspopup="menu">${ic("more")}</button><div class="menu" id="mm" role="menu">${roleMenu(s,p)}</div></div></div>
+ ${s.role==="owner"?"":`<div class="mut" style="font-size:10.5px;margin:-4px 0 8px">Changing roles needs the owner role in ${s.name}.</div>`}
+ <h5>${ic("list")} History</h5><ul class="tl">${hist(s,[id],true)||'<li style="--c:transparent" class="mut">No activity yet.</li>'}</ul>`;
+ $("#dr").classList.add("on");$("#dr").dataset.id=id;
+ $("#mb2").onclick=e=>{e.stopPropagation();$("#mm").classList.toggle("on")}}
+function open(id,all){const s=sch(),pe=people(s).find(x=>x.id===id);if(!pe)return;if(!pe.m){openPerson(pe);return}
+ const m=s.M.find(x=>x[0]===id),rs=reasons(s,m),own=s.role==="owner",p=proj(s,m),bks=s.B.filter(b=>b.m===id&&b.state!=="done"),invOk=!permMissing(s,"Invoices"),refOk=own&&!permMissing(s,"Refunds");
  closeDrawers();
- $("#dr").innerHTML=`<button class="x" aria-label="Close" id="drx">×</button><div class="mono mut">${m[0]} · ${s.name}</div><h3 style="margin:2px 0 6px">${m[1]}</h3><span class="badge">${m[2]}</span> ${badges(rs)} <span class="badge">renews Dec 1</span>
+ $("#dr").innerHTML=`<button class="x" aria-label="Close" id="drx">×</button><div class="mono mut">${m[0]} · ${s.name}</div><h3 style="margin:2px 0 6px">${m[1]}${pe.r&&pe.r.you?' <span class="mut">(you)</span>':""}</h3>${rolePill(pe.role)}${finPill(pe)} <span class="badge">${m[2]}</span> ${badges(rs)} <span class="badge">renews Dec 1</span>
+ ${capLine(s,pe)}
  <div class="acts"><button class="btn p" data-vm="${id}">${ic("eye")}View as member</button><button class="btn" data-act="invoice" data-id="${id}" ${invOk?"":'disabled title="The Stripe key lacks Invoices (write). Fix it in Settings."'}>${ic("mail")}Send invoice</button><button class="btn" data-act="adjust" data-id="${id}">${ic("sliders")}Adjust ${s.unit.other}</button><button class="btn" data-act="refund" data-id="${id}" ${refOk?"":`disabled title="${own?"The Stripe key lacks Refunds (write). Fix it in Settings.":"Refunds need the owner role in this school"}"`}>${ic("undo")}Refund</button>
   <div class="pw"><button class="btn ico" id="mb2" aria-label="More actions" aria-haspopup="menu">${ic("more")}</button><div class="menu" id="mm" role="menu">
    <button role="menuitem" data-act="audit" data-id="${id}">${ic("check")}Audit member</button><hr>
+   ${roleMenu(s,pe)}<hr>
    <button role="menuitem" data-toast="Opening Stripe dashboard…">${ic("ext")}Cancel subscription</button>
    <button role="menuitem" data-toast="Opening Stripe dashboard…">${ic("ext")}Resend receipt</button>
    <button role="menuitem" data-toast="Opening Stripe dashboard…">${ic("ext")}View in Stripe</button></div></div></div>
@@ -945,6 +1037,7 @@ document.addEventListener("click",e=>{
  if(tg.closest("#psave")){savePE();return}
  const vmo=tg.closest("[data-vm]");if(vmo){const id=vmo.dataset.vm;vm={id,theme:vm?vm.theme:"b4u",tab:"home",admin:vm?vm.admin:true};closeDrawers();render();return}
  if(tg.closest("#vmx")){vm=null;render();return}
+ const vfm=tg.closest("[data-vfam]");if(vfm&&vm){vm.id=vfm.dataset.vfam;drawVM();return}
  const vtb=tg.closest("[data-vtab]");if(vtb){vm.tab=vtb.dataset.vtab;drawVM();return}
  if(tg.closest("#vemb")){embedModal();return}
  const vac=tg.closest("[data-vact]");if(vac&&!vac.disabled){vAct(vac.dataset.vact,vac.dataset.pk);return}
@@ -991,6 +1084,8 @@ document.addEventListener("click",e=>{
  if(tg.closest("[data-zrm]")){const s=sch();removeModal("the Zeffy key",()=>{s.zeffy={connected:false}});return}
  const a=tg.closest("[data-act]");if(a&&!a.disabled){closeP();const k=a.dataset.act,s=sch();
   if(k==="confirm"||(k==="release"&&!(isWithin(s,s.B.find(b=>b.id===a.dataset.id))&&s.rules.late==="spend")))quick(k,a.dataset.id);else openAct(k,a.dataset.id,a.dataset.pay);return}
+ const rlb=tg.closest("[data-role]");if(rlb){if(!rlb.disabled){closeP();roleModal(rlb.dataset.role,rlb.dataset.id)}return}
+ const rfc=tg.closest("[data-rf]");if(rfc){rF=rfc.dataset.rf;members();return}
  const rv=tg.closest("[data-rev]");if(rv){const i=rv.dataset.rev;revealed.has(i)?revealed.delete(i):revealed.add(i);codes();return}
  const ds=tg.closest("[data-dis]");if(ds){const k=sch().K.find(x=>x.id===ds.dataset.dis);k.status="disabled";render();toast(`Promo ${mask(k.code)} disabled. It stops working at checkout now.`);return}
  const rd=tg.closest("[data-red]");if(rd){const id=rd.dataset.red,s=sch();xf={label:`Promo ${cname(s,id)}`,fn:e=>e.code===id};P={from:"2026-01-01",to:TODAY,k:"ytd"};tab="led";$$(".f[data-t]").forEach(x=>x.classList.toggle("on",x.dataset.t===""));render();return}
