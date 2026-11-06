@@ -46,3 +46,10 @@ export const ulidTime = (id: string): number => {
 		v = (v << 5n) | BigInt(ALPHABET.indexOf(ch));
 	return Number(v);
 };
+
+/** The revision a `deterministicUlid` encodes: the top 24 of its 80 random bits. */
+export const ulidRevision = (id: string): number => {
+	let v = 0n;
+	for (const ch of id.slice(10)) v = (v << 5n) | BigInt(ALPHABET.indexOf(ch));
+	return Number(v >> 56n);
+};

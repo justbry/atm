@@ -13,7 +13,7 @@ import type {
 	AtmSnapshot,
 	AtmSubjectState,
 } from "../types.js";
-import { ULID_PATTERN } from "./ids.js";
+import { ULID_PATTERN, ulidRevision } from "./ids.js";
 import { mutationToEvents } from "./postings.js";
 import { runOnState, toCatalog } from "./run.js";
 import { canonicalize, isoInstant } from "./util.js";
@@ -180,6 +180,9 @@ export const contextFromEvent = (
 	};
 };
 
+/** Between the command that reached a revision and the next one. */
+const AFTER_REVISION = 0.5;
+
 const compareIds = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 type MutationRevision = { before: number; after: number };
@@ -197,7 +200,9 @@ export const mutationRevision = (e: AtmEvent): MutationRevision | null => {
  * start of the period it refills, hours before the plan at payment time that came first, so the event times (and so the
  * ids) of one write can run backwards. An event that carries a mutation takes the latest time its subject's earlier
  * revisions reached; the events without one (an expiry by the clock, a payment) keep their own time and come before the
- * commands of the same instant. A log whose revisions never run backwards in time is in id order, as before.
+ * commands of the same instant, except that an event of the cron comes after its subject's commands of that instant up
+ * to the revision it was judged at (a cancellation at a period's end sets the expiry to its own instant, and the cron
+ * books that lapse later). A log whose revisions never run backwards in time is in id order, as before.
  */
 export const replayOrder = (events: readonly AtmEvent[]): AtmEvent[] => {
 	const commands = new Map<string, AtmEvent[]>();
@@ -218,7 +223,11 @@ export const replayOrder = (events: readonly AtmEvent[]): AtmEvent[] => {
 			reached.set(e, latest);
 		}
 	}
-	const rank = (e: AtmEvent) => mutationRevision(e)?.after ?? -1;
+	// The cron's events (`lapseEvent`, `lapseAlertEvents`) carry in their ids the revision they were judged at; a reset of
+	// the same instant past it (one that rolls the lapsed row over) stays after, and the alert (one more) after its expiries.
+	const rank = (e: AtmEvent) =>
+		mutationRevision(e)?.after ??
+		(e.source === "cron" ? ulidRevision(e.id) + AFTER_REVISION : -1);
 	const time = (e: AtmEvent) => reached.get(e) ?? Date.parse(e.event_time);
 	return [...events].sort(
 		(a, b) => time(a) - time(b) || rank(a) - rank(b) || compareIds(a.id, b.id),
