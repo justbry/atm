@@ -94,12 +94,12 @@
 	},
 	"moves": {
 		"fields": [
-			"page.members[].balances[].available",
-			"page.members[].balances[].held",
-			"page.members[].balances[].granted",
-			"summary.creditsOutstanding",
+			"members.members[].balances[].available",
+			"members.members[].balances[].held",
+			"members.members[].balances[].granted",
+			"membersSummary.creditsOutstanding",
 			"people[].name",
-			"page.members[].name"
+			"members.members[].name"
 		],
 		"rule": "Paths into each school's MembersFixture (src/fixtures/members.ts). A number is multiplied by the factor; a string gets ' <factor>' appended. An entry's (or a step's) expect.moves lists selectors of its text expectations whose text must still exist, pass the absent list and differ."
 	},
@@ -111,7 +111,10 @@
 			"expect": {
 				"text": {
 					"[data-test=members-stat][data-stat=outstanding] [data-test=stat-label]": "sessions outstanding (incl. held)",
-					"[data-test=members-stat][data-stat=outstanding] [data-test=stat-value]": "63",
+					"[data-test=members-stat][data-stat=outstanding] [data-test=stat-value]": {
+						"text": "63",
+						"moves": true
+					},
 					"[data-test=members-stat][data-stat=income] [data-test=stat-label]": "income · Nov 2026",
 					"[data-test=members-stat][data-stat=income] [data-test=stat-value]": "$287.00",
 					"[data-test=members-stat][data-stat=attention] [data-test=stat-label]": "need attention",
@@ -128,9 +131,15 @@
 					"[data-test=members-column][data-column=plan]": "Plan",
 					"[data-test=members-column][data-column=available]": "Sessions available",
 					"[data-test=members-column][data-column=expires]": "Expires",
-					"[data-test=member-row]:nth-child(1) [data-test=member-name]": "Mia R.",
+					"[data-test=member-row]:nth-child(1) [data-test=member-name]": {
+						"text": "Mia R.",
+						"moves": true
+					},
 					"[data-test=member-row]:nth-child(2) [data-test=member-name]": "Ana P.",
-					"[data-test=member-row]:nth-child(3) [data-test=member-name]": "Ivy N.",
+					"[data-test=member-row]:nth-child(3) [data-test=member-name]": {
+						"text": "Ivy N.",
+						"moves": true
+					},
 					"[data-test=member-row]:nth-child(4) [data-test=member-name]": "Jon K.",
 					"[data-test=member-row]:nth-child(5) [data-test=member-name]": "Kim R.",
 					"[data-test=member-row]:nth-child(6) [data-test=member-name]": "Ravi S.",
@@ -167,12 +176,7 @@
 						"held for bookings",
 						"available"
 					]
-				},
-				"moves": [
-					"[data-test=members-stat][data-stat=outstanding] [data-test=stat-value]",
-					"[data-test=member-row]:nth-child(1) [data-test=member-name]",
-					"[data-test=member-row]:nth-child(3) [data-test=member-name]"
-				]
+				}
 			},
 			"shot": {
 				"full": true,
@@ -185,17 +189,26 @@
 			"route": "#/vol/members?theme=light",
 			"expect": {
 				"text": {
-					"[data-test=member-row][data-id=\"m_204\"] [data-test=member-name]": "Mia R.",
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=member-name]": {
+						"text": "Mia R.",
+						"moves": true
+					},
 					"[data-test=member-row][data-id=\"m_204\"] [data-test=member-id]": "m_204",
 					"[data-test=member-row][data-id=\"m_204\"] [data-test=role-chip]": "Member",
 					"[data-test=member-row][data-id=\"m_204\"] [data-test=member-plan]": "Sparkle ×2",
-					"[data-test=member-row][data-id=\"m_204\"] [data-test=member-available]": "0/16 +1 held",
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=member-available]": {
+						"text": "0/16 +1 held",
+						"moves": true
+					},
 					"[data-test=member-row][data-id=\"m_204\"] [data-test=held-badge]": "+1 held",
 					"[data-test=member-row][data-id=\"m_204\"] [data-test=member-expires]": "—",
 					"[data-test=member-row][data-id=\"m_204\"] [data-test=audience-chip]": "Audience: Member",
 					"[data-test=member-row][data-id=\"m_093\"] [data-test=role-chip]": "Admin",
 					"[data-test=member-row][data-id=\"m_093\"] [data-test=member-plan]": "Glow ×1",
-					"[data-test=member-row][data-id=\"m_093\"] [data-test=member-available]": "18/24 +1 held",
+					"[data-test=member-row][data-id=\"m_093\"] [data-test=member-available]": {
+						"text": "18/24 +1 held",
+						"moves": true
+					},
 					"[data-test=member-row][data-id=\"m_093\"] [data-test=member-expires]": "Dec 1",
 					"[data-test=member-row][data-id=\"m_012\"] [data-test=member-available]": "20/32 +2 held",
 					"[data-test=member-row][data-id=\"m_088\"] [data-test=member-available]": "7/8 +1 held",
@@ -203,7 +216,10 @@
 					"[data-test=member-row][data-id=\"m_051\"] [data-test=member-available]": "9/12",
 					"[data-test=member-row][data-id=\"m_051\"] [data-test=member-expires]": "Nov 11",
 					"[data-test=member-row][data-id=\"m_051\"] [data-test=audience-chip]": "Audience: Public",
-					"[data-test=member-row][data-id=\"u_kim\"] [data-test=member-name]": "Kim R.",
+					"[data-test=member-row][data-id=\"u_kim\"] [data-test=member-name]": {
+						"text": "Kim R.",
+						"moves": true
+					},
 					"[data-test=member-row][data-id=\"u_kim\"] [data-test=you-tag]": "(you)",
 					"[data-test=member-row][data-id=\"u_kim\"] [data-test=role-chip]": "Owner",
 					"[data-test=member-row][data-id=\"u_kim\"] [data-test=member-plan]": "No plan",
@@ -246,13 +262,7 @@
 					"[data-test=member-row][data-id=\"u_rav\"] [data-test=view-as-member]": 0,
 					"[data-test=view-as-member][aria-label=\"View Mia R. as member\"][title=\"View as member\"]": 1,
 					"[data-test=member-menu-button][aria-label=\"More actions for Kim R.\"][title=\"More actions\"]": 1
-				},
-				"moves": [
-					"[data-test=member-row][data-id=\"m_204\"] [data-test=member-name]",
-					"[data-test=member-row][data-id=\"m_204\"] [data-test=member-available]",
-					"[data-test=member-row][data-id=\"m_093\"] [data-test=member-available]",
-					"[data-test=member-row][data-id=\"u_kim\"] [data-test=member-name]"
-				]
+				}
 			}
 		},
 		{
@@ -299,7 +309,10 @@
 			"route": "#/b4u/members?theme=light",
 			"expect": {
 				"text": {
-					"[data-test=member-row]:nth-child(1) [data-test=member-name]": "Dana W.",
+					"[data-test=member-row]:nth-child(1) [data-test=member-name]": {
+						"text": "Dana W.",
+						"moves": true
+					},
 					"[data-test=member-row]:nth-child(2) [data-test=member-name]": "Omar F.",
 					"[data-test=member-row]:nth-child(3) [data-test=member-name]": "Priya N.",
 					"[data-test=member-row]:nth-child(4) [data-test=member-name]": "Jo A.",
@@ -310,7 +323,10 @@
 					"[data-test=member-row]:nth-child(9) [data-test=member-name]": "Pia L.",
 					"[data-test=member-row]:nth-child(10) [data-test=member-name]": "Raj S.",
 					"[data-test=members-stat][data-stat=outstanding] [data-test=stat-label]": "credits outstanding (incl. held)",
-					"[data-test=members-stat][data-stat=outstanding] [data-test=stat-value]": "65",
+					"[data-test=members-stat][data-stat=outstanding] [data-test=stat-value]": {
+						"text": "65",
+						"moves": true
+					},
 					"[data-test=members-stat][data-stat=income] [data-test=stat-label]": "income · Jun 2026",
 					"[data-test=members-stat][data-stat=income] [data-test=stat-value]": "$155.00",
 					"[data-test=members-stat][data-stat=attention] [data-test=stat-value]": "2",
@@ -326,7 +342,10 @@
 					"[data-test=member-row][data-id=\"s_26\"] [data-test=audience-chip]": "Audience: Public",
 					"[data-test=member-row][data-id=\"s_21\"] [data-test=audience-chip]": "Audience: Member",
 					"[data-test=member-row][data-id=\"u_tes\"] [data-test=audience-chip]": "Audience: Finance admin",
-					"[data-test=member-row][data-id=\"s_22\"] [data-test=member-available]": "1/8 +1 held"
+					"[data-test=member-row][data-id=\"s_22\"] [data-test=member-available]": {
+						"text": "1/8 +1 held",
+						"moves": true
+					}
 				},
 				"count": {
 					"[data-test=member-row]": 10,
@@ -339,12 +358,7 @@
 					"[data-test=member-row][data-id=\"s_27\"] [data-test=audience-chip][data-audience=governance][title=\"Audience: Adult with a live Board membership: that tier names Governance.\"]": 1,
 					"[data-test=member-row][data-id=\"s_25\"] [data-test=audience-chip][data-audience=public][title=\"Audience: Teen: never holds Member or Governance, the guardian does (Dana W.)\"]": 1,
 					"[data-test=member-row][data-id=\"s_26\"] [data-test=audience-chip][data-audience=public][title=\"Audience: Child: never holds Member or Governance, the guardian does (Dana W.)\"]": 1
-				},
-				"moves": [
-					"[data-test=member-row]:nth-child(1) [data-test=member-name]",
-					"[data-test=members-stat][data-stat=outstanding] [data-test=stat-value]",
-					"[data-test=member-row][data-id=\"s_22\"] [data-test=member-available]"
-				]
+				}
 			}
 		},
 		{
@@ -626,7 +640,10 @@
 				"hash": "member=m_204",
 				"text": {
 					"[data-test=drawer-head]": "m_204 · Vibes of Light",
-					"[data-test=drawer-name]": "Mia R.",
+					"[data-test=drawer-name]": {
+						"text": "Mia R.",
+						"moves": true
+					},
 					"[data-test=member-drawer] [data-test=role-chip]": "Member",
 					"[data-test=member-drawer] [data-test=member-plan]": "Sparkle ×2",
 					"[data-test=renews-badge]": "renews Dec 1",
@@ -636,7 +653,10 @@
 					"[data-test=drawer-action][data-action=invoice]": "Send invoice",
 					"[data-test=drawer-action][data-action=adjust]": "Adjust sessions",
 					"[data-test=drawer-action][data-action=refund]": "Refund",
-					"[data-test=drawer-balance]": "0 available of 16 · 1 held for bookings · rollover 0",
+					"[data-test=drawer-balance]": {
+						"text": "0 available of 16 · 1 held for bookings · rollover 0",
+						"moves": true
+					},
 					"[data-test=payments-all]": "Show all payments (29)",
 					"[data-test=payments-csv]": "Download CSV"
 				},
@@ -696,11 +716,7 @@
 					"[data-test=history-item]": 4,
 					"[data-test=payments-csv][title^=\"Download this member\"]": 1,
 					"[data-test=drawer-note]": 0
-				},
-				"moves": [
-					"[data-test=drawer-name]",
-					"[data-test=drawer-balance]"
-				]
+				}
 			}
 		},
 		{
@@ -709,7 +725,10 @@
 			"route": "#/vol/members?member=m_012&theme=light",
 			"expect": {
 				"text": {
-					"[data-test=drawer-balance]": "20 available of 32 · 2 held for bookings · expire Dec 1 · rollover 0",
+					"[data-test=drawer-balance]": {
+						"text": "20 available of 32 · 2 held for bookings · expire Dec 1 · rollover 0",
+						"moves": true
+					},
 					"[data-test=payments-all]": "Show all payments (30)"
 				},
 				"contains": {
@@ -737,10 +756,7 @@
 				"count": {
 					"[data-test=history-item]": 3,
 					"[data-test=payment-row]": 5
-				},
-				"moves": [
-					"[data-test=drawer-balance]"
-				]
+				}
 			}
 		},
 		{
@@ -1231,7 +1247,10 @@
 					"click": "[data-test=member-menu-item][data-action=revoke-finance]",
 					"expect": {
 						"text": {
-							"[data-test=modal-title]": "Revoke finance from Ravi S.?",
+							"[data-test=modal-title]": {
+								"text": "Revoke finance from Ravi S.?",
+								"moves": true
+							},
 							"[data-test=modal-body]": "Ravi S. stops seeing money in the dashboard and ledger.",
 							"[data-test=modal-note]": "This applies at Ravi S.'s next sign-in refresh. Their access token lasts 5 minutes, so it can take up to 5 minutes to show.",
 							"[data-test=modal-confirm]": "Confirm",
@@ -1240,10 +1259,7 @@
 						"count": {
 							"[data-test=modal]": 1,
 							"[data-test=modal-confirm][disabled]": 0
-						},
-						"moves": [
-							"[data-test=modal-title]"
-						]
+						}
 					}
 				},
 				{
@@ -1597,8 +1613,14 @@
 					"expect": {
 						"text": {
 							"[data-test=modal-title]": "Adjust sessions · Vibes of Light",
-							"[data-test=modal-subtitle]": "Ivy N. · m_012",
-							"[data-test=modal-preview]": "Ivy N.: 20 → 22 available.",
+							"[data-test=modal-subtitle]": {
+								"text": "Ivy N. · m_012",
+								"moves": true
+							},
+							"[data-test=modal-preview]": {
+								"text": "Ivy N.: 20 → 22 available.",
+								"moves": true
+							},
 							"[data-test=modal-confirm]": "Apply",
 							"[data-test=modal-cancel]": "Cancel",
 							"[data-test=modal-field-label][data-field=type]": "Type",
@@ -1610,11 +1632,7 @@
 							"[data-test=modal-field][data-field=type] option": 3,
 							"[data-test=modal-field][data-field=type] option[value=goodwill]": 1,
 							"[data-test=modal-field][data-field=delta][value=\"2\"]": 1
-						},
-						"moves": [
-							"[data-test=modal-subtitle]",
-							"[data-test=modal-preview]"
-						]
+						}
 					}
 				},
 				{
@@ -1666,17 +1684,17 @@
 			"expect": {
 				"text": {
 					"[data-test=toast]": "Sent. It shows as pending, then in the ledger after the next ship (≤5 min).",
-					"[data-test=member-row][data-id=\"m_012\"] [data-test=member-available]": "20 → 22/32 +2 held",
+					"[data-test=member-row][data-id=\"m_012\"] [data-test=member-available]": {
+						"text": "20 → 22/32 +2 held",
+						"moves": true
+					},
 					"[data-test=member-row][data-id=\"m_012\"] [data-test=pending-badge]": "→ 22"
 				},
 				"count": {
 					"[data-test=modal]": 0,
 					"[data-test=member-row][data-id=\"m_012\"] [data-test=pending-badge][title=\"Shows after the pending change ships\"]": 1,
 					"[data-test=member-row][data-id=\"m_012\"] [data-test=balance-bar][title=\"used 10 · held 2 · available 22\"]": 1
-				},
-				"moves": [
-					"[data-test=member-row][data-id=\"m_012\"] [data-test=member-available]"
-				]
+				}
 			}
 		},
 		{
@@ -1704,11 +1722,11 @@
 					"value": "-25",
 					"expect": {
 						"text": {
-							"[data-test=modal-preview]": "Would go below zero (20 available)."
-						},
-						"moves": [
-							"[data-test=modal-preview]"
-						]
+							"[data-test=modal-preview]": {
+								"text": "Would go below zero (20 available).",
+								"moves": true
+							}
+						}
 					}
 				},
 				{
@@ -1763,7 +1781,10 @@
 			],
 			"expect": {
 				"text": {
-					"[data-test=drawer-balance]": "20 available → 22 after pending of 32 · 2 held for bookings · expire Dec 1 · rollover 0"
+					"[data-test=drawer-balance]": {
+						"text": "20 available → 22 after pending of 32 · 2 held for bookings · expire Dec 1 · rollover 0",
+						"moves": true
+					}
 				},
 				"contains": {
 					"[data-test=history-item]:nth-child(1)": [
@@ -1775,10 +1796,7 @@
 				},
 				"count": {
 					"[data-test=history-item][data-pending]": 1
-				},
-				"moves": [
-					"[data-test=drawer-balance]"
-				]
+				}
 			}
 		},
 		{
@@ -2502,17 +2520,17 @@
 							"[data-test=modal-subtitle]": "Sparkle ×4",
 							"[data-test=modal-confirm]": "Cancel membership",
 							"[data-test=modal-cancel]": "Keep membership",
-							"[data-test=modal-preview]": "Stays active until Dec 1. 20 sessions can still be used until then. No further charges.",
+							"[data-test=modal-preview]": {
+								"text": "Stays active until Dec 1. 20 sessions can still be used until then. No further charges.",
+								"moves": true
+							},
 							"[data-test=modal-field-label][data-field=when][data-value=period_end]": "At the end of this period (Dec 1)",
 							"[data-test=modal-field-label][data-field=when][data-value=now]": "Right now Admin",
 							"[data-test=modal-field-label][data-field=reason]": "Reason (optional; required to cancel right now)"
 						},
 						"count": {
 							"[data-test=modal-confirm][disabled]": 0
-						},
-						"moves": [
-							"[data-test=modal-preview]"
-						]
+						}
 					}
 				},
 				{
