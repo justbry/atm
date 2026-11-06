@@ -1,0 +1,277 @@
+import { Fragment, type JSX } from "preact";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+import type { Clock, School } from "../data/types.ts";
+import { Icon, type IconName } from "./icon.tsx";
+import { formatPeriod, parsePeriod } from "./period.ts";
+import { PeriodControl } from "./period-control.tsx";
+import { Popover } from "./popover.tsx";
+import {
+	allSchools,
+	type Route,
+	type SchoolTab,
+	schoolTabs,
+	themeOf,
+	withQuery,
+} from "./route.ts";
+import { SchoolSwitcher } from "./school-switcher.tsx";
+import { SettingsDrawer } from "./settings-drawer.tsx";
+
+const toastMilliseconds = 4600;
+const tabs: Record<SchoolTab, { label: string; icon: IconName }> = {
+	plans: { label: "Plans", icon: "layers" },
+	dashboard: { label: "Dashboard", icon: "chart" },
+	members: { label: "Members", icon: "users" },
+	bookings: { label: "Bookings", icon: "calendar" },
+	promos: { label: "Promos", icon: "tag" },
+	ledger: { label: "Ledger", icon: "list" },
+	reports: { label: "Reports", icon: "chart" },
+};
+const helpLinks: Array<{
+	label: string;
+	detail?: string;
+	icon: IconName;
+	toast: string;
+}> = [
+	{
+		label: "School SDK",
+		detail: "@b4uni/school",
+		icon: "box",
+		toast: "Opening the School SDK readme…",
+	},
+	{
+		label: "Ledger event reference",
+		icon: "list",
+		toast: "Opening the event reference…",
+	},
+	{
+		label: "Reports with hledger and DuckDB",
+		icon: "chart",
+		toast: "Opening the recipes…",
+	},
+	{
+		label: "Copy a prompt for an AI assistant",
+		icon: "copy",
+		toast: "Prompt copied. It gives an assistant read-only context.",
+	},
+];
+
+/** A tab's badge from the school's counts (mockup `#plbadge`, `#bkbadge`, `#pbadge`), or null when it has none. */
+function tabBadge(
+	tab: SchoolTab,
+	{ tabBadges }: School,
+): { text: string; tone: "b-warn" | "b-bad" } | null {
+	if (tab === "plans" && tabBadges.plansDraft)
+		return { text: "draft", tone: "b-warn" };
+	if (tab === "bookings" && tabBadges.bookingsOverdue > 0)
+		return { text: String(tabBadges.bookingsOverdue), tone: "b-bad" };
+	if (tab === "promos" && tabBadges.promosExpiring > 0)
+		return { text: String(tabBadges.promosExpiring), tone: "b-warn" };
+	return null;
+}
+
+type ShellProps = {
+	route: Route;
+	schools: School[];
+	clock: Clock;
+	navigate: (route: Route) => void;
+};
+
+/** The mockup's frame (lines 244 to 264): top bar, tabs row, stale banner, the current tab's pane, the settings
+ * drawer and the toast. The panes are filled by later slices. */
+export function Shell({
+	route,
+	schools,
+	clock,
+	navigate,
+}: ShellProps): JSX.Element {
+	const [compare, setCompare] = useState(false);
+	const [settingsOpen, setSettingsOpen] = useState(false);
+	const [toast, setToast] = useState<{ text: string } | null>(null);
+	const settingsButton = useRef<HTMLButtonElement>(null);
+	const closeSettings = useCallback(() => {
+		setSettingsOpen(false);
+		settingsButton.current?.focus();
+	}, []);
+	useEffect(() => {
+		if (!toast) return;
+		const timer = setTimeout(() => setToast(null), toastMilliseconds);
+		return () => clearTimeout(timer);
+	}, [toast]);
+
+	const school = schools.find((candidate) => candidate.id === route.schoolId);
+	const period = parsePeriod(route.query.get("month"), clock.today);
+	const theme = themeOf(route.query);
+	const periodShown =
+		!school || route.tab === "ledger" || route.tab === "reports";
+
+	const chooseSchool = (schoolId: string): void => {
+		const query = withQuery(route, "member", null).query;
+		if (schoolId === allSchools) navigate({ schoolId, tab: allSchools, query });
+		else
+			navigate({
+				schoolId,
+				tab: route.tab === allSchools ? "plans" : route.tab,
+				query,
+			});
+	};
+	const chooseTab = (tab: SchoolTab): void => navigate({ ...route, tab });
+	/** The tabs pattern: arrows, Home and End move to a tab and open it. */
+	const onTabKeyDown = (
+		event: JSX.TargetedKeyboardEvent<HTMLDivElement>,
+	): void => {
+		const index = (schoolTabs as readonly string[]).indexOf(route.tab);
+		const targets: Record<string, number> = {
+			ArrowLeft: (index + schoolTabs.length - 1) % schoolTabs.length,
+			ArrowRight: (index + 1) % schoolTabs.length,
+			Home: 0,
+			End: schoolTabs.length - 1,
+		};
+		const target = schoolTabs[targets[event.key] ?? -1];
+		if (!target) return;
+		event.preventDefault();
+		event.currentTarget
+			.querySelector<HTMLElement>(`[data-tab=${target}]`)
+			?.focus();
+		chooseTab(target);
+	};
+
+	return (
+		<>
+			<div class="top">
+				<span class="logo" data-test="brand">
+					atm
+				</span>
+				<SchoolSwitcher
+					schools={schools}
+					current={route.schoolId}
+					onChoose={chooseSchool}
+				/>
+				<span class="sp" />
+				<PeriodControl
+					period={period}
+					today={clock.today}
+					shown={periodShown}
+					timeZoneNote={
+						school
+							? `Times in ${school.timeZone}`
+							: "Each school's own time zone"
+					}
+					compare={compare}
+					onCompareChange={setCompare}
+					onChoose={(chosen) =>
+						navigate(
+							withQuery(route, "month", formatPeriod(chosen, clock.today)),
+						)
+					}
+				/>
+				<Popover
+					trigger={{
+						class: "ib",
+						"data-test": "help-button",
+						title: "Help and SDK",
+						"aria-label": "Help and SDK",
+					}}
+					alignRight
+					label={<Icon name="help" />}
+				>
+					{(close) =>
+						helpLinks.map((link, index) => (
+							<Fragment key={link.label}>
+								{index === helpLinks.length - 1 && <hr />}
+								<button
+									type="button"
+									class="it"
+									data-test="help-link"
+									onClick={() => {
+										close();
+										setToast({ text: link.toast });
+									}}
+								>
+									<Icon name={link.icon} />
+									<span class="sp2">{link.label}</span>
+									{link.detail && <span class="mut">{link.detail}</span>}
+								</button>
+							</Fragment>
+						))
+					}
+				</Popover>
+				<button
+					ref={settingsButton}
+					type="button"
+					class="ib"
+					data-test="settings-button"
+					title="Settings"
+					aria-label="Settings"
+					aria-expanded={settingsOpen}
+					onClick={() => setSettingsOpen(!settingsOpen)}
+				>
+					<Icon name="gear" />
+				</button>
+			</div>
+			{school && (
+				<div
+					class="tabs"
+					role="tablist"
+					aria-label={school.name}
+					onKeyDown={onTabKeyDown}
+				>
+					{schoolTabs.map((tab) => {
+						const selected = tab === route.tab;
+						const badge = tabBadge(tab, school);
+						return (
+							<button
+								key={tab}
+								type="button"
+								role="tab"
+								class="tab"
+								id={`tab-${tab}`}
+								data-test="tab"
+								data-tab={tab}
+								aria-selected={selected}
+								aria-controls={selected ? "pane" : undefined}
+								tabIndex={selected ? 0 : -1}
+								onClick={() => chooseTab(tab)}
+							>
+								<Icon name={tabs[tab].icon} />
+								{tabs[tab].label}
+								{badge && (
+									<span class={`badge ${badge.tone}`} data-test="tab-badge">
+										{badge.text}
+									</span>
+								)}
+							</button>
+						);
+					})}
+				</div>
+			)}
+			{school?.stale && (
+				<div class="banner">
+					<Icon name="alert" /> Data is {school.lagMinutes} min behind: the
+					shipper may be stuck. Recent events can be missing.
+				</div>
+			)}
+			<section
+				class="pane on"
+				id="pane"
+				data-test="pane"
+				role={school ? "tabpanel" : undefined}
+				aria-labelledby={school ? `tab-${route.tab}` : undefined}
+				aria-label={school ? undefined : "All schools"}
+			/>
+			<SettingsDrawer
+				open={settingsOpen}
+				subtitle={school ? `You and ${school.name}` : "All schools"}
+				theme={theme}
+				onThemeChange={(chosen) =>
+					navigate(
+						withQuery(route, "theme", chosen === "system" ? null : chosen),
+					)
+				}
+				onClose={closeSettings}
+			/>
+			<div class={toast ? "toast on" : "toast"} aria-live="polite">
+				{toast?.text}
+			</div>
+		</>
+	);
+}

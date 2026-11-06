@@ -1,0 +1,84 @@
+import type { JSX } from "preact";
+
+/** The mockup's stroke icons (its `IC` table), by full name. Later slices add the ones their views use. */
+const shapes = {
+	alert: <path d="M12 4l9 16H3L12 4zM12 10v4M12 17h.01" />,
+	box: <path d="M21 8l-9-5-9 5v8l9 5 9-5V8zM3 8l9 5 9-5M12 13v8" />,
+	building: (
+		<path d="M4 21V7l8-4 8 4v14M9 21v-6h6v6M8 10h.01M12 10h.01M16 10h.01" />
+	),
+	calendar: (
+		<>
+			<rect x="3" y="5" width="18" height="16" rx="2" />
+			<path d="M3 10h18M8 3v4M16 3v4" />
+		</>
+	),
+	chart: <path d="M4 20V11M10 20V5M16 20v-6M2 20h20" />,
+	chevronDown: <path d="M6 9l6 6 6-6" />,
+	chevronLeft: <path d="M15 6l-6 6 6 6" />,
+	chevronRight: <path d="M9 6l6 6-6 6" />,
+	copy: (
+		<>
+			<rect x="9" y="9" width="11" height="11" rx="2" />
+			<path d="M5 15V5a2 2 0 012-2h8" />
+		</>
+	),
+	gear: (
+		<>
+			<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+			<circle cx="12" cy="12" r="3" />
+		</>
+	),
+	help: (
+		<>
+			<circle cx="12" cy="12" r="9" />
+			<path d="M9.5 9.5a2.5 2.5 0 114 2c-.9.6-1.5 1-1.5 2M12 17h.01" />
+		</>
+	),
+	layers: (
+		<>
+			<path d="M12 3l9 5-9 5-9-5 9-5z" />
+			<path d="M3 12.5l9 5 9-5" />
+			<path d="M3 17l9 5 9-5" />
+		</>
+	),
+	list: <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />,
+	monitor: (
+		<>
+			<rect x="3" y="4" width="18" height="12" rx="2" />
+			<path d="M8 20h8M12 16v4" />
+		</>
+	),
+	moon: <path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z" />,
+	sun: (
+		<>
+			<circle cx="12" cy="12" r="4" />
+			<path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+		</>
+	),
+	tag: (
+		<>
+			<path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z" />
+			<circle cx="7.5" cy="7.5" r="1.3" />
+		</>
+	),
+	users: (
+		<>
+			<circle cx="9" cy="8" r="3.2" />
+			<path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+			<circle cx="17" cy="9" r="2.4" />
+			<path d="M16 14.2c2.9.3 5 2.6 5 5.8" />
+		</>
+	),
+} satisfies Record<string, JSX.Element>;
+
+export type IconName = keyof typeof shapes;
+
+/** Decorative: the button or text beside it carries the name. */
+export function Icon({ name }: { name: IconName }): JSX.Element {
+	return (
+		<svg class="i" viewBox="0 0 24 24" aria-hidden="true">
+			{shapes[name]}
+		</svg>
+	);
+}
