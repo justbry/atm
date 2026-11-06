@@ -3,10 +3,9 @@
  * PIN state, with every rule taken from the disclosure object of `src/data/disclosure.ts` (the B4 Uni file and the
  * school's override, `kpiRule`, `classRule`, the rounding by audience and school size, the small-count rounding): no
  * second rule table. It ports the frozen mockup's `bkFig`, `pAllow`, `pList`, `bkCaption`, `bkDist`, `bkFundHtml`,
- * `bkRules` and `bkDays` (atm dev 742105b64), with one difference the spec asks for: on the mart the cell rules read
- * each cell's own contributing holders and largest share (`bundle.contrib`), where the mockup counts the period's
- * paying members; schools whose figures come from their events (the mockup's own data) keep the mockup's count.
- * Pure: no I/O, no clock reads.
+ * `bkRules`, `bkYearLine` and `bkDays` (atm dev 742105b64), the lockup: the cell rules count the period's paying members
+ * (the most in one month of it) as the mockup's `bkFig` does, and a plan's payers as its share of gross over the
+ * average per paying member (`dashFull`); a donor bucket or fund counts its gifts. Pure: no I/O, no clock reads.
  */
 import {
 	type Audience,
@@ -65,8 +64,6 @@ export type MonthlySource = {
 	kind: "mart" | "events";
 	/** 12 values per KPI id (null: no row). */
 	values: Record<string, Array<number | null>>;
-	/** Contributors per contrib key and month (the mart); null: the cell rules count the period's paying members. */
-	contrib: Record<string, Array<ContribEntry | undefined>> | null;
 	tiers: Dimension[];
 	kinds: Dimension[];
 	funds: Dimension[];
@@ -91,6 +88,8 @@ export type KpiDocumentInput = {
 
 /** Spec v4's cell rules (disclosure spec v2 "Cell rules"); the small-count unit is the file's `counts`. */
 const minContributors = 5;
+/** The year table's sum of the year's four rounded quarters (mockup bkYearLine's note), beside the year's own total. */
+export const roundedQuartersKpi = "gross_collected_rounded_quarters";
 const maxShare = 0.6;
 const ratioPrecision = 4;
 const kpiSpecVersion = "school.v1";
@@ -122,8 +121,6 @@ type Catalog = {
 	ruleOf: string;
 	/** The detail the figure needs (mockup bkFig `need`). */
 	need?: DetailStep;
-	/** Whose holders the cell rules count on the mart: a contrib key, `self` (each unit a holder), or the inputs. */
-	contrib?: string;
 	inputs?: string[];
 };
 /** atm's catalog facts the documents need, with the mockup's labels (its `KPI` table). */
@@ -132,21 +129,18 @@ const catalog: Record<string, Catalog> = {
 		title: "Gross collected",
 		kind: "money",
 		ruleOf: "gross_collected",
-		contrib: "gross_collected",
 	},
 	"revenue_by_kind:*": {
 		title: "Income by kind",
 		kind: "money",
 		ruleOf: "revenue_by_kind",
 		need: "categories",
-		contrib: "gross_collected",
 	},
 	"revenue_by_tier:*": {
 		title: "Income by plan",
 		kind: "money",
 		ruleOf: "revenue_by_tier",
 		need: "breakdown",
-		contrib: "revenue_by_tier:*",
 	},
 	net_income: {
 		title: "Net income",
@@ -164,25 +158,21 @@ const catalog: Record<string, Catalog> = {
 		title: "Refunds",
 		kind: "money",
 		ruleOf: "refunds",
-		contrib: "refunds",
 	},
 	disputes_lost: {
 		title: "Disputes lost",
 		kind: "money",
 		ruleOf: "disputes_lost",
-		contrib: "disputes_lost",
 	},
 	dispute_fees: {
 		title: "Dispute fees",
 		kind: "money",
 		ruleOf: "dispute_fees",
-		contrib: "disputes_lost",
 	},
 	stripe_fees: {
 		title: "Payment fees",
 		kind: "money",
 		ruleOf: "stripe_fees",
-		contrib: "gross_collected",
 	},
 	refund_rate: {
 		title: "Refund rate",
@@ -200,19 +190,16 @@ const catalog: Record<string, Catalog> = {
 		title: "Paid out",
 		kind: "money",
 		ruleOf: "payouts",
-		contrib: "gross_collected",
 	},
 	paying_members: {
 		title: "Paying members",
 		kind: "count",
 		ruleOf: "paying_members",
-		contrib: "gross_collected",
 	},
 	new_paying_members: {
 		title: "New paying",
 		kind: "count",
 		ruleOf: "new_paying_members",
-		contrib: "self",
 	},
 	arpa: {
 		title: "Avg per paying member",
@@ -224,37 +211,31 @@ const catalog: Record<string, Catalog> = {
 		title: "Payments",
 		kind: "count",
 		ruleOf: "payments_count",
-		contrib: "gross_collected",
 	},
 	refunds_count: {
 		title: "Refunds made",
 		kind: "count",
 		ruleOf: "refunds_count",
-		contrib: "refunds",
 	},
 	disputes_opened: {
 		title: "Disputes opened",
 		kind: "count",
 		ruleOf: "disputes_opened",
-		contrib: "self",
 	},
 	credits_granted: {
 		title: "Granted",
 		kind: "count",
 		ruleOf: "credits_granted",
-		contrib: "credits_consumed",
 	},
 	credits_consumed: {
 		title: "Used",
 		kind: "count",
 		ruleOf: "credits_consumed",
-		contrib: "credits_consumed",
 	},
 	credits_expired: {
 		title: "Expired",
 		kind: "count",
 		ruleOf: "credits_expired",
-		contrib: "credits_expired",
 	},
 	breakage_rate: {
 		title: "Breakage rate",
@@ -370,17 +351,9 @@ export function martSource(
 	const values: MonthlySource["values"] = {};
 	for (const id of ids)
 		values[id] = months.map((month) => scaled(value.get(`${id}@${month}`)));
-	const contrib: NonNullable<MonthlySource["contrib"]> = {};
-	for (const [key, entries] of Object.entries(bundle.contrib))
-		contrib[key] = months.map((month) => {
-			const entry = entries?.[bundle.periods.indexOf(month)];
-			if (!entry || !scale) return entry ?? undefined;
-			return [entry[0] * scale.count, entry[1]];
-		});
 	return {
 		kind: "mart",
 		values,
-		contrib,
 		tiers: Object.keys(bundle.tiers).map((tier) => ({
 			id: tier,
 			title: capitalized(tier),
@@ -423,7 +396,6 @@ export function eventsSource(school: MockupSchool): MonthlySource {
 	return {
 		kind: "events",
 		values,
-		contrib: null,
 		tiers,
 		kinds,
 		funds: fundsOf(school.donors),
@@ -634,9 +606,6 @@ export function kpiDocument(input: KpiDocumentInput): KpiDocument {
 			id: `${prefix}${dimension.id}`,
 			entry: {
 				...entry,
-				...(entry.contrib === "revenue_by_tier:*"
-					? { contrib: `revenue_by_tier:${dimension.id}` }
-					: {}),
 			},
 			title: dimension.title,
 		}));
@@ -690,36 +659,17 @@ export function kpiDocument(input: KpiDocumentInput): KpiDocument {
 	};
 
 	// ---- The cell rules: the cell's own holders on the mart, the period's paying members on the mockup's schools
-	const contribFailure = (id: string, period: Period): string => {
-		const entry = catalogOf.get(id)?.entry ?? catalog[id];
-		if (!entry) return "";
-		if (entry.inputs) {
-			for (const input of entry.inputs) {
-				const failure = contribFailure(input, period);
-				if (failure) return failure;
-			}
-			return "";
-		}
-		for (const month of period.months) {
-			const value = monthValue(id, period.year, month);
-			if (!value) continue;
-			if (entry.contrib === "self") {
-				if (value < minContributors) return reasons.fewer("payers");
-				continue;
-			}
-			const holders = source.contrib?.[entry.contrib ?? id]?.[month];
-			if (!holders || holders[0] < minContributors)
-				return reasons.fewer("payers");
-			if (holders[1] > maxShare) return reasons.share("payers");
-		}
-		return "";
-	};
+	/** Mockup bkFig: a figure fails when the period has fewer than 5 paying members (the most in one month of it);
+	 * dashFull counts a plan's payers as its gross over the average per paying member. */
 	const failure = (id: string, period: Period, value: number): string => {
 		if (value === 0) return "";
-		if (source.contrib) return contribFailure(id, period);
-		const payers = figureOf("paying_members", period) ?? 0;
+		const payers = id.startsWith("revenue_by_tier:")
+			? planPayers(value, period)
+			: (figureOf("paying_members", period) ?? 0);
 		return payers < minContributors ? reasons.fewer("payers") : "";
 	};
+	const planPayers = (value: number, period: Period): number =>
+		Math.round(value / Math.max(1, figureOf("arpa", period) ?? 0));
 	const roundCount = (value: number, why: string): Cell =>
 		value < policy.failingRoundTo
 			? { lt: policy.failingRoundTo, why }
@@ -807,6 +757,31 @@ export function kpiDocument(input: KpiDocumentInput): KpiDocument {
 		if (grain === "month" && governanceUp) addDonors(table, periods);
 		tables[grain] = table;
 	}
+	/** Mockup bkYearLine: at the quarter grain the year's own total (the year table's gross, rounded from the year's
+	 * events) and the sum of its four rounded quarters, which the mockup shows beside it when all five are figures. */
+	const yearTable = tables.year;
+	const quarterTable = tables.quarter;
+	if (policy.grain === "quarter" && yearTable && quarterTable)
+		yearTable.series[roundedQuartersKpi] = yearTable.periods.map(
+			(period, index) => {
+				const total = yearTable.series.gross_collected?.[index];
+				const quarters = [1, 2, 3, 4].map(
+					(quarter) =>
+						quarterTable.series.gross_collected?.[
+							quarterTable.periods.indexOf(`${period}-Q${quarter}`)
+						],
+				);
+				if (
+					typeof total !== "number" ||
+					!quarters.every((cell) => typeof cell === "number")
+				)
+					return { hidden: "not_computed", text: "Not computed" };
+				return quarters.reduce<number>(
+					(sum, cell) => sum + (typeof cell === "number" ? cell : 0),
+					0,
+				);
+			},
+		);
 
 	/** bkRules over the plans of a period (governance): one hidden plan hides the smallest shown one too. */
 	function complementPlans(table: KpiTable, periods: Period[]): void {
@@ -814,7 +789,7 @@ export function kpiDocument(input: KpiDocumentInput): KpiDocument {
 			.filter(({ id }) => id.startsWith("revenue_by_tier:"))
 			.map(({ id }) => id);
 		if (!policy.ruled("breakdown")) return;
-		periods.forEach((_, index) => {
+		periods.forEach((period, index) => {
 			const isCut = (id: string): boolean => {
 				const found = table.series[id]?.[index];
 				return (
@@ -829,7 +804,8 @@ export function kpiDocument(input: KpiDocumentInput): KpiDocument {
 				.map((id) => ({ id, value: table.series[id]?.[index] }))
 				.filter(
 					(term): term is { id: string; value: number } =>
-						typeof term.value === "number" && term.value > 0,
+						typeof term.value === "number" &&
+						planPayers(term.value, period) > 0,
 				)
 				.sort((first, second) => first.value - second.value)[0];
 			const cells = next ? table.series[next.id] : undefined;
@@ -1152,6 +1128,17 @@ export function kpiDocument(input: KpiDocumentInput): KpiDocument {
 				source.invented || id.startsWith("donor") || id.startsWith("donations"),
 		};
 	}
+
+	if (tables.year?.series[roundedQuartersKpi])
+		meta[roundedQuartersKpi] = {
+			title: "The four rounded quarters",
+			kind: "money",
+			format: "money0",
+			kpiClass: "income",
+			every: "year",
+			detail: policy.rule("gross_collected")?.detail ?? "total",
+			invented: source.invented,
+		};
 
 	// ---- The PIN-locked document: nothing shows until the PIN is entered (mockup bkLock)
 	if (pinLocked)

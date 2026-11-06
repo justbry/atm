@@ -1,13 +1,13 @@
 {
 	"annual-prepay.public": {
-		"sha256": "fec7aa9de511a8b78e9709cffe3d4f1ca019493b5c6d107d67fe7d5f7f907758",
+		"sha256": "3f14e84c68ed938d829248bed865c2a44992aeb711449db1b6ab6552640ef40c",
 		"school": "b4u",
 		"preset": "annual-prepay",
 		"fixtureHash": "3b9db2b686b55a6cd9095e26e51168f430e7985f7db0c7f4870594a618db3f1a",
 		"kpisHash": "50f5d3797a7baa45ef9f373f202310b70186724c8b633f5d2dad1b86b3069e58"
 	},
 	"annual-prepay.member": {
-		"sha256": "55a16973ef90c2bb909929c0ff0f3e15aa96d37e693b8d89cb6ed98c454c2fad",
+		"sha256": "30ed7f279af2d5a43e80c532f394ef1a1b4f770fbf5736809fd16c22104aa1b2",
 		"school": "b4u",
 		"preset": "annual-prepay",
 		"fixtureHash": "3b9db2b686b55a6cd9095e26e51168f430e7985f7db0c7f4870594a618db3f1a",
@@ -63,14 +63,14 @@
 		"kpisHash": "7fdff1b66da7ac266d10e62eadf981e9a6b97977d6330e03a5f44709285e7a2e"
 	},
 	"child-only.member": {
-		"sha256": "d77c95c3259bc49981b94c034a44c4a5f9073947ccc3b1e478e2bbb7b916ac87",
+		"sha256": "373603c85aa3b67153e85ddc1ddc18bb2581a12afd0e3ccd15853994ff815c67",
 		"school": "b4u",
 		"preset": "child-only",
 		"fixtureHash": "b32f015dc3f758fa6ecdca70812f9ebd5de3e213b7e701fa190952cfcbb259fd",
 		"kpisHash": "7fdff1b66da7ac266d10e62eadf981e9a6b97977d6330e03a5f44709285e7a2e"
 	},
 	"child-only.governance": {
-		"sha256": "0501df9d8592d40b1eea36122aa5fc68fc1bee2818e57b5925d6ed421c239fea",
+		"sha256": "b91acdfe1dfdc3d6d7ed8c499abc305de586a100aae0fb7b86da34104d4381d4",
 		"school": "b4u",
 		"preset": "child-only",
 		"fixtureHash": "b32f015dc3f758fa6ecdca70812f9ebd5de3e213b7e701fa190952cfcbb259fd",
@@ -112,21 +112,21 @@
 		"kpisHash": "7fdff1b66da7ac266d10e62eadf981e9a6b97977d6330e03a5f44709285e7a2e"
 	},
 	"churn-spike.public": {
-		"sha256": "27905dbb2cf33c8df7dd33f724167dd59361cf16629f09cf47f620840423bba4",
+		"sha256": "b4e3464fe3e99095a45ca7b4a7d1426efd87314d3b3e2a74673674540ee1dd08",
 		"school": "b4u",
 		"preset": "churn-spike",
 		"fixtureHash": "a27fec7ebde43a1e1505295600b1c42b677678e183cc4a13be89e398e6c1c14e",
 		"kpisHash": "8a2b8e43ae055baf91bfcb6052d62944758441d7fd5961771fe565759da22e64"
 	},
 	"churn-spike.member": {
-		"sha256": "96f5dea50bf6abb38c0d3433a777c4bece73f681974f422ee112b7532238e86c",
+		"sha256": "f44a6078bff6da96ce8d2638425bb94dd69dad062919a4bdd7ac0df67e2a8c90",
 		"school": "b4u",
 		"preset": "churn-spike",
 		"fixtureHash": "a27fec7ebde43a1e1505295600b1c42b677678e183cc4a13be89e398e6c1c14e",
 		"kpisHash": "8a2b8e43ae055baf91bfcb6052d62944758441d7fd5961771fe565759da22e64"
 	},
 	"churn-spike.governance": {
-		"sha256": "de8ef9fe08d179b06f8853d79e885b34b15d1e5d0e56c26c4428cfc7707ac238",
+		"sha256": "ecbda61b7080e56790b934aaa8013c13d2b52b07b64ed3ac8c4d9ccff6082005",
 		"school": "b4u",
 		"preset": "churn-spike",
 		"fixtureHash": "a27fec7ebde43a1e1505295600b1c42b677678e183cc4a13be89e398e6c1c14e",
@@ -168,14 +168,14 @@
 		"kpisHash": "8a2b8e43ae055baf91bfcb6052d62944758441d7fd5961771fe565759da22e64"
 	},
 	"disputes.public": {
-		"sha256": "c2830f8a8670af887ac89a94a4dccd82969e83091373b183a6bf20cad7733103",
+		"sha256": "dcece8c84a77a70663ec135a319d7210936a529a8db1a175b34339c6df20dc41",
 		"school": "b4u",
 		"preset": "disputes",
 		"fixtureHash": "16b044e6e990beec9bcc962e8c5045a579369feb80ed68639ad08ad37eeb6475",
 		"kpisHash": "cdb68326ab7a6df5946077f2328ce129810616cc9e84ea178b249a694fcc165f"
 	},
 	"disputes.member": {
-		"sha256": "b2de6b2f850cd17d3079930832a7c36ca5c895d000d6d17dbbe50543383c08bc",
+		"sha256": "9686407c90eb4fcc0fbef1d41d785df4b5532076d3e2a991cca1fbb29393479a",
 		"school": "b4u",
 		"preset": "disputes",
 		"fixtureHash": "16b044e6e990beec9bcc962e8c5045a579369feb80ed68639ad08ad37eeb6475",
@@ -224,14 +224,14 @@
 		"kpisHash": "cdb68326ab7a6df5946077f2328ce129810616cc9e84ea178b249a694fcc165f"
 	},
 	"fee-oracle.public": {
-		"sha256": "958405de2b41c4e1d6d069ecde7c83ea69efca171505d2588c242b316de91c3d",
+		"sha256": "27c1cc8ea6fd25119d1e7d73f0b568d64935cfead1990c04f46980942608c033",
 		"school": "b4u",
 		"preset": "fee-oracle",
 		"fixtureHash": "e221598dda32114044398bd13dea20b4b58aca973341cf7035ef0638d439cc65",
 		"kpisHash": "2ec489546cad96a47359dc7dc95f3465aea08d9c40df4bf96331d4b2cd9090c7"
 	},
 	"fee-oracle.member": {
-		"sha256": "67054c3c82f376c166bc0149ef620eec676cedbd53d22fe2239c236775b04581",
+		"sha256": "dff6ce0544738645ae6e449955350753992ff63cdc02f94e2afe391f426ed850",
 		"school": "b4u",
 		"preset": "fee-oracle",
 		"fixtureHash": "e221598dda32114044398bd13dea20b4b58aca973341cf7035ef0638d439cc65",
@@ -280,14 +280,14 @@
 		"kpisHash": "2ec489546cad96a47359dc7dc95f3465aea08d9c40df4bf96331d4b2cd9090c7"
 	},
 	"free-only.public": {
-		"sha256": "13d13a4baaf053acb85027b3b1e95e6d6c302565025b896896f365d6e974d0da",
+		"sha256": "814f36439769c02e3707d1e94a96f79375c0bfe4fcba8bc8169129afe1e54b2c",
 		"school": "b4u",
 		"preset": "free-only",
 		"fixtureHash": "fc654e5924e365731c7b654e90d4d58aab9961df9ede4c5a7fafc34576ea439b",
 		"kpisHash": "a72928fffd16c849d39ad0725c130cabbc5d9355895032e3c36f39843aa31833"
 	},
 	"free-only.member": {
-		"sha256": "890926bd5dc38ec05194008cd50877438cd2f299afcc0881bd0e5e30087ad62a",
+		"sha256": "3190364a41c68ae1753db289b43db194914d04e1fab2a1c19bddf07943e04a77",
 		"school": "b4u",
 		"preset": "free-only",
 		"fixtureHash": "fc654e5924e365731c7b654e90d4d58aab9961df9ede4c5a7fafc34576ea439b",
@@ -336,21 +336,21 @@
 		"kpisHash": "a72928fffd16c849d39ad0725c130cabbc5d9355895032e3c36f39843aa31833"
 	},
 	"growth-12mo.public": {
-		"sha256": "f66f585e9b9d3e02c4f8b4cd2657e04f079e60e74ddde9e57e4c4d9be5e6d050",
+		"sha256": "56f407ecb4c8ad7869a36d8190bac9b52e6dbc792a421adfb47118c7d05c81c6",
 		"school": "b4u",
 		"preset": "growth-12mo",
 		"fixtureHash": "e35d37b28ef7e15e55cdbef3113efb2fffb23b5fe1f838953ca7417212cf7182",
 		"kpisHash": "08de1600651af777bf85cc2875062be1f2f3f797b77e68eace80ffb44d3cf12f"
 	},
 	"growth-12mo.member": {
-		"sha256": "bf319e700761886bbd8ff7a59a961378481327e18426ce2f8d8ba2b0fddace66",
+		"sha256": "092f256a272d5661ad191e8c90bd3a78ee24e1fa327eafab13353d8cb6fa74c9",
 		"school": "b4u",
 		"preset": "growth-12mo",
 		"fixtureHash": "e35d37b28ef7e15e55cdbef3113efb2fffb23b5fe1f838953ca7417212cf7182",
 		"kpisHash": "08de1600651af777bf85cc2875062be1f2f3f797b77e68eace80ffb44d3cf12f"
 	},
 	"growth-12mo.governance": {
-		"sha256": "11493b0ae457fab4235e75570ba2008f0f79d2bb1b0255e9f7825ad2c097c760",
+		"sha256": "adea2d6161acf9b1332aed45d0664086829a4e119723638cfa90237c9fcf5466",
 		"school": "b4u",
 		"preset": "growth-12mo",
 		"fixtureHash": "e35d37b28ef7e15e55cdbef3113efb2fffb23b5fe1f838953ca7417212cf7182",
@@ -392,21 +392,21 @@
 		"kpisHash": "08de1600651af777bf85cc2875062be1f2f3f797b77e68eace80ffb44d3cf12f"
 	},
 	"heavy-refunds.public": {
-		"sha256": "285204892067c8cb9b751afa00c01f87730c74b6b25f0fc896160e6539b5cd05",
+		"sha256": "956172f0200b6225e7fc1a9c76db027dc606b2bb3b6471d6c7d0731cbf4dd4b9",
 		"school": "b4u",
 		"preset": "heavy-refunds",
 		"fixtureHash": "697f9671f01bb74cf0820ae8618f05524633fdd0eb902f3611028fd31e821cca",
 		"kpisHash": "c772c490db8bfa7ca12e7a26f495f9dc33ec5f1f0c8fefde046fc7586b91b87e"
 	},
 	"heavy-refunds.member": {
-		"sha256": "e0304ba495b225086ab5a2f730aad7a468431c6dbfb35229d70bb687db33803e",
+		"sha256": "459dab4dd4d6bddcc71447fe49c64d42d7d6175bd582b9b7859120cfff45db95",
 		"school": "b4u",
 		"preset": "heavy-refunds",
 		"fixtureHash": "697f9671f01bb74cf0820ae8618f05524633fdd0eb902f3611028fd31e821cca",
 		"kpisHash": "c772c490db8bfa7ca12e7a26f495f9dc33ec5f1f0c8fefde046fc7586b91b87e"
 	},
 	"heavy-refunds.governance": {
-		"sha256": "216bfb1e18eabac4b3d29bbc04ef41a214aa960356b43da86c84db0c90ff8ee6",
+		"sha256": "5e4fbb2aeeb68e819322f329a366ed6cef7205078baa654152381120965951bd",
 		"school": "b4u",
 		"preset": "heavy-refunds",
 		"fixtureHash": "697f9671f01bb74cf0820ae8618f05524633fdd0eb902f3611028fd31e821cca",
@@ -448,21 +448,21 @@
 		"kpisHash": "c772c490db8bfa7ca12e7a26f495f9dc33ec5f1f0c8fefde046fc7586b91b87e"
 	},
 	"monthly-members.public": {
-		"sha256": "a174144a1c8d584a205193925a82fdb1cfa475dfee0ccdc52827657a06e0d34a",
+		"sha256": "b41b69f145b31f7be919ab815bbcfb2974b1d82fb42b234b4998fdbbe85d7abc",
 		"school": "b4u",
 		"preset": "monthly-members",
 		"fixtureHash": "53bf717957317f494cf662e1308274c7192b81e51d64a787fce69921a4ed7725",
 		"kpisHash": "1d4ca82500b478f78978212fcfdd3173e6ebc81a8dd0c83aab821d1b4e8027fb"
 	},
 	"monthly-members.member": {
-		"sha256": "aca1e2c10a8a8d5cfb6c589fe0068540163aab1ed063d747cdd88d17694c76d3",
+		"sha256": "f51179dc898ffe7ec8bf07b0dce8f39b0408c26a922192f16aed0995b1736b5c",
 		"school": "b4u",
 		"preset": "monthly-members",
 		"fixtureHash": "53bf717957317f494cf662e1308274c7192b81e51d64a787fce69921a4ed7725",
 		"kpisHash": "1d4ca82500b478f78978212fcfdd3173e6ebc81a8dd0c83aab821d1b4e8027fb"
 	},
 	"monthly-members.governance": {
-		"sha256": "b6bf0482e1460ac49586902c39f726523e4fd2568ba45f3a1bdd08567b74c4c2",
+		"sha256": "d35e314e2597226e0eb231949cb7635db37900059cefc3b1a5951927471788f0",
 		"school": "b4u",
 		"preset": "monthly-members",
 		"fixtureHash": "53bf717957317f494cf662e1308274c7192b81e51d64a787fce69921a4ed7725",
@@ -504,14 +504,14 @@
 		"kpisHash": "1d4ca82500b478f78978212fcfdd3173e6ebc81a8dd0c83aab821d1b4e8027fb"
 	},
 	"non-usd.public": {
-		"sha256": "094e8a5f8706329cc3b4a801f604d4a09ef04c69cbdf53eccce5d420c2960f9e",
+		"sha256": "bda421598df6faf93830f5869f1e527c4c5eda877db2942b44ada08f1a4d1823",
 		"school": "b4u",
 		"preset": "non-usd",
 		"fixtureHash": "b68af6ea99b8cc2097e7a344b3d1035aecb1bbbff5b1ecb5ae24d9ea868eb46e",
 		"kpisHash": "29675860dd793b94429794cf2127e032c35a6035d5d6a1ff6ddc5aea56c58db9"
 	},
 	"non-usd.member": {
-		"sha256": "f00e51e2cd2971208a8b749f548227e844fcdee71b8e68b62a38747caaad7b21",
+		"sha256": "1d3560ddc1fa8fd336ed012bcd09a78a9706ab08adc9ae673f8832f195686fa2",
 		"school": "b4u",
 		"preset": "non-usd",
 		"fixtureHash": "b68af6ea99b8cc2097e7a344b3d1035aecb1bbbff5b1ecb5ae24d9ea868eb46e",
@@ -560,21 +560,21 @@
 		"kpisHash": "29675860dd793b94429794cf2127e032c35a6035d5d6a1ff6ddc5aea56c58db9"
 	},
 	"one-payer-tier.public": {
-		"sha256": "1d74f6de0b0cc70f72a43bc328de2ce475b5bbcb19e8ef769f7b851d1a66ca7a",
+		"sha256": "71671daa7129eda44ad41221b7d2a7c35d49e1cf711cbfbd415598a49fe2e1eb",
 		"school": "b4u",
 		"preset": "one-payer-tier",
 		"fixtureHash": "5120d4becb3779654d36256ec454ecb55e8d33cbfcd35b6b755b133ad06064bd",
 		"kpisHash": "58033f5c9703e1aa6daeb23f8b4f3197537e0d2939086c017b84865155ec7289"
 	},
 	"one-payer-tier.member": {
-		"sha256": "ceb2c5212120773e0de62adbe74cb6929a76ad46d9d4805fe6bd7b1a212e628c",
+		"sha256": "8f800177ef7fdb4a5258ea116e615dc4b4d3fd937805ef804fffb0e6e111bd01",
 		"school": "b4u",
 		"preset": "one-payer-tier",
 		"fixtureHash": "5120d4becb3779654d36256ec454ecb55e8d33cbfcd35b6b755b133ad06064bd",
 		"kpisHash": "58033f5c9703e1aa6daeb23f8b4f3197537e0d2939086c017b84865155ec7289"
 	},
 	"one-payer-tier.governance": {
-		"sha256": "a991f8868310ef893272b43d8701234748edc2f362807c83408e70859011c5b5",
+		"sha256": "e797f31ef1af4415e19113699c015f7aadf94276c05a9acc65cc89dcf292a207",
 		"school": "b4u",
 		"preset": "one-payer-tier",
 		"fixtureHash": "5120d4becb3779654d36256ec454ecb55e8d33cbfcd35b6b755b133ad06064bd",
@@ -616,14 +616,14 @@
 		"kpisHash": "58033f5c9703e1aa6daeb23f8b4f3197537e0d2939086c017b84865155ec7289"
 	},
 	"seminar-quantities.public": {
-		"sha256": "d10366548266d82e1742b85ac8743c474a6bac74906afd974d5e498d7ac49019",
+		"sha256": "6270693371eea7e9ffbd171ede3eeaf43c51c0ba5e7153953d1278a62df97258",
 		"school": "b4u",
 		"preset": "seminar-quantities",
 		"fixtureHash": "9398295f52d7804306184224cffaa13e40343311ff9c6f84d50870baa34cf162",
 		"kpisHash": "f10a53bec6b6eb9f979b14206fdfd3cc45fdfbc1ddec7147eb9f5d8b03df9ff6"
 	},
 	"seminar-quantities.member": {
-		"sha256": "8bce00e1aad427945e3cbb06f22e0fb60aa5487c55ebf66a362da7b2b313f60c",
+		"sha256": "b0152f86b5994edd289b1032fa091ab89347c65001b8bf630052f5d10d8196c4",
 		"school": "b4u",
 		"preset": "seminar-quantities",
 		"fixtureHash": "9398295f52d7804306184224cffaa13e40343311ff9c6f84d50870baa34cf162",
@@ -672,21 +672,21 @@
 		"kpisHash": "f10a53bec6b6eb9f979b14206fdfd3cc45fdfbc1ddec7147eb9f5d8b03df9ff6"
 	},
 	"single-refund-month.public": {
-		"sha256": "2861ae1c5199af33f87b16d99e25f419fbca25646f47956e976b31b401de10fa",
+		"sha256": "c719b57d18ba3bc16e53b69b98c7cf204adbc5bd26cd8c2218cdd1fbfbeeb760",
 		"school": "b4u",
 		"preset": "single-refund-month",
 		"fixtureHash": "753c4fe7bebe1bf700b53edd1cdaf26bc40be81cb5757a8c577431729ac91366",
 		"kpisHash": "f859f56580971235a41bdbd48b1f6d1d41bd02a54d8203c3f2aa7d63efbf1b4e"
 	},
 	"single-refund-month.member": {
-		"sha256": "f067016c3b76631ee6b550ccea5b1ced3742fb662b5cd99ed82efb44d9300e00",
+		"sha256": "8b817b82afb9246d66292ccbe64a58bb0cc92c1b9071511fb36951f493c54deb",
 		"school": "b4u",
 		"preset": "single-refund-month",
 		"fixtureHash": "753c4fe7bebe1bf700b53edd1cdaf26bc40be81cb5757a8c577431729ac91366",
 		"kpisHash": "f859f56580971235a41bdbd48b1f6d1d41bd02a54d8203c3f2aa7d63efbf1b4e"
 	},
 	"single-refund-month.governance": {
-		"sha256": "ddbdf28c6cbea9ecbab94267bab5df93828aa575754f544a590dfe94b161b925",
+		"sha256": "6c029e3de94c61eb7d42824e0f89a16d8fd1c4150a9ca99dabad14dfe898b424",
 		"school": "b4u",
 		"preset": "single-refund-month",
 		"fixtureHash": "753c4fe7bebe1bf700b53edd1cdaf26bc40be81cb5757a8c577431729ac91366",
@@ -735,7 +735,7 @@
 		"kpisHash": "69f19d10622fa8a08ec73966372f0c3e8b2b85520655cb85e5997f8eea71e82b"
 	},
 	"tiny-school.member": {
-		"sha256": "e30d498f99f37fae71774bce351d979bb04375997c569594872b2a45e5bdac4a",
+		"sha256": "003748a0befa1dcd7c4ebf3c8c40b9efbe56e41e04f0b9361e985a7000e2c944",
 		"school": "b4u",
 		"preset": "tiny-school",
 		"fixtureHash": "7967e93b2bc47272cbfbd4a9461186197db70164edccf411c7061220c692566a",
@@ -784,21 +784,21 @@
 		"kpisHash": "69f19d10622fa8a08ec73966372f0c3e8b2b85520655cb85e5997f8eea71e82b"
 	},
 	"yearly-solo.public": {
-		"sha256": "23d30913654daf18ca6fa0c0e746a927f1f9ca93b7e87a98c0f5c0db6ed9f2af",
+		"sha256": "801467a082205da6ade8426b8bad340ad0499e0c4b76cf9eada613b87cf09e34",
 		"school": "b4u",
 		"preset": "yearly-solo",
 		"fixtureHash": "a1e2744710fb9e2f2ce75766dc33b18220ac6e55c93562ba19e767985a1a47f8",
 		"kpisHash": "ee1ee0fb014ef05ee684cec3508d5baacc383d944d7098d91a7b4097f94c2e17"
 	},
 	"yearly-solo.member": {
-		"sha256": "6aa674fc31f280a76729d5eb3b34c16cc9ac44c808a7d9fd660990b692547c23",
+		"sha256": "79920f21aa81cc2746c94ecd5546c56c364c24126e72c4dcac1d4ef62e4ea137",
 		"school": "b4u",
 		"preset": "yearly-solo",
 		"fixtureHash": "a1e2744710fb9e2f2ce75766dc33b18220ac6e55c93562ba19e767985a1a47f8",
 		"kpisHash": "ee1ee0fb014ef05ee684cec3508d5baacc383d944d7098d91a7b4097f94c2e17"
 	},
 	"yearly-solo.governance": {
-		"sha256": "524e701cae42e6d427c68d446a9e4c38a325001cf7754f3426f0971aebaf9dec",
+		"sha256": "07b1edb9d1d62fbb81380994725f45dc9758c1445d5c720c39b787158d0aff23",
 		"school": "b4u",
 		"preset": "yearly-solo",
 		"fixtureHash": "a1e2744710fb9e2f2ce75766dc33b18220ac6e55c93562ba19e767985a1a47f8",
@@ -840,21 +840,21 @@
 		"kpisHash": "ee1ee0fb014ef05ee684cec3508d5baacc383d944d7098d91a7b4097f94c2e17"
 	},
 	"har/annual-prepay.public": {
-		"sha256": "33d2eb490db5ddc9bb5408691a0e6d2f15b1da84fe6dde574f9f619b3567db67",
+		"sha256": "0b8be1478549663ae4717a550bdfedecd00f6bbf74665bf1d7b9b99288455d24",
 		"school": "har",
 		"preset": "annual-prepay",
 		"fixtureHash": "3b9db2b686b55a6cd9095e26e51168f430e7985f7db0c7f4870594a618db3f1a",
 		"kpisHash": "50f5d3797a7baa45ef9f373f202310b70186724c8b633f5d2dad1b86b3069e58"
 	},
 	"har/annual-prepay.member": {
-		"sha256": "782c4ac41303db418f34cf94d7d933c3281a35922a560fa4537bdef1897a1e8e",
+		"sha256": "6a9d5c4af92b852cb5a4be908beee475f96a3ea8d6e612f94fcb8f9d9264dddc",
 		"school": "har",
 		"preset": "annual-prepay",
 		"fixtureHash": "3b9db2b686b55a6cd9095e26e51168f430e7985f7db0c7f4870594a618db3f1a",
 		"kpisHash": "50f5d3797a7baa45ef9f373f202310b70186724c8b633f5d2dad1b86b3069e58"
 	},
 	"har/annual-prepay.governance": {
-		"sha256": "b1517f107838ebfc06da4760ac2b41d158e90e5e1dea183f5e96fbb4585cf028",
+		"sha256": "a2bb9bba24a7358115ed967712ac6cb003a73d97fafe17e1c0e698978935dd06",
 		"school": "har",
 		"preset": "annual-prepay",
 		"fixtureHash": "3b9db2b686b55a6cd9095e26e51168f430e7985f7db0c7f4870594a618db3f1a",
@@ -903,14 +903,14 @@
 		"kpisHash": "7fdff1b66da7ac266d10e62eadf981e9a6b97977d6330e03a5f44709285e7a2e"
 	},
 	"har/child-only.member": {
-		"sha256": "3dedb393f787e8ee7c22f3404186b28e9b4c40db444ae3599095d9cd2438ff5f",
+		"sha256": "36e2bf562c7698fdf11e35fd8669da286bdc0bdfa1d9932083726e9a2730f956",
 		"school": "har",
 		"preset": "child-only",
 		"fixtureHash": "b32f015dc3f758fa6ecdca70812f9ebd5de3e213b7e701fa190952cfcbb259fd",
 		"kpisHash": "7fdff1b66da7ac266d10e62eadf981e9a6b97977d6330e03a5f44709285e7a2e"
 	},
 	"har/child-only.governance": {
-		"sha256": "77011736347508bfdb2e6cfd22ec6449550d5b92502359a84519dafd4aece3ba",
+		"sha256": "d5f2e499527f287e8fe8a2ea7f70506b27885c20b4ce1dfa2bcd593a7cf3796d",
 		"school": "har",
 		"preset": "child-only",
 		"fixtureHash": "b32f015dc3f758fa6ecdca70812f9ebd5de3e213b7e701fa190952cfcbb259fd",
@@ -952,21 +952,21 @@
 		"kpisHash": "7fdff1b66da7ac266d10e62eadf981e9a6b97977d6330e03a5f44709285e7a2e"
 	},
 	"har/churn-spike.public": {
-		"sha256": "d4cbad760742a79c7ee33a2baf99d65788417062be56d6522358bf07fe27b5df",
+		"sha256": "3d9027e1bb884368135fb0567fca4badee85c66d7b279ee6a13205115d8933ad",
 		"school": "har",
 		"preset": "churn-spike",
 		"fixtureHash": "a27fec7ebde43a1e1505295600b1c42b677678e183cc4a13be89e398e6c1c14e",
 		"kpisHash": "8a2b8e43ae055baf91bfcb6052d62944758441d7fd5961771fe565759da22e64"
 	},
 	"har/churn-spike.member": {
-		"sha256": "d8490bad2c9a7c0844008a869dc701f92cc47ab7d8627a594e94683e0f277b4c",
+		"sha256": "1b51772aabb8d56e0e70935f7400534cbfd5f6ced3a3e230c94927e206349329",
 		"school": "har",
 		"preset": "churn-spike",
 		"fixtureHash": "a27fec7ebde43a1e1505295600b1c42b677678e183cc4a13be89e398e6c1c14e",
 		"kpisHash": "8a2b8e43ae055baf91bfcb6052d62944758441d7fd5961771fe565759da22e64"
 	},
 	"har/churn-spike.governance": {
-		"sha256": "4bf26bc046abfaa4eb0fccd94cbcef9d6776d9ca8505e9ab5389dbc4e50b7c41",
+		"sha256": "469f2cf1035ac89f43a266e8031edc70c6099215b2b9f3af0d67481f1961ed31",
 		"school": "har",
 		"preset": "churn-spike",
 		"fixtureHash": "a27fec7ebde43a1e1505295600b1c42b677678e183cc4a13be89e398e6c1c14e",
@@ -1008,21 +1008,21 @@
 		"kpisHash": "8a2b8e43ae055baf91bfcb6052d62944758441d7fd5961771fe565759da22e64"
 	},
 	"har/disputes.public": {
-		"sha256": "1d8d051aa967ddaa89ff4e86f01866d48f18c968d1a7e716cebb5d58834124b2",
+		"sha256": "421613e3a49064c3fe5fd724b6f2535065e01d56a5892a5033f1532b8974e1c5",
 		"school": "har",
 		"preset": "disputes",
 		"fixtureHash": "16b044e6e990beec9bcc962e8c5045a579369feb80ed68639ad08ad37eeb6475",
 		"kpisHash": "cdb68326ab7a6df5946077f2328ce129810616cc9e84ea178b249a694fcc165f"
 	},
 	"har/disputes.member": {
-		"sha256": "86c001ac469d710e4c1e4a8859fc12b57e3c8b921e31b2e4991ef0c11b6ffd8e",
+		"sha256": "1a6c3e9e667560be52b910f69a0945312eb37688c6dc9cfd787f2f72d0fcdcd8",
 		"school": "har",
 		"preset": "disputes",
 		"fixtureHash": "16b044e6e990beec9bcc962e8c5045a579369feb80ed68639ad08ad37eeb6475",
 		"kpisHash": "cdb68326ab7a6df5946077f2328ce129810616cc9e84ea178b249a694fcc165f"
 	},
 	"har/disputes.governance": {
-		"sha256": "085f32684829fa2b123ce450887863fd259f246ee5982f8c69665c829f0d18c4",
+		"sha256": "dc8f6aed8161dffd24abbc47d19f60053e03dd3748c7c10a47742e15d9bdd6c2",
 		"school": "har",
 		"preset": "disputes",
 		"fixtureHash": "16b044e6e990beec9bcc962e8c5045a579369feb80ed68639ad08ad37eeb6475",
@@ -1064,14 +1064,14 @@
 		"kpisHash": "cdb68326ab7a6df5946077f2328ce129810616cc9e84ea178b249a694fcc165f"
 	},
 	"har/fee-oracle.public": {
-		"sha256": "3e2e31c02f4e6beef5d60ed04197375ba971c67da7c4b3e4ceb2b53f6e5daad3",
+		"sha256": "c7414eb5ac848d8baaae5400fb4a7e1d2b1f589ee374c3bc5d035124989a989b",
 		"school": "har",
 		"preset": "fee-oracle",
 		"fixtureHash": "e221598dda32114044398bd13dea20b4b58aca973341cf7035ef0638d439cc65",
 		"kpisHash": "2ec489546cad96a47359dc7dc95f3465aea08d9c40df4bf96331d4b2cd9090c7"
 	},
 	"har/fee-oracle.member": {
-		"sha256": "e6b40146d06c408dfc3699547d6538385ff210cb1a387a00a984d0d770b65807",
+		"sha256": "cf0b38a369a51fe423220e697d0d35575889e57bd81fae3a857f4b2af0ede836",
 		"school": "har",
 		"preset": "fee-oracle",
 		"fixtureHash": "e221598dda32114044398bd13dea20b4b58aca973341cf7035ef0638d439cc65",
@@ -1120,14 +1120,14 @@
 		"kpisHash": "2ec489546cad96a47359dc7dc95f3465aea08d9c40df4bf96331d4b2cd9090c7"
 	},
 	"har/free-only.public": {
-		"sha256": "c6cb0864c140232da928b3c6c36c2e206ccb1239854e75317718b935bded2242",
+		"sha256": "a6e90a0388681a2b20fcb05009cff63f46c57fbaa7b247d7e67ea07b332f01f3",
 		"school": "har",
 		"preset": "free-only",
 		"fixtureHash": "fc654e5924e365731c7b654e90d4d58aab9961df9ede4c5a7fafc34576ea439b",
 		"kpisHash": "a72928fffd16c849d39ad0725c130cabbc5d9355895032e3c36f39843aa31833"
 	},
 	"har/free-only.member": {
-		"sha256": "f7312fb8ad22dfe08e8fc250ef323ed6572ccaaa3200f449906685b0bad51709",
+		"sha256": "2d50beb85109a2de084a79680d4b8ceb3b5946e01aba067177b63903d052a1d7",
 		"school": "har",
 		"preset": "free-only",
 		"fixtureHash": "fc654e5924e365731c7b654e90d4d58aab9961df9ede4c5a7fafc34576ea439b",
@@ -1176,21 +1176,21 @@
 		"kpisHash": "a72928fffd16c849d39ad0725c130cabbc5d9355895032e3c36f39843aa31833"
 	},
 	"har/growth-12mo.public": {
-		"sha256": "67bd8371a93ffe80463038e189ac159e273804f374d03af460f96d446ffb1a3f",
+		"sha256": "75d6a43508cc3cc94676265615995479c22b3fa7037bbb4c1877d2e814a92366",
 		"school": "har",
 		"preset": "growth-12mo",
 		"fixtureHash": "e35d37b28ef7e15e55cdbef3113efb2fffb23b5fe1f838953ca7417212cf7182",
 		"kpisHash": "08de1600651af777bf85cc2875062be1f2f3f797b77e68eace80ffb44d3cf12f"
 	},
 	"har/growth-12mo.member": {
-		"sha256": "8a0695fddd4e8570121e21a4f32667d9779a0514f3631f4322902625563f94b4",
+		"sha256": "18e7ae11c44485030b92ff460c5ce36af784f67b4223a23f66735e9bd29e13e2",
 		"school": "har",
 		"preset": "growth-12mo",
 		"fixtureHash": "e35d37b28ef7e15e55cdbef3113efb2fffb23b5fe1f838953ca7417212cf7182",
 		"kpisHash": "08de1600651af777bf85cc2875062be1f2f3f797b77e68eace80ffb44d3cf12f"
 	},
 	"har/growth-12mo.governance": {
-		"sha256": "682c1930f37e42fa6edc4b31c11cd59cc518a874b5f5774d029cb74bfb913f9d",
+		"sha256": "d7a0fe568d3e4cde35ff86fdd4f7d5718d6f8db293d0b60774f0a27b99f4cd5d",
 		"school": "har",
 		"preset": "growth-12mo",
 		"fixtureHash": "e35d37b28ef7e15e55cdbef3113efb2fffb23b5fe1f838953ca7417212cf7182",
@@ -1239,14 +1239,14 @@
 		"kpisHash": "c772c490db8bfa7ca12e7a26f495f9dc33ec5f1f0c8fefde046fc7586b91b87e"
 	},
 	"har/heavy-refunds.member": {
-		"sha256": "4e8cee5439146f2de89881105aab12e74f37b3b52539ec992b6a249d01deb6df",
+		"sha256": "29986c332e078a24b65d19fe6c39dbcc8da23715874de766f8d14f6468a0e85f",
 		"school": "har",
 		"preset": "heavy-refunds",
 		"fixtureHash": "697f9671f01bb74cf0820ae8618f05524633fdd0eb902f3611028fd31e821cca",
 		"kpisHash": "c772c490db8bfa7ca12e7a26f495f9dc33ec5f1f0c8fefde046fc7586b91b87e"
 	},
 	"har/heavy-refunds.governance": {
-		"sha256": "8b1ba8e1a1ad56d69d1d91bbfe5a61d0cba5e0b62866e6a8098e9566d7848a2d",
+		"sha256": "ab6d21f750dd1da8ac1bb3f033ed682fbc12dabe880db8076434142f7b66e95d",
 		"school": "har",
 		"preset": "heavy-refunds",
 		"fixtureHash": "697f9671f01bb74cf0820ae8618f05524633fdd0eb902f3611028fd31e821cca",
@@ -1288,14 +1288,14 @@
 		"kpisHash": "c772c490db8bfa7ca12e7a26f495f9dc33ec5f1f0c8fefde046fc7586b91b87e"
 	},
 	"har/monthly-members.public": {
-		"sha256": "c19c0f2091c1c67500ce6a6a4655a17b89f204704b707b24f1d2cb214b28a8e4",
+		"sha256": "ddc8d71ad4285b5855c4b26e37b1eb82ea439ddaab906a94c6888913c3a2ffc4",
 		"school": "har",
 		"preset": "monthly-members",
 		"fixtureHash": "53bf717957317f494cf662e1308274c7192b81e51d64a787fce69921a4ed7725",
 		"kpisHash": "1d4ca82500b478f78978212fcfdd3173e6ebc81a8dd0c83aab821d1b4e8027fb"
 	},
 	"har/monthly-members.member": {
-		"sha256": "b3b078470f9195579b7d402ce5f350e7d2d7bcc6a6b98f3220a5e203ae504ab3",
+		"sha256": "5da11945e0e4260e2b1296f566f6b3c570e9043f866021c1d1c63c933fde7dec",
 		"school": "har",
 		"preset": "monthly-members",
 		"fixtureHash": "53bf717957317f494cf662e1308274c7192b81e51d64a787fce69921a4ed7725",
@@ -1344,14 +1344,14 @@
 		"kpisHash": "1d4ca82500b478f78978212fcfdd3173e6ebc81a8dd0c83aab821d1b4e8027fb"
 	},
 	"har/non-usd.public": {
-		"sha256": "15462839fb7181036a82974622c84f6d6b870f14a811d03a56803699cd07fd06",
+		"sha256": "bc3aca15b64ad9629d64d069ffcf5f18a3ce08c31770359a6820ff0f9e46b272",
 		"school": "har",
 		"preset": "non-usd",
 		"fixtureHash": "b68af6ea99b8cc2097e7a344b3d1035aecb1bbbff5b1ecb5ae24d9ea868eb46e",
 		"kpisHash": "29675860dd793b94429794cf2127e032c35a6035d5d6a1ff6ddc5aea56c58db9"
 	},
 	"har/non-usd.member": {
-		"sha256": "b50bf2fc9eac43f98a61e3afbda862e0795237fa04e01cdf477c3373150612be",
+		"sha256": "53ae1bb77fa2adb899fc6abeef138de80a0d1c00256cafc6a98eaaf3679e22bf",
 		"school": "har",
 		"preset": "non-usd",
 		"fixtureHash": "b68af6ea99b8cc2097e7a344b3d1035aecb1bbbff5b1ecb5ae24d9ea868eb46e",
@@ -1400,21 +1400,21 @@
 		"kpisHash": "29675860dd793b94429794cf2127e032c35a6035d5d6a1ff6ddc5aea56c58db9"
 	},
 	"har/one-payer-tier.public": {
-		"sha256": "08599fa5116d6fcfc2ee300cf643b0dcd89d9fbd64f4152a09be633f5c286ec6",
+		"sha256": "36d04af7b6f3c5afb414f3bec80a89a8afbe227882b837400b1b62787565b668",
 		"school": "har",
 		"preset": "one-payer-tier",
 		"fixtureHash": "5120d4becb3779654d36256ec454ecb55e8d33cbfcd35b6b755b133ad06064bd",
 		"kpisHash": "58033f5c9703e1aa6daeb23f8b4f3197537e0d2939086c017b84865155ec7289"
 	},
 	"har/one-payer-tier.member": {
-		"sha256": "ea9d8d3db8cc9d07d9781a20a994c6e48d435ac557131abcd300285a103d3e12",
+		"sha256": "9738b44d5057d2298976605882f00e2b049e8d3d8f5f040b043bc267d338c8d2",
 		"school": "har",
 		"preset": "one-payer-tier",
 		"fixtureHash": "5120d4becb3779654d36256ec454ecb55e8d33cbfcd35b6b755b133ad06064bd",
 		"kpisHash": "58033f5c9703e1aa6daeb23f8b4f3197537e0d2939086c017b84865155ec7289"
 	},
 	"har/one-payer-tier.governance": {
-		"sha256": "e38b021638bd7e8f8495b495d43f37c0cfa4f3bdda54c1fe459b689fad2b9a44",
+		"sha256": "55c9152a99068f67929857956ff1a109931f289720ae17d02e41b4a2fde9a02d",
 		"school": "har",
 		"preset": "one-payer-tier",
 		"fixtureHash": "5120d4becb3779654d36256ec454ecb55e8d33cbfcd35b6b755b133ad06064bd",
@@ -1463,7 +1463,7 @@
 		"kpisHash": "f10a53bec6b6eb9f979b14206fdfd3cc45fdfbc1ddec7147eb9f5d8b03df9ff6"
 	},
 	"har/seminar-quantities.member": {
-		"sha256": "1071c0ca1ff4629844fff47be88e0db0d8ffdb0a3de6eaa51716555e2bbf62dc",
+		"sha256": "afe944ac3ea490ac52f878e9e0c95ae13777a3558231ba72965dd0e77d8dd91f",
 		"school": "har",
 		"preset": "seminar-quantities",
 		"fixtureHash": "9398295f52d7804306184224cffaa13e40343311ff9c6f84d50870baa34cf162",
@@ -1512,21 +1512,21 @@
 		"kpisHash": "f10a53bec6b6eb9f979b14206fdfd3cc45fdfbc1ddec7147eb9f5d8b03df9ff6"
 	},
 	"har/single-refund-month.public": {
-		"sha256": "f4be6910bd3ea4e6d9058a296e0bb3d6470cae7a1c154bc9bb1666e5769ebac9",
+		"sha256": "3daf1b5d6b8ac99a0fa32a8a934d546b0256f74af5a92fa554c9e072708d38aa",
 		"school": "har",
 		"preset": "single-refund-month",
 		"fixtureHash": "753c4fe7bebe1bf700b53edd1cdaf26bc40be81cb5757a8c577431729ac91366",
 		"kpisHash": "f859f56580971235a41bdbd48b1f6d1d41bd02a54d8203c3f2aa7d63efbf1b4e"
 	},
 	"har/single-refund-month.member": {
-		"sha256": "3bba25c3505ee4fed0d490189c142e64c31460246e43aee9c7ea1e3c566f1ac5",
+		"sha256": "fb53c6715ddd4fe30ea6a454f760df24684addc084b1a826abfdc083100dfc03",
 		"school": "har",
 		"preset": "single-refund-month",
 		"fixtureHash": "753c4fe7bebe1bf700b53edd1cdaf26bc40be81cb5757a8c577431729ac91366",
 		"kpisHash": "f859f56580971235a41bdbd48b1f6d1d41bd02a54d8203c3f2aa7d63efbf1b4e"
 	},
 	"har/single-refund-month.governance": {
-		"sha256": "a3dce6018766e96397528b3daca75a019ce029998cb9490a60a0480bb6917b16",
+		"sha256": "9cfca47a3617dfcad05dd3bdb550c755b31324bf237da36ec63bdf0e4b42e894",
 		"school": "har",
 		"preset": "single-refund-month",
 		"fixtureHash": "753c4fe7bebe1bf700b53edd1cdaf26bc40be81cb5757a8c577431729ac91366",
@@ -1568,21 +1568,21 @@
 		"kpisHash": "f859f56580971235a41bdbd48b1f6d1d41bd02a54d8203c3f2aa7d63efbf1b4e"
 	},
 	"har/tiny-school.public": {
-		"sha256": "b52f24c455b4d5cbaa38506cb0a0f0500f5e21338e351042206668ee0b29da33",
+		"sha256": "77b392cf72350492ae6fcf4bc477692706131ec5e06e2b862da1aeddd67ddbcb",
 		"school": "har",
 		"preset": "tiny-school",
 		"fixtureHash": "7967e93b2bc47272cbfbd4a9461186197db70164edccf411c7061220c692566a",
 		"kpisHash": "69f19d10622fa8a08ec73966372f0c3e8b2b85520655cb85e5997f8eea71e82b"
 	},
 	"har/tiny-school.member": {
-		"sha256": "3bc91f6f251a56bd5fe77a20a3cca6a16e6dedd9f4b924e376644394bd0aec06",
+		"sha256": "f88a2d504ad8efb286db451bbbda59df4d59aaa9ea7b45d1cfda907eb7268a1b",
 		"school": "har",
 		"preset": "tiny-school",
 		"fixtureHash": "7967e93b2bc47272cbfbd4a9461186197db70164edccf411c7061220c692566a",
 		"kpisHash": "69f19d10622fa8a08ec73966372f0c3e8b2b85520655cb85e5997f8eea71e82b"
 	},
 	"har/tiny-school.governance": {
-		"sha256": "ffb64b64a8d6008af8ce10e6762afb66991986fcef42b5a32879197fe2a236d3",
+		"sha256": "05fed552dff1b541e35cb5d244c5557779536f112b989b01fa29b9ee42183bf9",
 		"school": "har",
 		"preset": "tiny-school",
 		"fixtureHash": "7967e93b2bc47272cbfbd4a9461186197db70164edccf411c7061220c692566a",
@@ -1624,21 +1624,21 @@
 		"kpisHash": "69f19d10622fa8a08ec73966372f0c3e8b2b85520655cb85e5997f8eea71e82b"
 	},
 	"har/yearly-solo.public": {
-		"sha256": "8bef9e9d0a1fc6355ffc55fb2ef2cd7a8d8733a1bf363bea0b547ead4fc81461",
+		"sha256": "b4f33f6fbf007bb33b4d2af0da322d8537d3c5c6b474106aeb8b3ecd35ea8e41",
 		"school": "har",
 		"preset": "yearly-solo",
 		"fixtureHash": "a1e2744710fb9e2f2ce75766dc33b18220ac6e55c93562ba19e767985a1a47f8",
 		"kpisHash": "ee1ee0fb014ef05ee684cec3508d5baacc383d944d7098d91a7b4097f94c2e17"
 	},
 	"har/yearly-solo.member": {
-		"sha256": "7e29eba9c5f822f69056c48d19fc5ff3ec58e951acb34953f51ab4171cc081d8",
+		"sha256": "78639117bb6841c06a42020ae9382a207833457b0933c5828f55efbedc31a537",
 		"school": "har",
 		"preset": "yearly-solo",
 		"fixtureHash": "a1e2744710fb9e2f2ce75766dc33b18220ac6e55c93562ba19e767985a1a47f8",
 		"kpisHash": "ee1ee0fb014ef05ee684cec3508d5baacc383d944d7098d91a7b4097f94c2e17"
 	},
 	"har/yearly-solo.governance": {
-		"sha256": "7bbd6a3c80a4ccc20c58655248c8db52ae249ef638ce9ded48624d53b2172802",
+		"sha256": "311d9faf3b803dd16d48068cba9877f5fc7a90ab5b84d9126c36349784dae99b",
 		"school": "har",
 		"preset": "yearly-solo",
 		"fixtureHash": "a1e2744710fb9e2f2ce75766dc33b18220ac6e55c93562ba19e767985a1a47f8",
@@ -1685,7 +1685,7 @@
 		"mockupSha256": "52bd30679c8556c53579d2086b21ca9ade3ad38256d915d9a5e5b3470e1a464c"
 	},
 	"vol.member": {
-		"sha256": "7061aa8729d82c16bef2a3cc45bfbda10d473e119b61a71a4f44fcc93d8e52d2",
+		"sha256": "e9dc19d7f75d17aadb5310a0c71a3aeba022d56debbdba843428a15b356bc44f",
 		"school": "vol",
 		"mockupSha256": "52bd30679c8556c53579d2086b21ca9ade3ad38256d915d9a5e5b3470e1a464c"
 	},
@@ -1725,7 +1725,7 @@
 		"mockupSha256": "52bd30679c8556c53579d2086b21ca9ade3ad38256d915d9a5e5b3470e1a464c"
 	},
 	"map.member": {
-		"sha256": "0605d33446f58393411d9c95899b54774a8158e91d542e5213fd9880f7e6856d",
+		"sha256": "ce1cce1d0ecc9ba54db9a02825634d8eccc3ebbe9a03e3ab92a36413c4d233de",
 		"school": "map",
 		"mockupSha256": "52bd30679c8556c53579d2086b21ca9ade3ad38256d915d9a5e5b3470e1a464c"
 	},
@@ -1765,7 +1765,7 @@
 		"mockupSha256": "52bd30679c8556c53579d2086b21ca9ade3ad38256d915d9a5e5b3470e1a464c"
 	},
 	"nw.member": {
-		"sha256": "765d4897057cb463d7f7f18829b5f11ad2f7e462a8fa1111ab35628f4a89ddc5",
+		"sha256": "0ed77190c6201552b0def6355b7e50150bcc911fb59bb477fa254254362cd086",
 		"school": "nw",
 		"mockupSha256": "52bd30679c8556c53579d2086b21ca9ade3ad38256d915d9a5e5b3470e1a464c"
 	},

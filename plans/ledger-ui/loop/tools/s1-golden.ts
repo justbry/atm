@@ -358,6 +358,8 @@ const governanceB4u = b4u("governance");
 const financeB4u = b4u("finance");
 const ownerVol = documentOf("vol.owner");
 const memberHar = documentOf("har/monthly-members.member");
+/** The year table's sum of the year's four rounded quarters (gates/oracle.ts `roundedQuartersKpi`). */
+const roundedQuarters = "gross_collected_rounded_quarters";
 const flagsOf = (document: KpiDocument): number => {
 	const table = document.tables.month;
 	if (!table) return 0;
@@ -612,7 +614,7 @@ const entries = [
 	{
 		id: "member-quarter",
 		source:
-			"mockup dashAgg for Member: quarters of 2025 (invented, BK_SCALE 0.82) and 2026, 6 weeks after each closes, money rounded to $100, the year's own total; refunds fail the cell rules on the mart's holders (the mockup counts the period's payers and shows 'under $100')",
+			"mockup dashAgg for Member: quarters of 2025 (invented, BK_SCALE 0.82) and 2026, 6 weeks after each closes, money rounded to $100, the year's own total; losses as one total (refunds under $100, net $1,800: the cell rules count the period's paying members)",
 		route: route(
 			"b4u",
 			"monthly-members",
@@ -633,7 +635,8 @@ const entries = [
 				"[data-test=dash-period]": 8,
 				[`${periodButton("2026-Q3")}[disabled][title="Published after 18 Nov 2026"]`]: 1,
 				[`${periodButton("2026-Q4")}[disabled][title="Published after 18 Feb 2027"]`]: 1,
-				[`${value("refunds")}[title="${text(memberB4u, "refunds", "2026-Q2") === "—" ? `Hidden: fewer than 5 payers` : ""}"]`]: 1,
+				[`${value("refunds")}[data-cell=${kindOf(memberB4u, "refunds", "2026-Q2")}]`]: 1,
+				"[data-test=year-note]": 0,
 			},
 			contains: {
 				"[data-test=dash-period]": ["Q1 2025", "Q4 2025", "Q2 2026", "Q4 2026"],
@@ -642,9 +645,37 @@ const entries = [
 		},
 	},
 	{
+		id: "member-year-total",
+		source:
+			"mockup bkYearLine (smoke.mjs 'rounding: large school, Member money to $100, and the year total is not the sum of its rounded quarters'): Harbor Arts Academy as Member, Q4 2025: the year's own total, rounded from its events, and the sum of the four rounded quarters, both from the document's year table",
+		route: route(
+			"har",
+			"monthly-members",
+			null,
+			"money",
+			"2025-10-01..2025-12-31",
+		),
+		expect: {
+			text: {
+				[cell("gross_collected", "2025")]: text(
+					memberHar,
+					"gross_collected",
+					"2025",
+				),
+				[cell(roundedQuarters, "2025")]: text(
+					memberHar,
+					roundedQuarters,
+					"2025",
+				),
+				"[data-test=year-note]": `The four rounded quarters add up to ${text(memberHar, roundedQuarters, "2025")}; the year is rounded from its own events.`,
+			},
+			contains: { "[data-test=pane]": ["2025 total"] },
+		},
+	},
+	{
 		id: "governance-month",
 		source:
-			"mockup dashFull for Governance: exact closed months (Oct to Dec wait, disabled), plan and fund breakdowns under the cell rules; plans read the mart's holders (the mockup estimates payers from the average)",
+			"mockup dashFull for Governance: exact closed months (Oct to Dec wait, disabled), plan and fund breakdowns under the cell rules; a plan's payers are its gross over the average per paying member, as the mockup counts them",
 		route: route("b4u", "monthly-members", "governance", "money", "2026-06"),
 		expect: {
 			text: {
@@ -928,7 +959,7 @@ const golden = {
 		"Route (S2 and S7's grammar): #/<school>/dashboard?preset=&as=&pin=&view=&month=. as= picks the View as row (resolveViewAs over the school's disclosure; the audience is option.audience, so Admin reads its member document); absent, the signed-in person's own. pin=locked from Governance up shows the PIN prompt (ignored below). month= is S0's period: YYYY-MM for a month, YYYY-MM-DD..YYYY-MM-DD for a quarter or a year (the document period's from..to); a period the audience may not pick snaps as S7's notes say. Without preset=, view= and month=, a fixture school opens on Monthly members, Money and the month the mockup opens it on (B4 Uni: Jun; Harbor Arts Academy as Member: Q2 2026), an events school on Money and the open month. Switching school drops as=, view=, month= and preset=.",
 		"root.dataset.route is set only after the Dashboard has rendered the document of that route (or its PIN prompt).",
 		"Every rendered KPI cell carries data-kpi, data-period (the document table's period: YYYY, YYYY-Qn or YYYY-MM) and data-cell (cellKind: number, lt, approx or the hidden kind), and its text is exactly the cell as the mockup writes it (kpi-document.ts KpiFormat, with the document's symbol): a hidden cell its text, '—' when suppressed; a cell with a reason carries title (a hidden cell its text; an lt or approx 'Rounded to the nearest 10: <why>'). Day cells (Finance admin and Owner, 'Gross by day') carry data-day (YYYY-MM-DD), data-cell and, for a number, data-value; their text is not checked. Labels, captions, legends and reason lines sit outside the cell element.",
-		"Series rows and charts read the table of the KPI's own grain (meta.every): 'Gross by year' the year table, 'Paying members by quarter' the quarter table, 'Credits used by month' the month table, each over the selected period's year; Member also shows the year's own total (the year table). Plans (revenue_by_tier), funds (donations_by_fund, in table.order) and donors (donors_count, donors_by_size, donors_median_gift) are in the documents from Governance up; below it the plan row is S7's dashboard-plan lock panel.",
+		"Series rows and charts read the table of the KPI's own grain (meta.every): 'Gross by year' the year table, 'Paying members by quarter' the quarter table, 'Credits used by month' the month table, each over the selected period's year; Member also shows the year's own total (the year table's gross_collected) and, when the year and its four quarters are all figures, year-note: 'The four rounded quarters add up to <the year table's gross_collected_rounded_quarters>; the year is rounded from its own events.' (mockup bkYearLine; the UI sums nothing). Plans (revenue_by_tier), funds (donations_by_fund, in table.order) and donors (donors_count, donors_by_size, donors_median_gift) are in the documents from Governance up; below it the plan row is S7's dashboard-plan lock panel.",
 		"kpi-card is one of the mockup's cards (5 Money, 4 Members, 4 Risk) with kpi-label and kpi-value (the card KPI's cell); Dispute cost shows disputes_lost and dispute_fees as cells (the UI derives no sum). dash-period is a strip button (data-period, disabled with its title when not shown, class on when chosen; at the month grain its text is the month's short name and the live audiences' open month carries class kopen with title 'Open month: live, can still change'); dash-step the ‹ › buttons of the month strip; open-key 'hatched = open month, live'. dash-caption the caption (document.captions[year]), dash-badge the badges ('Cash basis · <symbol>', 'Fixture data: invented' or 'From this school's events'), dash-note the annual-prepay note, dash-empty 'No payments yet…' (document.empty), dash-flag a 'Needs a look' row, donor-line the spread sentence, kpi-why a reason line '<title>: <why>'. pin-chip the PIN locked chip, pin-lock the prompt with pin-input and pin-unlock (enabled at 4 digits).",
 		"Not checked here: the card sub-lines that compare months ('▲ $29 vs May'), the chart bars, the Reports, Ledger and Members surfaces of the disclosure (S5, S4), the View as dropdown itself (S7).",
 	],
@@ -957,6 +988,7 @@ const golden = {
 		"lock-panel",
 		"lock-who",
 		"lock-when",
+		"year-note",
 	],
 	views: Object.fromEntries(
 		audiencesInOrder.map((audience) => [

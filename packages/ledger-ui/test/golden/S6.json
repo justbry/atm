@@ -142,7 +142,7 @@
 	"entries": [
 		{
 			"id": "matrix-adult-overview",
-			"source": "mockup headless (drawVM, mpHome, mpBooks) on b4u, Dana W. (s_21, adult of the Wu family): the preview bar, scope banner, note, plan card, balance and the School books card at Member (last quarter shown Q2 2026). The card's figures are the member document's cells (src/fixtures/mart/documents.json monthly-members.member, quarter table, 2026-Q2): gross 190000 money0 is '$1,900', as the mockup; net_income is suppressed in the document ('—', title 'Hidden: fewer than 5 payers') where the mockup's static estimate reads '$1,800 net', so the entry expects the document's cell; smoke.mjs 'portal scope banner', 'portal adult toggle', 'portal: adult member reads the Member document (quarters, $100)', 'hist: home tab has no admin tools or switch-plan button'",
+			"source": "mockup headless (drawVM, mpHome, mpBooks) on b4u, Dana W. (s_21, adult of the Wu family): the preview bar, scope banner, note, plan card, balance and the School books card at Member (last quarter shown Q2 2026). The card's figures are the member document's cells (src/fixtures/mart/documents.json monthly-members.member, quarter table, 2026-Q2): gross 190000 money0 is '$1,900', as the mockup; net_income 180000 money0 is '$1,800', as the mockup's '$1,800 net' (the cell rules count the period's paying members, G1g); smoke.mjs 'portal scope banner', 'portal adult toggle', 'portal: adult member reads the Member document (quarters, $100)', 'hist: home tab has no admin tools or switch-plan button'",
 			"route": "#/b4u/members?portal=s_21&theme=light",
 			"covers": {
 				"member": "adult",
@@ -186,7 +186,7 @@
 					},
 					"[data-test=books-pill]": "Member",
 					"[data-test=books-card] [data-kpi=\"gross_collected\"][data-period=\"2026-Q2\"]": "$1,900",
-					"[data-test=books-card] [data-kpi=\"net_income\"][data-period=\"2026-Q2\"]": "—",
+					"[data-test=books-card] [data-kpi=\"net_income\"][data-period=\"2026-Q2\"]": "$1,800",
 					"[data-test=portal-action][data-action=books]": "Open school books"
 				},
 				"count": {
@@ -203,7 +203,7 @@
 					"[data-test=portal-action][data-action=quantity][disabled]": 0,
 					"[data-test=portal] input[type=checkbox]": 0,
 					"[data-test=portal-action][data-action=switch]": 0,
-					"[data-test=books-card] [data-kpi=\"net_income\"][data-period=\"2026-Q2\"][data-cell=suppressed][title=\"Hidden: fewer than 5 payers\"]": 1,
+					"[data-test=books-card] [data-kpi=\"net_income\"][data-period=\"2026-Q2\"][data-cell=number]": 1,
 					"[data-test=books-card] [data-kpi=\"gross_collected\"][data-period=\"2026-Q2\"][data-cell=number]": 1
 				},
 				"contains": {
