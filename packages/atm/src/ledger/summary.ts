@@ -156,8 +156,7 @@ const nextExpiries = ({
 }): Map<string, number> => {
 	const out = new Map<string, number>();
 	const note = (holder: string, feature: string, expiresAt: number | null) => {
-		if (expiresAt === null || expiresAt === undefined || expiresAt <= asOfMs)
-			return;
+		if (expiresAt === null || expiresAt <= asOfMs) return;
 		const slot = `${holder}\u0000${feature}`;
 		const known = out.get(slot);
 		if (known === undefined || expiresAt < known) out.set(slot, expiresAt);

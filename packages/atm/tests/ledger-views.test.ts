@@ -12,7 +12,9 @@ import {
 	memberViewKey,
 	memberViewName,
 	monthViewKey,
+	readViewsFromStore,
 	type Views,
+	type ViewsReader,
 	writeViews,
 } from "../src/ledger/views.js";
 import { FolderStore } from "../src/store/folder-store.js";
@@ -214,9 +216,10 @@ describe("writeViews", () => {
 				},
 			};
 			const result = await writeViews(store, "sch_multi", changed);
-			// the manifest's asOf, events and object count are the same, so it is not rewritten
+			// the manifest lists the changed month's new hash, so it is rewritten with it (and last)
 			expect(result.replaced).toEqual([
 				monthViewKey("sch_multi", month as string),
+				manifestKey("sch_multi"),
 			]);
 			expect(result.created).toEqual([]);
 		});
@@ -290,10 +293,28 @@ describe("writeViews: objects are content only, the manifest is the generation",
 			await rm(root, { recursive: true, force: true });
 		}
 	};
+	/** The one month of the hand-built log. */
+	const HAND_MONTH = Object.keys(
+		viewsAt(at.refunded + 1000).months,
+	)[0] as string;
 	const first = at.secondSpent + 1000;
 	const later = at.refunded + 1000;
 	const manifestOf = async (store: Store) =>
 		JSON.parse(await textOf(store, manifestKey("sch_hand")));
+	const openReader = async (store: Store): Promise<ViewsReader> => {
+		const reader = await readViewsFromStore(store, "sch_hand");
+		if (!reader.ok) throw new Error(JSON.stringify(reader));
+		return reader;
+	};
+	/** Reads every object the manifest lists; the first one that does not verify, or `{ ok: true }`. */
+	const allObjectsOk = async (reader: ViewsReader) => {
+		const reads = [
+			await reader.membersIndex(),
+			await reader.month(HAND_MONTH),
+			await reader.member("family:fam_hand"),
+		];
+		return reads.find((read) => !read.ok) ?? { ok: true };
+	};
 
 	test("no month, member or index object holds asOf; the manifest records the run", async () => {
 		await withStore(async (store) => {
@@ -314,6 +335,16 @@ describe("writeViews: objects are content only, the manifest is the generation",
 				},
 				// one month, one member, the index
 				objectCount: 3,
+				objects: Object.fromEntries(
+					await Promise.all(
+						result.created
+							.filter((key) => key !== manifest)
+							.map(async (key) => [
+								key,
+								sha256Hex(utf8(await textOf(store, key))),
+							]),
+					),
+				),
 			});
 			expect(views.generatedFrom.eventCount).toBe(events.length);
 		});
@@ -403,14 +434,26 @@ describe("writeViews: objects are content only, the manifest is the generation",
 			expect(raced).toBe(true);
 			expect(result.stale).toBe(true);
 			expect((await manifestOf(inner)).asOf).toBe(newest.asOf);
+			// contents, not only counts: every object holds what the newest run alone writes
+			await withStore(async (alone) => {
+				await writeViews(alone, "sch_hand", newest);
+				const listed = await alone.list({ prefix: "schools/sch_hand/views/" });
+				expect(listed.objects.length).toBe(4);
+				for (const { key } of listed.objects)
+					expect(await textOf(inner, key)).toBe(await textOf(alone, key));
+			});
+			const reader = await openReader(inner);
+			expect(await allObjectsOk(reader)).toEqual({ ok: true });
 		});
 	});
 
-	test("a failure partway leaves the old manifest in place", async () => {
+	test("a failure partway leaves the old manifest in place, and the reader flags the one object that changed", async () => {
 		await withStore(async (inner) => {
 			const old = viewsAt(first);
 			await writeViews(inner, "sch_hand", old);
 			const manifestBefore = await textOf(inner, manifestKey("sch_hand"));
+			const memberKey = memberViewKey("sch_hand", "family:fam_hand");
+			const memberBefore = await textOf(inner, memberKey);
 			let failures = 0;
 			const { store, writes } = watched(inner, {
 				beforeWrite: (_key, written) => {
@@ -425,10 +468,117 @@ describe("writeViews: objects are content only, the manifest is the generation",
 				writeViews(store, "sch_hand", viewsAt(later)),
 			).rejects.toThrow(/store went away/);
 			expect(failures).toBe(1);
-			expect(writes.length).toBe(1);
-			expect(writes).not.toContain(manifestKey("sch_hand"));
+			expect(writes).toEqual([memberKey]);
 			expect(await textOf(inner, manifestKey("sch_hand"))).toBe(manifestBefore);
 			expect((await manifestOf(inner)).asOf).toBe(old.asOf);
+			// the object that landed is newer than the manifest: not rolled back, and a reader sees it
+			expect(await textOf(inner, memberKey)).not.toBe(memberBefore);
+			const reader = await openReader(inner);
+			expect(await reader.member("family:fam_hand")).toEqual({
+				ok: false,
+				error: "view-mismatch",
+				key: memberKey,
+			});
+			// the objects the run never reached still match the old manifest
+			expect((await reader.month(HAND_MONTH)).ok).toBe(true);
+			expect((await reader.membersIndex()).ok).toBe(true);
+		});
+	});
+
+	test("an older run whose writes land after a newer run's manifest is detected, object by object", async () => {
+		await withStore(async (inner) => {
+			const older = viewsAt(first);
+			const newer = viewsAt(later);
+			let raced = false;
+			// the older run passed the stale check on an empty store; the newer run then publishes completely
+			const { store } = watched(inner, {
+				beforeWrite: () => {},
+			});
+			const lagging: Store = {
+				...store,
+				async putIfAbsent(key, body) {
+					if (!raced) {
+						raced = true;
+						await writeViews(inner, "sch_hand", newer);
+					}
+					return store.putIfAbsent(key, body);
+				},
+			};
+			const result = await writeViews(lagging, "sch_hand", older);
+			expect(raced).toBe(true);
+			expect(result.stale).toBe(true);
+			const manifest = await manifestOf(inner);
+			expect(manifest.asOf).toBe(newer.asOf);
+			// the older run's objects are now under the newer manifest
+			const reader = await openReader(inner);
+			const memberKey = memberViewKey("sch_hand", "family:fam_hand");
+			const monthKey = monthViewKey("sch_hand", HAND_MONTH);
+			expect(await reader.member("family:fam_hand")).toEqual({
+				ok: false,
+				error: "view-mismatch",
+				key: memberKey,
+			});
+			expect(await reader.month(HAND_MONTH)).toEqual({
+				ok: false,
+				error: "view-mismatch",
+				key: monthKey,
+			});
+			// a rerun of the newer asOf heals them: nothing is left mismatched
+			await writeViews(inner, "sch_hand", newer);
+			expect(await allObjectsOk(await openReader(inner))).toEqual({ ok: true });
+		});
+	});
+
+	test("a complete run verifies clean, and the reader returns the objects' contents", async () => {
+		await withStore(async (store) => {
+			const views = viewsAt(later);
+			await writeViews(store, "sch_hand", views);
+			const reader = await openReader(store);
+			expect(reader.manifest.asOf).toBe(views.asOf);
+			expect(await allObjectsOk(reader)).toEqual({ ok: true });
+			const member = Object.values(
+				views.members,
+			)[0] as Views["members"][string];
+			expect(await reader.member(member.key)).toEqual({
+				ok: true,
+				value: { school: "sch_hand", ...member },
+			});
+			const [month] = Object.keys(views.months) as [string];
+			expect(await reader.month(month)).toEqual({
+				ok: true,
+				value: {
+					school: "sch_hand",
+					month,
+					...(views.months[month] as Views["months"][string]),
+				},
+			});
+			// not in this generation: a not-found, not a mismatch
+			expect(await reader.month("1999-01")).toEqual({
+				ok: false,
+				error: "not-in-manifest",
+				key: monthViewKey("sch_hand", "1999-01"),
+			});
+			expect(await reader.member("family:nobody")).toMatchObject({
+				ok: false,
+				error: "not-in-manifest",
+			});
+		});
+	});
+
+	test("no manifest, and a manifest in an older format, are errors of their own", async () => {
+		await withStore(async (store) => {
+			expect(await readViewsFromStore(store, "sch_hand")).toEqual({
+				ok: false,
+				error: "no-manifest",
+			});
+			await store.putIfAbsent(
+				manifestKey("sch_hand"),
+				utf8('{"asOf":"2026-01-01T00:00:00.000Z"}\n'),
+			);
+			expect(await readViewsFromStore(store, "sch_hand")).toEqual({
+				ok: false,
+				error: "bad-manifest",
+			});
 		});
 	});
 });

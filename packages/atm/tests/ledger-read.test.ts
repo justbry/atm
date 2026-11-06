@@ -167,6 +167,28 @@ describe("readEventsFromStore over an in-memory store", () => {
 		expect(gets).not.toContain(batchKey("sch_x", date, "batch-combined"));
 	});
 
+	test("a key nested deeper than date=D/<file>, or under another prefix, is ignored, as the disk reader ignores it", async () => {
+		const events = await sampleEvents();
+		const [first, second, third] = events;
+		const date = (first as AtmEvent).date;
+		const { store, objects, gets } = memoryStore(100);
+		objects.set(
+			batchKey("sch_x", date, "batch-a"),
+			`${lineOf(first as AtmEvent)}\n`,
+		);
+		const nested = `schools/sch_x/events/archive/date=${date}/batch-nested.jsonl`;
+		const deeper = `schools/sch_x/events/date=${date}/sub/batch-deeper.jsonl`;
+		const otherSchool = `schools/sch_x/events/other/schools/sch_y/events/date=${date}/batch-other.jsonl`;
+		objects.set(nested, `${lineOf(second as AtmEvent)}\n`);
+		objects.set(deeper, `${lineOf(third as AtmEvent)}\n`);
+		objects.set(otherSchool, `${lineOf(third as AtmEvent)}\n`);
+		const got = await readEventsFromStore(store, "sch_x");
+		expect(got.map((e) => e.id)).toEqual([(first as AtmEvent).id]);
+		expect(gets).not.toContain(nested);
+		expect(gets).not.toContain(deeper);
+		expect(gets).not.toContain(otherSchool);
+	});
+
 	test("refuses a bad range, a school with a slash, and a batch that is not JSONL", async () => {
 		const { store, objects } = memoryStore(10);
 		await expect(

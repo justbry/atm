@@ -11,8 +11,8 @@ export type EventDateRange = { from?: string; to?: string };
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const SCHOOL_PATTERN = /^[0-9A-Za-z_-]+$/;
-/** An event object key: the day directory (with its `date=` segment) and the batch file name directly under it. */
-const EVENT_KEY_PATTERN = /^(.*\/date=(\d{4}-\d{2}-\d{2})\/)([^/]+)$/;
+/** What follows the school's events prefix in an event object key: the day's `date=` segment and the batch file name directly under it, nothing deeper (as `listEventFiles` in files.ts reads). */
+const EVENT_KEY_TAIL_PATTERN = /^date=(\d{4}-\d{2}-\d{2})\/([^/]+)$/;
 const COMBINED_DAY_NAME = "day.jsonl";
 const LATE_PREFIX = "late-";
 /** Batch objects fetched at once: a Worker's open subrequests are limited, and the order of results does not depend on it. */
@@ -45,14 +45,17 @@ const checkDate = (name: string, value: string | undefined): void => {
  */
 const eventKeysIn = (
 	keys: readonly string[],
+	prefix: string,
 	range: EventDateRange,
 ): string[] => {
 	const days = new Map<string, string[]>();
 	for (const key of keys) {
-		const match = EVENT_KEY_PATTERN.exec(key);
+		// anchored at the school's own prefix by `startsWith`, so no school id needs escaping into a pattern
+		if (!key.startsWith(prefix)) continue;
+		const match = EVENT_KEY_TAIL_PATTERN.exec(key.slice(prefix.length));
 		if (match === null) continue;
-		const date = match[2];
-		const name = match[3];
+		const date = match[1];
+		const name = match[2];
 		if (date === undefined || name === undefined || !name.endsWith(".jsonl"))
 			continue;
 		if (range.from !== undefined && date < range.from) continue;
@@ -139,10 +142,11 @@ export const readEventsFromStore = async (
 		throw new Error(`school ${JSON.stringify(school)} is not a plain id`);
 	checkDate("range.from", range.from);
 	checkDate("range.to", range.to);
-	const keys = await listAllKeys(store, `schools/${school}/events/`);
+	const prefix = `schools/${school}/events/`;
+	const keys = await listAllKeys(store, prefix);
 	const decoder = new TextDecoder();
 	const batches = await mapLimited(
-		eventKeysIn(keys, range),
+		eventKeysIn(keys, prefix, range),
 		FETCH_CONCURRENCY,
 		async (key) => parseBatch(key, decoder.decode((await store.get(key)).body)),
 	);
