@@ -7,7 +7,7 @@ import { Database } from "bun:sqlite";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { addUtcMonths } from "../src/billing/grants.js";
 import { DEFAULT_POLICY } from "../src/billing/policy.js";
@@ -147,6 +147,18 @@ beforeAll(async () => {
 	const empty = new Database(files.noTable, { create: true });
 	empty.exec("CREATE TABLE unrelated (x INTEGER)");
 	empty.close();
+	files.emptyFile = join(folder, "empty.sqlite");
+	await writeFile(files.emptyFile, "");
+	// The handler's database in WAL mode with no -wal or -shm beside it: closed, checkpointed (macOS keeps the empty files,
+	// so they are removed here). On Linux a read-only connection would create both and leave them.
+	files.walAtRest = join(folder, "wal-at-rest.sqlite");
+	await copyFile(databaseFile, files.walAtRest);
+	const wal = new Database(files.walAtRest);
+	wal.exec("PRAGMA journal_mode = WAL");
+	wal.close();
+	await rm(`${files.walAtRest}-wal`, { force: true });
+	await rm(`${files.walAtRest}-shm`, { force: true });
+	expect(readFileSync(files.walAtRest)[18]).toBe(2);
 	expect(DEFAULT_POLICY.upgradeGrant).toBe("prorated");
 	expect(addUtcMonths(T0, 1)).toBe(T1);
 });
@@ -203,6 +215,15 @@ const oneLineError = (err: string) => {
 };
 
 describe("atm simulate --inputs: exit 0, 1 and 2", () => {
+	test("a WAL database with no -wal beside it: the same answer, and no file appears beside it", () => {
+		const run = atm(
+			base().map((a) => (a === databaseFile ? (files.walAtRest as string) : a)),
+		);
+		expect(run.err).toBe("");
+		expect(run.code).toBe(0);
+		expect(run.out).toContain("the replay reproduces the log (2 inputs)");
+	});
+
 	test("no candidate flags and a baseline that holds: exit 0, no difference", () => {
 		const run = atm(base());
 		expect(run.err).toBe("");
@@ -391,6 +412,14 @@ describe("atm simulate --inputs: input it cannot use is exit 2 with one line", (
 					a === databaseFile ? (files.notSqlite as string) : a,
 				),
 			/cannot be (opened|read)/,
+		],
+		[
+			"an empty file",
+			() =>
+				base().map((a) =>
+					a === databaseFile ? (files.emptyFile as string) : a,
+				),
+			/holds no stored inputs for school sch_vol \(live\)/,
 		],
 		[
 			"a database with no inputs table",
