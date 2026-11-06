@@ -79,9 +79,9 @@ describe("a receipt is a pure function of its event", () => {
 		expect(receipt?.event_hash).toBe(sha256Hex(canonicalize(golden)));
 		const files: Record<string, string> = {
 			"event.canonical.jsonl": `${canonicalize(golden)}\n`,
-			"receipt.json": `${canonicalize(receipt)}\n`,
-			"signed.json": `${canonicalize(signed(golden))}\n`,
-			"key.json": `${JSON.stringify({ key_id: TEST_KEY_ID, spki_sha256: testKeyFingerprint() }, null, 2)}\n`,
+			"receipt.canonical.jsonl": `${canonicalize(receipt)}\n`,
+			"signed.canonical.jsonl": `${canonicalize(signed(golden))}\n`,
+			"key.json": `${JSON.stringify({ key_id: TEST_KEY_ID, spki_sha256: testKeyFingerprint() }, null, "\t")}\n`,
 		};
 		if (process.env.UPDATE_GOLDEN) {
 			await mkdir(GOLDEN_DIR, { recursive: true });
@@ -91,7 +91,7 @@ describe("a receipt is a pure function of its event", () => {
 		for (const [name, text] of Object.entries(files))
 			expect(text).toBe(await readFile(join(GOLDEN_DIR, name), "utf8"));
 		const pinned = JSON.parse(
-			await readFile(join(GOLDEN_DIR, "signed.json"), "utf8"),
+			await readFile(join(GOLDEN_DIR, "signed.canonical.jsonl"), "utf8"),
 		);
 		expect(verifyReceipt(pinned, testKeys)).toEqual({ ok: true });
 	});
