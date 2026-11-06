@@ -15,6 +15,12 @@
  *   `const`/`let` declaration is hoisted as `let` names at the top of its block and each declarator assigned in its own
  *   step (`(name = init)`, binding patterns included), so later statements still see every name that could be
  *   computed. Function declarations are kept as written. Each `ok(` call becomes `__ok(<its line>, ...)`.
+ * - Waits inside a statement: the mockup redraws inside a click, the UI may render on a later task or after a load.
+ *   Wherever an `await` is legal (statement level, not inside a callback), every `.click()`, `.dispatchEvent()`,
+ *   `tab()`, `sc()` and helper call becomes `(await __after(<call>))`, which settles the page before the statement goes
+ *   on. A helper the body declares whose own statements act on the page (`portal`, `va`, `openRow`, ...) also gets an
+ *   async twin `<name>__a` with the same waits inside, called at those sites; the sync original stays for callbacks
+ *   (`BV.map(l => lvl(l))`), which cannot wait.
  * - A check is one `ok(name, cond, info)` call at run time. Its id is the slug of its name plus an occurrence index
  *   (`<slug>.<n>`, n counting from 1 per slug in run order). Its line is the first line of the innermost step that
  *   called it; a check a UI run never reaches is reported with the error of the step that holds that line.
@@ -106,8 +112,110 @@ export function compileSmoke(source: string): CompiledSmoke {
 	const lineOf = (position: number): number =>
 		file.getLineAndCharacterOfPosition(position).line + 1;
 
-	/** `ok(` → `__ok(<line>,`, applied wherever a statement's text is copied. */
-	const edits: Array<{ start: number; end: number; text: string }> = [];
+	const statements = [...file.statements];
+	const bodyStart = statements.findIndex((statement) =>
+		contains(statement, isOkCall),
+	);
+	if (bodyStart < 0) throw new Error("smoke.mjs has no ok( call");
+	const prelude = statements.slice(0, bodyStart);
+	const reportsOnly = (statement: ts.Statement): boolean =>
+		!contains(statement, isOkCall) &&
+		contains(
+			statement,
+			(node) =>
+				ts.isIdentifier(node) &&
+				(node.text === "fails" || node.text === "process"),
+		);
+	const body = statements
+		.slice(bodyStart)
+		.filter((statement) => !reportsOnly(statement));
+
+	/** The statements the rewrite steps through: bare blocks and loop bodies, recursively. */
+	const stepped = (list: readonly ts.Statement[]): ts.Statement[] =>
+		list.flatMap((statement) => {
+			if (ts.isBlock(statement))
+				return [statement, ...stepped(statement.statements)];
+			if (
+				(ts.isForOfStatement(statement) ||
+					ts.isForInStatement(statement) ||
+					ts.isForStatement(statement)) &&
+				ts.isBlock(statement.statement)
+			)
+				return [statement, ...stepped(statement.statement.statements)];
+			return [statement];
+		});
+	const isFunction = (node: ts.Node): node is ts.FunctionLikeDeclaration =>
+		ts.isArrowFunction(node) ||
+		ts.isFunctionExpression(node) ||
+		ts.isFunctionDeclaration(node) ||
+		ts.isMethodDeclaration(node);
+	/** The nearest function around a node, or null at statement level. */
+	const enclosing = (node: ts.Node): ts.Node | null => {
+		for (let parent = node.parent; parent; parent = parent.parent)
+			if (isFunction(parent)) return parent;
+		return null;
+	};
+
+	/** Helpers the body declares (`const portal = id => { tab("mem"); row(id)... }`) whose own statements act on the
+	 * page. Each also gets an async twin, `<name>__a`, used where the call can be awaited. */
+	const helperFunctions = new Map<
+		string,
+		ts.ArrowFunction | ts.FunctionExpression
+	>();
+	for (const statement of stepped(body))
+		if (ts.isVariableStatement(statement))
+			for (const declaration of statement.declarationList.declarations)
+				if (
+					ts.isIdentifier(declaration.name) &&
+					declaration.initializer &&
+					(ts.isArrowFunction(declaration.initializer) ||
+						ts.isFunctionExpression(declaration.initializer))
+				)
+					helperFunctions.set(declaration.name.text, declaration.initializer);
+	const acts = (call: ts.CallExpression, helpers: Set<string>): boolean => {
+		const callee = call.expression;
+		if (ts.isPropertyAccessExpression(callee))
+			return ["click", "dispatchEvent"].includes(callee.name.text);
+		return (
+			ts.isIdentifier(callee) &&
+			(callee.text === "tab" ||
+				callee.text === "sc" ||
+				helpers.has(callee.text))
+		);
+	};
+	const helpers = new Set<string>();
+	for (let changed = true; changed; ) {
+		changed = false;
+		for (const [name, fn] of helperFunctions)
+			if (
+				!helpers.has(name) &&
+				contains(
+					fn,
+					(node) =>
+						ts.isCallExpression(node) &&
+						enclosing(node) === fn &&
+						acts(node, helpers),
+				)
+			) {
+				helpers.add(name);
+				changed = true;
+			}
+	}
+	const twins = new Set([...helpers].map((name) => helperFunctions.get(name)));
+
+	/** `ok(` → `__ok(<line>,` everywhere. Where the call can be awaited (statement level, or inside a helper's twin),
+	 * every click, dispatchEvent, tab, sc and helper call is wrapped as `(await __after(<call>))`, which waits for the
+	 * page to render before the statement reads it; a helper call there calls its twin. Each wait belongs to a region:
+	 * null for statement level, else the helper function whose twin carries it. */
+	type Edit = {
+		start: number;
+		end: number;
+		text: string;
+		region: ts.Node | null | "always";
+		/** A wait's closing `))` may sit at the very end of a statement; its opening never does. */
+		closes?: true;
+	};
+	const edits: Edit[] = [];
 	const collect = (node: ts.Node): void => {
 		if (isOkCall(node)) {
 			const start = node.expression.getStart(file);
@@ -116,32 +224,71 @@ export function compileSmoke(source: string): CompiledSmoke {
 				start,
 				end: paren + 1,
 				text: `__ok(${lineOf(start)},`,
+				region: "always",
 			});
+		} else if (ts.isCallExpression(node) && acts(node, helpers)) {
+			const region = enclosing(node);
+			if (region === null || twins.has(region as ts.ArrowFunction)) {
+				const start = node.getStart(file);
+				edits.push({ start, end: start, text: "(await __after(", region });
+				if (
+					ts.isIdentifier(node.expression) &&
+					helpers.has(node.expression.text)
+				)
+					edits.push({
+						start: node.expression.end,
+						end: node.expression.end,
+						text: "__a",
+						region,
+					});
+				edits.push({
+					start: node.end,
+					end: node.end,
+					text: "))",
+					region,
+					closes: true,
+				});
+			}
 		}
 		ts.forEachChild(node, collect);
 	};
-	collect(file);
+	for (const statement of body) collect(statement);
 	edits.sort((first, second) => first.start - second.start);
-	const text = (start: number, end: number): string => {
+	const text = (
+		start: number,
+		end: number,
+		region: ts.Node | null = null,
+	): string => {
 		let out = "";
 		let at = start;
 		for (const edit of edits) {
 			if (edit.start < start || edit.end > end) continue;
+			if (
+				edit.closes
+					? edit.start === start
+					: edit.start === end && edit.end === end
+			)
+				continue;
+			if (edit.region !== "always" && edit.region !== region) continue;
 			out += source.slice(at, edit.start) + edit.text;
 			at = edit.end;
 		}
 		return out + source.slice(at, end);
 	};
-	const nodeText = (node: ts.Node): string =>
-		text(node.getStart(file), node.end);
-	const step = (node: ts.Node, inner: string): string =>
-		`await __run(${lineOf(node.getStart(file))},${lineOf(node.end)},async()=>{\n${inner}\n});`;
+	const nodeText = (node: ts.Node, region: ts.Node | null = null): string =>
+		text(node.getStart(file), node.end, region);
+	/** A loop's step only holds its body's steps, so it gets the long budget; each inner step has its own. */
+	const step = (node: ts.Node, inner: string, holdsSteps = false): string =>
+		`await __run(${lineOf(node.getStart(file))},${lineOf(node.end)},async()=>{\n${inner}\n}${holdsSteps ? ",true" : ""});`;
 
-	const emitStatements = (statements: readonly ts.Statement[]): string => {
-		const hoisted: string[] = [];
-		const parts = statements.map((statement) =>
-			emitStatement(statement, hoisted),
+	const isAsync = (node: ts.Node): boolean =>
+		ts.canHaveModifiers(node) &&
+		(ts.getModifiers(node) ?? []).some(
+			(modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword,
 		);
+	const emitStatements = (list: readonly ts.Statement[]): string => {
+		const hoisted: string[] = [];
+		const parts = list.map((statement) => emitStatement(statement, hoisted));
 		return `${hoisted.length ? `let ${hoisted.join(",")};\n` : ""}${parts.join("\n")}`;
 	};
 	const emitStatement = (
@@ -153,9 +300,16 @@ export function compileSmoke(source: string): CompiledSmoke {
 				.map((declaration) => {
 					bindingNames(declaration.name, hoisted);
 					if (!declaration.initializer) return "";
+					const assign = `(${nodeText(declaration.name)}=${nodeText(declaration.initializer)});`;
+					if (
+						!ts.isIdentifier(declaration.name) ||
+						!helpers.has(declaration.name.text)
+					)
+						return step(declaration, assign);
+					hoisted.push(`${declaration.name.text}__a`);
 					return step(
 						declaration,
-						`(${nodeText(declaration.name)}=${nodeText(declaration.initializer)});`,
+						`${assign}\n(${declaration.name.text}__a=${isAsync(declaration.initializer) ? "" : "async "}${nodeText(declaration.initializer, declaration.initializer)});`,
 					);
 				})
 				.join("\n");
@@ -176,28 +330,11 @@ export function compileSmoke(source: string): CompiledSmoke {
 			return step(
 				statement,
 				`${header}{\n${emitStatements(statement.statement.statements)}\n}`,
+				true,
 			);
 		}
 		return step(statement, nodeText(statement));
 	};
-
-	const statements = [...file.statements];
-	const bodyStart = statements.findIndex((statement) =>
-		contains(statement, isOkCall),
-	);
-	if (bodyStart < 0) throw new Error("smoke.mjs has no ok( call");
-	const prelude = statements.slice(0, bodyStart);
-	const reportsOnly = (statement: ts.Statement): boolean =>
-		!contains(statement, isOkCall) &&
-		contains(
-			statement,
-			(node) =>
-				ts.isIdentifier(node) &&
-				(node.text === "fails" || node.text === "process"),
-		);
-	const body = statements
-		.slice(bodyStart)
-		.filter((statement) => !reportsOnly(statement));
 
 	const imports: CompiledSmoke["imports"] = [];
 	const preludeNames: string[] = [];
@@ -271,6 +408,7 @@ const AsyncFunction = Object.getPrototypeOf(async () => undefined)
 	.constructor as AsyncFunctionConstructor;
 
 const stepMilliseconds = 10_000;
+const loopMilliseconds = 600_000;
 const describeError = (error: unknown): string =>
 	error instanceof Error ? error.message : String(error);
 
@@ -311,7 +449,9 @@ export async function runBody(
 		start: number,
 		end: number,
 		action: () => Promise<void>,
+		holdsSteps = false,
 	): Promise<void> => {
+		const budget = holdsSteps ? loopMilliseconds : stepMilliseconds;
 		await hooks.settle();
 		/** A check's selectors are those its own step resolved. */
 		hooks.takeSelectors?.();
@@ -322,9 +462,8 @@ export async function runBody(
 				action(),
 				new Promise<never>((_, reject) => {
 					timer = setTimeout(
-						() =>
-							reject(new Error(`step timed out after ${stepMilliseconds} ms`)),
-						stepMilliseconds,
+						() => reject(new Error(`step timed out after ${budget} ms`)),
+						budget,
 					);
 				}),
 			]);
@@ -336,18 +475,31 @@ export async function runBody(
 		}
 	};
 	const names = compiled.preludeNames.filter(
-		(name) => name !== "ok" && name !== "__ok" && name !== "__run",
+		(name) => !["ok", "__ok", "__run", "__after"].includes(name),
 	);
 	const ok = (name: unknown, condition: unknown, info?: unknown): void =>
 		record(0, name, condition, info);
+	/** The wait after an action: its value once the page has rendered it. */
+	const after = async (value: unknown): Promise<unknown> => {
+		const result = await value;
+		await hooks.settle();
+		return result;
+	};
 	const run = new AsyncFunction(
 		"__ok",
 		"__run",
+		"__after",
 		"ok",
 		...names,
 		compiled.bodySource,
 	);
-	await run(record, runStep, ok, ...names.map((name) => environment[name]));
+	await run(
+		record,
+		runStep,
+		after,
+		ok,
+		...names.map((name) => environment[name]),
+	);
 	return { checks, errors };
 }
 
@@ -402,8 +554,12 @@ export const tableComment =
 
 export const readTable = (): Table =>
 	JSON.parse(readFileSync(tablePath, "utf8")) as Table;
+/** Written as Biome formats it (the short slice list on one line), so a regenerated table is lint-clean. */
 export const writeTable = (table: Table): void =>
 	writeFileSync(
 		tablePath,
-		`${JSON.stringify({ ...table, $comment: tableComment }, null, "\t")}\n`,
+		`${JSON.stringify({ ...table, $comment: tableComment }, null, "\t").replace(
+			/"sliceOrder": \[[^\]]*\]/,
+			`"sliceOrder": ${JSON.stringify(table.sliceOrder).replace(/,/g, ", ")}`,
+		)}\n`,
 	);

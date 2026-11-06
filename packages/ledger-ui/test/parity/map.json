@@ -1,5 +1,5 @@
 {
-	"$comment": "The parity adapter's map (protocol v9 addendum §3). selectors: literal rewrites applied to every selector the smoke body passes to $, $$ and txt (a match must not touch a letter, digit, - or _ on either side), in order. aliases: before every $, $$ and txt call and every step, each element matching ui gets the mockup attribute it lacks, from one of its UI attributes through values (a value map; unmapped values pass through), transform (a named adapter function) or constant; so mockup selectors and dataset reads ([data-bv=fin], .dataset.p) work unchanged. helpers: where each prelude name comes from: adapter (test/parity/adapter.ts), prelude (smoke.mjs's own definition, re-evaluated over the adapter's $), or a UI counterpart. unmapped: mockup controls deliberately left without a UI selector, and why. internals: mockup internals and what stands for them in the UI; null means the UI has no counterpart yet, so the checks that need them stay pending-slice.",
+	"$comment": "The parity adapter's map (protocol v9 addendum §3); test/parity/adapter.ts's header explains each key. aliases: UI elements get the mockup's id, data attributes and classes (recomputed on every $, $$, txt). selectors: literal rewrites where an alias cannot say it. openers: popovers the UI mounts only while open, and the button that opens them. absent: mockup selectors whose element the UI unmounts where the mockup only hides it; $ answers a hidden stand-in. helpers: where each prelude name comes from. internals: window.__t names and the shim in test/parity/internals.ts standing for each, or null (no honest UI counterpart). slice: the slice whose checks needed the entry.",
 	"selectors": [
 		{
 			"mockup": "#dash",
@@ -35,11 +35,6 @@
 			"ui": "[data-test=school-switcher]"
 		},
 		{
-			"mockup": "#pb",
-			"ui": "[data-test=period-button]",
-			"why": "the top bar's period button; the frozen mockup moved its arrows into the popover, the UI still has S0's arrows beside it"
-		},
-		{
 			"mockup": "#gb",
 			"ui": "[data-test=settings-button]"
 		},
@@ -59,6 +54,140 @@
 			"mockup": "svg[aria-label='Gross by day']",
 			"ui": "svg[aria-label^='Gross by day']",
 			"why": "the UI's accessible name adds the month: Gross by day, Nov 2026"
+		},
+		{
+			"mockup": "#paud",
+			"ui": "[data-test=plan-field][data-field=audience]",
+			"why": "the drawer's Audience select; the UI gives it a generated id",
+			"slice": "S3"
+		},
+		{
+			"mockup": "#pcancel",
+			"ui": "[data-test=plan-drawer-cancel]",
+			"slice": "S3"
+		},
+		{
+			"mockup": "#psave",
+			"ui": "[data-test=plan-drawer-save]",
+			"slice": "S3"
+		},
+		{
+			"mockup": "#pdisc",
+			"ui": "[data-test=plan-discard]",
+			"slice": "S3"
+		},
+		{
+			"mockup": "#prev",
+			"ui": "[data-test=plan-review]",
+			"slice": "S3"
+		},
+		{
+			"mockup": "#ppin",
+			"ui": "[data-test=plan-publish-pin]",
+			"why": "the review's PIN field; the UI gives it a generated id",
+			"slice": "S3"
+		},
+		{
+			"mockup": "#pgo",
+			"ui": "[data-test=plan-publish-go]",
+			"slice": "S3"
+		},
+		{
+			"mockup": "#kta",
+			"ui": "[data-test=plan-yaml]",
+			"slice": "S3"
+		},
+		{
+			"mockup": "#kgut",
+			"ui": ".kgut",
+			"why": "the Code gutter: one <i> per line, class bad on an error line",
+			"slice": "S3"
+		},
+		{
+			"mockup": "#kfmt",
+			"ui": "[data-test=plan-yaml-format]",
+			"slice": "S3"
+		},
+		{
+			"mockup": "#kcopy",
+			"ui": "[data-test=plan-yaml-copy]",
+			"slice": "S3"
+		},
+		{
+			"mockup": "#kreset",
+			"ui": "[data-test=plan-yaml-reset]",
+			"slice": "S3"
+		},
+		{
+			"mockup": "#kmsg",
+			"ui": "[data-test=plan-yaml-message]",
+			"slice": "S3"
+		},
+		{
+			"mockup": "#vax",
+			"ui": "[data-test=preview-exit]",
+			"why": "shared with S7: the preview banner's Exit preview",
+			"slice": "S3"
+		},
+		{
+			"mockup": "#khelp",
+			"ui": "[data-test=plan-yaml-help]",
+			"why": "the honest-limits line; the UI gives it a generated id (aria-describedby)",
+			"slice": "S3"
+		},
+		{
+			"mockup": "#f_pay",
+			"ui": "[data-test=modal-field][data-field=payment]",
+			"why": "the refund modal's payment picker; its id is the UI's useId",
+			"slice": "S4"
+		},
+		{
+			"mockup": "#embaud",
+			"ui": "[data-test=embed-books-audience]",
+			"why": "the embed modal's Document select (mockup #embaud); it already has the useId id its label points at, so an id alias cannot apply",
+			"slice": "S6"
+		},
+		{
+			"mockup": "#setx",
+			"ui": "aside.drawer:not([data-test]) > button.x",
+			"why": "the Settings drawer's close button (mockup #setx); the drawer's id is generated, see #set",
+			"slice": "S7"
+		},
+		{
+			"mockup": "#set",
+			"ui": "aside.drawer:not([data-test])",
+			"why": "the Settings drawer (mockup #set): the UI gives it a generated id (the settings button's aria-controls), so no alias can; it is the one drawer without a data-test (the member and plan drawers carry theirs)",
+			"slice": "S7"
+		},
+		{
+			"mockup": "#dpin",
+			"ui": ".bg[role=presentation] [data-test=dialog-field][data-field=pin]",
+			"why": "the disclosure save dialog's PIN field (mockup #dpin); the UI's Field has a generated id",
+			"slice": "S7"
+		},
+		{
+			"mockup": "[data-dcell='income.public']",
+			"ui": "[data-test=disclosure-cell][data-class=income][data-audience=public]",
+			"why": "a disclosure table cell: the mockup keys it data-dcell=<class>.<audience>, the UI by data-class and data-audience",
+			"slice": "S7"
+		},
+		{
+			"mockup": "[data-dcell='income.member']",
+			"ui": "[data-test=disclosure-cell][data-class=income][data-audience=member]",
+			"why": "a disclosure table cell: the mockup keys it data-dcell=<class>.<audience>, the UI by data-class and data-audience",
+			"slice": "S7"
+		},
+		{
+			"mockup": "[data-dcell='people.public']",
+			"ui": "[data-test=disclosure-cell][data-class=people][data-audience=public]",
+			"why": "a disclosure table cell: the mockup keys it data-dcell=<class>.<audience>, the UI by data-class and data-audience",
+			"slice": "S7"
+		},
+		{
+			"mockup": "[data-dcell='people.member']",
+			"ui": "[data-test=disclosure-cell][data-class=people][data-audience=member]",
+			"why": "a disclosure table cell: the mockup keys it data-dcell=<class>.<audience>, the UI by data-class and data-audience",
+			"slice": "S7"
 		}
 	],
 	"aliases": [
@@ -119,6 +248,879 @@
 			"ui": "[data-test=pin-unlock]",
 			"attribute": "data-bpgo",
 			"constant": ""
+		},
+		{
+			"ui": "#pane[aria-labelledby=tab-bookings] .tools",
+			"attribute": "id",
+			"constant": "bchips",
+			"why": "the Bookings pane's period line and filter chips (mockup #bchips); its first <b> is booking-range-label",
+			"slice": "S2"
+		},
+		{
+			"ui": "#pane[aria-labelledby=tab-bookings] tbody",
+			"attribute": "id",
+			"constant": "bb",
+			"why": "the Bookings pane's table body (mockup #bb)",
+			"slice": "S2"
+		},
+		{
+			"ui": "[data-test=booking-filter][data-filter]",
+			"attribute": "data-b",
+			"from": "data-filter",
+			"values": {
+				"all": "",
+				"outcome": "out",
+				"approval": "apr",
+				"cutoff": "cut"
+			},
+			"why": "the filter chips: the mockup keys them out|apr|cut|'' (All); the UI by outcome|approval|cutoff|all",
+			"slice": "S2"
+		},
+		{
+			"ui": "[data-test=booking-bulk][data-day]",
+			"attribute": "data-bulk",
+			"from": "data-day",
+			"values": {
+				"overdue": "over"
+			},
+			"why": "Confirm all attended: the mockup keys the overdue group over and a day group by its date; the UI says overdue",
+			"slice": "S2"
+		},
+		{
+			"ui": "[data-test=period-button][aria-label^='Bookings period:'] + #pp > [data-test=period-option]:nth-of-type(1)",
+			"attribute": "data-bp",
+			"constant": "day:0",
+			"why": "Today in the period popover on Bookings; keyed by position (bookingsChoices order) because the UI option carries no key attribute, see GAP-1",
+			"slice": "S2"
+		},
+		{
+			"ui": "[data-test=period-button][aria-label^='Bookings period:'] + #pp > [data-test=period-option]:nth-of-type(2)",
+			"attribute": "data-bp",
+			"constant": "day:1",
+			"why": "Tomorrow, as above",
+			"slice": "S2"
+		},
+		{
+			"ui": "[data-test=period-button][aria-label^='Bookings period:'] + #pp > [data-test=period-option]:nth-of-type(3)",
+			"attribute": "data-bp",
+			"constant": "wk:0",
+			"why": "This week, as above",
+			"slice": "S2"
+		},
+		{
+			"ui": "[data-test=period-button][aria-label^='Bookings period:'] + #pp > [data-test=period-option]:nth-of-type(4)",
+			"attribute": "data-bp",
+			"constant": "wk:1",
+			"why": "Next week, as above",
+			"slice": "S2"
+		},
+		{
+			"ui": "[data-test=period-button][aria-label^='Bookings period:'] + #pp [data-test=period-prev]",
+			"attribute": "data-bstep",
+			"constant": "-1",
+			"why": "the popover's previous arrow (mockup data-bstep=-1); on Bookings it moves offset by -1",
+			"slice": "S2"
+		},
+		{
+			"ui": "[data-test=period-button][aria-label^='Bookings period:'] + #pp [data-test=period-next]",
+			"attribute": "data-bstep",
+			"constant": "1",
+			"why": "the popover's next arrow (mockup data-bstep=1); on Bookings it moves offset by +1",
+			"slice": "S2"
+		},
+		{
+			"ui": "[data-test=plan-mode][data-mode]",
+			"attribute": "data-pmode",
+			"from": "data-mode",
+			"slice": "S3"
+		},
+		{
+			"ui": "[data-test=plan-row][data-kind=tiers][data-plan]",
+			"attribute": "data-pe",
+			"from": "data-plan",
+			"values": {
+				"sparkle": "tiers:sparkle",
+				"shine": "tiers:shine",
+				"glow": "tiers:glow",
+				"board": "tiers:board",
+				"studio": "tiers:studio",
+				"ensemble": "tiers:ensemble"
+			},
+			"why": "the mockup keys a plan row by <kind>:<id>; the UI by data-kind and data-plan (every fixture tier id listed)",
+			"slice": "S3"
+		},
+		{
+			"ui": "[data-test=plan-row][data-kind=addons][data-plan]",
+			"attribute": "data-pe",
+			"from": "data-plan",
+			"values": {
+				"pack8": "addons:pack8",
+				"pack16": "addons:pack16"
+			},
+			"slice": "S3"
+		},
+		{
+			"ui": "[data-test=plan-monthly]",
+			"attribute": "data-k",
+			"constant": "revenue_by_tier",
+			"why": "the Monthly cell of a membership row (mockup revC)",
+			"slice": "S3"
+		},
+		{
+			"ui": "[data-test=plan-members]",
+			"attribute": "data-k",
+			"constant": "tier_members",
+			"why": "the Members cell of a membership row (mockup cntC)",
+			"slice": "S3"
+		},
+		{
+			"ui": "[data-test=plan-yaml-message] [data-line]",
+			"attribute": "data-kline",
+			"from": "data-line",
+			"why": "the jump-to-line button under the editor",
+			"slice": "S3"
+		},
+		{
+			"ui": "[data-test=plan-publish-cancel]",
+			"attribute": "data-close",
+			"constant": "",
+			"why": "shared #md [data-close]: the review dialog's Cancel",
+			"slice": "S3"
+		},
+		{
+			"ui": ".modal[role=dialog]",
+			"attribute": "id",
+			"constant": "md",
+			"why": "shared: the shell modal",
+			"slice": "S3"
+		},
+		{
+			"ui": "[data-test=view-as-option][data-as]",
+			"attribute": "data-bv",
+			"from": "data-as",
+			"why": "shared with S7: View as rows",
+			"slice": "S3"
+		},
+		{
+			"ui": "#pane[aria-labelledby=tab-members] table:has(> thead [data-test=members-column]) > tbody",
+			"attribute": "id",
+			"constant": "mb",
+			"why": "the roster's tbody (mockup #mb), not the drawer's payments table (.kpay) or the portal's history table",
+			"slice": "S4"
+		},
+		{
+			"ui": "#pane[aria-labelledby=tab-members] .strip",
+			"attribute": "id",
+			"constant": "strip",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=members-stat][data-stat]",
+			"attribute": "data-k",
+			"from": "data-stat",
+			"slice": "S4"
+		},
+		{
+			"ui": "#pane[aria-labelledby=tab-members] [role=group][aria-label=Role]",
+			"attribute": "id",
+			"constant": "rchips",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=role-filter][data-role-filter]",
+			"attribute": "data-rf",
+			"from": "data-role-filter",
+			"values": {
+				"all": "",
+				"admins": "oa",
+				"members": "m"
+			},
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=member-filter][data-filter]",
+			"attribute": "data-s",
+			"from": "data-filter",
+			"values": {
+				"all": "",
+				"attention": "att",
+				"canceled": "canceled"
+			},
+			"slice": "S4"
+		},
+		{
+			"ui": "#pane[aria-labelledby=tab-members] [data-test=lock-panel]",
+			"attribute": "id",
+			"constant": "mlock",
+			"slice": "S4"
+		},
+		{
+			"ui": "#pane[aria-labelledby=tab-bookings] [data-test=lock-panel]",
+			"attribute": "id",
+			"constant": "bklock",
+			"why": "shared with S5",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=view-as-member]",
+			"attribute": "data-vm",
+			"constant": "",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=member-menu-button]",
+			"attribute": "data-kmenu",
+			"constant": "",
+			"why": "the mockup's value is the person id; the checks only test presence",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=member-menu]",
+			"attribute": "id",
+			"constant": "kmm",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=member-menu-item][data-action=invoice]",
+			"attribute": "data-act",
+			"constant": "invoice",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=member-menu-item][data-action=adjust]",
+			"attribute": "data-act",
+			"constant": "adjust",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=member-menu-item][data-action=refund]",
+			"attribute": "data-act",
+			"constant": "refund",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=member-menu-item][data-action=audit]",
+			"attribute": "data-act",
+			"constant": "audit",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=member-menu-item][data-action=release]",
+			"attribute": "data-kx",
+			"constant": "release",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=member-menu-item][data-action=switch]",
+			"attribute": "data-kx",
+			"constant": "switch",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=member-menu-item][data-action=cancel]",
+			"attribute": "data-kx",
+			"constant": "cancel",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=member-menu-item][data-action=resume]",
+			"attribute": "data-kx",
+			"constant": "resume",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=member-menu-item][data-action=csv]",
+			"attribute": "data-kx",
+			"constant": "csv",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=member-menu-item][data-action=make-admin]",
+			"attribute": "data-role",
+			"constant": "make",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=member-menu-item][data-action=remove-admin]",
+			"attribute": "data-role",
+			"constant": "remove",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=member-menu-item][data-action=remove-owner]",
+			"attribute": "data-role",
+			"constant": "remove",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=member-menu-item][data-action=grant-finance]",
+			"attribute": "data-role",
+			"constant": "grant",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=member-menu-item][data-action=revoke-finance]",
+			"attribute": "data-role",
+			"constant": "revoke",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=member-menu-item][data-action=view-as-member]",
+			"attribute": "data-vm",
+			"constant": "",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=member-drawer]",
+			"attribute": "id",
+			"constant": "dr",
+			"why": "shared: the member drawer",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=drawer-action][data-action=invoice]",
+			"attribute": "data-act",
+			"constant": "invoice",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=drawer-action][data-action=adjust]",
+			"attribute": "data-act",
+			"constant": "adjust",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=drawer-action][data-action=refund]",
+			"attribute": "data-act",
+			"constant": "refund",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=drawer-action][data-action=view-as-member]",
+			"attribute": "data-vm",
+			"constant": "",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=payments-csv]",
+			"attribute": "data-kx",
+			"constant": "csv",
+			"slice": "S4"
+		},
+		{
+			"ui": ".bg[role=presentation]",
+			"attribute": "id",
+			"constant": "bg",
+			"why": "shared: the one dialog backdrop (mockup #bg)",
+			"slice": "S4"
+		},
+		{
+			"ui": ".bg[role=presentation] > .modal[role=dialog]",
+			"attribute": "id",
+			"constant": "md",
+			"why": "shared: the dialog (mockup #md)",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=modal-note] ~ .mf > [data-test=modal-confirm]",
+			"attribute": "id",
+			"constant": "rgo",
+			"why": "the role modal (the only Members modal with the refresh note) confirm",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=modal-cancel]",
+			"attribute": "id",
+			"constant": "mc",
+			"why": "the Members modal Cancel (mockup action modal #mc)",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=release-option]",
+			"attribute": "data-act",
+			"constant": "release",
+			"why": "the release picker's booking buttons",
+			"slice": "S4"
+		},
+		{
+			"ui": "[data-test=preview-exit]",
+			"attribute": "id",
+			"constant": "vax",
+			"why": "shared with S7",
+			"slice": "S4"
+		},
+		{
+			"ui": "#pane[aria-labelledby=tab-ledger] [data-test=lock-panel]",
+			"attribute": "id",
+			"constant": "lblock",
+			"why": "the Ledger below finance: the mockup's #lblock holds the no-grant lock panel",
+			"slice": "S5"
+		},
+		{
+			"ui": "#pane[aria-labelledby=tab-ledger] [data-test=pin-lock]",
+			"attribute": "id",
+			"constant": "lblock",
+			"why": "the PIN-locked Ledger: the mockup's #lblock holds the PIN prompt too",
+			"slice": "S5"
+		},
+		{
+			"ui": "#pane[aria-labelledby=tab-ledger] table > tbody",
+			"attribute": "id",
+			"constant": "lb",
+			"why": "the Ledger table's body (day and event rows)",
+			"slice": "S5"
+		},
+		{
+			"ui": "[data-test=ledger-csv]",
+			"attribute": "id",
+			"constant": "lcsv",
+			"slice": "S5"
+		},
+		{
+			"ui": "#pane[aria-labelledby=tab-reports] [data-test=pin-lock]",
+			"attribute": "id",
+			"constant": "rblock",
+			"why": "the PIN-locked Reports: the mockup's #rblock is the PIN prompt",
+			"slice": "S5"
+		},
+		{
+			"ui": "#pane[aria-labelledby=tab-reports] .kpis",
+			"attribute": "id",
+			"constant": "kpis",
+			"why": "the Reports KPI tiles row",
+			"slice": "S5"
+		},
+		{
+			"ui": "[data-test=report-kpi][data-item]",
+			"attribute": "data-k",
+			"from": "data-item",
+			"values": {
+				"income": "gross_collected",
+				"refund": "refunds",
+				"fees": "stripe_fees",
+				"payout": "payouts"
+			},
+			"why": "a Reports tile; the mockup's document tiles key it by the KPI (gross_collected, refunds, stripe_fees, payouts)",
+			"slice": "S5"
+		},
+		{
+			"ui": "[data-test=report-download]",
+			"attribute": "id",
+			"constant": "rdl",
+			"why": "Reports' Download (the income statement for finance, the audience document below)",
+			"slice": "S5"
+		},
+		{
+			"ui": "[data-test=donors]",
+			"attribute": "id",
+			"constant": "donors",
+			"why": "the Donors and payers card",
+			"slice": "S5"
+		},
+		{
+			"ui": "[data-test=donors-csv]",
+			"attribute": "id",
+			"constant": "kdon",
+			"why": "the Donors and payers Download CSV",
+			"slice": "S5"
+		},
+		{
+			"ui": "[data-test=donor-row]",
+			"attribute": "data-anon",
+			"constant": "1",
+			"when": ":has(span:nth-child(2))",
+			"why": "an anonymous donor's row: the UI marks it by a span after the name's <b> in donor-name (finance: 'name with the owner only'; owner: the 'Anonymous to finance' badge); no other cell of the row has a second-child span. Written without a combinator inside :has, which happy-dom matches wrongly ([data-test=donor-name] > span matches any span in the row)",
+			"slice": "S5"
+		},
+		{
+			"ui": "#pane[aria-labelledby=tab-promos] table > tbody",
+			"attribute": "id",
+			"constant": "cb",
+			"why": "the Promos table's body",
+			"slice": "S5"
+		},
+		{
+			"ui": "[data-test=promo-used]",
+			"attribute": "data-k",
+			"constant": "redemptions",
+			"why": "a promo's Used cell (the mockup keys it data-k=redemptions)",
+			"slice": "S5"
+		},
+		{
+			"ui": "[data-test=promo-redemptions]",
+			"attribute": "data-red",
+			"constant": "1",
+			"why": "a promo's Redemptions button",
+			"slice": "S5"
+		},
+		{
+			"ui": "[data-test=promo-reveal]",
+			"attribute": "data-rev",
+			"constant": "1",
+			"why": "a promo's Show code button",
+			"slice": "S5"
+		},
+		{
+			"ui": "[data-test=promo-new]",
+			"attribute": "id",
+			"constant": "newcode",
+			"why": "Create promo",
+			"slice": "S5"
+		},
+		{
+			"ui": "[data-test=portal]",
+			"attribute": "id",
+			"constant": "vm",
+			"why": "SHARED: the member portal overlay (mockup #vm)",
+			"slice": "S6"
+		},
+		{
+			"ui": "[data-test=portal-exit]",
+			"attribute": "id",
+			"constant": "vmx",
+			"why": "SHARED: the portal's Exit (mockup #vmx)",
+			"slice": "S6"
+		},
+		{
+			"ui": "[data-test=portal-embed]",
+			"attribute": "id",
+			"constant": "vemb",
+			"why": "the preview bar's Embed… (mockup #vemb)",
+			"slice": "S6"
+		},
+		{
+			"ui": "[data-test=portal-family-switch][data-profile]",
+			"attribute": "data-vfam",
+			"from": "data-profile",
+			"why": "the Viewing as Adult/Teen/Child switch, keyed by profile id as the mockup's data-vfam",
+			"slice": "S6"
+		},
+		{
+			"ui": "[data-test=portal-tab][data-portal-tab]",
+			"attribute": "data-vtab",
+			"from": "data-portal-tab",
+			"values": {
+				"overview": "home",
+				"bookings": "bk",
+				"billing": "bill",
+				"family": "fam"
+			},
+			"why": "the portal tabs: the mockup keys them home|bk|bill|fam, the UI overview|bookings|billing|family",
+			"slice": "S6"
+		},
+		{
+			"ui": "[data-test=portal-family-card][data-profile]",
+			"attribute": "data-fm",
+			"from": "data-profile",
+			"why": "one Family tab card per person (mockup [data-fm])",
+			"slice": "S6"
+		},
+		{
+			"ui": "[data-test=books-card][data-audience]",
+			"attribute": "data-books",
+			"from": "data-audience",
+			"why": "the School books card, keyed by its audience (mockup [data-books])",
+			"slice": "S6"
+		},
+		{
+			"ui": "[data-test=history-card]",
+			"attribute": "id",
+			"constant": "khist",
+			"why": "Invoices and payments (mockup #khist)",
+			"slice": "S6"
+		},
+		{
+			"ui": "[data-test=history-period]",
+			"attribute": "id",
+			"constant": "khf",
+			"why": "the history period select (mockup #khf); its values all|this|last are the mockup's",
+			"slice": "S6"
+		},
+		{
+			"ui": "[data-test=history-more]",
+			"attribute": "data-khx",
+			"constant": "",
+			"why": "Show all history / Show latest 5 (mockup [data-khx])",
+			"slice": "S6"
+		},
+		{
+			"ui": "[data-test=history-download]",
+			"attribute": "id",
+			"constant": "kdl",
+			"why": "the history's Download CSV (mockup #kdl)",
+			"slice": "S6"
+		},
+		{
+			"ui": "[data-test=dialog]",
+			"attribute": "id",
+			"constant": "md",
+			"why": "SHARED: the modal (mockup #md) as the portal, Bookings, Promos and Settings draw it",
+			"slice": "S6"
+		},
+		{
+			"ui": "[data-test=embed-done]",
+			"attribute": "data-close",
+			"constant": "",
+			"why": "SHARED: the embed modal's Done, which the mockup marks data-close",
+			"slice": "S6"
+		},
+		{
+			"ui": "[data-test=preview-banner]",
+			"attribute": "id",
+			"constant": "vab",
+			"why": "the preview banner under the tabs (mockup #vab)",
+			"slice": "S7"
+		},
+		{
+			"ui": "[data-test=disclosure-row][data-class]",
+			"attribute": "data-dclass",
+			"from": "data-class",
+			"why": "a row of the six-class disclosure table",
+			"slice": "S7"
+		},
+		{
+			"ui": "[data-test=override-field][data-field]",
+			"attribute": "data-dov",
+			"from": "data-field",
+			"values": {
+				"kpi": "kpi",
+				"class": "cls",
+				"rule-class": "rc",
+				"rule-audience": "ra",
+				"detail": "rd",
+				"every": "rg",
+				"after": "rl",
+				"round": "round"
+			},
+			"why": "the override editor's eight selects: Move a KPI, to class, Rule for class, audience, Detail, Every, After, Round Public",
+			"slice": "S7"
+		},
+		{
+			"ui": "[data-test=override-message]",
+			"attribute": "id",
+			"constant": "dval",
+			"why": "the override validator's line",
+			"slice": "S7"
+		},
+		{
+			"ui": "[data-test=disclosure-save]",
+			"attribute": "id",
+			"constant": "dsave",
+			"why": "Check and save",
+			"slice": "S7"
+		},
+		{
+			"ui": "[data-test=disclosure-reset]",
+			"attribute": "id",
+			"constant": "dreset",
+			"why": "Reset the override draft",
+			"slice": "S7"
+		},
+		{
+			"ui": "[data-test=basis-save]",
+			"attribute": "id",
+			"constant": "bsave",
+			"why": "the Accounting basis Save",
+			"slice": "S7"
+		},
+		{
+			"ui": ".bg[role=presentation] .modal:has([data-test=dialog-field][data-field=pin]) [data-test=dialog-confirm]",
+			"attribute": "id",
+			"constant": "dpgo",
+			"why": "the PIN dialog's Confirm with PIN (mockup #dpgo), only in the dialog that has the PIN field",
+			"slice": "S7"
+		},
+		{
+			"ui": ".bg[role=presentation] [data-test=dialog-cancel]",
+			"attribute": "data-close",
+			"constant": "",
+			"why": "shared: the modal's Cancel (mockup [data-close])",
+			"slice": "S7"
+		},
+		{
+			"ui": "[data-test=period-button][aria-label^='Period:'] + #pp > button[data-test=period-option]:nth-of-type(1)",
+			"attribute": "data-pk",
+			"constant": "this",
+			"why": "the money period popover's preset This month (mockup PRE key this); the UI's presets carry no key, only their label, so by position (the eight presets are the panel's only direct-child buttons, in PRE order)",
+			"slice": "S7"
+		},
+		{
+			"ui": "[data-test=period-button][aria-label^='Period:'] + #pp > button[data-test=period-option]:nth-of-type(2)",
+			"attribute": "data-pk",
+			"constant": "last",
+			"why": "the money period popover's preset Last month (mockup PRE key last); the UI's presets carry no key, only their label, so by position (the eight presets are the panel's only direct-child buttons, in PRE order)",
+			"slice": "S7"
+		},
+		{
+			"ui": "[data-test=period-button][aria-label^='Period:'] + #pp > button[data-test=period-option]:nth-of-type(3)",
+			"attribute": "data-pk",
+			"constant": "tq",
+			"why": "the money period popover's preset This quarter (mockup PRE key tq); the UI's presets carry no key, only their label, so by position (the eight presets are the panel's only direct-child buttons, in PRE order)",
+			"slice": "S7"
+		},
+		{
+			"ui": "[data-test=period-button][aria-label^='Period:'] + #pp > button[data-test=period-option]:nth-of-type(4)",
+			"attribute": "data-pk",
+			"constant": "lq",
+			"why": "the money period popover's preset Last quarter (mockup PRE key lq); the UI's presets carry no key, only their label, so by position (the eight presets are the panel's only direct-child buttons, in PRE order)",
+			"slice": "S7"
+		},
+		{
+			"ui": "[data-test=period-button][aria-label^='Period:'] + #pp > button[data-test=period-option]:nth-of-type(5)",
+			"attribute": "data-pk",
+			"constant": "l3",
+			"why": "the money period popover's preset Last 3 months (mockup PRE key l3); the UI's presets carry no key, only their label, so by position (the eight presets are the panel's only direct-child buttons, in PRE order)",
+			"slice": "S7"
+		},
+		{
+			"ui": "[data-test=period-button][aria-label^='Period:'] + #pp > button[data-test=period-option]:nth-of-type(6)",
+			"attribute": "data-pk",
+			"constant": "ty",
+			"why": "the money period popover's preset This year (mockup PRE key ty); the UI's presets carry no key, only their label, so by position (the eight presets are the panel's only direct-child buttons, in PRE order)",
+			"slice": "S7"
+		},
+		{
+			"ui": "[data-test=period-button][aria-label^='Period:'] + #pp > button[data-test=period-option]:nth-of-type(7)",
+			"attribute": "data-pk",
+			"constant": "ly",
+			"why": "the money period popover's preset Last year (mockup PRE key ly); the UI's presets carry no key, only their label, so by position (the eight presets are the panel's only direct-child buttons, in PRE order)",
+			"slice": "S7"
+		},
+		{
+			"ui": "[data-test=period-button][aria-label^='Period:'] + #pp > button[data-test=period-option]:nth-of-type(8)",
+			"attribute": "data-pk",
+			"constant": "ytd",
+			"why": "the money period popover's preset Year to date (mockup PRE key ytd); the UI's presets carry no key, only their label, so by position (the eight presets are the panel's only direct-child buttons, in PRE order)",
+			"slice": "S7"
+		},
+		{
+			"ui": "[data-test=period-chip][data-period]",
+			"attribute": "data-pk",
+			"from": "data-period",
+			"values": {
+				"2024": "y:2024",
+				"2025": "y:2025",
+				"2025-Q1": "q:2025Q1",
+				"2025-Q2": "q:2025Q2",
+				"2025-Q3": "q:2025Q3",
+				"2025-Q4": "q:2025Q4",
+				"2026": "y:2026",
+				"2026-01": "m:2026-0",
+				"2026-02": "m:2026-1",
+				"2026-03": "m:2026-2",
+				"2026-04": "m:2026-3",
+				"2026-05": "m:2026-4",
+				"2026-06": "m:2026-5",
+				"2026-07": "m:2026-6",
+				"2026-08": "m:2026-7",
+				"2026-09": "m:2026-8",
+				"2026-10": "m:2026-9",
+				"2026-11": "m:2026-10",
+				"2026-12": "m:2026-11",
+				"2026-Q1": "q:2026Q1",
+				"2026-Q2": "q:2026Q2",
+				"2026-Q3": "q:2026Q3",
+				"2026-Q4": "q:2026Q4"
+			},
+			"why": "a pickable-period chip (PeriodGate) keyed as the mockup's pList keys it: y:2025, q:2025Q4, m:2026-9 (0-based month); every period the fixtures' views list",
+			"slice": "S7"
+		},
+		{
+			"ui": "[data-test=period-button][aria-label^='Period:'] + #pp [data-test=period-label]",
+			"attribute": "id",
+			"constant": "pplab",
+			"why": "the money popover's date label",
+			"slice": "S7"
+		},
+		{
+			"ui": "[data-test=period-button][aria-label^='Period:'] + #pp [data-test=period-prev]",
+			"attribute": "id",
+			"constant": "pprev",
+			"why": "the money popover's previous-period arrow",
+			"slice": "S7"
+		},
+		{
+			"ui": "[data-test=period-button][aria-label^='Period:'] + #pp [data-test=period-next]",
+			"attribute": "id",
+			"constant": "pnext",
+			"why": "the money popover's next-period arrow",
+			"slice": "S7"
+		},
+		{
+			"ui": "[data-test=period-button][aria-label^='Period:'] + #pp > .cus input[type=date][aria-label=From]",
+			"attribute": "id",
+			"constant": "cf",
+			"why": "the custom range's From date (only when the audience is live)",
+			"slice": "S7"
+		},
+		{
+			"ui": "[data-test=period-button][aria-label^='Period:'] + #pp > label.chk > input[type=checkbox]",
+			"attribute": "id",
+			"constant": "cmpc",
+			"why": "Compare with previous period",
+			"slice": "S7"
+		},
+		{
+			"ui": "[data-test=plan-add][data-kind]",
+			"attribute": "data-pnew",
+			"from": "data-kind",
+			"why": "shared with S3: Plans Add membership / Add pack (mockup [data-pnew=tiers|addons])",
+			"slice": "S7"
+		}
+	],
+	"openers": [
+		{
+			"mockup": "#pp",
+			"open": "#pb",
+			"why": "the period popover (#pp) mounts only while open; #pb is the UI's period button (same id)"
+		},
+		{
+			"mockup": "#kvp",
+			"open": "#kview",
+			"why": "the View as list (#kvp) mounts only while open; #kview is the UI's View as button (same id)"
+		}
+	],
+	"absent": [
+		{
+			"mockup": "#bg",
+			"html": "<div class=\"bg\"></div>",
+			"why": "the modal backdrop: the UI mounts it only while a dialog is open; the mockup toggles .on"
+		},
+		{
+			"mockup": "#kmm",
+			"html": "<div class=\"menu kmenu\" role=\"menu\"></div>",
+			"why": "the member ⋯ menu: mounted only while open; the mockup toggles .on"
+		},
+		{
+			"mockup": "#lblock",
+			"html": "<div hidden></div>",
+			"why": "the Ledger lock panel: rendered only while the Ledger is locked; the mockup sets hidden"
+		},
+		{
+			"mockup": "#rblock",
+			"html": "<div hidden></div>",
+			"why": "the Reports lock: rendered only while locked"
+		},
+		{
+			"mockup": "#mlock",
+			"html": "<div hidden></div>",
+			"why": "the Members lock: rendered only while locked"
+		},
+		{
+			"mockup": "#bklock",
+			"html": "<div hidden></div>",
+			"why": "the Bookings lock: rendered only while locked"
+		},
+		{
+			"mockup": "#lb",
+			"html": "<table hidden><tbody></tbody></table>",
+			"pick": "tbody",
+			"why": "the Ledger rows: the UI draws the lock panel instead of the table; the mockup hides the table"
+		},
+		{
+			"mockup": "#vab",
+			"html": "<div hidden></div>",
+			"why": "the preview banner: rendered only while previewing; the mockup sets hidden"
 		}
 	],
 	"helpers": {
@@ -138,16 +1140,17 @@
 	},
 	"internals": {
 		"style": "themeCss: the first <style> of the document holds src/theme.css, minified the way the mockup writes its stylesheet (no spaces around { } : ; , and no ; before })",
-		"window.__t": null,
-		"window.__t.SC": null,
-		"window.__t.people": null,
-		"window.__t.roleGuard": null,
-		"window.__t.kEmit": null,
-		"window.__t.kParse": null,
-		"window.__t.kCsv": null,
-		"window.__t.kHist": null,
-		"window.__t.kScope": null,
-		"window.__t.kFilter": null,
+		"window.__t.SC": "schools",
+		"window.__t.kEmit": "kEmit",
+		"window.__t.kParse": "kParse",
+		"window.__t.people": "people",
+		"window.__t.roleGuard": "roleGuard",
+		"window.__t.kHist": "kHist",
+		"window.__t.kScope": "kScope",
+		"window.__t.kFilter": "kFilter",
+		"window.__t.kCsv": "kCsv",
+		"window.__t.vaAllowed": "vaAllowed",
+		"window.__t.VW": "VW",
 		"window.__t.DISCLOSURE": null,
 		"window.__t.bkFig": null,
 		"window.__t.bkAggP": null,
@@ -158,14 +1161,8 @@
 		"window.__t.perY": null,
 		"window.__t.perQ": null,
 		"window.__t.perM": null,
-		"window.__t.vaAllowed": null,
-		"window.__t.VW": null,
 		"window.__t.reportDocCsv": null,
 		"window.__t.pMetaOf": null,
 		"window.__t.render": null
-	},
-	"unmapped": {
-		"#kview": "the frozen mockup's View as button (#kview, its popover #kvp with [data-bv] options, exit #vax): the UI has no View as yet (S7). The UI's static scope note and its Dashboard-local 'View books as' switch are the obsolete S1 vocabulary and are deliberately not mapped onto it.",
-		"#pp": "the frozen mockup's period popover (presets [data-pk], booking ranges [data-bp]): S7's single period control; the UI's S0 popover has other contents"
 	}
 }
