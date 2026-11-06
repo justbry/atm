@@ -99,7 +99,7 @@ const LINK_ATTEMPTS = 3;
 const sleep = (milliseconds: number): Promise<void> =>
 	new Promise((done) => setTimeout(done, milliseconds));
 
-const hasErrorCode = (error: unknown, ...codes: string[]): boolean =>
+export const hasErrorCode = (error: unknown, ...codes: string[]): boolean =>
 	typeof error === "object" &&
 	error !== null &&
 	"code" in error &&
