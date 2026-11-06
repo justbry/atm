@@ -40,6 +40,12 @@ import {
 	ledgerEvent as ledgerEventImpl,
 	mutationToEvents as mutationToEventsImpl,
 } from "./ledger/postings.js";
+import {
+	checkReceiptAgainstEvents as checkReceiptAgainstEventsImpl,
+	receiptOf as receiptOfImpl,
+	signReceipt as signReceiptImpl,
+	verifyReceipt as verifyReceiptImpl,
+} from "./ledger/receipt.js";
 import { reconcile as reconcileImpl } from "./ledger/reconcile.js";
 import {
 	balancesOf as balancesOfImpl,
@@ -53,6 +59,11 @@ import {
 	reportMonth as reportMonthImpl,
 } from "./ledger/report.js";
 import { runOnState as runOnStateImpl, toCatalog } from "./ledger/run.js";
+import {
+	sealOf as sealOfImpl,
+	signSeal as signSealImpl,
+	verifySeals as verifySealsImpl,
+} from "./ledger/seal.js";
 import {
 	formatShareStatement as formatShareStatementImpl,
 	shareStatement as shareStatementImpl,
@@ -94,8 +105,14 @@ import type {
 	AtmLapsedRow,
 	AtmLedgerEventInput,
 	AtmMutation,
+	AtmPublicKeys,
+	AtmReceipt,
 	AtmReplayResult,
 	AtmResultFor,
+	AtmSeal,
+	AtmSignedReceipt,
+	AtmSignedSeal,
+	AtmSigner,
 	AtmSimulateInput,
 	AtmSimulation,
 	AtmSnapshot,
@@ -149,6 +166,7 @@ import type {
 	InvoiceGrantInput,
 	InvoiceLine,
 	JournalRun,
+	LedgerVerdict,
 	LineItem,
 	Mapping,
 	Menu,
@@ -175,6 +193,7 @@ import type {
 	QuoteInput,
 	R2StoreOptions,
 	RaiseUnitsInput,
+	ReceiptVerdict,
 	ReconcileInput,
 	ReconcileResult,
 	ReconcileVerdictInput,
@@ -195,6 +214,8 @@ import type {
 	RowChanges,
 	RowTable,
 	ScenarioBundle,
+	SealOfInput,
+	SealReport,
 	SettleBookingInput,
 	SettleInputErasuresResult,
 	ShareStatement,
@@ -1180,6 +1201,55 @@ export const appendToOutbox = (
 	events: readonly AtmEvent[],
 	env: AtmEnv,
 ): number => appendToOutboxImpl(db, events, env);
+
+// ---- Signed receipts and sealed months ----
+
+/**
+ * The receipt of a `payment.succeeded` or `payment.refunded` event, made from the event alone (`null` for any other type):
+ * school, family timeline, amount, currency, the Stripe object id, the cause and `event_hash`, the sha256 of the event's
+ * canonical form. No name or email. Throws naming the field when a required payload field is missing. Pure.
+ */
+export const receiptOf = (event: AtmEvent): AtmReceipt | null =>
+	receiptOfImpl(event);
+
+/** Signs a receipt with an Ed25519 private key (PKCS#8 PEM): `sig` over `canonicalize(receipt)`, base64url. Throws for any other key type. */
+export const signReceipt = (
+	receipt: AtmReceipt,
+	signer: AtmSigner,
+): AtmSignedReceipt => signReceiptImpl(receipt, signer);
+
+/** Checks an untrusted signed receipt: its shape (`schema/receipt.v1.json`), its key id in `keys`, its signature. Never throws. */
+export const verifyReceipt = (
+	signed: unknown,
+	keys: AtmPublicKeys,
+): ReceiptVerdict => verifyReceiptImpl(signed, keys);
+
+/** Makes the receipt again from the books' event and compares the bytes: `missing_event`, `not_receipted` or `event_changed` when they differ. */
+export const checkReceiptAgainstEvents = (
+	signed: AtmSignedReceipt,
+	events: readonly AtmEvent[],
+): LedgerVerdict => checkReceiptAgainstEventsImpl(signed, events);
+
+/**
+ * The seal of a school's month at `sealedAt` (the caller's clock): the count and hash of the month's events written by
+ * then, chained to the school's previous signed seal. Throws when a month event was written after `sealedAt`. Pure.
+ */
+export const sealOf = (input: SealOfInput): AtmSeal => sealOfImpl(input);
+
+/** Signs a seal as `signReceipt` signs a receipt. */
+export const signSeal = (seal: AtmSeal, signer: AtmSigner): AtmSignedSeal =>
+	signSealImpl(seal, signer);
+
+/**
+ * A school's seal chain (in the order made) against its events: a verdict per seal (`ok`, `malformed`, `bad_signature`,
+ * `unknown_key`, `broken_link`, `events_changed`) and the month events written after their month's latest seal. Never
+ * throws on a bad seal.
+ */
+export const verifySeals = (
+	seals: readonly unknown[],
+	events: readonly AtmEvent[],
+	keys: AtmPublicKeys,
+): SealReport => verifySealsImpl(seals, events, keys);
 
 // ---- Scenario bundles and hash checkpoints ----
 

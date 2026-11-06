@@ -1,6 +1,7 @@
 import { Database } from "bun:sqlite";
-import { readFile, stat } from "node:fs/promises";
-import { basename } from "node:path";
+import { generateKeyPairSync } from "node:crypto";
+import { appendFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { basename, dirname, join } from "node:path";
 import type { WorkerFullSubject } from "@autumn/balance-engine";
 import { Command } from "commander";
 import packageJson from "../package.json";
@@ -17,6 +18,12 @@ import {
 	R2_ENV,
 	resolveInputsDestination,
 } from "./ledger/inputs-destination.js";
+import {
+	checkReceiptAgainstEvents,
+	receiptOf,
+	signReceipt,
+	verifyReceipt,
+} from "./ledger/receipt.js";
 import { ReconcileInputError } from "./ledger/reconcile.js";
 import {
 	formatReconcile,
@@ -32,6 +39,7 @@ import {
 	reportMonth,
 	skippedNote,
 } from "./ledger/report.js";
+import { sealOf, signSeal, verifySeals } from "./ledger/seal.js";
 import {
 	formatShareStatement,
 	shareStatement,
@@ -48,10 +56,20 @@ import {
 	simulateFromInputs,
 } from "./ledger/simulate-inputs.js";
 import { outboxStatus } from "./ledger/status.js";
+import { canonicalize, isoInstant } from "./ledger/util.js";
 import { addScenarioCommands, runScenarioSimulate } from "./scenario/cli.js";
 import { FolderStore } from "./store/folder-store.js";
 import { R2Store } from "./store/r2-store.js";
-import type { AtmCatalogRow, AtmEnv } from "./types.js";
+import type {
+	AtmCatalogRow,
+	AtmEnv,
+	AtmPublicKeys,
+	AtmSignedReceipt,
+	AtmSignedSeal,
+	AtmSigner,
+	LedgerVerdict,
+	ReceiptVerdict,
+} from "./types.js";
 
 /** How long `atm ship` waits for the handler's write lock on a busy database. */
 const BUSY_TIMEOUT_MS = 5000;
@@ -964,3 +982,269 @@ const simulateCommand = program
 	);
 exitTwoOnUsageError(simulateCommand);
 addScenarioCommands(program, scenarioKit);
+
+// ---- atm keys new, receipt, seal, verify (signed receipts and sealed months) ----
+
+/** Exit status of `atm verify` when the receipt or a seal does not verify; 2 stays for input it cannot use. */
+const EXIT_INVALID = 1;
+
+/** A key id names files in `atm keys new --out`, so it is one plain file-name part. */
+const KEY_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
+/** Where `atm seal` keeps a school's chain, beside `ledger/build.json`: one signed seal per line, append-only. */
+const SEALS_FILE = "ledger/seals.jsonl";
+
+const signerFrom = async (path: string, keyId: string): Promise<AtmSigner> => {
+	const privateKeyPem = await readFile(path, "utf8").catch((error) => {
+		throw new InputError(`--key ${path} cannot be read: ${oneLine(error)}`);
+	});
+	return { keyId, privateKeyPem };
+};
+
+const keysFrom = async (path: string): Promise<AtmPublicKeys> => {
+	const keys = await readInputFile("--keys", path);
+	if (
+		typeof keys !== "object" ||
+		keys === null ||
+		Array.isArray(keys) ||
+		!Object.values(keys).every((pem) => typeof pem === "string")
+	)
+		throw new InputError(
+			`--keys ${path} is not a keys.json ({ key_id: public PEM }), as atm keys new writes`,
+		);
+	return keys as AtmPublicKeys;
+};
+
+const schoolEvents = async (root: string, school: string) => {
+	assertSchoolFolder(school);
+	return (await readEvents(root, school)).events;
+};
+
+/** The chain in `seals.jsonl`, in the order made; null when there is no file. A line that is not JSON stays as its text, so `verifySeals` calls it malformed. */
+const readSeals = async (path: string): Promise<unknown[] | null> => {
+	const text = await readFile(path, "utf8").catch(() => null);
+	if (text === null) return null;
+	return text
+		.split("\n")
+		.filter((line) => line.length > 0)
+		.map((line) => {
+			try {
+				return JSON.parse(line) as unknown;
+			} catch {
+				return line;
+			}
+		});
+};
+
+const keysCommand = program
+	.command("keys")
+	.description("the Ed25519 keys receipts and seals are signed with");
+const keysNewCommand = keysCommand
+	.command("new")
+	.description(
+		"write a new Ed25519 key pair into --out: <key_id>.private.pem (mode 0600; keep it in a secret store), <key_id>.public.pem and keys.json ({ key_id: public PEM }, what --keys reads); refuses to overwrite any file",
+	)
+	.requiredOption("--out <dir>", "the folder to write the three files into")
+	.option(
+		"--id <key_id>",
+		"the key id receipts and seals name (default trifold-YYYY-MM, the UTC month now)",
+	)
+	.action((opts: { out: string; id?: string }) =>
+		unattended("keys new", false, async () => {
+			const keyId =
+				opts.id ?? `trifold-${new Date().toISOString().slice(0, 7)}`;
+			if (!KEY_ID.test(keyId))
+				throw new InputError(
+					`--id ${JSON.stringify(keyId)} must be letters, digits, ".", "_" or "-"`,
+				);
+			const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+			const publicPem = String(
+				publicKey.export({ format: "pem", type: "spki" }),
+			);
+			const files: [string, string, number][] = [
+				[
+					`${keyId}.private.pem`,
+					String(privateKey.export({ format: "pem", type: "pkcs8" })),
+					0o600,
+				],
+				[`${keyId}.public.pem`, publicPem, 0o644],
+				[
+					"keys.json",
+					`${JSON.stringify({ [keyId]: publicPem }, null, 2)}\n`,
+					0o644,
+				],
+			];
+			await mkdir(opts.out, { recursive: true });
+			for (const [name] of files)
+				if (await stat(join(opts.out, name)).catch(() => null))
+					throw new InputError(
+						`${join(opts.out, name)} already exists; atm keys new overwrites nothing`,
+					);
+			for (const [name, text, mode] of files)
+				await writeFile(join(opts.out, name), text, { flag: "wx", mode });
+			process.stdout.write(
+				`wrote ${files.map(([name]) => join(opts.out, name)).join(", ")}\n`,
+			);
+		}),
+	);
+exitTwoOnUsageError(keysNewCommand);
+
+type ReceiptOptions = {
+	root: string;
+	school: string;
+	key: string;
+	keyId: string;
+	event?: string;
+};
+
+const receiptCommand = program
+	.command("receipt")
+	.description(
+		"print signed receipts as JSON lines, one per payment.succeeded or payment.refunded event of the school (or the one --event); writes nothing; an error is one line on stderr and exit 2",
+	)
+	.requiredOption("--root <folder>", "the folder that holds schools/<id>/")
+	.requiredOption("--school <id>", "school id, as in schools/<id>/")
+	.requiredOption("--key <private.pem>", "the Ed25519 private key (PKCS#8 PEM)")
+	.requiredOption("--key-id <id>", "the id its public key is published under")
+	.option("--event <event_id>", "only this event's receipt")
+	.action((opts: ReceiptOptions) =>
+		unattended("receipt", false, async () => {
+			const signer = await signerFrom(opts.key, opts.keyId);
+			const events = (await schoolEvents(opts.root, opts.school)).filter(
+				(event) => opts.event === undefined || event.id === opts.event,
+			);
+			if (opts.event !== undefined && events.length === 0)
+				throw new InputError(
+					`--event ${opts.event} is not an event of school ${opts.school}`,
+				);
+			const receipts = events
+				.map(receiptOf)
+				.filter((receipt) => receipt !== null);
+			if (opts.event !== undefined && receipts.length === 0)
+				throw new InputError(
+					`--event ${opts.event} is a ${events[0]?.event_type}, which gets no receipt`,
+				);
+			for (const receipt of receipts) writeJson(signReceipt(receipt, signer));
+		}),
+	);
+exitTwoOnUsageError(receiptCommand);
+
+type SealOptions = {
+	root: string;
+	school: string;
+	month: string;
+	key: string;
+	keyId: string;
+};
+
+const sealCommand = program
+	.command("seal")
+	.description(
+		`seal a school's month: sign the count and hash of its events written by now, chained to the last seal in schools/<id>/${SEALS_FILE}, append it there and print it as one JSON line; a month may be sealed again to cover events that arrived later; an error is one line on stderr and exit 2`,
+	)
+	.requiredOption("--root <folder>", "the folder that holds schools/<id>/")
+	.requiredOption("--school <id>", "school id, as in schools/<id>/")
+	.requiredOption(
+		"--month <YYYY-MM>",
+		"month, by the events' school-local date",
+	)
+	.requiredOption("--key <private.pem>", "the Ed25519 private key (PKCS#8 PEM)")
+	.requiredOption("--key-id <id>", "the id its public key is published under")
+	.action((opts: SealOptions) =>
+		unattended("seal", false, async () => {
+			if (!SIMULATE_MONTH.test(opts.month))
+				throw new InputError(`--month must be YYYY-MM, got ${opts.month}`);
+			const signer = await signerFrom(opts.key, opts.keyId);
+			const events = await schoolEvents(opts.root, opts.school);
+			const path = join(opts.root, "schools", opts.school, SEALS_FILE);
+			const previous = (await readSeals(path))?.at(-1) ?? null;
+			if (previous !== null && typeof previous !== "object")
+				throw new InputError(
+					`the last line of ${path} is not a signed seal; run atm verify seals`,
+				);
+			const seal = sealOf({
+				school: opts.school,
+				month: opts.month,
+				events,
+				// The CLI's clock, not atm's: the library reads none.
+				sealedAt: isoInstant(Date.now()),
+				previous: previous as AtmSignedSeal | null,
+			});
+			const signed = signSeal(seal, signer);
+			await mkdir(dirname(path), { recursive: true });
+			await appendFile(path, `${canonicalize(signed)}\n`);
+			writeJson(signed);
+		}),
+	);
+exitTwoOnUsageError(sealCommand);
+
+const verifyCommand = program
+	.command("verify")
+	.description("check a signed receipt, or a school's seal chain");
+
+const verifyReceiptCommand = verifyCommand
+	.command("receipt")
+	.description(
+		"check a signed receipt's shape, key id and signature; with --root and --school also make it again from the school's books and compare. Prints {ok} or {ok, reason} as one JSON line; exits 0 valid, 1 not, 2 for input it cannot use",
+	)
+	.argument("<file>", "the signed receipt JSON, or - for stdin")
+	.requiredOption("--keys <keys.json>", "{ key_id: public PEM }")
+	.option("--root <folder>", "the folder that holds schools/<id>/")
+	.option("--school <id>", "school id, as in schools/<id>/")
+	.action(
+		(file: string, opts: { keys: string; root?: string; school?: string }) =>
+			unattended("verify receipt", false, async () => {
+				if ((opts.root === undefined) !== (opts.school === undefined))
+					throw new InputError("--root and --school go together");
+				const keys = await keysFrom(opts.keys);
+				const text =
+					file === "-"
+						? await Bun.stdin.text()
+						: await readFile(file, "utf8").catch((error) => {
+								throw new InputError(
+									`${file} cannot be read: ${oneLine(error)}`,
+								);
+							});
+				let signed: unknown = text;
+				try {
+					signed = JSON.parse(text);
+				} catch {
+					// not JSON: verifyReceipt calls it malformed
+				}
+				let verdict: ReceiptVerdict | LedgerVerdict = verifyReceipt(
+					signed,
+					keys,
+				);
+				if (verdict.ok && opts.root !== undefined && opts.school !== undefined)
+					verdict = checkReceiptAgainstEvents(
+						signed as AtmSignedReceipt,
+						await schoolEvents(opts.root, opts.school),
+					);
+				writeJson(verdict);
+				if (!verdict.ok) process.exitCode = EXIT_INVALID;
+			}),
+	);
+exitTwoOnUsageError(verifyReceiptCommand);
+
+const verifySealsCommand = verifyCommand
+	.command("seals")
+	.description(
+		`check a school's seal chain (schools/<id>/${SEALS_FILE}) against its events and print the report ({ok, seals: [{month, sealed_at, verdict}], unsealedLate}) as one JSON line; exits 1 when a seal fails, 0 otherwise (events that arrived after their month's last seal are not a failure), 2 for input it cannot use`,
+	)
+	.requiredOption("--root <folder>", "the folder that holds schools/<id>/")
+	.requiredOption("--school <id>", "school id, as in schools/<id>/")
+	.requiredOption("--keys <keys.json>", "{ key_id: public PEM }")
+	.action((opts: { root: string; school: string; keys: string }) =>
+		unattended("verify seals", false, async () => {
+			const keys = await keysFrom(opts.keys);
+			const events = await schoolEvents(opts.root, opts.school);
+			const path = join(opts.root, "schools", opts.school, SEALS_FILE);
+			const seals = await readSeals(path);
+			if (seals === null)
+				throw new InputError(`no seals at ${path}; atm seal makes them`);
+			const report = verifySeals(seals, events, keys);
+			writeJson(report);
+			if (!report.ok) process.exitCode = EXIT_INVALID;
+		}),
+	);
+exitTwoOnUsageError(verifySealsCommand);
