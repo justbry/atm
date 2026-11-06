@@ -1,0 +1,4103 @@
+{
+	"slice": "S3",
+	"source": "dataSource mockup: the Plans tab (#pl, plans(), planPreview, kCodeHtml, drawPE, reviewModal) of plans/ledger-ui/design/mockup.html on dev, run headless with happy-dom (plans/ledger-ui/loop/tools/s0-text.mjs pattern) on its schools Vibes of Light, B4 Uni, Maple Pilates and Lotus Lane Yoga, and its smoke.mjs Plans and yaml checks. Shapes: src/data/plans.ts (buzz-school menu versions, brief A item 3, and the menu save and publish routes).",
+	"dataSource": "mockup",
+	"notes": [
+		"Data: the mockup's schools (dataSource mockup). `fixtures` below is what the fixture Reader returns for S3 (src/data/plans.ts shapes; amounts in cents): the mockup's SC.<school>.pl as buzz-school Menu bodies, and the counts its headless run shows (planStats, attN, kpiSeries). Vibes of Light also has a saved, unpublished v4 (Glow $65.00 -> $70.00 a month), so its Plans tab opens with a draft as S0's tab badge already says; every mockup shot of it first runs the same change (mockupSteps). B4 Uni, Maple Pilates: v3 live, no draft. Lotus Lane Yoga: no version, Stripe not connected. Earlier published versions (v1, v2) are listed but never opened.",
+		"Routes: #/<school>/plans?mode=&show=&billing=. mode is edit (the default, no parameter), preview or code; show is live or draft (Preview; absent: draft when the draft has changes, else live); billing=year shows yearly prices (absent: monthly). Clicking plan-mode, plan-show or plan-billing navigates by hash; Preview sizes, the drawer, the review dialog and the toast are component state. root.dataset.route is set only once the Plans data of the route is on screen (the Plans pane reports itself, as the Dashboard does).",
+		"The UI keeps each school's draft for the life of the mount (switching school or tab and back shows the same draft) and never re-reads after a write. Writes are exactly those of src/data/plans.ts: saveMenu(schoolId, menu) with the whole draft menu whenever the draft changes and has no problems (drawer Save to draft, a Code edit once applied, Discard draft, Reset to published), publishMenu(schoolId) from the review. A draft with problems stays on screen unsaved. After publishMenu resolves the draft is the live version, its number plus one.",
+		"Code: plan-yaml is the textarea (its text is checked with the `value` expectation); plan-yaml-line is one gutter number per line of the text (`text.split('\\n')`, so the final newline adds an empty last line), class bad on a line with a parse error or a problem. A fill (input event) may apply at once or after a debounce; pending text is applied before the Plans pane handles any click (a capture listener, as the mockup's kFlush on mousedown; the golden dispatches click only) and on blur. The status pill reads Valid, '<n> problem(s)' or 'Parse error at line <n>'. plan-yaml-message holds the error or problems, each with a jump button carrying data-line; 'No problems.' otherwise.",
+		"Changes are the mockup's diff() of the draft against the live menu, with its texts (New plan, Removed, 'Monthly price $a → $b', 'Yearly price', 'Sold in', 'What members get changed', 'Now on sale', 'Now hidden', 'Name \"a\" → \"b\"', 'Description changed'); plan-change and plan-publish-change carry data-plan; plan-change-badge is Removed or New. plan-draft-badge reads 'Draft · <n> change(s)' and the Plans tab badge (S0's tab-badge) shows 'draft' exactly when the draft has changes. Problems are the mockup's problems() texts; plan-problems (Edit and Preview) reads '<n> problem(s): <first>' plus ' (+<k> more)'.",
+		"Money: Intl.NumberFormat('en-US', { style: 'currency', currency }) of the menu currency from cents, as S1. Prices read as the mockup's priceTxt ('$32.50 per session / month · $350.00 / year'; a hidden tier with no price is 'Not for sale'; a pack '$40.00 one time' or '$x / month'); grants as grantTxt ('8 sessions per unit each month, rolls over 1 mo'; a pack charged once grants 'once'), with the feature's unit words. plan-monthly is the tier's PlanTierCount.activeUnits times the draft's monthly price ($0.00 without one); plan-members is active, plan-ending '+<ending> ending' only when ending > 0. The strip (Edit only, only when the live menu has a tier): active members, 'Collected in <Mon>' from PlanSummary.collected, ending soon, need attention = the School's attentionCount; plan-stat carries data-stat active, collected, ending or attention; collected opens #/<school>/dashboard, the others the Members tab (S4).",
+		"Rows: plan-row carries data-plan (the id) and data-kind (tiers or addons), class chg when the draft changed it; plan-changed is its 'draft' badge, plan-hidden 'Hidden' for a non-public tier. plan-edit is the row's icon button (aria-label 'Edit <name>'); clicking the row or plan-edit opens the drawer. plan-count reads '<n> of 4' and '<n> of 6' (data-kind). plan-members (title 'Show these members') opens #/<school>/members?plan=<tierId>.",
+		"Drawer: plan-field carries data-field (name, blurb, public, month, year, quantities for a tier; name, price, every for a pack: a pack has no public flag in buzz-school's Menu); plan-grant-field carries data-field (amount, unit, every, rollover) and data-index. Fields react to input events, selects included. Monthly and yearly prices are typed in major units and saved as cents; sizes as '1, 2, 4'. A new plan's id is the mockup's slug of its name. plan-drawer-problem is one per problem; Save to draft is disabled while there is any. Escape closes the drawer.",
+		"Review: plan-publish-dialog opens from plan-review (enabled only with changes, no problems and Stripe connected; otherwise disabled with the mockup's title). plan-publish-summary counts the active members of the changed live tiers. An owner gets plan-publish-pin (Publish enabled from 4 digits); an admin gets plan-publish-lock and a disabled Publish titled 'Owners publish'. In hold mode, while publishMenu is pending, plan-publish-go reads 'Publishing…' and it and plan-publish-cancel are disabled. toast is S0's shell toast, hooked.",
+		"Audiences: route as=<owner|finance|admin|governance|member|public>; absent, the signed-in person's own (Kim R., owner, at Vibes of Light; Jo A., finance admin, at B4 Uni), as the mockup's View as (VW, vaAllowed: only roles and audiences at or below your own). Owner and finance see everything. Admin without the grant: the strip and the draft table, with collected, plan-members and plan-monthly as plan-hid data-hid=no_grant 'Finance or governance only'. Governance, member, public: no Get started and no strip; the table lists the LIVE tiers (governance: hidden ones too; below it: on sale only). Governance sees counts, a count of 1 to 4 as '<10' (plan-hid data-hid=approx, title 'Rounded to the nearest 10: fewer than 5 members') and Monthly under 5 payers as '—' (data-hid=suppressed, title 'Hidden: fewer than 5 payers'); member and public see 'Governance and up see this' (data-hid=no_grant). plan-books-note is the mockup's kplnote. Any preview (as= other than your own) disables every write control with title 'Exit preview to act' and makes the YAML read-only. The shell's View as control and banner are S0b's.",
+		"Audience: plan-audience is the row badge 'Audience: <name>' of a tier whose audience is not member (title 'The audience this plan names: what its members see of the school's books'); plan-field data-field=audience is the drawer's select (member 'Member (default)', governance, public) with plan-drawer-hint; the change line is 'Audience <a> → <b>' with the mockup's effect text; the YAML key is audience.",
+		"Not in S3: the Preview promo code (S5 Promos), Get started's Connect Stripe (Settings, S7) and Share your purchase link (no buzz-school source), Format and Copy results (clipboard).",
+		"`expect.moves` lists the `text` selectors of that expectation which the moving-data run checks again (protocol §7) through a Reader that multiplies `moves.fields`."
+	],
+	"hooks": [
+		"plan-audience",
+		"plan-books-note",
+		"plan-hid",
+		"plan-drawer-hint",
+		"plan-setup",
+		"plan-setup-count",
+		"plan-setup-step",
+		"plan-setup-next",
+		"plan-stat",
+		"plan-stat-label",
+		"plan-stat-value",
+		"plan-version",
+		"plan-draft-badge",
+		"plan-mode",
+		"plan-discard",
+		"plan-review",
+		"plan-problems",
+		"plan-removed-note",
+		"plan-count",
+		"plan-row",
+		"plan-name",
+		"plan-blurb",
+		"plan-hidden",
+		"plan-changed",
+		"plan-price",
+		"plan-sizes",
+		"plan-grants",
+		"plan-members",
+		"plan-ending",
+		"plan-monthly",
+		"plan-edit",
+		"plan-empty",
+		"plan-add",
+		"plan-note",
+		"plan-preview-intro",
+		"plan-show",
+		"plan-billing",
+		"plan-preview-note",
+		"plan-card",
+		"plan-card-flag",
+		"plan-card-was",
+		"plan-card-price",
+		"plan-card-period",
+		"plan-card-grants",
+		"plan-size",
+		"plan-choose",
+		"plan-preview-empty",
+		"plan-yaml",
+		"plan-yaml-line",
+		"plan-yaml-status",
+		"plan-yaml-help",
+		"plan-yaml-format",
+		"plan-yaml-copy",
+		"plan-yaml-reset",
+		"plan-yaml-lock",
+		"plan-yaml-message",
+		"plan-changes",
+		"plan-changes-count",
+		"plan-change",
+		"plan-change-badge",
+		"plan-drawer",
+		"plan-drawer-title",
+		"plan-drawer-sub",
+		"plan-drawer-close",
+		"plan-field",
+		"plan-grant",
+		"plan-grant-field",
+		"plan-grant-add",
+		"plan-grant-remove",
+		"plan-drawer-problem",
+		"plan-drawer-note",
+		"plan-drawer-cancel",
+		"plan-drawer-save",
+		"plan-publish-dialog",
+		"plan-publish-versions",
+		"plan-publish-change",
+		"plan-publish-summary",
+		"plan-publish-pin",
+		"plan-publish-lock",
+		"plan-publish-go",
+		"plan-publish-cancel",
+		"toast"
+	],
+	"matrix": {
+		"mode": [
+			"edit",
+			"preview",
+			"code"
+		],
+		"role": [
+			"owner",
+			"admin"
+		]
+	},
+	"moves": {
+		"fields": [
+			"MenuVersionBody.menu.tiers[].prices[].amount",
+			"MenuVersionBody.menu.addons[].price.amount",
+			"PlanSummary.activeMembers",
+			"PlanSummary.endingSoon",
+			"PlanSummary.collected.amount",
+			"PlanSummary.tiers[].active",
+			"PlanSummary.tiers[].ending",
+			"PlanSummary.tiers[].activeUnits"
+		]
+	},
+	"fixtures": {
+		"vol": {
+			"versions": {
+				"versions": [
+					{
+						"version": 4,
+						"publishedAt": null,
+						"savedAt": 1793808300
+					},
+					{
+						"version": 3,
+						"publishedAt": 1788278400,
+						"savedAt": 1788276660
+					},
+					{
+						"version": 2,
+						"publishedAt": 1781535600,
+						"savedAt": 1781535120
+					},
+					{
+						"version": 1,
+						"publishedAt": 1772470800,
+						"savedAt": 1772469600
+					}
+				]
+			},
+			"bodies": {
+				"3": {
+					"version": 3,
+					"publishedAt": 1788278400,
+					"savedAt": 1788276660,
+					"menu": {
+						"currency": "usd",
+						"timeZone": "America/Denver",
+						"features": [
+							{
+								"id": "sessions",
+								"name": "Sessions",
+								"unit": {
+									"one": "session",
+									"other": "sessions"
+								}
+							}
+						],
+						"tiers": [
+							{
+								"id": "sparkle",
+								"name": "Sparkle",
+								"blurb": "A little time, every month",
+								"public": true,
+								"prices": [
+									{
+										"interval": "month",
+										"amount": 3250
+									},
+									{
+										"interval": "year",
+										"amount": 35000
+									}
+								],
+								"grants": [
+									{
+										"featureId": "sessions",
+										"amount": 8,
+										"every": "month",
+										"rollover": {
+											"months": 1
+										}
+									}
+								],
+								"quantities": [
+									1,
+									2,
+									4
+								]
+							},
+							{
+								"id": "shine",
+								"name": "Shine",
+								"blurb": "Regular sessions",
+								"public": true,
+								"prices": [
+									{
+										"interval": "month",
+										"amount": 3000
+									},
+									{
+										"interval": "year",
+										"amount": 32400
+									}
+								],
+								"grants": [
+									{
+										"featureId": "sessions",
+										"amount": 6,
+										"every": "month",
+										"rollover": {
+											"months": 1
+										}
+									}
+								],
+								"quantities": [
+									2,
+									4
+								]
+							},
+							{
+								"id": "glow",
+								"name": "Glow",
+								"blurb": "One big plan",
+								"public": true,
+								"prices": [
+									{
+										"interval": "month",
+										"amount": 6500
+									},
+									{
+										"interval": "year",
+										"amount": 70200
+									}
+								],
+								"grants": [
+									{
+										"featureId": "sessions",
+										"amount": 24,
+										"every": "month"
+									}
+								]
+							}
+						],
+						"addons": [
+							{
+								"id": "pack8",
+								"name": "Top-up pack",
+								"price": {
+									"amount": 4000,
+									"every": "once"
+								},
+								"grants": [
+									{
+										"featureId": "sessions",
+										"amount": 8,
+										"every": "month"
+									}
+								]
+							},
+							{
+								"id": "pack16",
+								"name": "Big top-up pack",
+								"price": {
+									"amount": 7200,
+									"every": "once"
+								},
+								"grants": [
+									{
+										"featureId": "sessions",
+										"amount": 16,
+										"every": "month"
+									}
+								]
+							}
+						]
+					},
+					"stripe": {
+						"products": [
+							"t:sparkle",
+							"t:shine",
+							"t:glow",
+							"a:pack8",
+							"a:pack16"
+						],
+						"prices": [
+							"t:sparkle:month",
+							"t:sparkle:year",
+							"t:shine:month",
+							"t:shine:year",
+							"t:glow:month",
+							"t:glow:year",
+							"a:pack8:once",
+							"a:pack16:once"
+						],
+						"portal": true
+					}
+				},
+				"4": {
+					"version": 4,
+					"publishedAt": null,
+					"savedAt": 1793808300,
+					"menu": {
+						"currency": "usd",
+						"timeZone": "America/Denver",
+						"features": [
+							{
+								"id": "sessions",
+								"name": "Sessions",
+								"unit": {
+									"one": "session",
+									"other": "sessions"
+								}
+							}
+						],
+						"tiers": [
+							{
+								"id": "sparkle",
+								"name": "Sparkle",
+								"blurb": "A little time, every month",
+								"public": true,
+								"prices": [
+									{
+										"interval": "month",
+										"amount": 3250
+									},
+									{
+										"interval": "year",
+										"amount": 35000
+									}
+								],
+								"grants": [
+									{
+										"featureId": "sessions",
+										"amount": 8,
+										"every": "month",
+										"rollover": {
+											"months": 1
+										}
+									}
+								],
+								"quantities": [
+									1,
+									2,
+									4
+								]
+							},
+							{
+								"id": "shine",
+								"name": "Shine",
+								"blurb": "Regular sessions",
+								"public": true,
+								"prices": [
+									{
+										"interval": "month",
+										"amount": 3000
+									},
+									{
+										"interval": "year",
+										"amount": 32400
+									}
+								],
+								"grants": [
+									{
+										"featureId": "sessions",
+										"amount": 6,
+										"every": "month",
+										"rollover": {
+											"months": 1
+										}
+									}
+								],
+								"quantities": [
+									2,
+									4
+								]
+							},
+							{
+								"id": "glow",
+								"name": "Glow",
+								"blurb": "One big plan",
+								"public": true,
+								"prices": [
+									{
+										"interval": "month",
+										"amount": 7000
+									},
+									{
+										"interval": "year",
+										"amount": 70200
+									}
+								],
+								"grants": [
+									{
+										"featureId": "sessions",
+										"amount": 24,
+										"every": "month"
+									}
+								]
+							}
+						],
+						"addons": [
+							{
+								"id": "pack8",
+								"name": "Top-up pack",
+								"price": {
+									"amount": 4000,
+									"every": "once"
+								},
+								"grants": [
+									{
+										"featureId": "sessions",
+										"amount": 8,
+										"every": "month"
+									}
+								]
+							},
+							{
+								"id": "pack16",
+								"name": "Big top-up pack",
+								"price": {
+									"amount": 7200,
+									"every": "once"
+								},
+								"grants": [
+									{
+										"featureId": "sessions",
+										"amount": 16,
+										"every": "month"
+									}
+								]
+							}
+						]
+					},
+					"stripe": {
+						"products": [],
+						"prices": [],
+						"portal": false
+					}
+				}
+			},
+			"summary": {
+				"activeMembers": 5,
+				"endingSoon": 1,
+				"collected": {
+					"period": "2026-11",
+					"amount": 28700
+				},
+				"tiers": [
+					{
+						"tierId": "sparkle",
+						"active": 3,
+						"ending": 0,
+						"activeUnits": 7
+					},
+					{
+						"tierId": "shine",
+						"active": 1,
+						"ending": 1,
+						"activeUnits": 4
+					},
+					{
+						"tierId": "glow",
+						"active": 1,
+						"ending": 0,
+						"activeUnits": 1
+					}
+				],
+				"features": [
+					{
+						"id": "sessions",
+						"name": "Sessions",
+						"unit": {
+							"one": "session",
+							"other": "sessions"
+						}
+					}
+				],
+				"stripeConnected": true,
+				"purchaseLinkShared": true
+			}
+		},
+		"b4u": {
+			"versions": {
+				"versions": [
+					{
+						"version": 3,
+						"publishedAt": 1787583600,
+						"savedAt": 1787580600
+					},
+					{
+						"version": 2,
+						"publishedAt": 1775487600,
+						"savedAt": 1775486700
+					},
+					{
+						"version": 1,
+						"publishedAt": 1768230000,
+						"savedAt": 1768227600
+					}
+				]
+			},
+			"bodies": {
+				"3": {
+					"version": 3,
+					"publishedAt": 1787583600,
+					"savedAt": 1787580600,
+					"menu": {
+						"currency": "usd",
+						"timeZone": "America/Chicago",
+						"features": [
+							{
+								"id": "credits",
+								"name": "Credits",
+								"unit": {
+									"one": "credit",
+									"other": "credits"
+								}
+							}
+						],
+						"tiers": [
+							{
+								"id": "sparkle",
+								"name": "Sparkle",
+								"blurb": "Starter",
+								"public": true,
+								"prices": [
+									{
+										"interval": "month",
+										"amount": 2000
+									}
+								],
+								"grants": [
+									{
+										"featureId": "credits",
+										"amount": 8,
+										"every": "month",
+										"rollover": {
+											"months": 1
+										}
+									}
+								]
+							},
+							{
+								"id": "shine",
+								"name": "Shine",
+								"blurb": "Regular",
+								"public": true,
+								"prices": [
+									{
+										"interval": "month",
+										"amount": 4500
+									}
+								],
+								"grants": [
+									{
+										"featureId": "credits",
+										"amount": 12,
+										"every": "month",
+										"rollover": {
+											"months": 1
+										}
+									}
+								],
+								"quantities": [
+									1,
+									2
+								]
+							},
+							{
+								"id": "board",
+								"name": "Board",
+								"blurb": "For board members. Not for sale: the owner gives it.",
+								"public": false,
+								"prices": [],
+								"grants": [
+									{
+										"featureId": "credits",
+										"amount": 2,
+										"every": "month"
+									}
+								],
+								"audience": "governance"
+							}
+						],
+						"addons": []
+					},
+					"stripe": {
+						"products": [
+							"t:sparkle",
+							"t:shine"
+						],
+						"prices": [
+							"t:sparkle:month",
+							"t:shine:month"
+						],
+						"portal": true
+					}
+				}
+			},
+			"summary": {
+				"activeMembers": 7,
+				"endingSoon": 0,
+				"collected": {
+					"period": "2026-06",
+					"amount": 62300
+				},
+				"tiers": [
+					{
+						"tierId": "sparkle",
+						"active": 4,
+						"ending": 0,
+						"activeUnits": 4
+					},
+					{
+						"tierId": "shine",
+						"active": 2,
+						"ending": 0,
+						"activeUnits": 3
+					},
+					{
+						"tierId": "board",
+						"active": 1,
+						"ending": 0,
+						"activeUnits": 1
+					}
+				],
+				"features": [
+					{
+						"id": "credits",
+						"name": "Credits",
+						"unit": {
+							"one": "credit",
+							"other": "credits"
+						}
+					}
+				],
+				"stripeConnected": true,
+				"purchaseLinkShared": true
+			}
+		},
+		"map": {
+			"versions": {
+				"versions": [
+					{
+						"version": 3,
+						"publishedAt": 1789394400,
+						"savedAt": 1789391700
+					},
+					{
+						"version": 2,
+						"publishedAt": 1777903200,
+						"savedAt": 1777902600
+					},
+					{
+						"version": 1,
+						"publishedAt": 1770040800,
+						"savedAt": 1770039000
+					}
+				]
+			},
+			"bodies": {
+				"3": {
+					"version": 3,
+					"publishedAt": 1789394400,
+					"savedAt": 1789391700,
+					"menu": {
+						"currency": "cad",
+						"timeZone": "America/Toronto",
+						"features": [
+							{
+								"id": "classes",
+								"name": "Classes",
+								"unit": {
+									"one": "class",
+									"other": "classes"
+								}
+							}
+						],
+						"tiers": [
+							{
+								"id": "glow",
+								"name": "Glow",
+								"blurb": "Unlimited feel",
+								"public": true,
+								"prices": [
+									{
+										"interval": "month",
+										"amount": 8500
+									}
+								],
+								"grants": [
+									{
+										"featureId": "classes",
+										"amount": 24,
+										"every": "month"
+									}
+								]
+							}
+						],
+						"addons": []
+					},
+					"stripe": {
+						"products": [
+							"t:glow"
+						],
+						"prices": [
+							"t:glow:month"
+						],
+						"portal": false
+					}
+				}
+			},
+			"summary": {
+				"activeMembers": 2,
+				"endingSoon": 1,
+				"collected": {
+					"period": "2026-11",
+					"amount": 8500
+				},
+				"tiers": [
+					{
+						"tierId": "glow",
+						"active": 2,
+						"ending": 1,
+						"activeUnits": 2
+					}
+				],
+				"features": [
+					{
+						"id": "classes",
+						"name": "Classes",
+						"unit": {
+							"one": "class",
+							"other": "classes"
+						}
+					}
+				],
+				"stripeConnected": true,
+				"purchaseLinkShared": false
+			}
+		},
+		"nw": {
+			"versions": {
+				"versions": []
+			},
+			"bodies": {},
+			"summary": {
+				"activeMembers": 0,
+				"endingSoon": 0,
+				"collected": null,
+				"tiers": [],
+				"features": [
+					{
+						"id": "classes",
+						"name": "Classes",
+						"unit": {
+							"one": "class",
+							"other": "classes"
+						}
+					}
+				],
+				"stripeConnected": false,
+				"purchaseLinkShared": false
+			}
+		}
+	},
+	"entries": [
+		{
+			"id": "edit-default",
+			"source": "mockup headless (plans/ledger-ui/loop/tools/s0-text.mjs pattern) on Vibes of Light with the v4 draft (Glow $65.00 -> $70.00): plans() strip, .tools, the two tables, Add buttons and the info line; smoke.mjs 'plans collected stat'",
+			"route": "#/vol/plans?theme=light",
+			"covers": {
+				"mode": "edit",
+				"role": "owner"
+			},
+			"expect": {
+				"text": {
+					"[data-test=plan-stat][data-stat=active] [data-test=plan-stat-value]": "5",
+					"[data-test=plan-stat][data-stat=collected] [data-test=plan-stat-value]": "$287.00",
+					"[data-test=plan-stat][data-stat=ending] [data-test=plan-stat-value]": "1",
+					"[data-test=plan-stat][data-stat=attention] [data-test=plan-stat-value]": "4",
+					"[data-test=plan-stat][data-stat=collected] [data-test=plan-stat-label]": "Collected in Nov",
+					"[data-test=plan-stat][data-stat=active] [data-test=plan-stat-label]": "Active members",
+					"[data-test=plan-stat][data-stat=ending] [data-test=plan-stat-label]": "Ending soon",
+					"[data-test=plan-stat][data-stat=attention] [data-test=plan-stat-label]": "Need attention",
+					"[data-test=plan-version]": "v3 published",
+					"[data-test=plan-draft-badge]": "Draft · 1 change",
+					"[data-test=plan-mode].on": "Edit",
+					"[data-test=plan-discard]": "Discard draft",
+					"[data-test=plan-review]": "Review and publish",
+					"[data-test=plan-count][data-kind=tiers]": "3 of 4",
+					"[data-test=plan-count][data-kind=addons]": "2 of 6",
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-name]": "Sparkle",
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-blurb]": "A little time, every month",
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-price]": "$32.50 per session / month · $350.00 / year",
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-sizes]": "Sold in 1, 2, 4",
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-grants]": "8 sessions per unit each month, rolls over 1 mo",
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-members]": "3",
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-monthly]": "$227.50",
+					"[data-test=plan-row][data-plan=shine] [data-test=plan-price]": "$30.00 per session / month · $324.00 / year",
+					"[data-test=plan-row][data-plan=shine] [data-test=plan-members]": "1",
+					"[data-test=plan-row][data-plan=shine] [data-test=plan-ending]": "+1 ending",
+					"[data-test=plan-row][data-plan=shine] [data-test=plan-monthly]": "$120.00",
+					"[data-test=plan-row][data-plan=glow] [data-test=plan-price]": "$70.00 / month · $702.00 / year",
+					"[data-test=plan-row][data-plan=glow] [data-test=plan-grants]": "24 sessions each month",
+					"[data-test=plan-row][data-plan=glow] [data-test=plan-changed]": "draft",
+					"[data-test=plan-row][data-plan=glow] [data-test=plan-monthly]": "$70.00",
+					"[data-test=plan-row][data-plan=pack8] [data-test=plan-name]": "Top-up pack",
+					"[data-test=plan-row][data-plan=pack8] [data-test=plan-price]": "$40.00 one time",
+					"[data-test=plan-row][data-plan=pack8] [data-test=plan-grants]": "8 sessions once",
+					"[data-test=plan-row][data-plan=pack16] [data-test=plan-price]": "$72.00 one time",
+					"[data-test=plan-row][data-plan=pack16] [data-test=plan-grants]": "16 sessions once",
+					"[data-test=plan-add][data-kind=tiers]": "Add membership",
+					"[data-test=plan-add][data-kind=addons]": "Add pack",
+					"[data-test=plan-note]": "A change starts a new version for new purchases. Members keep the version they bought.",
+					"[data-test=tab][data-tab=plans] [data-test=tab-badge]": "draft"
+				},
+				"count": {
+					"[data-test=plan-stat]": 4,
+					"[data-test=plan-row]": 5,
+					"[data-test=plan-row][data-kind=tiers]": 3,
+					"[data-test=plan-row][data-kind=addons]": 2,
+					"[data-test=plan-mode]": 3,
+					"[data-test=plan-changed]": 1,
+					"[data-test=plan-row].chg": 1,
+					"[data-test=plan-row][data-plan=glow].chg": 1,
+					"[data-test=plan-hidden]": 0,
+					"[data-test=plan-review][disabled]": 0,
+					"[data-test=plan-setup]": 0,
+					"[data-test=plan-edit]": 5,
+					"[data-test=plan-audience]": 0,
+					"[data-test=plan-books-note]": 0,
+					"[data-test=plan-hid]": 0,
+					"[data-test=plan-edit][aria-label=\"Edit Sparkle\"]": 1,
+					"[data-test=plan-members][title=\"Show these members\"]": 3,
+					"[data-test=plan-mode][aria-pressed=true]": 1,
+					"[data-test=plan-mode][data-mode=edit][aria-pressed=true]": 1
+				},
+				"contains": {
+					"[data-test=pane]": [
+						"Memberships",
+						"Packs and add-ons",
+						"Plan",
+						"Price",
+						"Members get",
+						"Members",
+						"Monthly",
+						"Name",
+						"Gives"
+					],
+					"[data-test=plan-mode]": [
+						"Edit",
+						"Preview",
+						"Code"
+					]
+				},
+				"moves": [
+					"[data-test=plan-stat][data-stat=active] [data-test=plan-stat-value]",
+					"[data-test=plan-stat][data-stat=collected] [data-test=plan-stat-value]",
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-price]",
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-members]",
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-monthly]",
+					"[data-test=plan-row][data-plan=glow] [data-test=plan-price]",
+					"[data-test=plan-row][data-plan=pack8] [data-test=plan-price]"
+				]
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "SC.vol.pl.draft.tiers.find(t=>t.id==='glow').month=70;render()"
+			}
+		},
+		{
+			"id": "edit-b4u-admin",
+			"source": "mockup headless on B4 Uni (admin Jo A., no draft): the strip reads the month the Dashboard opens on (dm=5, Jun) and B4 Uni's gross for it; the Board tier is hidden and not for sale; admins edit the draft, owners publish; Board names the Governance audience (smoke.mjs 'tier audience: Board tier is hidden, not for sale, names Governance'). Jo A. is a finance admin, so nothing is gated",
+			"route": "#/b4u/plans?theme=light",
+			"covers": {
+				"mode": "edit",
+				"role": "admin"
+			},
+			"expect": {
+				"text": {
+					"[data-test=plan-stat][data-stat=collected] [data-test=plan-stat-label]": "Collected in Jun",
+					"[data-test=plan-stat][data-stat=collected] [data-test=plan-stat-value]": "$623.00",
+					"[data-test=plan-stat][data-stat=active] [data-test=plan-stat-value]": "7",
+					"[data-test=plan-stat][data-stat=ending] [data-test=plan-stat-value]": "0",
+					"[data-test=plan-stat][data-stat=attention] [data-test=plan-stat-value]": "2",
+					"[data-test=plan-version]": "v3 published",
+					"[data-test=plan-row][data-plan=board] [data-test=plan-hidden]": "Hidden",
+					"[data-test=plan-row][data-plan=board] [data-test=plan-price]": "Not for sale",
+					"[data-test=plan-row][data-plan=board] [data-test=plan-members]": "1",
+					"[data-test=plan-row][data-plan=board] [data-test=plan-monthly]": "$0.00",
+					"[data-test=plan-row][data-plan=board] [data-test=plan-blurb]": "For board members. Not for sale: the owner gives it.",
+					"[data-test=plan-row][data-plan=board] [data-test=plan-audience]": "Audience: Governance",
+					"[data-test=plan-row][data-plan=shine] [data-test=plan-price]": "$45.00 per credit / month",
+					"[data-test=plan-row][data-plan=shine] [data-test=plan-sizes]": "Sold in 1, 2",
+					"[data-test=plan-row][data-plan=shine] [data-test=plan-grants]": "12 credits per unit each month, rolls over 1 mo",
+					"[data-test=plan-row][data-plan=shine] [data-test=plan-monthly]": "$135.00",
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-price]": "$20.00 / month",
+					"[data-test=plan-count][data-kind=addons]": "0 of 6",
+					"[data-test=plan-empty][data-kind=addons]": "None yet.",
+					"[data-test=plan-note]": "A change starts a new version for new purchases. Members keep the version they bought. Admins edit the draft; owners publish."
+				},
+				"count": {
+					"[data-test=plan-draft-badge]": 0,
+					"[data-test=plan-discard]": 0,
+					"[data-test=plan-review][disabled][title=\"Nothing to publish\"]": 1,
+					"[data-test=plan-row]": 3,
+					"[data-test=plan-hidden]": 1,
+					"[data-test=plan-audience]": 1,
+					"[data-test=plan-audience][title^=\"The audience this plan names: what its members see of the school\"]": 1,
+					"[data-test=plan-books-note]": 0,
+					"[data-test=plan-hid]": 0,
+					"[data-test=tab][data-tab=plans] [data-test=tab-badge]": 0,
+					"[data-test=plan-ending]": 0
+				},
+				"moves": [
+					"[data-test=plan-stat][data-stat=collected] [data-test=plan-stat-value]",
+					"[data-test=plan-stat][data-stat=active] [data-test=plan-stat-value]",
+					"[data-test=plan-row][data-plan=shine] [data-test=plan-price]",
+					"[data-test=plan-row][data-plan=shine] [data-test=plan-monthly]"
+				]
+			}
+		},
+		{
+			"id": "stat-collected-opens-dashboard",
+			"source": "mockup: the Collected stat is data-go=dash",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=plan-stat][data-stat=collected]"
+				}
+			],
+			"expect": {
+				"hash": "#/vol/dashboard"
+			}
+		},
+		{
+			"id": "members-link-opens-members",
+			"source": "mockup: a tier's member count is data-pm (Members filtered by that plan); the filter's hash is S3's: plan=<tierId> (Members owns the rest, S4)",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=plan-row][data-plan=sparkle] [data-test=plan-members]"
+				}
+			],
+			"expect": {
+				"hash": "#/vol/members?plan=sparkle"
+			}
+		},
+		{
+			"id": "mode-preview",
+			"source": "mockup planPreview on Vibes of Light: draft shown by default when there are changes",
+			"route": "#/vol/plans?theme=light",
+			"covers": {
+				"mode": "preview",
+				"role": "owner"
+			},
+			"steps": [
+				{
+					"click": "[data-test=plan-mode][data-mode=preview]"
+				}
+			],
+			"expect": {
+				"hash": "mode=preview",
+				"text": {
+					"[data-test=plan-mode].on": "Preview",
+					"[data-test=plan-preview-intro]": "How the purchase page looks at b4uni.com/join/vibes-of-light. Click a plan to edit it.",
+					"[data-test=plan-show][data-show=live]": "Live v3",
+					"[data-test=plan-show][data-show=draft]": "Draft · 1",
+					"[data-test=plan-show].on": "Draft · 1",
+					"[data-test=plan-billing].on": "Monthly",
+					"[data-test=plan-preview-note]": "Showing the draft. Members see the live version until an owner publishes.",
+					"[data-test=plan-card][data-plan=glow] [data-test=plan-card-flag]": "Draft change",
+					"[data-test=plan-card][data-plan=glow] [data-test=plan-card-was]": "$65.00",
+					"[data-test=plan-card][data-plan=glow] [data-test=plan-card-price]": "$70.00",
+					"[data-test=plan-card][data-plan=glow] [data-test=plan-card-period]": "/ month",
+					"[data-test=plan-card][data-plan=sparkle] [data-test=plan-card-price]": "$32.50",
+					"[data-test=plan-card][data-plan=shine] [data-test=plan-card-price]": "$60.00",
+					"[data-test=plan-card][data-plan=shine] [data-test=plan-card-grants]": "12 sessions each month, rolls over 1 mo",
+					"[data-test=plan-card][data-plan=pack8] [data-test=plan-card-price]": "$40.00",
+					"[data-test=plan-card][data-plan=pack8] [data-test=plan-card-period]": "one time",
+					"[data-test=plan-card][data-plan=pack8] [data-test=plan-card-grants]": "8 sessions once",
+					"[data-test=plan-card][data-plan=sparkle] [data-test=plan-choose]": "Choose Sparkle"
+				},
+				"count": {
+					"[data-test=plan-card]": 5,
+					"[data-test=plan-card-flag]": 1,
+					"[data-test=plan-card-was]": 1,
+					"[data-test=plan-card].chg": 1,
+					"[data-test=plan-stat]": 0,
+					"[data-test=plan-row]": 0,
+					"[data-test=plan-size][data-plan=sparkle]": 3,
+					"[data-test=plan-size][data-plan=shine].on": 1,
+					"[data-test=plan-size][data-plan=shine][data-size=\"2\"].on": 1,
+					"[data-test=plan-card][aria-label=\"Edit Glow\"]": 1
+				},
+				"contains": {
+					"[data-test=pane]": [
+						"Memberships",
+						"Packs and add-ons"
+					]
+				},
+				"moves": [
+					"[data-test=plan-card][data-plan=glow] [data-test=plan-card-price]",
+					"[data-test=plan-card][data-plan=glow] [data-test=plan-card-was]",
+					"[data-test=plan-card][data-plan=shine] [data-test=plan-card-price]",
+					"[data-test=plan-card][data-plan=pack8] [data-test=plan-card-price]"
+				]
+			}
+		},
+		{
+			"id": "preview-live",
+			"source": "mockup planPreview, Live: the published plans, no flags, no draft note",
+			"route": "#/vol/plans?mode=preview&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=plan-show][data-show=live]"
+				}
+			],
+			"expect": {
+				"hash": "show=live",
+				"text": {
+					"[data-test=plan-show].on": "Live v3",
+					"[data-test=plan-card][data-plan=glow] [data-test=plan-card-price]": "$65.00"
+				},
+				"count": {
+					"[data-test=plan-preview-note]": 0,
+					"[data-test=plan-card-flag]": 0,
+					"[data-test=plan-card-was]": 0,
+					"[data-test=plan-card]": 5
+				},
+				"moves": [
+					"[data-test=plan-card][data-plan=glow] [data-test=plan-card-price]"
+				]
+			}
+		},
+		{
+			"id": "preview-sizes-and-yearly",
+			"source": "mockup planPreview: data-psz picks a size (price and grants times the size); data-pyr=1 shows yearly prices",
+			"route": "#/vol/plans?mode=preview&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=plan-size][data-plan=sparkle][data-size=\"4\"]",
+					"expect": {
+						"text": {
+							"[data-test=plan-card][data-plan=sparkle] [data-test=plan-card-price]": "$130.00",
+							"[data-test=plan-card][data-plan=sparkle] [data-test=plan-card-grants]": "32 sessions each month, rolls over 1 mo"
+						},
+						"count": {
+							"[data-test=plan-size][data-plan=sparkle][data-size=\"4\"].on": 1
+						}
+					}
+				},
+				{
+					"click": "[data-test=plan-billing][data-billing=year]"
+				}
+			],
+			"expect": {
+				"hash": "billing=year",
+				"text": {
+					"[data-test=plan-billing].on": "Yearly",
+					"[data-test=plan-card][data-plan=sparkle] [data-test=plan-card-price]": "$1,400.00",
+					"[data-test=plan-card][data-plan=sparkle] [data-test=plan-card-period]": "/ year",
+					"[data-test=plan-card][data-plan=shine] [data-test=plan-card-price]": "$648.00",
+					"[data-test=plan-card][data-plan=glow] [data-test=plan-card-price]": "$702.00"
+				},
+				"moves": [
+					"[data-test=plan-card][data-plan=sparkle] [data-test=plan-card-price]",
+					"[data-test=plan-card][data-plan=shine] [data-test=plan-card-price]"
+				]
+			}
+		},
+		{
+			"id": "preview-choose-and-edit",
+			"source": "mockup: Choose is a preview only (data-pvx toast); a card is data-pe and opens the plan drawer",
+			"route": "#/vol/plans?mode=preview&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=plan-card][data-plan=sparkle] [data-test=plan-choose]",
+					"expect": {
+						"text": {
+							"[data-test=toast]": "Preview only. Members would continue to Stripe Checkout."
+						}
+					}
+				},
+				{
+					"click": "[data-test=plan-card][data-plan=glow]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=plan-drawer-title]": "Glow"
+				},
+				"count": {
+					"[data-test=plan-drawer]": 1
+				}
+			}
+		},
+		{
+			"id": "preview-b4u-admin",
+			"source": "mockup planPreview on B4 Uni: no changes so Live; hidden tiers are left out of Live; Yearly is disabled when no tier has a yearly price",
+			"route": "#/b4u/plans?mode=preview&theme=light",
+			"covers": {
+				"mode": "preview",
+				"role": "admin"
+			},
+			"expect": {
+				"text": {
+					"[data-test=plan-show].on": "Live v3",
+					"[data-test=plan-show][data-show=draft]": "Draft",
+					"[data-test=plan-card][data-plan=shine] [data-test=plan-card-price]": "$45.00",
+					"[data-test=plan-preview-intro]": "How the purchase page looks at b4uni.com/join/b4-uni. Click a plan to edit it."
+				},
+				"count": {
+					"[data-test=plan-card]": 2,
+					"[data-test=plan-card][data-plan=board]": 0,
+					"[data-test=plan-billing][data-billing=year][disabled]": 1,
+					"[data-test=plan-preview-note]": 0
+				},
+				"moves": [
+					"[data-test=plan-card][data-plan=shine] [data-test=plan-card-price]"
+				]
+			}
+		},
+		{
+			"id": "mode-code",
+			"source": "mockup kCodeHtml on Vibes of Light with the v4 draft; smoke.mjs 'yaml: the Plans mode segment is Edit | Preview | Code', 'yaml: Code shows a monospace textarea with a line-number gutter that matches the text', 'yaml: toolbar has Format, Copy, Reset to published and a Valid pill', 'yaml: the honest-limits line is shown under the toolbar', 'yaml: Code has the plans, ids as keys, the read-only header'. The # stripe: lines say presence only (brief A: no Stripe ids)",
+			"route": "#/vol/plans?mode=code&theme=light",
+			"covers": {
+				"mode": "code",
+				"role": "owner"
+			},
+			"expect": {
+				"text": {
+					"[data-test=plan-mode].on": "Code",
+					"[data-test=plan-yaml-status]": "Valid",
+					"[data-test=plan-yaml-help]": "Comments are not saved: plans are stored as JSON. Anchors, aliases and tags are not accepted.",
+					"[data-test=plan-yaml-format]": "Format",
+					"[data-test=plan-yaml-copy]": "Copy",
+					"[data-test=plan-yaml-reset]": "Reset to published",
+					"[data-test=plan-yaml-message]": "No problems.",
+					"[data-test=plan-changes-count]": "1",
+					"[data-test=plan-yaml-line]": "1",
+					"[data-test=plan-draft-badge]": "Draft · 1 change"
+				},
+				"count": {
+					"[data-test=plan-yaml]": 1,
+					"[data-test=plan-yaml][readonly]": 0,
+					"[data-test=plan-yaml][aria-label=\"Plans as YAML\"]": 1,
+					"[data-test=plan-yaml-line]": 72,
+					"[data-test=plan-change]": 1,
+					"[data-test=plan-yaml-lock]": 0,
+					"[data-test=plan-stat]": 0,
+					"[data-test=plan-yaml-format][disabled]": 0,
+					"[data-test=plan-yaml-reset][disabled]": 0,
+					"[data-test=plan-review][disabled]": 0
+				},
+				"contains": {
+					"[data-test=plan-change][data-plan=glow]": [
+						"Glow",
+						"Monthly price $65.00 → $70.00",
+						"Create a $70.00/month price and archive the $65.00 one"
+					],
+					"[data-test=plan-changes]": [
+						"Changes vs published"
+					]
+				},
+				"value": {
+					"[data-test=plan-yaml]": [
+						"# Vibes of Light: plans. Edit here, then Review and publish.\n",
+						"\nversion: 3\ncurrency: USD\ntimeZone: America/Denver\n\nmemberships:\n",
+						"  # stripe: product · month price · year price\n  - id: sparkle\n    name: Sparkle\n    blurb: A little time, every month\n    public: true\n    prices:\n      month: 32.5\n      year: 350\n    quantities: [1, 2, 4]\n    grants:\n      - feature: sessions\n        units: 8\n        every: month\n        rollover: 1\n",
+						"  - id: glow\n    name: Glow\n    blurb: One big plan\n    public: true\n    prices:\n      month: 70\n      year: 702\n    grants:\n",
+						"\n\npacks:\n  # stripe: product · price\n  - id: pack8\n    name: Top-up pack\n    price: 40\n    every: once\n"
+					]
+				},
+				"moves": []
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "SC.vol.pl.draft.tiers.find(t=>t.id==='glow').month=70;render();document.querySelector('#pl [data-pmode=code]').click()"
+			}
+		},
+		{
+			"id": "yaml-edit-shows-in-edit",
+			"source": "smoke.mjs 'yaml: a price typed in Code updates the draft after the debounce', 'yaml: the change shows under Changes vs published and Review and publish enables', 'yaml: Edit shows the price typed in Code', 'yaml: switching modes keeps the edit (Code -> Edit -> Preview -> Code)'. The Code text applies before the next click in the pane is handled (the mockup's kFlush); the applied draft is saved whole",
+			"route": "#/vol/plans?mode=code&theme=light",
+			"steps": [
+				{
+					"fill": "[data-test=plan-yaml]",
+					"value": "# Vibes of Light: plans. Edit here, then Review and publish.\n# Each plan is keyed by its id: rename a plan by changing name, not id.\n# Lines that start with # stripe: are read-only and come back when you Format.\nversion: 3\ncurrency: USD\ntimeZone: America/Denver\n\nmemberships:\n  # stripe: product · month price · year price\n  - id: sparkle\n    name: Sparkle\n    blurb: A little time, every month\n    public: true\n    prices:\n      month: 32.5\n      year: 350\n    quantities: [1, 2, 4]\n    grants:\n      - feature: sessions\n        units: 8\n        every: month\n        rollover: 1\n  # stripe: product · month price · year price\n  - id: shine\n    name: Shine\n    blurb: Regular sessions\n    public: true\n    prices:\n      month: 31\n      year: 324\n    quantities: [2, 4]\n    grants:\n      - feature: sessions\n        units: 6\n        every: month\n        rollover: 1\n  # stripe: product · month price · year price\n  - id: glow\n    name: Glow\n    blurb: One big plan\n    public: true\n    prices:\n      month: 70\n      year: 702\n    grants:\n      - feature: sessions\n        units: 24\n        every: month\n        rollover: 0\n\npacks:\n  # stripe: product · price\n  - id: pack8\n    name: Top-up pack\n    price: 40\n    every: once\n    grants:\n      - feature: sessions\n        units: 8\n        every: month\n        rollover: 0\n  # stripe: product · price\n  - id: pack16\n    name: Big top-up pack\n    price: 72\n    every: once\n    grants:\n      - feature: sessions\n        units: 16\n        every: month\n        rollover: 0\n"
+				},
+				{
+					"click": "[data-test=plan-mode][data-mode=code]",
+					"expect": {
+						"text": {
+							"[data-test=plan-yaml-status]": "Valid",
+							"[data-test=plan-changes-count]": "2",
+							"[data-test=plan-draft-badge]": "Draft · 2 changes"
+						},
+						"contains": {
+							"[data-test=plan-change][data-plan=shine]": [
+								"Shine",
+								"Monthly price $30.00 → $31.00",
+								"Create a $31.00/month price and archive the $30.00 one"
+							]
+						},
+						"count": {
+							"[data-test=plan-change]": 2,
+							"[data-test=plan-review][disabled]": 0
+						},
+						"writes": [
+							{
+								"method": "saveMenu",
+								"args": [
+									"vol",
+									{
+										"currency": "usd",
+										"timeZone": "America/Denver",
+										"features": [
+											{
+												"id": "sessions",
+												"name": "Sessions",
+												"unit": {
+													"one": "session",
+													"other": "sessions"
+												}
+											}
+										],
+										"tiers": [
+											{
+												"id": "sparkle",
+												"name": "Sparkle",
+												"blurb": "A little time, every month",
+												"public": true,
+												"prices": [
+													{
+														"interval": "month",
+														"amount": 3250
+													},
+													{
+														"interval": "year",
+														"amount": 35000
+													}
+												],
+												"grants": [
+													{
+														"featureId": "sessions",
+														"amount": 8,
+														"every": "month",
+														"rollover": {
+															"months": 1
+														}
+													}
+												],
+												"quantities": [
+													1,
+													2,
+													4
+												]
+											},
+											{
+												"id": "shine",
+												"name": "Shine",
+												"blurb": "Regular sessions",
+												"public": true,
+												"prices": [
+													{
+														"interval": "month",
+														"amount": 3100
+													},
+													{
+														"interval": "year",
+														"amount": 32400
+													}
+												],
+												"grants": [
+													{
+														"featureId": "sessions",
+														"amount": 6,
+														"every": "month",
+														"rollover": {
+															"months": 1
+														}
+													}
+												],
+												"quantities": [
+													2,
+													4
+												]
+											},
+											{
+												"id": "glow",
+												"name": "Glow",
+												"blurb": "One big plan",
+												"public": true,
+												"prices": [
+													{
+														"interval": "month",
+														"amount": 7000
+													},
+													{
+														"interval": "year",
+														"amount": 70200
+													}
+												],
+												"grants": [
+													{
+														"featureId": "sessions",
+														"amount": 24,
+														"every": "month"
+													}
+												]
+											}
+										],
+										"addons": [
+											{
+												"id": "pack8",
+												"name": "Top-up pack",
+												"price": {
+													"amount": 4000,
+													"every": "once"
+												},
+												"grants": [
+													{
+														"featureId": "sessions",
+														"amount": 8,
+														"every": "month"
+													}
+												]
+											},
+											{
+												"id": "pack16",
+												"name": "Big top-up pack",
+												"price": {
+													"amount": 7200,
+													"every": "once"
+												},
+												"grants": [
+													{
+														"featureId": "sessions",
+														"amount": 16,
+														"every": "month"
+													}
+												]
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				},
+				{
+					"click": "[data-test=plan-mode][data-mode=edit]",
+					"expect": {
+						"text": {
+							"[data-test=plan-row][data-plan=shine] [data-test=plan-price]": "$31.00 per session / month · $324.00 / year",
+							"[data-test=plan-row][data-plan=shine] [data-test=plan-changed]": "draft",
+							"[data-test=plan-row][data-plan=shine] [data-test=plan-monthly]": "$124.00"
+						},
+						"count": {
+							"[data-test=plan-row][data-plan=shine].chg": 1,
+							"[data-test=plan-changed]": 2
+						}
+					}
+				},
+				{
+					"click": "[data-test=plan-mode][data-mode=preview]",
+					"expect": {
+						"text": {
+							"[data-test=plan-card][data-plan=shine] [data-test=plan-card-was]": "$60.00",
+							"[data-test=plan-card][data-plan=shine] [data-test=plan-card-price]": "$62.00"
+						}
+					}
+				},
+				{
+					"click": "[data-test=plan-mode][data-mode=code]"
+				}
+			],
+			"expect": {
+				"value": {
+					"[data-test=plan-yaml]": [
+						"    prices:\n      month: 31\n      year: 324\n"
+					]
+				},
+				"writes": [
+					{
+						"method": "saveMenu",
+						"args": [
+							"vol",
+							{
+								"currency": "usd",
+								"timeZone": "America/Denver",
+								"features": [
+									{
+										"id": "sessions",
+										"name": "Sessions",
+										"unit": {
+											"one": "session",
+											"other": "sessions"
+										}
+									}
+								],
+								"tiers": [
+									{
+										"id": "sparkle",
+										"name": "Sparkle",
+										"blurb": "A little time, every month",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 3250
+											},
+											{
+												"interval": "year",
+												"amount": 35000
+											}
+										],
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 8,
+												"every": "month",
+												"rollover": {
+													"months": 1
+												}
+											}
+										],
+										"quantities": [
+											1,
+											2,
+											4
+										]
+									},
+									{
+										"id": "shine",
+										"name": "Shine",
+										"blurb": "Regular sessions",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 3100
+											},
+											{
+												"interval": "year",
+												"amount": 32400
+											}
+										],
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 6,
+												"every": "month",
+												"rollover": {
+													"months": 1
+												}
+											}
+										],
+										"quantities": [
+											2,
+											4
+										]
+									},
+									{
+										"id": "glow",
+										"name": "Glow",
+										"blurb": "One big plan",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 7000
+											},
+											{
+												"interval": "year",
+												"amount": 70200
+											}
+										],
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 24,
+												"every": "month"
+											}
+										]
+									}
+								],
+								"addons": [
+									{
+										"id": "pack8",
+										"name": "Top-up pack",
+										"price": {
+											"amount": 4000,
+											"every": "once"
+										},
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 8,
+												"every": "month"
+											}
+										]
+									},
+									{
+										"id": "pack16",
+										"name": "Big top-up pack",
+										"price": {
+											"amount": 7200,
+											"every": "once"
+										},
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 16,
+												"every": "month"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"id": "yaml-parse-error",
+			"source": "smoke.mjs 'yaml: an invalid document shows Parse error at line N and leaves the draft unchanged', 'yaml: the error line is marked in the gutter and has a jump link', 'yaml: the invalid text survives a mode switch'",
+			"route": "#/vol/plans?mode=code&theme=light",
+			"steps": [
+				{
+					"fill": "[data-test=plan-yaml]",
+					"value": "# Vibes of Light: plans. Edit here, then Review and publish.\n# Each plan is keyed by its id: rename a plan by changing name, not id.\n# Lines that start with # stripe: are read-only and come back when you Format.\nversion: 3\ncurrency: USD\ntimeZone: America/Denver\n\nmemberships:\n  # stripe: product · month price · year price\n  - id: sparkle\n    name: Sparkle\n    blurb: A little time, every month\n    public: true\n    prices:\n      month: 32.5\n      year: 350\n    quantities: [1, 2, 4]\n    grants:\n      - feature: sessions\n        units: 8\n        every: month\n        rollover: 1\n  # stripe: product · month price · year price\n  - id: shine\n    name: Shine\n    blurb: Regular sessions\n    public: true\n    prices:\n      month: 30\n      year: 324\n    quantities: [2, 4]\n    grants:\n      - feature: sessions\n        units: 6\n        every: month\n        rollover: 1\n  # stripe: product · month price · year price\n  - id: glow\n    name: Glow\n    blurb: One big plan\n    public: true\n    prices:\n      month: \"oops\n      year: 702\n    grants:\n      - feature: sessions\n        units: 24\n        every: month\n        rollover: 0\n\npacks:\n  # stripe: product · price\n  - id: pack8\n    name: Top-up pack\n    price: 40\n    every: once\n    grants:\n      - feature: sessions\n        units: 8\n        every: month\n        rollover: 0\n  # stripe: product · price\n  - id: pack16\n    name: Big top-up pack\n    price: 72\n    every: once\n    grants:\n      - feature: sessions\n        units: 16\n        every: month\n        rollover: 0\n"
+				},
+				{
+					"click": "[data-test=plan-mode][data-mode=code]",
+					"expect": {
+						"text": {
+							"[data-test=plan-yaml-status]": "Parse error at line 43"
+						},
+						"contains": {
+							"[data-test=plan-yaml-message]": [
+								"Line 43: This quote is never closed. Text must stay on one line.",
+								"The draft is unchanged until this is fixed."
+							]
+						},
+						"count": {
+							"[data-test=plan-yaml-line].bad": 1,
+							"[data-test=plan-yaml-message] [data-line=\"43\"]": 1
+						},
+						"writes": []
+					}
+				},
+				{
+					"click": "[data-test=plan-mode][data-mode=edit]",
+					"expect": {
+						"text": {
+							"[data-test=plan-row][data-plan=glow] [data-test=plan-price]": "$70.00 / month · $702.00 / year",
+							"[data-test=plan-draft-badge]": "Draft · 1 change"
+						}
+					}
+				},
+				{
+					"click": "[data-test=plan-mode][data-mode=code]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=plan-yaml-status]": "Parse error at line 43"
+				},
+				"value": {
+					"[data-test=plan-yaml]": [
+						"      month: \"oops\n"
+					]
+				},
+				"writes": []
+			}
+		},
+		{
+			"id": "yaml-problems",
+			"source": "smoke.mjs 'yaml: problems(s) are listed under the editor and the status pill counts them', 'yaml: the offending tier's line is highlighted in the gutter and Review is disabled'; the Edit note of plans(). A draft with problems is not saved",
+			"route": "#/vol/plans?mode=code&theme=light",
+			"steps": [
+				{
+					"fill": "[data-test=plan-yaml]",
+					"value": "# Vibes of Light: plans. Edit here, then Review and publish.\n# Each plan is keyed by its id: rename a plan by changing name, not id.\n# Lines that start with # stripe: are read-only and come back when you Format.\nversion: 3\ncurrency: USD\ntimeZone: America/Denver\n\nmemberships:\n  # stripe: product · month price · year price\n  - id: sparkle\n    name: Sparkle\n    blurb: A little time, every month\n    public: true\n    prices:\n      month: 32.5\n      year: 350\n    quantities: [1, 2, 4]\n    grants:\n      - feature: sessions\n        units: 8\n        every: month\n        rollover: 1\n  # stripe: product · month price · year price\n  - id: shine\n    name: Shine\n    blurb: Regular sessions\n    public: true\n    prices:\n      month: 30\n      year: 324\n    quantities: [2, 4]\n    grants:\n      - feature: sessions\n        units: 6\n        every: month\n        rollover: 1\n  # stripe: product · month price · year price\n  - id: glow\n    name: Glow\n    blurb: One big plan\n    public: true\n    prices:\n      month: 0\n      year: 702\n    grants:\n      - feature: sessions\n        units: 24\n        every: month\n        rollover: 0\n\npacks:\n  # stripe: product · price\n  - id: pack8\n    name: Top-up pack\n    price: 40\n    every: once\n    grants:\n      - feature: sessions\n        units: 8\n        every: month\n        rollover: 0\n  # stripe: product · price\n  - id: pack16\n    name: Big top-up pack\n    price: 72\n    every: once\n    grants:\n      - feature: sessions\n        units: 16\n        every: month\n        rollover: 0\n"
+				},
+				{
+					"click": "[data-test=plan-mode][data-mode=code]",
+					"expect": {
+						"text": {
+							"[data-test=plan-yaml-status]": "1 problem",
+							"[data-test=plan-yaml-line].bad": "38"
+						},
+						"contains": {
+							"[data-test=plan-yaml-message]": [
+								"Glow: monthly price must be above 0."
+							]
+						},
+						"count": {
+							"[data-test=plan-yaml-line].bad": 1,
+							"[data-test=plan-review][disabled]": 1
+						}
+					}
+				},
+				{
+					"click": "[data-test=plan-mode][data-mode=edit]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=plan-problems]": "1 problem: Glow: monthly price must be above 0."
+				},
+				"count": {
+					"[data-test=plan-review][disabled][title=\"Fix the problems first\"]": 1
+				},
+				"writes": []
+			}
+		},
+		{
+			"id": "yaml-removed-then-publish",
+			"source": "smoke.mjs 'yaml: a published tier missing from the draft shows as Removed in the changes list', 'yaml: the publish review lists the removed tier and its 1 current member', 'yaml: Edit mode says what was removed and keeps the Discard draft button', 'yaml: publishing from a Code edit publishes it'; mockup diff() gone lines and kGoneNote",
+			"route": "#/vol/plans?mode=code&theme=light",
+			"steps": [
+				{
+					"fill": "[data-test=plan-yaml]",
+					"value": "# Vibes of Light: plans. Edit here, then Review and publish.\n# Each plan is keyed by its id: rename a plan by changing name, not id.\n# Lines that start with # stripe: are read-only and come back when you Format.\nversion: 3\ncurrency: USD\ntimeZone: America/Denver\n\nmemberships:\n  # stripe: product · month price · year price\n  - id: sparkle\n    name: Sparkle\n    blurb: A little time, every month\n    public: true\n    prices:\n      month: 32.5\n      year: 350\n    quantities: [1, 2, 4]\n    grants:\n      - feature: sessions\n        units: 8\n        every: month\n        rollover: 1\n  # stripe: product · month price · year price\n  - id: shine\n    name: Shine\n    blurb: Regular sessions\n    public: true\n    prices:\n      month: 30\n      year: 324\n    quantities: [2, 4]\n    grants:\n      - feature: sessions\n        units: 6\n        every: month\n        rollover: 1\n\n\npacks:\n  # stripe: product · price\n  - id: pack8\n    name: Top-up pack\n    price: 40\n    every: once\n    grants:\n      - feature: sessions\n        units: 8\n        every: month\n        rollover: 0\n  # stripe: product · price\n  - id: pack16\n    name: Big top-up pack\n    price: 72\n    every: once\n    grants:\n      - feature: sessions\n        units: 16\n        every: month\n        rollover: 0\n"
+				},
+				{
+					"click": "[data-test=plan-mode][data-mode=code]",
+					"expect": {
+						"text": {
+							"[data-test=plan-changes-count]": "1",
+							"[data-test=plan-change][data-plan=glow] [data-test=plan-change-badge]": "Removed"
+						},
+						"contains": {
+							"[data-test=plan-change][data-plan=glow]": [
+								"Glow",
+								"Removed",
+								"Archive the Stripe product and its prices. Current members keep what they bought"
+							]
+						},
+						"writes": [
+							{
+								"method": "saveMenu",
+								"args": [
+									"vol",
+									{
+										"currency": "usd",
+										"timeZone": "America/Denver",
+										"features": [
+											{
+												"id": "sessions",
+												"name": "Sessions",
+												"unit": {
+													"one": "session",
+													"other": "sessions"
+												}
+											}
+										],
+										"tiers": [
+											{
+												"id": "sparkle",
+												"name": "Sparkle",
+												"blurb": "A little time, every month",
+												"public": true,
+												"prices": [
+													{
+														"interval": "month",
+														"amount": 3250
+													},
+													{
+														"interval": "year",
+														"amount": 35000
+													}
+												],
+												"grants": [
+													{
+														"featureId": "sessions",
+														"amount": 8,
+														"every": "month",
+														"rollover": {
+															"months": 1
+														}
+													}
+												],
+												"quantities": [
+													1,
+													2,
+													4
+												]
+											},
+											{
+												"id": "shine",
+												"name": "Shine",
+												"blurb": "Regular sessions",
+												"public": true,
+												"prices": [
+													{
+														"interval": "month",
+														"amount": 3000
+													},
+													{
+														"interval": "year",
+														"amount": 32400
+													}
+												],
+												"grants": [
+													{
+														"featureId": "sessions",
+														"amount": 6,
+														"every": "month",
+														"rollover": {
+															"months": 1
+														}
+													}
+												],
+												"quantities": [
+													2,
+													4
+												]
+											}
+										],
+										"addons": [
+											{
+												"id": "pack8",
+												"name": "Top-up pack",
+												"price": {
+													"amount": 4000,
+													"every": "once"
+												},
+												"grants": [
+													{
+														"featureId": "sessions",
+														"amount": 8,
+														"every": "month"
+													}
+												]
+											},
+											{
+												"id": "pack16",
+												"name": "Big top-up pack",
+												"price": {
+													"amount": 7200,
+													"every": "once"
+												},
+												"grants": [
+													{
+														"featureId": "sessions",
+														"amount": 16,
+														"every": "month"
+													}
+												]
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				},
+				{
+					"click": "[data-test=plan-mode][data-mode=edit]",
+					"expect": {
+						"text": {
+							"[data-test=plan-removed-note]": "Removed in the draft: Glow. Publishing archives it in Stripe. Discard the draft to bring it back.",
+							"[data-test=plan-count][data-kind=tiers]": "2 of 4",
+							"[data-test=plan-draft-badge]": "Draft · 1 change"
+						},
+						"count": {
+							"[data-test=plan-row]": 4,
+							"[data-test=plan-discard]": 1
+						}
+					}
+				},
+				{
+					"click": "[data-test=plan-review]",
+					"expect": {
+						"text": {
+							"[data-test=plan-publish-versions]": "Vibes of Light · v3 → v4",
+							"[data-test=plan-publish-summary]": "New purchases get the new terms. 1 current member keep the version they bought. The change applies at once (it doesn't wait for the next local month)."
+						},
+						"contains": {
+							"[data-test=plan-publish-change][data-plan=glow]": [
+								"Glow",
+								"Removed",
+								"Archive the Stripe product and its prices. Current members keep what they bought"
+							]
+						},
+						"count": {
+							"[data-test=plan-publish-change]": 1
+						}
+					}
+				},
+				{
+					"fill": "[data-test=plan-publish-pin]",
+					"value": "1234"
+				},
+				{
+					"click": "[data-test=plan-publish-go]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=plan-version]": "v4 published",
+					"[data-test=toast]": "Published v4. The Stripe prices are being updated."
+				},
+				"count": {
+					"[data-test=plan-row]": 4,
+					"[data-test=plan-row][data-plan=glow]": 0,
+					"[data-test=plan-removed-note]": 0,
+					"[data-test=plan-draft-badge]": 0,
+					"[data-test=plan-publish-dialog]": 0
+				},
+				"writes": [
+					{
+						"method": "saveMenu",
+						"args": [
+							"vol",
+							{
+								"currency": "usd",
+								"timeZone": "America/Denver",
+								"features": [
+									{
+										"id": "sessions",
+										"name": "Sessions",
+										"unit": {
+											"one": "session",
+											"other": "sessions"
+										}
+									}
+								],
+								"tiers": [
+									{
+										"id": "sparkle",
+										"name": "Sparkle",
+										"blurb": "A little time, every month",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 3250
+											},
+											{
+												"interval": "year",
+												"amount": 35000
+											}
+										],
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 8,
+												"every": "month",
+												"rollover": {
+													"months": 1
+												}
+											}
+										],
+										"quantities": [
+											1,
+											2,
+											4
+										]
+									},
+									{
+										"id": "shine",
+										"name": "Shine",
+										"blurb": "Regular sessions",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 3000
+											},
+											{
+												"interval": "year",
+												"amount": 32400
+											}
+										],
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 6,
+												"every": "month",
+												"rollover": {
+													"months": 1
+												}
+											}
+										],
+										"quantities": [
+											2,
+											4
+										]
+									}
+								],
+								"addons": [
+									{
+										"id": "pack8",
+										"name": "Top-up pack",
+										"price": {
+											"amount": 4000,
+											"every": "once"
+										},
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 8,
+												"every": "month"
+											}
+										]
+									},
+									{
+										"id": "pack16",
+										"name": "Big top-up pack",
+										"price": {
+											"amount": 7200,
+											"every": "once"
+										},
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 16,
+												"every": "month"
+											}
+										]
+									}
+								]
+							}
+						]
+					},
+					{
+						"method": "publishMenu",
+						"args": [
+							"vol"
+						]
+					}
+				]
+			}
+		},
+		{
+			"id": "yaml-reset-to-published",
+			"source": "smoke.mjs 'yaml: Reset to published is enabled with changes', 'yaml: Reset to published restores the draft and the text'; mockup #kreset",
+			"route": "#/vol/plans?mode=code&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=plan-yaml-reset]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=toast]": "Draft reset to the published plans.",
+					"[data-test=plan-changes-count]": "0",
+					"[data-test=plan-changes]": "Changes vs published 0 No changes yet. This matches what is published."
+				},
+				"value": {
+					"[data-test=plan-yaml]": [
+						"      month: 65\n      year: 702\n"
+					]
+				},
+				"count": {
+					"[data-test=plan-yaml-reset][disabled]": 1,
+					"[data-test=plan-draft-badge]": 0,
+					"[data-test=tab][data-tab=plans] [data-test=tab-badge]": 0,
+					"[data-test=plan-review][disabled][title=\"Nothing to publish\"]": 1
+				},
+				"writes": [
+					{
+						"method": "saveMenu",
+						"args": [
+							"vol",
+							{
+								"currency": "usd",
+								"timeZone": "America/Denver",
+								"features": [
+									{
+										"id": "sessions",
+										"name": "Sessions",
+										"unit": {
+											"one": "session",
+											"other": "sessions"
+										}
+									}
+								],
+								"tiers": [
+									{
+										"id": "sparkle",
+										"name": "Sparkle",
+										"blurb": "A little time, every month",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 3250
+											},
+											{
+												"interval": "year",
+												"amount": 35000
+											}
+										],
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 8,
+												"every": "month",
+												"rollover": {
+													"months": 1
+												}
+											}
+										],
+										"quantities": [
+											1,
+											2,
+											4
+										]
+									},
+									{
+										"id": "shine",
+										"name": "Shine",
+										"blurb": "Regular sessions",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 3000
+											},
+											{
+												"interval": "year",
+												"amount": 32400
+											}
+										],
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 6,
+												"every": "month",
+												"rollover": {
+													"months": 1
+												}
+											}
+										],
+										"quantities": [
+											2,
+											4
+										]
+									},
+									{
+										"id": "glow",
+										"name": "Glow",
+										"blurb": "One big plan",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 6500
+											},
+											{
+												"interval": "year",
+												"amount": 70200
+											}
+										],
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 24,
+												"every": "month"
+											}
+										]
+									}
+								],
+								"addons": [
+									{
+										"id": "pack8",
+										"name": "Top-up pack",
+										"price": {
+											"amount": 4000,
+											"every": "once"
+										},
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 8,
+												"every": "month"
+											}
+										]
+									},
+									{
+										"id": "pack16",
+										"name": "Big top-up pack",
+										"price": {
+											"amount": 7200,
+											"every": "once"
+										},
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 16,
+												"every": "month"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"id": "yaml-admin-reads-only",
+			"source": "smoke.mjs 'yaml: admin reads Code but the textarea is read-only, Format and Reset are disabled, with the owners note'",
+			"route": "#/b4u/plans?mode=code&theme=light",
+			"covers": {
+				"mode": "code",
+				"role": "admin"
+			},
+			"expect": {
+				"text": {
+					"[data-test=plan-yaml-lock]": "Owners edit plans. You can read and copy this YAML.",
+					"[data-test=plan-yaml-status]": "Valid"
+				},
+				"count": {
+					"[data-test=plan-yaml][readonly]": 1,
+					"[data-test=plan-yaml-format][disabled]": 1,
+					"[data-test=plan-yaml-reset][disabled]": 1,
+					"[data-test=plan-yaml-copy][disabled]": 0
+				},
+				"value": {
+					"[data-test=plan-yaml]": [
+						"# B4 Uni: plans.",
+						"\ncurrency: USD\ntimeZone: America/Chicago\n",
+						"  # stripe: created when you publish\n  - id: board\n    name: Board\n    blurb: \"For board members. Not for sale: the owner gives it.\"\n    public: false\n    audience: governance\n",
+						"  # stripe: product · month price\n  - id: shine\n",
+						"    quantities: [1, 2]\n",
+						"\npacks: []\n"
+					]
+				}
+			}
+		},
+		{
+			"id": "review-dialog",
+			"source": "mockup reviewModal on Vibes of Light with the v4 draft",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=plan-review]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=plan-publish-dialog] h3": "Review and publish",
+					"[data-test=plan-publish-versions]": "Vibes of Light · v3 → v4",
+					"[data-test=plan-publish-summary]": "New purchases get the new terms. 1 current member keep the version they bought. The change applies at once (it doesn't wait for the next local month).",
+					"[data-test=plan-publish-go]": "Publish v4",
+					"[data-test=plan-publish-cancel]": "Cancel"
+				},
+				"contains": {
+					"[data-test=plan-publish-change][data-plan=glow]": [
+						"Glow",
+						"Monthly price $65.00 → $70.00",
+						"Create a $70.00/month price and archive the $65.00 one"
+					],
+					"[data-test=plan-publish-dialog]": [
+						"Your family PIN"
+					]
+				},
+				"count": {
+					"[data-test=plan-publish-dialog]": 1,
+					"[data-test=plan-publish-change]": 1,
+					"[data-test=plan-publish-pin]": 1,
+					"[data-test=plan-publish-lock]": 0,
+					"[data-test=plan-publish-go][disabled]": 1
+				},
+				"moves": [
+					"[data-test=plan-publish-summary]"
+				],
+				"writes": []
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "SC.vol.pl.draft.tiers.find(t=>t.id==='glow').month=70;render();document.querySelector('#prev').click()"
+			}
+		},
+		{
+			"id": "review-cancel",
+			"source": "mockup: Cancel (data-close) closes the review and writes nothing",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=plan-review]"
+				},
+				{
+					"click": "[data-test=plan-publish-cancel]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=plan-publish-dialog]": 0
+				},
+				"text": {
+					"[data-test=plan-draft-badge]": "Draft · 1 change"
+				},
+				"writes": []
+			}
+		},
+		{
+			"id": "publish-instant",
+			"source": "mockup reviewModal #ppin (4 digits enable Publish) and #pgo: v4 becomes live, the draft badge and the tab badge go",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=plan-review]"
+				},
+				{
+					"fill": "[data-test=plan-publish-pin]",
+					"value": "1234",
+					"expect": {
+						"count": {
+							"[data-test=plan-publish-go][disabled]": 0
+						},
+						"writes": []
+					}
+				},
+				{
+					"click": "[data-test=plan-publish-go]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=plan-version]": "v4 published",
+					"[data-test=toast]": "Published v4. The Stripe prices are being updated.",
+					"[data-test=plan-row][data-plan=glow] [data-test=plan-price]": "$70.00 / month · $702.00 / year"
+				},
+				"count": {
+					"[data-test=plan-publish-dialog]": 0,
+					"[data-test=plan-draft-badge]": 0,
+					"[data-test=plan-changed]": 0,
+					"[data-test=plan-discard]": 0,
+					"[data-test=tab][data-tab=plans] [data-test=tab-badge]": 0,
+					"[data-test=plan-review][disabled][title=\"Nothing to publish\"]": 1
+				},
+				"writes": [
+					{
+						"method": "publishMenu",
+						"args": [
+							"vol"
+						]
+					}
+				],
+				"moves": [
+					"[data-test=plan-row][data-plan=glow] [data-test=plan-price]"
+				]
+			}
+		},
+		{
+			"id": "publish-pending-hold",
+			"source": "protocol §7 hold mode (the mockup publishes at once): while publishMenu is pending the Publish button reads 'Publishing…' and is disabled, Cancel too, and nothing shows as published; release finishes as publish-instant",
+			"route": "#/vol/plans?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=plan-review]"
+				},
+				{
+					"fill": "[data-test=plan-publish-pin]",
+					"value": "1234"
+				},
+				{
+					"click": "[data-test=plan-publish-go]",
+					"expect": {
+						"text": {
+							"[data-test=plan-publish-go]": "Publishing…",
+							"[data-test=plan-version]": "v3 published"
+						},
+						"count": {
+							"[data-test=plan-publish-go][disabled]": 1,
+							"[data-test=plan-publish-cancel][disabled]": 1,
+							"[data-test=plan-publish-dialog]": 1
+						},
+						"writes": [
+							{
+								"method": "publishMenu",
+								"args": [
+									"vol"
+								]
+							}
+						]
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=plan-version]": "v4 published",
+					"[data-test=toast]": "Published v4. The Stripe prices are being updated.",
+					"[data-test=plan-row][data-plan=glow] [data-test=plan-price]": "$70.00 / month · $702.00 / year"
+				},
+				"count": {
+					"[data-test=plan-publish-dialog]": 0,
+					"[data-test=plan-draft-badge]": 0,
+					"[data-test=plan-changed]": 0,
+					"[data-test=plan-discard]": 0,
+					"[data-test=tab][data-tab=plans] [data-test=tab-badge]": 0,
+					"[data-test=plan-review][disabled][title=\"Nothing to publish\"]": 1
+				},
+				"writes": [
+					{
+						"method": "publishMenu",
+						"args": [
+							"vol"
+						]
+					}
+				],
+				"moves": [
+					"[data-test=plan-row][data-plan=glow] [data-test=plan-price]"
+				]
+			}
+		},
+		{
+			"id": "review-admin-waits-for-owner",
+			"source": "mockup reviewModal for an admin (B4 Uni): admins save the draft, owners publish; no PIN field",
+			"route": "#/b4u/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=plan-row][data-plan=sparkle] [data-test=plan-edit]"
+				},
+				{
+					"fill": "[data-test=plan-field][data-field=month]",
+					"value": "22"
+				},
+				{
+					"click": "[data-test=plan-drawer-save]",
+					"expect": {
+						"text": {
+							"[data-test=tab][data-tab=plans] [data-test=tab-badge]": "draft",
+							"[data-test=plan-draft-badge]": "Draft · 1 change",
+							"[data-test=plan-row][data-plan=sparkle] [data-test=plan-price]": "$22.00 / month"
+						},
+						"writes": [
+							{
+								"method": "saveMenu",
+								"args": [
+									"b4u",
+									{
+										"currency": "usd",
+										"timeZone": "America/Chicago",
+										"features": [
+											{
+												"id": "credits",
+												"name": "Credits",
+												"unit": {
+													"one": "credit",
+													"other": "credits"
+												}
+											}
+										],
+										"tiers": [
+											{
+												"id": "sparkle",
+												"name": "Sparkle",
+												"blurb": "Starter",
+												"public": true,
+												"prices": [
+													{
+														"interval": "month",
+														"amount": 2200
+													}
+												],
+												"grants": [
+													{
+														"featureId": "credits",
+														"amount": 8,
+														"every": "month",
+														"rollover": {
+															"months": 1
+														}
+													}
+												]
+											},
+											{
+												"id": "shine",
+												"name": "Shine",
+												"blurb": "Regular",
+												"public": true,
+												"prices": [
+													{
+														"interval": "month",
+														"amount": 4500
+													}
+												],
+												"grants": [
+													{
+														"featureId": "credits",
+														"amount": 12,
+														"every": "month",
+														"rollover": {
+															"months": 1
+														}
+													}
+												],
+												"quantities": [
+													1,
+													2
+												]
+											},
+											{
+												"id": "board",
+												"name": "Board",
+												"blurb": "For board members. Not for sale: the owner gives it.",
+												"public": false,
+												"prices": [],
+												"grants": [
+													{
+														"featureId": "credits",
+														"amount": 2,
+														"every": "month"
+													}
+												],
+												"audience": "governance"
+											}
+										],
+										"addons": []
+									}
+								]
+							}
+						]
+					}
+				},
+				{
+					"click": "[data-test=plan-review]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=plan-publish-lock]": "Owners publish. You are an admin here, so your draft waits for an owner.",
+					"[data-test=plan-publish-go]": "Publish v4",
+					"[data-test=plan-publish-summary]": "New purchases get the new terms. 4 current members keep the version they bought. The change applies at once (it doesn't wait for the next local month)."
+				},
+				"count": {
+					"[data-test=plan-publish-go][disabled][title=\"Owners publish\"]": 1,
+					"[data-test=plan-publish-pin]": 0
+				},
+				"writes": [
+					{
+						"method": "saveMenu",
+						"args": [
+							"b4u",
+							{
+								"currency": "usd",
+								"timeZone": "America/Chicago",
+								"features": [
+									{
+										"id": "credits",
+										"name": "Credits",
+										"unit": {
+											"one": "credit",
+											"other": "credits"
+										}
+									}
+								],
+								"tiers": [
+									{
+										"id": "sparkle",
+										"name": "Sparkle",
+										"blurb": "Starter",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 2200
+											}
+										],
+										"grants": [
+											{
+												"featureId": "credits",
+												"amount": 8,
+												"every": "month",
+												"rollover": {
+													"months": 1
+												}
+											}
+										]
+									},
+									{
+										"id": "shine",
+										"name": "Shine",
+										"blurb": "Regular",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 4500
+											}
+										],
+										"grants": [
+											{
+												"featureId": "credits",
+												"amount": 12,
+												"every": "month",
+												"rollover": {
+													"months": 1
+												}
+											}
+										],
+										"quantities": [
+											1,
+											2
+										]
+									},
+									{
+										"id": "board",
+										"name": "Board",
+										"blurb": "For board members. Not for sale: the owner gives it.",
+										"public": false,
+										"prices": [],
+										"grants": [
+											{
+												"featureId": "credits",
+												"amount": 2,
+												"every": "month"
+											}
+										],
+										"audience": "governance"
+									}
+								],
+								"addons": []
+							}
+						]
+					}
+				],
+				"moves": [
+					"[data-test=plan-publish-summary]"
+				]
+			}
+		},
+		{
+			"id": "discard-draft",
+			"source": "mockup #pdisc: the draft goes back to the live plans (saved whole: buzz-school edits the unpublished draft in place)",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=plan-discard]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=toast]": "Draft discarded.",
+					"[data-test=plan-version]": "v3 published",
+					"[data-test=plan-row][data-plan=glow] [data-test=plan-price]": "$65.00 / month · $702.00 / year"
+				},
+				"count": {
+					"[data-test=plan-draft-badge]": 0,
+					"[data-test=plan-discard]": 0,
+					"[data-test=plan-changed]": 0,
+					"[data-test=tab][data-tab=plans] [data-test=tab-badge]": 0,
+					"[data-test=plan-review][disabled][title=\"Nothing to publish\"]": 1
+				},
+				"writes": [
+					{
+						"method": "saveMenu",
+						"args": [
+							"vol",
+							{
+								"currency": "usd",
+								"timeZone": "America/Denver",
+								"features": [
+									{
+										"id": "sessions",
+										"name": "Sessions",
+										"unit": {
+											"one": "session",
+											"other": "sessions"
+										}
+									}
+								],
+								"tiers": [
+									{
+										"id": "sparkle",
+										"name": "Sparkle",
+										"blurb": "A little time, every month",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 3250
+											},
+											{
+												"interval": "year",
+												"amount": 35000
+											}
+										],
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 8,
+												"every": "month",
+												"rollover": {
+													"months": 1
+												}
+											}
+										],
+										"quantities": [
+											1,
+											2,
+											4
+										]
+									},
+									{
+										"id": "shine",
+										"name": "Shine",
+										"blurb": "Regular sessions",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 3000
+											},
+											{
+												"interval": "year",
+												"amount": 32400
+											}
+										],
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 6,
+												"every": "month",
+												"rollover": {
+													"months": 1
+												}
+											}
+										],
+										"quantities": [
+											2,
+											4
+										]
+									},
+									{
+										"id": "glow",
+										"name": "Glow",
+										"blurb": "One big plan",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 6500
+											},
+											{
+												"interval": "year",
+												"amount": 70200
+											}
+										],
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 24,
+												"every": "month"
+											}
+										]
+									}
+								],
+								"addons": [
+									{
+										"id": "pack8",
+										"name": "Top-up pack",
+										"price": {
+											"amount": 4000,
+											"every": "once"
+										},
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 8,
+												"every": "month"
+											}
+										]
+									},
+									{
+										"id": "pack16",
+										"name": "Big top-up pack",
+										"price": {
+											"amount": 7200,
+											"every": "once"
+										},
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 16,
+												"every": "month"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				],
+				"moves": [
+					"[data-test=plan-row][data-plan=glow] [data-test=plan-price]"
+				]
+			}
+		},
+		{
+			"id": "drawer-tier",
+			"source": "mockup drawPE for Sparkle (#pe), with the Audience field; smoke.mjs 'tier audience: default is Member'",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=plan-row][data-plan=sparkle]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=plan-drawer-title]": "Sparkle",
+					"[data-test=plan-drawer-sub]": "Vibes of Light · editing the draft · 3 active members",
+					"[data-test=plan-drawer-save]": "Save to draft",
+					"[data-test=plan-drawer-cancel]": "Cancel",
+					"[data-test=plan-drawer-note]": "A cap on rollover isn't enforced yet, so it isn't offered.",
+					"[data-test=plan-grant-add]": "Add another",
+					"[data-test=plan-drawer-hint]": "What members of this plan see of the school's books. Member: quarters, money rounded, totals and categories. Governance: months, exact, with plan and fund breakdowns and how gifts spread, but no names. Public: nothing beyond what anyone sees. A governance plan is usually hidden (not for sale) and given by the owner. Finance and Owner are never a tier's audience. Access moves at once for current members, with a notice."
+				},
+				"contains": {
+					"[data-test=plan-drawer]": [
+						"Audience",
+						"Member (default)",
+						"Governance",
+						"Public",
+						"Name",
+						"Description",
+						"On sale (public). Hidden plans can't be bought; current members keep them.",
+						"Monthly price ($, per session)",
+						"Yearly price (optional)",
+						"Sold in sizes (optional, for example 1, 2, 4). Prices and amounts are then per session.",
+						"What members get",
+						"Amount",
+						"Sessions",
+						"How often",
+						"Rolls over (mo)"
+					]
+				},
+				"value": {
+					"[data-test=plan-field][data-field=name]": [
+						"Sparkle"
+					],
+					"[data-test=plan-field][data-field=blurb]": [
+						"A little time, every month"
+					],
+					"[data-test=plan-field][data-field=month]": [
+						"32.5"
+					],
+					"[data-test=plan-field][data-field=year]": [
+						"350"
+					],
+					"[data-test=plan-field][data-field=quantities]": [
+						"1, 2, 4"
+					],
+					"[data-test=plan-grant-field][data-field=amount][data-index=\"0\"]": [
+						"8"
+					],
+					"[data-test=plan-grant-field][data-field=unit][data-index=\"0\"]": [
+						"sessions"
+					],
+					"[data-test=plan-grant-field][data-field=every][data-index=\"0\"]": [
+						"month"
+					],
+					"[data-test=plan-grant-field][data-field=rollover][data-index=\"0\"]": [
+						"1"
+					],
+					"[data-test=plan-field][data-field=audience]": [
+						"member"
+					]
+				},
+				"count": {
+					"[data-test=plan-drawer]": 1,
+					"[data-test=plan-field][data-field=audience] option": 3,
+					"[data-test=plan-field][data-field=public]:checked": 1,
+					"[data-test=plan-grant]": 1,
+					"[data-test=plan-grant-remove][disabled]": 1,
+					"[data-test=plan-grant-field][data-field=unit][data-index=\"0\"][disabled]": 1,
+					"[data-test=plan-drawer-close][aria-label=Close]": 1,
+					"[data-test=plan-drawer-problem]": 0,
+					"[data-test=plan-drawer-save][disabled]": 0
+				},
+				"moves": [
+					"[data-test=plan-drawer-sub]"
+				]
+			}
+		},
+		{
+			"id": "drawer-save-to-draft",
+			"source": "mockup readPE and savePE: Save to draft writes the whole draft; the row, its Monthly and the draft badge follow",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=plan-row][data-plan=shine] [data-test=plan-edit]",
+					"expect": {
+						"text": {
+							"[data-test=plan-drawer-title]": "Shine",
+							"[data-test=plan-drawer-sub]": "Vibes of Light · editing the draft · 1 active member"
+						}
+					}
+				},
+				{
+					"fill": "[data-test=plan-field][data-field=month]",
+					"value": "33"
+				},
+				{
+					"click": "[data-test=plan-drawer-save]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=toast]": "Saved to the draft. Nothing is live until you publish.",
+					"[data-test=plan-row][data-plan=shine] [data-test=plan-price]": "$33.00 per session / month · $324.00 / year",
+					"[data-test=plan-row][data-plan=shine] [data-test=plan-monthly]": "$132.00",
+					"[data-test=plan-draft-badge]": "Draft · 2 changes"
+				},
+				"count": {
+					"[data-test=plan-drawer]": 0,
+					"[data-test=plan-row][data-plan=shine].chg": 1
+				},
+				"writes": [
+					{
+						"method": "saveMenu",
+						"args": [
+							"vol",
+							{
+								"currency": "usd",
+								"timeZone": "America/Denver",
+								"features": [
+									{
+										"id": "sessions",
+										"name": "Sessions",
+										"unit": {
+											"one": "session",
+											"other": "sessions"
+										}
+									}
+								],
+								"tiers": [
+									{
+										"id": "sparkle",
+										"name": "Sparkle",
+										"blurb": "A little time, every month",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 3250
+											},
+											{
+												"interval": "year",
+												"amount": 35000
+											}
+										],
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 8,
+												"every": "month",
+												"rollover": {
+													"months": 1
+												}
+											}
+										],
+										"quantities": [
+											1,
+											2,
+											4
+										]
+									},
+									{
+										"id": "shine",
+										"name": "Shine",
+										"blurb": "Regular sessions",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 3300
+											},
+											{
+												"interval": "year",
+												"amount": 32400
+											}
+										],
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 6,
+												"every": "month",
+												"rollover": {
+													"months": 1
+												}
+											}
+										],
+										"quantities": [
+											2,
+											4
+										]
+									},
+									{
+										"id": "glow",
+										"name": "Glow",
+										"blurb": "One big plan",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 7000
+											},
+											{
+												"interval": "year",
+												"amount": 70200
+											}
+										],
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 24,
+												"every": "month"
+											}
+										]
+									}
+								],
+								"addons": [
+									{
+										"id": "pack8",
+										"name": "Top-up pack",
+										"price": {
+											"amount": 4000,
+											"every": "once"
+										},
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 8,
+												"every": "month"
+											}
+										]
+									},
+									{
+										"id": "pack16",
+										"name": "Big top-up pack",
+										"price": {
+											"amount": 7200,
+											"every": "once"
+										},
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 16,
+												"every": "month"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"id": "drawer-problems-and-cancel",
+			"source": "mockup readPE problems(): an empty name is 'A plan needs a name.' and Save is disabled; Cancel closes and writes nothing",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=plan-row][data-plan=sparkle]"
+				},
+				{
+					"fill": "[data-test=plan-field][data-field=name]",
+					"value": "",
+					"expect": {
+						"text": {
+							"[data-test=plan-drawer-problem]": "A plan needs a name."
+						},
+						"count": {
+							"[data-test=plan-drawer-save][disabled]": 1
+						}
+					}
+				},
+				{
+					"click": "[data-test=plan-drawer-cancel]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=plan-drawer]": 0
+				},
+				"text": {
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-name]": "Sparkle"
+				},
+				"writes": []
+			}
+		},
+		{
+			"id": "drawer-escape",
+			"source": "mockup keydown Escape closes #pe",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=plan-row][data-plan=glow] [data-test=plan-edit]",
+					"expect": {
+						"text": {
+							"[data-test=plan-drawer-sub]": "Vibes of Light · editing the draft · 1 active member"
+						}
+					}
+				},
+				{
+					"key": "Escape",
+					"target": "[data-test=plan-drawer]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=plan-drawer]": 0
+				},
+				"writes": []
+			}
+		},
+		{
+			"id": "add-membership",
+			"source": "mockup data-pnew=tiers: a new membership (8 sessions each month by default, id from the name); at 4 memberships Add membership is disabled",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=plan-add][data-kind=tiers]",
+					"expect": {
+						"text": {
+							"[data-test=plan-drawer-title]": "New membership",
+							"[data-test=plan-drawer-sub]": "Vibes of Light · editing the draft"
+						},
+						"contains": {
+							"[data-test=plan-drawer]": [
+								"Monthly price ($)"
+							]
+						},
+						"count": {
+							"[data-test=plan-drawer-problem]": 2,
+							"[data-test=plan-drawer-save][disabled]": 1
+						},
+						"value": {
+							"[data-test=plan-grant-field][data-field=amount][data-index=\"0\"]": [
+								"8"
+							],
+							"[data-test=plan-grant-field][data-field=rollover][data-index=\"0\"]": [
+								"0"
+							]
+						}
+					}
+				},
+				{
+					"fill": "[data-test=plan-field][data-field=name]",
+					"value": "Bloom"
+				},
+				{
+					"fill": "[data-test=plan-field][data-field=month]",
+					"value": "45"
+				},
+				{
+					"click": "[data-test=plan-drawer-save]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=plan-row][data-plan=bloom] [data-test=plan-name]": "Bloom",
+					"[data-test=plan-row][data-plan=bloom] [data-test=plan-price]": "$45.00 / month",
+					"[data-test=plan-row][data-plan=bloom] [data-test=plan-changed]": "draft",
+					"[data-test=plan-count][data-kind=tiers]": "4 of 4",
+					"[data-test=plan-draft-badge]": "Draft · 2 changes"
+				},
+				"count": {
+					"[data-test=plan-add][data-kind=tiers][disabled][title=\"Up to 4 memberships\"]": 1,
+					"[data-test=plan-row]": 6
+				},
+				"writes": [
+					{
+						"method": "saveMenu",
+						"args": [
+							"vol",
+							{
+								"currency": "usd",
+								"timeZone": "America/Denver",
+								"features": [
+									{
+										"id": "sessions",
+										"name": "Sessions",
+										"unit": {
+											"one": "session",
+											"other": "sessions"
+										}
+									}
+								],
+								"tiers": [
+									{
+										"id": "sparkle",
+										"name": "Sparkle",
+										"blurb": "A little time, every month",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 3250
+											},
+											{
+												"interval": "year",
+												"amount": 35000
+											}
+										],
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 8,
+												"every": "month",
+												"rollover": {
+													"months": 1
+												}
+											}
+										],
+										"quantities": [
+											1,
+											2,
+											4
+										]
+									},
+									{
+										"id": "shine",
+										"name": "Shine",
+										"blurb": "Regular sessions",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 3000
+											},
+											{
+												"interval": "year",
+												"amount": 32400
+											}
+										],
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 6,
+												"every": "month",
+												"rollover": {
+													"months": 1
+												}
+											}
+										],
+										"quantities": [
+											2,
+											4
+										]
+									},
+									{
+										"id": "glow",
+										"name": "Glow",
+										"blurb": "One big plan",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 7000
+											},
+											{
+												"interval": "year",
+												"amount": 70200
+											}
+										],
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 24,
+												"every": "month"
+											}
+										]
+									},
+									{
+										"id": "bloom",
+										"name": "Bloom",
+										"blurb": "",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 4500
+											}
+										],
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 8,
+												"every": "month"
+											}
+										]
+									}
+								],
+								"addons": [
+									{
+										"id": "pack8",
+										"name": "Top-up pack",
+										"price": {
+											"amount": 4000,
+											"every": "once"
+										},
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 8,
+												"every": "month"
+											}
+										]
+									},
+									{
+										"id": "pack16",
+										"name": "Big top-up pack",
+										"price": {
+											"amount": 7200,
+											"every": "once"
+										},
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 16,
+												"every": "month"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"id": "add-pack",
+			"source": "mockup data-pnew=addons: a new pack charged once",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=plan-add][data-kind=addons]",
+					"expect": {
+						"text": {
+							"[data-test=plan-drawer-title]": "New pack"
+						},
+						"contains": {
+							"[data-test=plan-drawer]": [
+								"Price ($)",
+								"Charged",
+								"What members get"
+							]
+						},
+						"count": {
+							"[data-test=plan-drawer-problem]": 2,
+							"[data-test=plan-field][data-field=blurb]": 0
+						},
+						"value": {
+							"[data-test=plan-field][data-field=every]": [
+								"once"
+							]
+						}
+					}
+				},
+				{
+					"fill": "[data-test=plan-field][data-field=name]",
+					"value": "Trial pack"
+				},
+				{
+					"fill": "[data-test=plan-field][data-field=price]",
+					"value": "15"
+				},
+				{
+					"click": "[data-test=plan-drawer-save]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=plan-row][data-plan=trial-pack] [data-test=plan-price]": "$15.00 one time",
+					"[data-test=plan-row][data-plan=trial-pack] [data-test=plan-grants]": "8 sessions once",
+					"[data-test=plan-count][data-kind=addons]": "3 of 6"
+				},
+				"writes": [
+					{
+						"method": "saveMenu",
+						"args": [
+							"vol",
+							{
+								"currency": "usd",
+								"timeZone": "America/Denver",
+								"features": [
+									{
+										"id": "sessions",
+										"name": "Sessions",
+										"unit": {
+											"one": "session",
+											"other": "sessions"
+										}
+									}
+								],
+								"tiers": [
+									{
+										"id": "sparkle",
+										"name": "Sparkle",
+										"blurb": "A little time, every month",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 3250
+											},
+											{
+												"interval": "year",
+												"amount": 35000
+											}
+										],
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 8,
+												"every": "month",
+												"rollover": {
+													"months": 1
+												}
+											}
+										],
+										"quantities": [
+											1,
+											2,
+											4
+										]
+									},
+									{
+										"id": "shine",
+										"name": "Shine",
+										"blurb": "Regular sessions",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 3000
+											},
+											{
+												"interval": "year",
+												"amount": 32400
+											}
+										],
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 6,
+												"every": "month",
+												"rollover": {
+													"months": 1
+												}
+											}
+										],
+										"quantities": [
+											2,
+											4
+										]
+									},
+									{
+										"id": "glow",
+										"name": "Glow",
+										"blurb": "One big plan",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 7000
+											},
+											{
+												"interval": "year",
+												"amount": 70200
+											}
+										],
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 24,
+												"every": "month"
+											}
+										]
+									}
+								],
+								"addons": [
+									{
+										"id": "pack8",
+										"name": "Top-up pack",
+										"price": {
+											"amount": 4000,
+											"every": "once"
+										},
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 8,
+												"every": "month"
+											}
+										]
+									},
+									{
+										"id": "pack16",
+										"name": "Big top-up pack",
+										"price": {
+											"amount": 7200,
+											"every": "once"
+										},
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 16,
+												"every": "month"
+											}
+										]
+									},
+									{
+										"id": "trial-pack",
+										"name": "Trial pack",
+										"price": {
+											"amount": 1500,
+											"every": "once"
+										},
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 8,
+												"every": "month"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"id": "drawer-pack",
+			"source": "mockup drawPE for Top-up pack: no member count on a pack",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=plan-row][data-plan=pack8]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=plan-drawer-title]": "Top-up pack",
+					"[data-test=plan-drawer-sub]": "Vibes of Light · editing the draft"
+				},
+				"value": {
+					"[data-test=plan-field][data-field=name]": [
+						"Top-up pack"
+					],
+					"[data-test=plan-field][data-field=price]": [
+						"40"
+					],
+					"[data-test=plan-field][data-field=every]": [
+						"once"
+					],
+					"[data-test=plan-grant-field][data-field=amount][data-index=\"0\"]": [
+						"8"
+					]
+				},
+				"count": {
+					"[data-test=plan-field][data-field=month]": 0,
+					"[data-test=plan-field][data-field=quantities]": 0
+				}
+			}
+		},
+		{
+			"id": "tier-audience-change",
+			"source": "smoke.mjs 'tier audience: the change lands in the draft', 'tier audience: review says access moves at once, with a notice'; mockup diff() audience line; the YAML key is audience",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=plan-row][data-plan=sparkle]"
+				},
+				{
+					"fill": "[data-test=plan-field][data-field=audience]",
+					"value": "governance"
+				},
+				{
+					"click": "[data-test=plan-drawer-save]",
+					"expect": {
+						"text": {
+							"[data-test=plan-row][data-plan=sparkle] [data-test=plan-audience]": "Audience: Governance",
+							"[data-test=plan-row][data-plan=sparkle] [data-test=plan-changed]": "draft",
+							"[data-test=plan-draft-badge]": "Draft · 2 changes"
+						},
+						"writes": [
+							{
+								"method": "saveMenu",
+								"args": [
+									"vol",
+									{
+										"currency": "usd",
+										"timeZone": "America/Denver",
+										"features": [
+											{
+												"id": "sessions",
+												"name": "Sessions",
+												"unit": {
+													"one": "session",
+													"other": "sessions"
+												}
+											}
+										],
+										"tiers": [
+											{
+												"id": "sparkle",
+												"name": "Sparkle",
+												"blurb": "A little time, every month",
+												"public": true,
+												"prices": [
+													{
+														"interval": "month",
+														"amount": 3250
+													},
+													{
+														"interval": "year",
+														"amount": 35000
+													}
+												],
+												"grants": [
+													{
+														"featureId": "sessions",
+														"amount": 8,
+														"every": "month",
+														"rollover": {
+															"months": 1
+														}
+													}
+												],
+												"quantities": [
+													1,
+													2,
+													4
+												],
+												"audience": "governance"
+											},
+											{
+												"id": "shine",
+												"name": "Shine",
+												"blurb": "Regular sessions",
+												"public": true,
+												"prices": [
+													{
+														"interval": "month",
+														"amount": 3000
+													},
+													{
+														"interval": "year",
+														"amount": 32400
+													}
+												],
+												"grants": [
+													{
+														"featureId": "sessions",
+														"amount": 6,
+														"every": "month",
+														"rollover": {
+															"months": 1
+														}
+													}
+												],
+												"quantities": [
+													2,
+													4
+												]
+											},
+											{
+												"id": "glow",
+												"name": "Glow",
+												"blurb": "One big plan",
+												"public": true,
+												"prices": [
+													{
+														"interval": "month",
+														"amount": 7000
+													},
+													{
+														"interval": "year",
+														"amount": 70200
+													}
+												],
+												"grants": [
+													{
+														"featureId": "sessions",
+														"amount": 24,
+														"every": "month"
+													}
+												]
+											}
+										],
+										"addons": [
+											{
+												"id": "pack8",
+												"name": "Top-up pack",
+												"price": {
+													"amount": 4000,
+													"every": "once"
+												},
+												"grants": [
+													{
+														"featureId": "sessions",
+														"amount": 8,
+														"every": "month"
+													}
+												]
+											},
+											{
+												"id": "pack16",
+												"name": "Big top-up pack",
+												"price": {
+													"amount": 7200,
+													"every": "once"
+												},
+												"grants": [
+													{
+														"featureId": "sessions",
+														"amount": 16,
+														"every": "month"
+													}
+												]
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				},
+				{
+					"click": "[data-test=plan-mode][data-mode=code]",
+					"expect": {
+						"value": {
+							"[data-test=plan-yaml]": [
+								"    public: true\n    audience: governance\n    prices:\n      month: 32.5\n"
+							]
+						},
+						"contains": {
+							"[data-test=plan-change][data-plan=sparkle]": [
+								"Audience Member → Governance"
+							]
+						}
+					}
+				},
+				{
+					"click": "[data-test=plan-review]"
+				}
+			],
+			"expect": {
+				"contains": {
+					"[data-test=plan-publish-change][data-plan=sparkle]": [
+						"Sparkle",
+						"Audience Member → Governance",
+						"Access moves at once: every member on this tier gets the new audience at their next read, with a notice. No Stripe change"
+					]
+				},
+				"text": {
+					"[data-test=plan-publish-summary]": "New purchases get the new terms. 4 current members keep the version they bought. The change applies at once (it doesn't wait for the next local month)."
+				},
+				"writes": [
+					{
+						"method": "saveMenu",
+						"args": [
+							"vol",
+							{
+								"currency": "usd",
+								"timeZone": "America/Denver",
+								"features": [
+									{
+										"id": "sessions",
+										"name": "Sessions",
+										"unit": {
+											"one": "session",
+											"other": "sessions"
+										}
+									}
+								],
+								"tiers": [
+									{
+										"id": "sparkle",
+										"name": "Sparkle",
+										"blurb": "A little time, every month",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 3250
+											},
+											{
+												"interval": "year",
+												"amount": 35000
+											}
+										],
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 8,
+												"every": "month",
+												"rollover": {
+													"months": 1
+												}
+											}
+										],
+										"quantities": [
+											1,
+											2,
+											4
+										],
+										"audience": "governance"
+									},
+									{
+										"id": "shine",
+										"name": "Shine",
+										"blurb": "Regular sessions",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 3000
+											},
+											{
+												"interval": "year",
+												"amount": 32400
+											}
+										],
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 6,
+												"every": "month",
+												"rollover": {
+													"months": 1
+												}
+											}
+										],
+										"quantities": [
+											2,
+											4
+										]
+									},
+									{
+										"id": "glow",
+										"name": "Glow",
+										"blurb": "One big plan",
+										"public": true,
+										"prices": [
+											{
+												"interval": "month",
+												"amount": 7000
+											},
+											{
+												"interval": "year",
+												"amount": 70200
+											}
+										],
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 24,
+												"every": "month"
+											}
+										]
+									}
+								],
+								"addons": [
+									{
+										"id": "pack8",
+										"name": "Top-up pack",
+										"price": {
+											"amount": 4000,
+											"every": "once"
+										},
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 8,
+												"every": "month"
+											}
+										]
+									},
+									{
+										"id": "pack16",
+										"name": "Big top-up pack",
+										"price": {
+											"amount": 7200,
+											"every": "once"
+										},
+										"grants": [
+											{
+												"featureId": "sessions",
+												"amount": 16,
+												"every": "month"
+											}
+										]
+									}
+								]
+							}
+						]
+					}
+				],
+				"moves": [
+					"[data-test=plan-publish-summary]"
+				]
+			}
+		},
+		{
+			"id": "as-admin-no-grant",
+			"source": "smoke.mjs 'ranked 7: admin without the grant sees plan structure, revenue and counts Finance or governance only'; mockup plans() noRev and kplnote; a preview turns every write off (pvLock, title 'Exit preview to act')",
+			"route": "#/vol/plans?as=admin&theme=light",
+			"covers": {
+				"audience": "admin"
+			},
+			"expect": {
+				"text": {
+					"[data-test=plan-books-note]": "Per-plan members and revenue are a breakdown: finance admins, the owner and governance see them. Admins without the finance grant see the plan structure; this default is the owner's to change.",
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-members]": "Finance or governance only",
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-monthly]": "Finance or governance only",
+					"[data-test=plan-stat][data-stat=collected] [data-test=plan-stat-value]": "Finance or governance only",
+					"[data-test=plan-stat][data-stat=active] [data-test=plan-stat-value]": "5",
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-price]": "$32.50 per session / month · $350.00 / year"
+				},
+				"count": {
+					"[data-test=plan-hid][data-hid=no_grant][title=\"Finance or governance only\"]": 7,
+					"[data-test=plan-stat]": 4,
+					"[data-test=plan-row]": 5,
+					"[data-test=plan-review][disabled][title=\"Exit preview to act\"]": 1,
+					"[data-test=plan-discard][disabled][title=\"Exit preview to act\"]": 1,
+					"[data-test=plan-add][disabled][title=\"Exit preview to act\"]": 2
+				},
+				"moves": [
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-price]",
+					"[data-test=plan-stat][data-stat=active] [data-test=plan-stat-value]"
+				]
+			}
+		},
+		{
+			"id": "as-governance",
+			"source": "smoke.mjs 'ranked 7: governance sees per-plan counts with small counts as <10 and revenue hidden under 5 payers'; mockup plans() govOk (cell-rules minContributors 5); no strip or Get started below admin; Governance also sees hidden live tiers",
+			"route": "#/b4u/plans?as=governance&theme=light",
+			"covers": {
+				"audience": "governance"
+			},
+			"expect": {
+				"text": {
+					"[data-test=plan-books-note]": "Per-plan members and revenue are a breakdown: finance admins, the owner and governance see them.",
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-members]": "<10",
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-monthly]": "—",
+					"[data-test=plan-row][data-plan=board] [data-test=plan-name]": "Board",
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-price]": "$20.00 / month"
+				},
+				"count": {
+					"[data-test=plan-stat]": 0,
+					"[data-test=plan-setup]": 0,
+					"[data-test=plan-row]": 3,
+					"[data-test=plan-hid][data-hid=approx][title=\"Rounded to the nearest 10: fewer than 5 members\"]": 3,
+					"[data-test=plan-hid][data-hid=suppressed][title=\"Hidden: fewer than 5 payers\"]": 3,
+					"[data-test=plan-review][disabled][title=\"Exit preview to act\"]": 1
+				},
+				"moves": [
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-price]"
+				]
+			}
+		},
+		{
+			"id": "as-member",
+			"source": "mockup plans() for Member: the live tiers on sale, the breakdown hidden as 'Governance and up see this'",
+			"route": "#/vol/plans?as=member&theme=light",
+			"covers": {
+				"audience": "member"
+			},
+			"expect": {
+				"text": {
+					"[data-test=plan-books-note]": "Per-plan members and revenue are a breakdown: finance admins, the owner and governance see them.",
+					"[data-test=plan-row][data-plan=shine] [data-test=plan-members]": "Governance and up see this",
+					"[data-test=plan-row][data-plan=shine] [data-test=plan-monthly]": "Governance and up see this",
+					"[data-test=plan-row][data-plan=shine] [data-test=plan-price]": "$30.00 per session / month · $324.00 / year"
+				},
+				"count": {
+					"[data-test=plan-stat]": 0,
+					"[data-test=plan-hid][data-hid=no_grant][title=\"Governance and up see this\"]": 6,
+					"[data-test=plan-ending]": 0
+				},
+				"moves": [
+					"[data-test=plan-row][data-plan=shine] [data-test=plan-price]"
+				]
+			}
+		},
+		{
+			"id": "as-public",
+			"source": "smoke.mjs 'ranked 7: public preview shows only plans on sale and Governance and up for the breakdown'",
+			"route": "#/b4u/plans?as=public&theme=light",
+			"covers": {
+				"audience": "public"
+			},
+			"expect": {
+				"text": {
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-monthly]": "Governance and up see this",
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-price]": "$20.00 / month"
+				},
+				"count": {
+					"[data-test=plan-row][data-plan=board]": 0,
+					"[data-test=plan-row]": 2,
+					"[data-test=plan-stat]": 0,
+					"[data-test=plan-hid][data-hid=no_grant][title=\"Governance and up see this\"]": 4
+				},
+				"moves": [
+					"[data-test=plan-row][data-plan=sparkle] [data-test=plan-price]"
+				]
+			}
+		},
+		{
+			"id": "as-preview-writes-off",
+			"source": "mockup pvLock (WRITE_SEL): in a preview the drawer's Save, Code's Format and Reset are disabled and the YAML is read-only (the mockup's mode switch skips pvLock; its rule is followed)",
+			"route": "#/vol/plans?as=governance&mode=code&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=plan-mode][data-mode=edit]"
+				},
+				{
+					"click": "[data-test=plan-row][data-plan=sparkle]",
+					"expect": {
+						"count": {
+							"[data-test=plan-drawer-save][disabled][title=\"Exit preview to act\"]": 1
+						}
+					}
+				},
+				{
+					"key": "Escape",
+					"target": "[data-test=plan-drawer]"
+				},
+				{
+					"click": "[data-test=plan-mode][data-mode=code]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=plan-yaml][readonly]": 1,
+					"[data-test=plan-yaml-format][disabled][title=\"Exit preview to act\"]": 1,
+					"[data-test=plan-yaml-reset][disabled][title=\"Exit preview to act\"]": 1,
+					"[data-test=plan-yaml-copy][disabled]": 0
+				},
+				"writes": []
+			}
+		},
+		{
+			"id": "empty-lotus-lane",
+			"source": "mockup on Lotus Lane Yoga (no plans, Stripe not connected): Get started 0 of 4, no strip, empty tables, Review disabled",
+			"route": "#/nw/plans?theme=light",
+			"expect": {
+				"text": {
+					"[data-test=plan-setup-count]": "0 of 4 done",
+					"[data-test=plan-setup-next]": "Next: Connect Stripe",
+					"[data-test=plan-version]": "Not published yet",
+					"[data-test=plan-count][data-kind=tiers]": "0 of 4",
+					"[data-test=plan-count][data-kind=addons]": "0 of 6",
+					"[data-test=plan-empty][data-kind=tiers]": "No memberships yet.",
+					"[data-test=plan-empty][data-kind=addons]": "None yet."
+				},
+				"contains": {
+					"[data-test=plan-setup]": [
+						"Get started",
+						"Connect Stripe",
+						"Take payments through your own account",
+						"Add a membership",
+						"Name it, price it, say what members get",
+						"Publish your plans",
+						"Makes them available to buy",
+						"Share your purchase link",
+						"Copy it into your website or email"
+					]
+				},
+				"count": {
+					"[data-test=plan-setup]": 1,
+					"[data-test=plan-setup-step]": 4,
+					"[data-test=plan-setup-step][disabled]": 0,
+					"[data-test=plan-setup-step][data-step=stripe].next": 1,
+					"[data-test=plan-stat]": 0,
+					"[data-test=plan-row]": 0,
+					"[data-test=plan-draft-badge]": 0,
+					"[data-test=plan-discard]": 0,
+					"[data-test=plan-review][disabled][title=\"Connect Stripe first\"]": 1
+				}
+			}
+		},
+		{
+			"id": "empty-lotus-lane-preview",
+			"source": "mockup planPreview empty texts, Live then Draft",
+			"route": "#/nw/plans?mode=preview&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=plan-show][data-show=live]",
+					"expect": {
+						"text": {
+							"[data-test=plan-preview-empty]": "Nothing is published yet. Switch to Draft to see what you've set up, or add a plan in Edit."
+						},
+						"count": {
+							"[data-test=plan-card]": 0
+						}
+					}
+				},
+				{
+					"click": "[data-test=plan-show][data-show=draft]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=plan-preview-empty]": "No plans yet. Switch to Edit to add a membership.",
+					"[data-test=plan-show][data-show=live]": "Live"
+				}
+			}
+		},
+		{
+			"id": "empty-lotus-lane-code",
+			"source": "mockup kEmit of an empty menu",
+			"route": "#/nw/plans?mode=code&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=plan-changes]": "Changes vs published 0 No changes yet. This matches what is published.",
+					"[data-test=plan-yaml-status]": "Valid"
+				},
+				"value": {
+					"[data-test=plan-yaml]": [
+						"# Lotus Lane Yoga: plans.",
+						"\nversion: 0\ncurrency: USD\ntimeZone: America/Los_Angeles\n\nmemberships: []\n\npacks: []\n"
+					]
+				},
+				"count": {
+					"[data-test=plan-yaml-line]": 11
+				}
+			}
+		},
+		{
+			"id": "empty-lotus-lane-add-membership",
+			"source": "mockup doSetup('plan'): the Add a membership step opens a new membership",
+			"route": "#/nw/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=plan-setup-step][data-step=plan]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=plan-drawer-title]": "New membership",
+					"[data-test=plan-drawer-sub]": "Lotus Lane Yoga · editing the draft"
+				},
+				"contains": {
+					"[data-test=plan-drawer]": [
+						"Classes"
+					]
+				},
+				"writes": []
+			}
+		},
+		{
+			"id": "setup-maple",
+			"source": "mockup on Maple Pilates: Stripe connected and plans published, the purchase link not shared yet",
+			"route": "#/map/plans?theme=light",
+			"expect": {
+				"text": {
+					"[data-test=plan-setup-count]": "3 of 4 done",
+					"[data-test=plan-setup-next]": "Next: Share your purchase link",
+					"[data-test=plan-stat][data-stat=active] [data-test=plan-stat-value]": "2",
+					"[data-test=plan-row][data-plan=glow] [data-test=plan-ending]": "+1 ending"
+				},
+				"count": {
+					"[data-test=plan-setup-step][disabled]": 3,
+					"[data-test=plan-setup-step][data-step=link].next": 1,
+					"[data-test=plan-row]": 1
+				},
+				"moves": [
+					"[data-test=plan-stat][data-stat=active] [data-test=plan-stat-value]"
+				]
+			}
+		}
+	]
+}
