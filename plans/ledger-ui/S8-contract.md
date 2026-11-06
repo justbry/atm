@@ -80,10 +80,19 @@ Whatever the choice, S8d delivers:
 | **S8d-bz** | buzz-school | Add to `LEDGER_ROUTES`: `POST .../billing/menu`, `POST .../billing/menu/publish`, `POST .../billing/stripe-key`(`/remove`), `POST /school-admin/key-create`/`key-revoke`. A read for the school's display name (plus time zone, currency, credit unit in one answer). Fix `capabilities` so `publishMenu` is not `built` while its route is unreachable, and add `audit` and `resendReceipt` as `not_built`. Route table test updated. | none |
 | **S8d** | buzz-school | Section 5. Spike first. | S8a's builder; the spike's decision |
 | **S8c** | atm (or a new package) | The ledger Worker: wrangler config (`nodejs_compat`, R2 binding per env, cron trigger for `runViews`), token verification, school and finance gating, the read endpoints behind the `Reader` calls marked atm in `S8-ui-needs.md`. `dashboardOptions` returns no presets. Tests in Miniflare over seeded R2 built from the 15 presets' events (the `tests/worker-fixture` pattern). | S8a, S8b |
-| **S8e** | atm `packages/ledger-ui` | `HttpReader`/`HttpWriter` behind the existing seam. Writes add CSRF and an `Idempotency-Key`, and `publishMenu` opens the step-up first. A write shows pending until the manifest `asOf` passes it, and the pending state survives a reload (`S8-ui-needs.md`, "Rules the adapters must keep"). **Gate:** the consistency gates C1–C5 (`gates/run.ts`, `bun run test`) run against this adapter on the Miniflare Worker, as they do against the fixtures. | S8c, S8d-bz |
+| **S8e** | atm `packages/ledger-ui` | `HttpReader`/`HttpWriter` behind the existing seam. Writes add CSRF and an `Idempotency-Key`, and `publishMenu` asks for the PIN first (the route needs the PIN only, not the mailed-link step-up; `POST /family/pin/verify` is already reachable from the ledger origin). A write shows pending until the manifest `asOf` passes it, and the pending state survives a reload (`S8-ui-needs.md`, "Rules the adapters must keep"). **Gate:** the consistency gates C1–C5 (`gates/run.ts`, `bun run test`) run against this adapter on the Miniflare Worker, as they do against the fixtures. | S8c, S8d-bz |
 | **S8f** | both | `ledger-staging.b4uni.com` against a staging bucket, token round trip, one refund and one booking cancel end to end. | all |
 
 S8a, S8b and S8d-bz can run in parallel.
+
+### Status (2026-11-06)
+
+| Slice | PR | State |
+| --- | --- | --- |
+| S8b | atm #138 | built, mergeable, checked. `kpiDocument(rows, contributions, disclosure, audience, pinLocked, context)`: a sixth `context` argument (`school`, `currency`, `clock`, `preset?`, `plans?`, `donors?`, `days?`, `invented?`). `contributions` is accepted but not read yet: the oracle counts the period's paying members, not per-cell holders (open question for the ledger-ui orchestrator, D9). |
+| S8a | atm #139 (stacked on #138) | built, mergeable, checked. Removes `MonthView.money` from `views/months/`, so month objects and every manifest change bytes: the orchestrator regenerates the mart snapshots and goldens in the PR that merges it (`S8a-hash-changes.md`). Finance month objects carry `grossByDay` and `income.planOrder`; contributions use the `KpiContributions` object form. |
+| S8d-bz | buzz-school #1348 | built and self-reviewed: `LEDGER_ROUTES` additions, `GET .../ledger/school`, `capabilities` fix, and `docs/features/ledger-ui-gaps.md` (the plan for every other buzz-school gap). |
+| S8d, S8c, S8e, S8f | | not started. S8c waits on #138 and #139 merging. |
 
 ## 7. Corrections to `S8-ui-needs.md` (checked 2026-11-06)
 
@@ -116,6 +125,9 @@ S8a, S8b and S8d-bz can run in parallel.
 | D6 | Member portal | Read-only preview in S8; portal writes stay on fixtures. The member routes are deliberately outside `LEDGER_ROUTES`. |
 | D7 | Admin without the finance grant | Public audience (spec rule). The orchestrator confirms what the UI expects. |
 | D8 | Promos, remindHost, changeRole, switchTier, cancel/resume membership, resendReceipt, audit | Stay on fixtures behind `not_built` capabilities until a route exists. |
+| D9 | KPI cell rules: per-cell holders (spec) or the period's paying members (oracle `bkFig`, G1g) | Open. Until the ledger-ui orchestrator answers, the oracle rules. If the spec rule wins, the oracle changes first, then `kpiDocument` reads `contributions`. |
+| D10 | Refund permission | Open. Briefs B and C say owner only (Cedar `MoneyWrite` covers refund, invoice and adjust as one action); the mockup lets a finance admin refund. Options in `ledger-ui-gaps.md`: keep it, open it to finance admins, or split a `Refund` action. Default: keep owner only. |
+| D11 | `bookingRules` / `schoolRules` | No source (buzz-school has a per-event cutoff only; credit hold and spend wait for atm 0.8.0). Answer `null`; the UI contract allows it. |
 
 ## 9. Open risks
 
@@ -124,3 +136,32 @@ S8a, S8b and S8d-bz can run in parallel.
 - The views lag the log by the shipper interval plus the cron interval. The UI already shows a stale chip; the Worker returns `asOf`.
 - PR #1273 moves the family service to Cloudflare. If it lands first, D3 and the shipper job change.
 - `adjust.ts` says the credit note and kind "belong to the engine's ledger event". Nothing stores that event today, so the comment is true only after S8d.
+
+## 10. Remaining buzz-school gaps: build list
+
+The plan is `docs/features/ledger-ui-gaps.md` in buzz-school (PR #1348): for each gap, what exists, the proposed route and shape matched to the UI contract's field names, the Cedar action, the source, migration and size. It builds nothing. Groups, each one reviewable PR against `main` (M: needs a migration, O: needs an owner decision, S8d: waits on the emission design, C: needs a UI contract change):
+
+| # | Group | Contents | Size | Marks |
+| --- | --- | --- | --- | --- |
+| 1 | S8d-bz2 | `granted`, `rolledOver` on members-list; `ending`, `activeUnits`, `monthlyMinor` on `billing/members` (`monthlyMinor` behind `ViewFinancials`); `ledger/members-summary` | S | C |
+| 2 | S8d-bz3 | `seriesLabel` on bookings; `POST .../bookings/<id>/remind` | S | |
+| 3 | S8d-bz4 | `ledger/people`; `POST ledger/roles` (`changeRole`) | M | O |
+| 4 | S8d-bz5 | `ledger/members/<person>/money` (payments, refundable, `stripeDashboardUrl`); `resendReceipt` | M | O |
+| 5 | S8d-bz6 | admin cancel, resume and switch | L | S8d, O |
+| 6 | S8d-bz7 | `ledger/settings` read | M | C |
+| 7 | S8d-bz8 | member portal preview read | L | S8d, O |
+| 8 | S8d-bz9 | disclosure: file, validator, `school_books_disclosure`, tier `audience`, `GET/POST ledger/disclosure` with step-up | L | M, O, C |
+| 9 | S8d-bz10 | `audit-facts` read | M | after S8c, S8d |
+| 10 | S8d-bz11 | accounting basis, booking rules | M | M, O |
+| later | | promos, Zeffy, portal writes for the embed | L each | O |
+
+Groups 8 and 10 need a migration, and so does a gift-code table if promos are built. Which groups are built, and in what order, is decided by the S8 thread with the orchestrator, not by a child.
+
+Contract changes the plan asks for (the orchestrator changes `src/data/` and the fixtures together):
+- allow `null` for `expiringGifts`, `bookingRules`, `settings.basis`, `settings.zeffy` and `stripe.missing`;
+- `Disclosure.year`, `size` and `views` need income, so the Worker assembles them from buzz-school's file, the school's override and the viewer;
+- `PlanTierCount` wants `ending` and `activeUnits`;
+- `MembersSummary` lacks `cancelCutoffHours`;
+- `Booking.billing` and `auditMember` belong in atm and the Worker (credit holds, replay), fed by a buzz-school facts read.
+
+Not verified by that plan, to check before building: the Stripe dashboard URL format for a live key, and whether setting `receipt_email` on a charge resends a receipt.
