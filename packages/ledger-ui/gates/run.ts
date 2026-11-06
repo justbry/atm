@@ -60,6 +60,8 @@ const filesUnder = (directory: string): string[] =>
 
 process.stdout.write(`slice ${slice} head ${head}\n`);
 run("I install", "bun", ["install", "--frozen-lockfile"]);
+if (existsSync(join(packageRoot, "scripts/import-mart.ts")))
+	run("F fixtures", "bun", ["scripts/import-mart.ts"]);
 run("Y types", "bunx", ["tsc", "--noEmit", "-p", "gates/tsconfig.gates.json"]);
 
 const lintable = readFileSync(changedFile, "utf8")

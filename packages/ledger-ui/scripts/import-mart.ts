@@ -6,10 +6,14 @@
  *   governance up (`<preset>.<level>` and `<preset>.<level>.pin-locked`);
  * - `provenance.json`, per document: sha256 of atm's `canonicalize(document)` and the source preset's fixtureHash and
  *   kpisHash, so each level's document traces to atm's stage hashes.
+ * The first three are generated, not committed (they are ignored by git and rebuilt by `dev`, `build`, `test`, the test
+ * preload and the gate runner). `provenance.json` is committed: a normal run checks the documents against it and refuses
+ * on any difference; only `--record` (the orchestrator, after a deliberate change) rewrites it.
  * Refuses unless every export's fixtureHash and kpisHash equal atm's goldens and kpiHash(rows) equals kpisHash.
- * Deterministic. Usage, from packages/ledger-ui: bun scripts/import-mart.ts
+ * Deterministic. Usage, from packages/ledger-ui: bun scripts/import-mart.ts [--record]
  */
 import {
+	existsSync,
 	mkdirSync,
 	readdirSync,
 	readFileSync,
@@ -150,11 +154,35 @@ function main(): void {
 		}
 	}
 	mkdirSync(output, { recursive: true });
+	const provenancePath = join(output, "provenance.json");
+	if (!process.argv.includes("--record")) {
+		const recorded = existsSync(provenancePath)
+			? (JSON.parse(readFileSync(provenancePath, "utf8")) as Record<
+					string,
+					Provenance
+				>)
+			: {};
+		const differences = [
+			...new Set([...Object.keys(recorded), ...Object.keys(provenance)]),
+		].filter(
+			(key) =>
+				canonicalize(recorded[key] ?? null) !==
+				canonicalize(provenance[key] ?? null),
+		);
+		if (differences.length) {
+			process.stderr.write(
+				`refusing to write the fixtures: ${differences.length} documents differ from the committed provenance.json (first: ${differences[0]}); after a deliberate change run with --record\n`,
+			);
+			process.exit(1);
+		}
+	}
 	const files: Record<string, unknown> = {
 		"cell-rules.json": rules,
 		"rows.json": rows,
 		"documents.json": documents,
-		"provenance.json": provenance,
+		...(process.argv.includes("--record")
+			? { "provenance.json": provenance }
+			: {}),
 	};
 	for (const [name, value] of Object.entries(files))
 		writeFileSync(join(output, name), serialize(value));
@@ -162,7 +190,7 @@ function main(): void {
 		(name) => `${name} ${statSync(join(output, name)).size} bytes`,
 	);
 	process.stdout.write(
-		`${presets.length} presets, ${Object.keys(documents).length} documents; ${sizes.join(", ")}\n`,
+		`${presets.length} presets, ${Object.keys(documents).length} documents, provenance ${process.argv.includes("--record") ? "recorded" : "matches"}; ${sizes.join(", ")}\n`,
 	);
 }
 
