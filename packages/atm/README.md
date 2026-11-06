@@ -59,8 +59,8 @@ import { buildViews, membersOf, memberSummary, readEventsFromStore, writeViews }
 
 const events = await readEventsFromStore(store, "sch_vol", { from: "2026-03-01", to: "2026-03-31" }); // range optional
 const members = membersOf(events, new Date()); // { ok: true, asOf, members: { "family:fam_8k2": { plan, features: { visit: { available, held, used, nextExpiryAt } }, lastEventAt } } }
-const built = buildViews(events, { school: "sch_vol", asOf: new Date() }); // { ok: true, views: { school, asOf, months, members } }
-if (built.ok) await writeViews(store, "sch_vol", built.views); // views/months/YYYY-MM.json, views/members/<sha256>.json
+const built = buildViews(events, { school: "sch_vol", asOf: new Date() }); // { ok: true, views: { school, asOf, months, members, finance, contributions } }
+if (built.ok) await writeViews(store, "sch_vol", built.views); // views/months/YYYY-MM.json, views/members/<sha256>.json, views/finance/…, views/kpi/contributions/YYYY-MM.json; `runViews(store, school, asOf)` does read, build and write in one call
 ```
 
 - `readEventsFromStore(store, school, range?)`: lists `schools/<school>/events/` by day (following the store's cursor), reads each day's batches, and returns what `readEvents` returns for the same folder: a day with a `day.jsonl` is that file and its `late-*` batches, ids sort, and a repeated `idem` is dropped. `range` is an inclusive `YYYY-MM-DD` span of the `date=` partition (the school's local day).

@@ -15,6 +15,7 @@ import { hledgerChannel } from "../src/scenario/channels/hledger.js";
 import {
 	diffKpis,
 	evaluateKpis,
+	type KpiChannel,
 	type KpiRow,
 	periodsFrom,
 	SCHOOL_KPIS,
@@ -25,7 +26,7 @@ const YEAR = join(import.meta.dir, "../fixtures/vibes-year");
 const MULTI = join(import.meta.dir, "../fixtures/vibes-multi");
 
 const rowsOf = async (
-	channel: typeof atmChannel,
+	channel: KpiChannel,
 	events: Awaited<ReturnType<typeof readEvents>>["events"],
 	periods: string[],
 ): Promise<KpiRow[]> =>
