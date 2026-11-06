@@ -4,6 +4,7 @@
  * entry's steps; mockup by a fresh page, the host tokens, `applyTheme()` and `mockupSteps`; a 4-character nonce written
  * outside #app into every shot (pixels only). Usage, from the repo root, with the app on :5181 and the mockup on :5182:
  *   node plans/ledger-ui/loop/tools/shoot.mjs --slice S0 --out <dir> --side app|mock --nonce K7QX --commit <sha>
+ * Optional `--app <origin>` and `--mock <origin>` override the two servers (default http://localhost:5181 and :5182).
  * Needs playwright-core in /tmp/ledger-shots (createRequire below) and the cached Chromium headless shell.
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -13,7 +14,12 @@ import { join } from "node:path";
 
 const require = createRequire("/tmp/ledger-shots/package.json");
 const { chromium } = require("playwright-core");
-const argument = (name) => process.argv[process.argv.indexOf(name) + 1];
+const argument = (name) => {
+	const index = process.argv.indexOf(name);
+	return index > 0 ? process.argv[index + 1] : undefined;
+};
+const appOrigin = argument("--app") ?? "http://localhost:5181";
+const mockOrigin = argument("--mock") ?? "http://localhost:5182";
 const slice = argument("--slice");
 const out = argument("--out");
 const side = argument("--side");
@@ -44,14 +50,20 @@ for (const entry of golden.entries.filter((candidate) => candidate.shot?.full)) 
 			const page = await browser.newPage({ viewport: { width, height: 900 } });
 			if (side === "app") {
 				const route = entry.route.replace(/theme=\w+/, `theme=${theme}`);
-				await page.goto(`http://localhost:5181/${route}`);
+				await page.goto(`${appOrigin}/${route}`);
 				await page.waitForFunction((hash) => document.getElementById("app")?.dataset.route === hash, route);
 				for (const step of entry.steps ?? []) {
 					if (step.click) await page.click(step.click);
+					else if (step.fill) await page.locator(step.fill).evaluate((input, value) => {
+						input.value = value;
+						input.dispatchEvent(new Event("input", { bubbles: true }));
+						input.dispatchEvent(new Event("change", { bubbles: true }));
+					}, step.value);
+					else if (step.key) await page.locator(step.target).press(step.key);
 				}
 				await page.waitForTimeout(150);
 			} else {
-				await page.goto("http://localhost:5182/mockup.html");
+				await page.goto(`${mockOrigin}/mockup.html`);
 				await page.waitForSelector(".tab");
 				await page.addStyleTag({ content: hostCss });
 				await page.evaluate(`theme=${JSON.stringify(theme)};applyTheme();${entry.shot.mockupSteps}`);
