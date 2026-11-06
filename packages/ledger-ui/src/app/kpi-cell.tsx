@@ -46,7 +46,11 @@ export const suppressedText = "—";
 
 /** A figure as the KPI document's contract writes it (`KpiFormat`): money with "−" (U+2212) for a negative and the
  * document's symbol, en-US grouping; a count as its plain number; a rate to one decimal. */
-function figureText(value: number, format: KpiFormat, symbol: string): string {
+export function figureText(
+	value: number,
+	format: KpiFormat,
+	symbol: string,
+): string {
 	if (format === "integer") return String(value);
 	if (format === "percent1") return `${(value * percent).toFixed(1)}%`;
 	const digits = decimals[format];
@@ -79,6 +83,12 @@ export function cellText(
 	return cell.hidden === "suppressed" ? suppressedText : cell.text;
 }
 
+/** What a KPI the table lacks reads: the Dashboard's cells and the portal's share this. */
+export const notComputedCell: Cell = {
+	hidden: "not_computed",
+	text: "Not computed",
+};
+
 /** Why a cell is not a plain figure, for its title. */
 const cellWhy = (cell: Cell): string | undefined => {
 	if (typeof cell === "number") return undefined;
@@ -103,10 +113,7 @@ export function KpiValue({
 }): JSX.Element {
 	const table = document.tables[grain];
 	const index = table?.periods.indexOf(period) ?? -1;
-	const cell: Cell = table?.series[kpi]?.[index] ?? {
-		hidden: "not_computed",
-		text: "Not computed",
-	};
+	const cell: Cell = table?.series[kpi]?.[index] ?? notComputedCell;
 	const kind = cellKind(cell);
 	return (
 		<span

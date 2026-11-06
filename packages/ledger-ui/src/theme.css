@@ -1574,6 +1574,20 @@ tr.tot td {
 	flex-wrap: wrap;
 	margin-bottom: 8px;
 }
+.kfoot {
+	margin-top: 8px;
+}
+.kfull {
+	grid-column: 1 / -1;
+}
+.kafter {
+	margin-left: 6px;
+}
+.kmore {
+	max-width: 11em;
+	font-size: 12px;
+	padding: 3px 6px;
+}
 .kmonths {
 	display: flex;
 	gap: 3px;

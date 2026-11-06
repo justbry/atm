@@ -17,13 +17,16 @@ import {
 import type { Preset } from "../data/types.ts";
 import type { BooksPaneProps } from "./books-pane.ts";
 import { Icon, type IconName } from "./icon.tsx";
-import { cellText } from "./kpi-cell.tsx";
-import { LockPanel } from "./lock-panel.tsx";
+import { cellText, figureText, notComputedCell } from "./kpi-cell.tsx";
 import { monthName, type Period, parsePeriod } from "./period.ts";
 import { PinLock } from "./pin-lock.tsx";
 import { withQuery } from "./route.ts";
 import { keepLoading } from "./use-loaded.ts";
 import { useViewing } from "./viewing.ts";
+
+/** The mockup's four fixture scenarios (its `Fixture scenario` segmented control) come first in the Reader's list; the
+ * other presets of the mart sit in one select beside them. */
+const featuredScenarios = 4;
 
 type DashboardView = "money" | "members" | "risk";
 type ViewOption = { id: DashboardView; label: string; icon: IconName };
@@ -39,8 +42,7 @@ const chartColors = [
 	"var(--chart-4)",
 	"var(--chart-5)",
 ] as const;
-const [firstColor, secondColor, thirdColor, fourthColor, fifthColor] =
-	chartColors;
+const [firstColor, secondColor, thirdColor, , fifthColor] = chartColors;
 const grossColor = "rgba(138, 138, 150, 0.5)";
 /** The mockup's tones and "Needs a look": a refund rate over 10% or 3 disputes or more; over 20% or 5 is severe. */
 const refundRateBad = 0.1;
@@ -61,10 +63,6 @@ const withheldKinds = new Set<HiddenKind>([
 	"members_only",
 	"no_grant",
 ]);
-
-/** The document's whole-unit money (its `roundTo`), as the mockup's `kusd0` writes it. */
-const wholeMoney = (minorUnits: number, symbol: string): string =>
-	`${minorUnits < 0 ? "−" : ""}${symbol}${Math.round(Math.abs(minorUnits) / 100).toLocaleString("en-US")}`;
 
 const grainOf = (period: string): TableGrain => {
 	if (/^\d{4}$/.test(period)) return "year";
@@ -116,8 +114,6 @@ function numberAt(
 	const cell = cellAt(document, kpi, period);
 	return typeof cell === "number" ? cell : null;
 }
-const textOf = (document: KpiDocument, kpi: string, cell: Cell): string =>
-	cellText(document, kpi, cell);
 const seriesStartingWith = (
 	document: KpiDocument,
 	grain: TableGrain,
@@ -151,8 +147,7 @@ function Value({
 	marked?: boolean;
 }): JSX.Element {
 	const { document } = books;
-	const cell = cellAt(document, kpi, period);
-	if (cell === undefined) return <span class="kcutv">—</span>;
+	const cell = cellAt(document, kpi, period) ?? notComputedCell;
 	const shared = marked
 		? {
 				"data-test": test,
@@ -161,7 +156,7 @@ function Value({
 				"data-cell": cellKind(cell),
 			}
 		: {};
-	const text = textOf(document, kpi, cell);
+	const text = cellText(document, kpi, cell);
 	if (typeof cell === "number") return <span {...shared}>{text}</span>;
 	if ("hidden" in cell) {
 		if (cell.hidden === "suppressed")
@@ -205,6 +200,13 @@ function disputeTone(disputes: number | null): Tone {
 	if (disputes >= 1) return "warn";
 	return "ok";
 }
+/** The month's dispute cost in minor units, as the mockup tones it: over $50 bad, any cost a warning. */
+const disputeCostBad = 5000;
+function disputeCostTone(cost: number | null): Tone {
+	if (cost === null) return "";
+	if (cost > disputeCostBad) return "bad";
+	return cost > 0 ? "warn" : "ok";
+}
 /** A card whose figure is withheld says why instead of its line (mockup `kcard`). */
 function withheldLine(cell: Cell | undefined): string | null {
 	if (cell === undefined || typeof cell === "number" || !("hidden" in cell))
@@ -215,63 +217,60 @@ function withheldLine(cell: Cell | undefined): string | null {
 	return null;
 }
 
-/** A card (mockup `kcard`): its value cells joined by "+", dashed when the first is withheld. */
+/** A card (mockup `kcard`): one value cell, dashed when it is withheld, and then its reason takes the place of the
+ * sub-line, once. */
 function Card({
 	books,
 	label,
-	kpis,
+	kpi,
 	tone = "",
 	children,
 }: {
 	books: Books;
 	label: string;
-	kpis: [string, ...string[]];
+	kpi: string;
 	tone?: Tone;
-	children: ComponentChildren;
+	children?: ComponentChildren;
 }): JSX.Element {
 	const withheld = withheldLine(
-		cellAt(books.document, kpis[0], books.selected.period),
+		cellAt(books.document, kpi, books.selected.period),
 	);
 	return (
 		<div
 			class={`kcard ${withheld === null ? tone : "kcut"}`.trim()}
 			data-test="kpi-card"
-			data-k={kpis[0]}
+			data-k={kpi}
 		>
 			<small data-test="kpi-label">{label}</small>
 			<b>
-				{kpis.map((kpi, index) => (
-					<Fragment key={kpi}>
-						{index > 0 && " + "}
-						<Value books={books} kpi={kpi} test="kpi-value" />
-					</Fragment>
-				))}
+				<Value books={books} kpi={kpi} test="kpi-value" />
 			</b>
 			<i>{withheld ?? children}</i>
 		</div>
 	);
 }
 
-/** The month before, as its cell: the mockup's change against it would be a number the UI computes. */
-function Previous({
+/** The sub-line of a month card (mockup `dlt`): "First month", "Same as May", or "▲ $6 vs May" with the change the
+ * document carries (`KpiTable.changes`); the UI subtracts nothing. A change that is no figure says nothing. */
+function Change({
 	books,
 	kpi,
 }: {
 	books: Books;
 	kpi: string;
 }): ComponentChildren {
-	const { periods } = books.document;
-	const before =
-		periods[
-			periods.findIndex(({ period }) => period === books.selected.period) - 1
-		];
-	if (!before) return "First month";
-	return (
-		<>
-			{periodName(before.period)}:{" "}
-			<Value books={books} kpi={kpi} period={before.period} />
-		</>
-	);
+	const { document, selected } = books;
+	const table = document.tables.month;
+	const index = table?.periods.indexOf(selected.period) ?? -1;
+	if (!table || index < 0) return null;
+	if (index === 0) return "First month";
+	const change = table.changes?.[kpi]?.[index];
+	if (change === undefined || change === null) return null;
+	const before = monthName(`${table.periods[index - 1]}-01`);
+	if (change === 0) return `Same as ${before}`;
+	const format =
+		document.meta[kpi]?.format === "integer" ? "integer" : "money0";
+	return `${change > 0 ? "▲" : "▼"} ${figureText(Math.abs(change), format, document.symbol)} vs ${before}`;
 }
 
 function Legend({
@@ -339,7 +338,7 @@ function Column({
 	const { document } = books;
 	const cells = series.map(({ kpi, name }) => {
 		const cell = cellAt(document, kpi, period);
-		return `${name} ${typeof cell === "number" ? textOf(document, kpi, cell) : "not shown yet"}`;
+		return `${name} ${typeof cell === "number" ? cellText(document, kpi, cell) : "not shown yet"}`;
 	});
 	return (
 		<rect
@@ -508,7 +507,7 @@ function Line({
 						class="kthr"
 						style={{ top: `${(y(threshold) / height) * 100}%` }}
 					>
-						{textOf(books.document, kpi, threshold)}
+						{cellText(books.document, kpi, threshold)}
 					</span>
 				)}
 			</div>
@@ -576,7 +575,7 @@ function Days({ books }: { books: Books }): JSX.Element | null {
 							height={barHeight}
 							fill={firstColor}
 						>
-							<title>{`${label}: ${textOf(document, "gross_collected", cell)}`}</title>
+							<title>{`${label}: ${cellText(document, "gross_collected", cell)}`}</title>
 						</rect>
 					);
 				})}
@@ -728,6 +727,28 @@ const seriesHeading = (
 	title: string,
 ): string => `${title} by ${document.meta[kpi]?.every ?? document.grain}`;
 
+/** The "By plan or fund" row below Governance (mockup `dashAgg`): the label, an empty track and the small lock figure
+ * saying who sees it, like a hidden card. */
+function PlanLock({ lock }: { lock: Lock }): JSX.Element {
+	return (
+		<div
+			class="krow"
+			data-test="lock-panel"
+			data-surface="dashboard-plan"
+			data-lock={lock.reason}
+		>
+			<span>By plan or fund</span>
+			<div class="t" />
+			<b>
+				<span class="khid" data-hid={lock.reason} title={lock.who}>
+					<Icon name="lock" />
+					<span data-test="lock-who">{lock.who}</span>
+				</span>
+			</b>
+		</div>
+	);
+}
+
 /** Public and Member (mockup `dashAgg`): the period's cards, then each KPI's series at its own grain. Below
  * Governance the plan breakdown is the row's lock panel. */
 function AggregateBody({
@@ -752,33 +773,29 @@ function AggregateBody({
 			"revenue_by_kind:",
 		);
 		const year = selected.period.slice(0, 4);
+		const yearTotal =
+			document.grain === "quarter" &&
+			document.tables.year?.periods.includes(year);
+		const yearNote =
+			yearTotal && typeof cellAt(document, quartersKpi, year) === "number";
 		return (
 			<>
 				<div class="kcards">
-					<Card
-						books={books}
-						label="Gross collected"
-						kpis={["gross_collected"]}
-					>
+					<Card books={books} label="Gross collected" kpi="gross_collected">
 						{document.roundTo > 0
-							? `${label}, rounded to ${wholeMoney(document.roundTo, document.symbol)}`
+							? `${label}, rounded to ${figureText(document.roundTo, "money0", document.symbol)}`
 							: label}
 					</Card>
-					<Card books={books} label="Refunds" kpis={["refunds"]}>
+					<Card books={books} label="Refunds" kpi="refunds">
 						<Value books={books} kpi="refund_rate" /> of gross
 					</Card>
-					<Card books={books} label="Payment fees" kpis={["stripe_fees"]}>
+					<Card books={books} label="Payment fees" kpi="stripe_fees">
 						in {label}
 					</Card>
-					<Card
-						books={books}
-						label="Net income"
-						kpis={["net_income"]}
-						tone="ok"
-					>
+					<Card books={books} label="Net income" kpi="net_income" tone="ok">
 						Rounded on its own
 					</Card>
-					<Card books={books} label="Paid out" kpis={["payouts"]}>
+					<Card books={books} label="Paid out" kpi="payouts">
 						Lands the month after
 					</Card>
 				</div>
@@ -786,35 +803,32 @@ function AggregateBody({
 					<div class="kbox">
 						<h6>{seriesHeading(document, "gross_collected", "Gross")}</h6>
 						<SeriesRows books={books} kpi="gross_collected" />
-						{document.grain === "quarter" &&
-							document.tables.year?.periods.includes(year) && (
-								<>
-									<div class="krow kyear" data-year={year}>
-										<span>
-											<b>{year} total</b>
-										</span>
-										<div class="t" />
-										<b>
-											<Value
-												books={books}
-												kpi="gross_collected"
-												period={year}
-											/>
-										</b>
-									</div>
-									{typeof cellAt(document, quartersKpi, year) === "number" && (
-										<p class="mut kyearnote" data-test="year-note">
-											The four rounded quarters add up to{" "}
-											<Value books={books} kpi={quartersKpi} period={year} />
-											{"; the year is rounded from its own events."}
-										</p>
-									)}
-								</>
-							)}
-						<div class="mut" style={{ marginTop: "8px" }}>
-							Each period is rounded on its own, so a year is not the sum of its
-							rounded quarters.
-						</div>
+						{yearTotal && (
+							<>
+								<div class="krow kyear" data-year={year}>
+									<span>
+										<b>{year} total</b>
+									</span>
+									<div class="t" />
+									<b>
+										<Value books={books} kpi="gross_collected" period={year} />
+									</b>
+								</div>
+								{yearNote && (
+									<p class="mut kyearnote" data-test="year-note">
+										The four rounded quarters add up to{" "}
+										<Value books={books} kpi={quartersKpi} period={year} />
+										{"; the year is rounded from its own events."}
+									</p>
+								)}
+							</>
+						)}
+						{!yearNote && (
+							<div class="mut kfoot">
+								Each period is rounded on its own, so a year is not the sum of
+								its rounded quarters.
+							</div>
+						)}
 					</div>
 					<div class="kbox">
 						<h6>Income by kind, {label}</h6>
@@ -823,13 +837,8 @@ function AggregateBody({
 						) : (
 							<div class="mut">No income in this period.</div>
 						)}
-						{planLock && (
-							<>
-								<h6 style={{ marginTop: "10px" }}>By plan or fund</h6>
-								<LockPanel lock={planLock} surface="dashboard-plan" />
-							</>
-						)}
-						<div class="mut" style={{ marginTop: "8px" }}>
+						{planLock && <PlanLock lock={planLock} />}
+						<div class="mut kfoot">
 							Names show to finance admins and the owner only.
 						</div>
 					</div>
@@ -841,19 +850,19 @@ function AggregateBody({
 		return (
 			<>
 				<div class="kcards">
-					<Card books={books} label="Paying members" kpis={["paying_members"]}>
+					<Card books={books} label="Paying members" kpi="paying_members">
 						most in one month of {label}
 					</Card>
-					<Card books={books} label="New paying" kpis={["new_paying_members"]}>
+					<Card books={books} label="New paying" kpi="new_paying_members">
 						first payment in {label}
 					</Card>
-					<Card books={books} label="Avg per paying member" kpis={["arpa"]}>
+					<Card books={books} label="Avg per paying member" kpi="arpa">
 						in {label}
 					</Card>
 					<Card
 						books={books}
 						label={`${creditsName} used`}
-						kpis={["credits_consumed"]}
+						kpi="credits_consumed"
 					>
 						<Value books={books} kpi="credits_granted" /> granted ·{" "}
 						<Value books={books} kpi="credits_expired" /> expired
@@ -865,7 +874,7 @@ function AggregateBody({
 							{seriesHeading(document, "paying_members", "Paying members")}
 						</h6>
 						<SeriesRows books={books} kpi="paying_members" />
-						<div class="mut" style={{ marginTop: "8px" }}>
+						<div class="mut kfoot">
 							Counts of people.
 							{fewerThan !== null &&
 								` Under ${fewerThan} payers a count shows as <10 or to the nearest 10, never 0.`}
@@ -887,20 +896,16 @@ function AggregateBody({
 	return (
 		<>
 			<div class="kcards">
-				<Card books={books} label="Refund rate" kpis={["refund_rate"]}>
+				<Card books={books} label="Refund rate" kpi="refund_rate">
 					<Value books={books} kpi="refunds" /> refunded
 				</Card>
-				<Card books={books} label="Disputes opened" kpis={["disputes_opened"]}>
+				<Card books={books} label="Disputes opened" kpi="disputes_opened">
 					in {label}
 				</Card>
-				<Card
-					books={books}
-					label="Dispute cost"
-					kpis={["disputes_lost", "dispute_fees"]}
-				>
+				<Card books={books} label="Dispute cost" kpi="dispute_cost">
 					lost + fees
 				</Card>
-				<Card books={books} label="Net income" kpis={["net_income"]}>
+				<Card books={books} label="Net income" kpi="net_income">
 					after refunds and fees
 				</Card>
 			</div>
@@ -965,7 +970,7 @@ function Flags({ books }: { books: Books }): JSX.Element {
 		];
 	});
 	return (
-		<div class="kbox" style={{ gridColumn: "1 / -1" }}>
+		<div class="kbox kfull">
 			<h6>Needs a look</h6>
 			{flags.length > 0 ? (
 				flags
@@ -1035,7 +1040,9 @@ function MonthBody({
 	const index = document.tables.month?.periods.indexOf(selected.period) ?? -1;
 	const rate = numberAt(document, "refund_rate", selected.period);
 	if (view === "money") {
-		const plans = seriesStartingWith(document, "month", "revenue_by_tier:");
+		const plans =
+			document.tables.month?.order?.revenue_by_tier?.[index] ??
+			seriesStartingWith(document, "month", "revenue_by_tier:");
 		const funds =
 			document.tables.month?.order?.donations_by_fund?.[index] ?? [];
 		const days = document.tables.day?.periods.some((day) =>
@@ -1044,35 +1051,26 @@ function MonthBody({
 		return (
 			<>
 				<div class="kcards">
-					<Card
-						books={books}
-						label="Gross collected"
-						kpis={["gross_collected"]}
-					>
-						<Previous books={books} kpi="gross_collected" />
+					<Card books={books} label="Gross collected" kpi="gross_collected">
+						<Change books={books} kpi="gross_collected" />
 					</Card>
 					<Card
 						books={books}
 						label="Refunds"
-						kpis={["refunds"]}
+						kpi="refunds"
 						tone={
 							rate !== null && rate > refundRateWarn ? refundTone(rate) : ""
 						}
 					>
 						<Value books={books} kpi="refund_rate" /> of gross
 					</Card>
-					<Card books={books} label="Payment fees" kpis={["stripe_fees"]}>
-						<Previous books={books} kpi="stripe_fees" />
+					<Card books={books} label="Payment fees" kpi="stripe_fees">
+						<Change books={books} kpi="stripe_fees" />
 					</Card>
-					<Card
-						books={books}
-						label="Net income"
-						kpis={["net_income"]}
-						tone="ok"
-					>
-						<Previous books={books} kpi="net_income" />
+					<Card books={books} label="Net income" kpi="net_income" tone="ok">
+						<Change books={books} kpi="net_income" />
 					</Card>
-					<Card books={books} label="Paid out" kpis={["payouts"]}>
+					<Card books={books} label="Paid out" kpi="payouts">
 						Lands the month after
 					</Card>
 				</div>
@@ -1102,7 +1100,7 @@ function MonthBody({
 						) : (
 							<div class="mut">No plans yet.</div>
 						)}
-						<div class="mut" style={{ marginTop: "8px" }}>
+						<div class="mut kfoot">
 							Memberships only. Add-ons and bookings appear here when the school
 							sells them.
 						</div>
@@ -1116,7 +1114,7 @@ function MonthBody({
 						</div>
 					)}
 					{document.live && days && (
-						<div class="kbox" style={{ gridColumn: "1 / -1" }}>
+						<div class="kbox kfull">
 							<h6>
 								Gross by day, {month}
 								<Legend
@@ -1136,19 +1134,19 @@ function MonthBody({
 		return (
 			<>
 				<div class="kcards">
-					<Card books={books} label="Paying members" kpis={["paying_members"]}>
-						<Previous books={books} kpi="paying_members" />
+					<Card books={books} label="Paying members" kpi="paying_members">
+						<Change books={books} kpi="paying_members" />
 					</Card>
-					<Card books={books} label="New paying" kpis={["new_paying_members"]}>
+					<Card books={books} label="New paying" kpi="new_paying_members">
 						first payment this month
 					</Card>
-					<Card books={books} label="Avg per paying member" kpis={["arpa"]}>
+					<Card books={books} label="Avg per paying member" kpi="arpa">
 						in {month}
 					</Card>
 					<Card
 						books={books}
 						label={`${creditsName} used`}
-						kpis={["credits_consumed"]}
+						kpi="credits_consumed"
 					>
 						<Value books={books} kpi="credits_granted" /> granted ·{" "}
 						<Value books={books} kpi="credits_expired" /> expired
@@ -1191,7 +1189,7 @@ function MonthBody({
 						/>
 					</div>
 					{"donors_count" in (document.tables.month?.series ?? {}) && (
-						<div class="kbox" style={{ gridColumn: "1 / -1" }}>
+						<div class="kbox kfull">
 							<h6>
 								How donors give, {year} to {month}
 								<Legend
@@ -1232,7 +1230,7 @@ function MonthBody({
 				<Card
 					books={books}
 					label="Refund rate"
-					kpis={["refund_rate"]}
+					kpi="refund_rate"
 					tone={refundTone(rate)}
 				>
 					<Value books={books} kpi="refunds" /> refunded
@@ -1240,7 +1238,7 @@ function MonthBody({
 				<Card
 					books={books}
 					label="Disputes opened"
-					kpis={["disputes_opened"]}
+					kpi="disputes_opened"
 					tone={disputeTone(
 						numberAt(document, "disputes_opened", selected.period),
 					)}
@@ -1250,12 +1248,16 @@ function MonthBody({
 				<Card
 					books={books}
 					label="Dispute cost"
-					kpis={["disputes_lost", "dispute_fees"]}
+					kpi="dispute_cost"
+					tone={disputeCostTone(
+						numberAt(document, "dispute_cost", selected.period),
+					)}
 				>
-					lost + fees
+					lost <Value books={books} kpi="disputes_lost" /> + fees{" "}
+					<Value books={books} kpi="dispute_fees" />
 				</Card>
-				<Card books={books} label="Net income" kpis={["net_income"]}>
-					<Previous books={books} kpi="net_income" />
+				<Card books={books} label="Net income" kpi="net_income">
+					<Change books={books} kpi="net_income" />
 				</Card>
 			</div>
 			<div class="kgrid">
@@ -1276,19 +1278,13 @@ function MonthBody({
 				<div class="kbox">
 					<h6>
 						Dispute cost
-						<Legend
-							items={[
-								["Lost", fifthColor],
-								["Fees", fourthColor],
-							]}
-						/>
+						<Legend items={[["Lost + fees", fifthColor]]} />
 					</h6>
 					{anyDisputes ? (
 						<Bars
 							books={books}
 							series={[
-								{ kpi: "disputes_lost", name: "Lost", color: fifthColor },
-								{ kpi: "dispute_fees", name: "Fees", color: fourthColor },
+								{ kpi: "dispute_cost", name: "Cost", color: fifthColor },
 							]}
 						/>
 					) : (
@@ -1466,6 +1462,8 @@ export function Dashboard({
 			</button>
 		);
 	};
+	const featured = loaded.presets.slice(0, featuredScenarios);
+	const more = loaded.presets.slice(featuredScenarios);
 	const caption = document.captions[selected.period.slice(0, 4)];
 	let body: JSX.Element;
 	if (selected.state !== "shown")
@@ -1505,7 +1503,8 @@ export function Dashboard({
 	return (
 		<>
 			<div class="kt">
-				<div class="seg">
+				{/* biome-ignore lint/a11y/useSemanticElements: the mockup's segmented control is a div; a fieldset brings its own border and padding */}
+				<div class="seg" role="group" aria-label="Dashboard view">
 					{views.map(({ id, label, icon }) => (
 						<button
 							key={id}
@@ -1550,8 +1549,9 @@ export function Dashboard({
 				{document.source.kind === "mart" && (
 					<>
 						<span class="sp" />
-						<div class="seg" style={{ flexWrap: "wrap" }}>
-							{loaded.presets.map(({ id, label }) => (
+						{/* biome-ignore lint/a11y/useSemanticElements: the mockup's segmented control is a div; a fieldset brings its own border and padding */}
+						<div class="seg" role="group" aria-label="Fixture scenario">
+							{featured.map(({ id, label }) => (
 								<button
 									key={id}
 									type="button"
@@ -1565,6 +1565,32 @@ export function Dashboard({
 								</button>
 							))}
 						</div>
+						{more.length > 0 && (
+							<select
+								class="kmore"
+								aria-label="More scenarios"
+								value={
+									more.some(({ id }) => id === preset?.id) ? preset?.id : ""
+								}
+								onChange={(event) => {
+									if (event.currentTarget.value)
+										go("preset", event.currentTarget.value);
+								}}
+							>
+								<option value="">More scenarios</option>
+								{more.map(({ id, label }) => (
+									<option
+										key={id}
+										value={id}
+										class={id === preset?.id ? "on" : undefined}
+										data-test="preset-option"
+										data-preset={id}
+									>
+										{label}
+									</option>
+								))}
+							</select>
+						)}
 					</>
 				)}
 			</div>
@@ -1579,7 +1605,12 @@ export function Dashboard({
 				/>
 			) : (
 				<>
-					<div class="kmonths">
+					{/* biome-ignore lint/a11y/useSemanticElements: the mockup's month strip is a div; a fieldset brings its own border and padding */}
+					<div
+						class="kmonths"
+						role="group"
+						aria-label={month ? "Month" : "Period"}
+					>
 						{month && step(-1)}
 						{document.periods.map((period) => {
 							const classes = [
@@ -1607,16 +1638,10 @@ export function Dashboard({
 						})}
 						{month && step(1)}
 						{month && (
-							<span class="mut" style={{ marginLeft: "6px" }}>
-								{selected.period.slice(0, 4)}
-							</span>
+							<span class="mut kafter">{selected.period.slice(0, 4)}</span>
 						)}
 						{document.periods.some(({ open }) => open) && (
-							<span
-								class="mut kopenkey"
-								style={{ marginLeft: "6px" }}
-								data-test="open-key"
-							>
+							<span class="mut kopenkey kafter" data-test="open-key">
 								hatched = open month, live
 							</span>
 						)}
