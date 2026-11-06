@@ -1,8 +1,7 @@
-import type { BooksLevel, KpiDocument } from "../data/kpi-document.ts";
+import type { KpiDocument, KpiQuery } from "../data/kpi-document.ts";
 import type { Reader } from "../data/reader.ts";
 import type { Clock, DashboardOptions, School } from "../data/types.ts";
 import { bookingsBySchool } from "./bookings.ts";
-import cellRules from "./mart/cell-rules.json";
 import documentsFile from "./mart/documents.json";
 
 /** The mockup's four schools (its `SC` table), with the counts its headless run shows on 2026-11-05: attention from
@@ -90,36 +89,31 @@ const presets: DashboardOptions["presets"] = [
 	{ id: "yearly-solo", label: "Yearly solo" },
 ];
 
-/** The five books levels in rank order. */
-const levels: DashboardOptions["levels"] = Object.entries(cellRules.levels)
-	.sort(([, first], [, second]) => first.rank - second.rank)
-	.map(([id, { name, pin, steps }]) => ({
-		id: id as BooksLevel,
-		name,
-		pin,
-		steps,
-	}));
-
 /** The orchestrator's documents, computed at the mockup's clock (protocol §4): returned as they are, keyed as
- * `gates/oracle.ts` `documentKey` keys them. */
+ * `gates/oracle.ts` `documentKey` keys them: B4 Uni's `<preset>.<audience>`, another fixture school's
+ * `<school>/<preset>.<audience>`, a school whose figures come from its events `<school>.<audience>`, PIN-locked ones
+ * with `.pin-locked`. */
 const documents = documentsFile as unknown as Record<string, KpiDocument>;
+const fixtureSchools = new Set(["b4u", "har"]);
+const documentKey = ({
+	school,
+	preset,
+	audience,
+	pinLocked,
+}: KpiQuery): string =>
+	`${fixtureSchools.has(school) ? (school === "b4u" ? preset : `${school}/${preset}`) : school}.${audience}${pinLocked ? ".pin-locked" : ""}`;
 
 /** The fixture Reader. The documents are fixed at the clock the gates use, so it only names the clock. */
 export function createFixtureReader(_options: { clock: Clock }): Reader {
 	return {
 		schools: async () => schools,
-		dashboardOptions: async () => ({
-			presets,
-			levels,
-			labels: cellRules.labels,
-		}),
+		dashboardOptions: async () => ({ presets }),
 		bookings: async ({ school, from, to }) => ({
 			bookings: (bookingsBySchool[school] ?? []).filter(({ startsAt }) => {
 				const day = startsAt.slice(0, 10);
 				return day >= from && day <= to;
 			}),
 		}),
-		kpiDocument: async ({ preset, level, pinLocked }) =>
-			documents[`${preset}.${level}${pinLocked ? ".pin-locked" : ""}`],
+		kpiDocument: async (query) => documents[documentKey(query)],
 	};
 }

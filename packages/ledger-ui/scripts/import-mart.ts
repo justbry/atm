@@ -1,14 +1,16 @@
 /**
- * Writes `src/fixtures/mart/` from the mart snapshot (protocol §4, §11b):
- * - `cell-rules.json`, a copy of `plans/ledger-ui/loop/cell-rules.v3.json`;
- * - `rows.json`, per preset, atm's export rows of the KPIs `cell-rules` names (no `closing_balance_*`, no holder ids);
- * - `documents.json`, the oracle's document for every preset and books level, plus the PIN-locked variant from
- *   governance up (`<preset>.<level>` and `<preset>.<level>.pin-locked`);
- * - `provenance.json`, per document: sha256 of atm's `canonicalize(document)` and the source preset's fixtureHash and
- *   kpisHash, so each level's document traces to atm's stage hashes.
- * The first three are generated, not committed (they are ignored by git and rebuilt by `dev`, `build`, `test`, the test
- * preload and the gate runner). `provenance.json` is committed: a normal run checks the documents against it and refuses
- * on any difference; only `--record` (the orchestrator, after a deliberate change) rewrites it.
+ * Writes `src/fixtures/mart/` (protocol §4; disclosure spec v2):
+ * - `rows.json`, per preset, atm's export rows of the KPIs the documents read (no `closing_balance_*`, no holder ids);
+ * - `documents.json`, the oracle's document for every school, data source, audience and PIN state, with the rules of
+ *   the disclosure object (`src/fixtures/disclosure.json`: the B4 Uni file, each school's override and size): B4 Uni and
+ *   Harbor Arts Academy from the mart (keys `<preset>.<audience>` and `har/<preset>.<audience>`), Vibes of Light, Maple
+ *   Pilates and Lotus Lane Yoga from the mockup's own events (`gates/mockup-schools.json`, keys `<school>.<audience>`),
+ *   each with a `.pin-locked` variant from governance up;
+ * - `provenance.json`, per document: sha256 of atm's `canonicalize(document)` and its sources: the preset's
+ *   fixtureHash and kpisHash (atm's stage hashes) for the mart, the mockup's sha256 for the events schools.
+ * The first two are generated, not committed (ignored by git, rebuilt by `dev`, `build`, `test`, the test preload and
+ * the gate runner). `provenance.json` is committed: a normal run checks the documents against it and refuses on any
+ * difference; only `--record` (the orchestrator, after a deliberate change) rewrites it.
  * Refuses unless every export's fixtureHash and kpisHash equal atm's goldens and kpiHash(rows) equals kpisHash.
  * Deterministic. Usage, from packages/ledger-ui: bun scripts/import-mart.ts [--record]
  */
@@ -24,34 +26,71 @@ import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { canonicalize, sha256Hex } from "../../atm/src/ledger/util.ts";
 import {
-	type CellRules,
 	documentKey,
 	documentVariants,
+	eventsSource,
+	type Gift,
 	type KpiRow,
 	kpiDocument,
+	largeSchoolScale,
+	type MockupSchool,
+	type MonthlySource,
+	martSource,
 	type PresetBundle,
 } from "../gates/oracle.ts";
+import {
+	applyOverride,
+	type Disclosure,
+	type DisclosureFile,
+} from "../src/data/disclosure.ts";
 import type { KpiDocument } from "../src/data/kpi-document.ts";
 
-const clock = { today: "2026-11-05", now: "2026-11-05T12:00" };
+export const clock = { today: "2026-11-05", now: "2026-11-05T12:00" };
 const packageRoot = join(import.meta.dir, "..");
 const repositoryRoot = join(packageRoot, "..", "..");
 const snapshot = join(repositoryRoot, "plans/ledger-ui/design/mart");
-const cellRulesPath = join(
-	repositoryRoot,
-	"plans/ledger-ui/loop/cell-rules.v3.json",
-);
 const goldens = join(repositoryRoot, "packages/atm/tests/golden/scenarios");
 const output = join(packageRoot, "src/fixtures/mart");
 
 type KpiExport = { fixtureHash: string; kpisHash: string; rows: KpiRow[] };
 type Bundle = { profiles: Record<string, PresetBundle> };
-type Provenance = {
-	sha256: string;
-	preset: string;
-	fixtureHash: string;
-	kpisHash: string;
+export type DisclosureFixture = {
+	file: DisclosureFile;
+	schools: Record<string, Disclosure>;
 };
+export type MockupSchools = {
+	mockupSha256: string;
+	schools: Record<string, MockupSchool>;
+	donors: Record<string, Gift[]>;
+};
+export type Provenance =
+	| {
+			sha256: string;
+			school: string;
+			preset: string;
+			fixtureHash: string;
+			kpisHash: string;
+	  }
+	| { sha256: string; school: string; mockupSha256: string };
+/** One document to build: its key, the query, and its source. */
+export type DocumentPlan = {
+	key: string;
+	school: string;
+	preset: string | null;
+	build: () => KpiDocument;
+	provenance: (sha256: string) => Provenance;
+};
+
+/** The schools whose Dashboard shows the mart's presets (the mockup's `s.kpi` schools) and how each scales them. */
+export const martSchools: Record<
+	string,
+	{ scale: typeof largeSchoolScale | null }
+> = {
+	b4u: { scale: null },
+	har: { scale: largeSchoolScale },
+};
+/** The mockup's currency symbols (`s.cur`) for the events schools. */
+const currencyOfSymbol: Record<string, string> = { $: "usd", C$: "cad" };
 
 const byId = (first: KpiRow, second: KpiRow): number =>
 	first.kpiId < second.kpiId
@@ -71,48 +110,141 @@ const kpiHash = (rows: readonly KpiRow[]): string =>
 				.map(({ kpiId, period, value }) => ({ kpiId, period, value })),
 		),
 	);
-const readExport = (preset: string): KpiExport =>
+export const readExport = (preset: string): KpiExport =>
 	JSON.parse(
 		gunzipSync(
 			readFileSync(join(snapshot, "kpis", `${preset}.json.gz`)),
 		).toString("utf8"),
 	) as KpiExport;
-const holderPattern = /(?:family|profile):/;
+const readJson = <T>(path: string): T =>
+	JSON.parse(readFileSync(path, "utf8")) as T;
+/** The export rows the documents read: atm's school-level KPIs (no closing balances, no holder ids). */
+export const namedRow = (kpiId: string): boolean =>
+	!kpiId.startsWith("closing_balance") &&
+	!/(?:family|profile):/.test(kpiId) &&
+	kpiId !== "credits_outstanding";
 const serialize = (value: unknown): string =>
 	`${JSON.stringify(value, null, "\t")}\n`;
 
-function main(): void {
-	const rules = JSON.parse(readFileSync(cellRulesPath, "utf8")) as CellRules;
-	const bundle = JSON.parse(
-		readFileSync(join(snapshot, "bundle.json"), "utf8"),
-	) as Bundle;
+/** Every document, from the committed inputs: the snapshot, the disclosure fixture and the mockup's schools. */
+export function plan(
+	rows: Record<string, KpiRow[]>,
+	sources: Record<string, KpiExport>,
+): DocumentPlan[] {
+	const bundle = readJson<Bundle>(join(snapshot, "bundle.json"));
+	const disclosure = readJson<DisclosureFixture>(
+		join(packageRoot, "src/fixtures/disclosure.json"),
+	);
+	const mockup = readJson<MockupSchools>(
+		join(packageRoot, "gates/mockup-schools.json"),
+	);
+	const schoolOf = (school: string) => {
+		const found = disclosure.schools[school];
+		if (!found) throw new Error(`${school} is not in disclosure.json`);
+		return {
+			size: found.size,
+			file: applyOverride(disclosure.file, found.override),
+		};
+	};
+	const plans: DocumentPlan[] = [];
+	for (const [school, { scale }] of Object.entries(martSchools)) {
+		const { size, file } = schoolOf(school);
+		const gifts = (mockup.donors[school] ?? []).map((gift) => ({ ...gift }));
+		for (const preset of Object.keys(sources).sort()) {
+			const presetBundle = bundle.profiles[preset];
+			const exported = sources[preset];
+			if (!presetBundle || !exported) throw new Error(`${preset}: no source`);
+			let source: MonthlySource | null = null;
+			for (const { audience, pinLocked } of documentVariants())
+				plans.push({
+					key: documentKey({ school, preset, audience, pinLocked }),
+					school,
+					preset,
+					build: () => {
+						source ??= martSource(
+							rows[preset] ?? [],
+							presetBundle,
+							Number(clock.today.slice(0, 4)),
+							gifts,
+							scale,
+						);
+						return kpiDocument({
+							school,
+							size,
+							file,
+							audience,
+							pinLocked,
+							currency: presetBundle.params.currency ?? "usd",
+							preset,
+							source,
+							clock,
+						});
+					},
+					provenance: (sha256) => ({
+						sha256,
+						school,
+						preset,
+						fixtureHash: exported.fixtureHash,
+						kpisHash: exported.kpisHash,
+					}),
+				});
+		}
+	}
+	for (const [school, data] of Object.entries(mockup.schools)) {
+		const { size, file } = schoolOf(school);
+		const source = eventsSource(data);
+		for (const { audience, pinLocked } of documentVariants())
+			plans.push({
+				key: documentKey({ school, preset: null, audience, pinLocked }),
+				school,
+				preset: null,
+				build: () =>
+					kpiDocument({
+						school,
+						size,
+						file,
+						audience,
+						pinLocked,
+						currency: currencyOfSymbol[data.currency] ?? "usd",
+						preset: null,
+						source,
+						clock,
+					}),
+				provenance: (sha256) => ({
+					sha256,
+					school,
+					mockupSha256: mockup.mockupSha256,
+				}),
+			});
+	}
+	return plans;
+}
+
+/** atm's exports, refused unless they equal atm's goldens; and the rows the documents read. */
+export function importRows(): {
+	rows: Record<string, KpiRow[]>;
+	sources: Record<string, KpiExport>;
+	problems: string[];
+} {
 	const presets = readdirSync(join(snapshot, "kpis"))
 		.filter((name) => name.endsWith(".json.gz"))
 		.map((name) => name.slice(0, -".json.gz".length))
 		.sort();
-	const named = (kpiId: string): boolean =>
-		kpiId in rules.kpis ||
-		(kpiId.includes(":") &&
-			`${kpiId.slice(0, kpiId.indexOf(":"))}:*` in rules.kpis);
 	const problems: string[] = [];
 	const rows: Record<string, KpiRow[]> = {};
 	const sources: Record<string, KpiExport> = {};
 	for (const preset of presets) {
 		const exported = readExport(preset);
-		const golden = JSON.parse(
-			readFileSync(join(goldens, `${preset}.json`), "utf8"),
-		) as KpiExport;
+		const golden = readJson<KpiExport>(join(goldens, `${preset}.json`));
 		if (exported.fixtureHash !== golden.fixtureHash)
 			problems.push(`${preset}: fixtureHash differs from atm's golden`);
 		if (exported.kpisHash !== golden.kpisHash)
 			problems.push(`${preset}: kpisHash differs from atm's golden`);
 		if (kpiHash(exported.rows) !== exported.kpisHash)
 			problems.push(`${preset}: kpiHash(rows) differs from kpisHash`);
-		if (!bundle.profiles[preset])
-			problems.push(`${preset}: not in bundle.json`);
 		sources[preset] = exported;
 		rows[preset] = [...exported.rows]
-			.filter((row) => named(row.kpiId) && !holderPattern.test(row.kpiId))
+			.filter((row) => namedRow(row.kpiId))
 			.sort(byId)
 			.map(({ kpiId, period, unit, value }) => ({
 				kpiId,
@@ -121,6 +253,11 @@ function main(): void {
 				value,
 			}));
 	}
+	return { rows, sources, problems };
+}
+
+function main(): void {
+	const { rows, sources, problems } = importRows();
 	if (problems.length) {
 		process.stderr.write(
 			`refusing to import the mart:\n${problems.join("\n")}\n`,
@@ -129,38 +266,17 @@ function main(): void {
 	}
 	const documents: Record<string, KpiDocument> = {};
 	const provenance: Record<string, Provenance> = {};
-	for (const preset of presets) {
-		const presetBundle = bundle.profiles[preset];
-		const source = sources[preset];
-		if (!presetBundle || !source) throw new Error(`${preset}: no source`);
-		for (const { level, pinLocked } of documentVariants(rules)) {
-			const key = documentKey(preset, level, pinLocked);
-			const document = kpiDocument({
-				rows: rows[preset] ?? [],
-				bundle: presetBundle,
-				rules,
-				preset,
-				level,
-				pinLocked,
-				clock,
-			});
-			documents[key] = document;
-			provenance[key] = {
-				sha256: sha256Hex(canonicalize(document)),
-				preset,
-				fixtureHash: source.fixtureHash,
-				kpisHash: source.kpisHash,
-			};
-		}
+	for (const entry of plan(rows, sources)) {
+		const document = entry.build();
+		documents[entry.key] = document;
+		provenance[entry.key] = entry.provenance(sha256Hex(canonicalize(document)));
 	}
 	mkdirSync(output, { recursive: true });
+	const record = process.argv.includes("--record");
 	const provenancePath = join(output, "provenance.json");
-	if (!process.argv.includes("--record")) {
+	if (!record) {
 		const recorded = existsSync(provenancePath)
-			? (JSON.parse(readFileSync(provenancePath, "utf8")) as Record<
-					string,
-					Provenance
-				>)
+			? readJson<Record<string, Provenance>>(provenancePath)
 			: {};
 		const differences = [
 			...new Set([...Object.keys(recorded), ...Object.keys(provenance)]),
@@ -177,12 +293,9 @@ function main(): void {
 		}
 	}
 	const files: Record<string, unknown> = {
-		"cell-rules.json": rules,
 		"rows.json": rows,
 		"documents.json": documents,
-		...(process.argv.includes("--record")
-			? { "provenance.json": provenance }
-			: {}),
+		...(record ? { "provenance.json": provenance } : {}),
 	};
 	for (const [name, value] of Object.entries(files))
 		writeFileSync(join(output, name), serialize(value));
@@ -190,8 +303,8 @@ function main(): void {
 		(name) => `${name} ${statSync(join(output, name)).size} bytes`,
 	);
 	process.stdout.write(
-		`${presets.length} presets, ${Object.keys(documents).length} documents, provenance ${process.argv.includes("--record") ? "recorded" : "matches"}; ${sizes.join(", ")}\n`,
+		`${Object.keys(sources).length} presets, ${Object.keys(documents).length} documents, provenance ${record ? "recorded" : "matches"}; ${sizes.join(", ")}\n`,
 	);
 }
 
-main();
+if (import.meta.main) main();
