@@ -4,6 +4,7 @@ import type { Clock, DashboardOptions, School } from "../data/types.ts";
 import { bookingsBySchool } from "./bookings.ts";
 import cellRules from "./mart/cell-rules.json";
 import documentsFile from "./mart/documents.json";
+import { plansBySchool } from "./plans.ts";
 
 /** The mockup's four schools (its `SC` table), with the counts its headless run shows on 2026-11-05: attention from
  * `attN`, overdue bookings from `groups().out`, expiring promos from `expiring`, stale when `lag` is over 15 minutes.
@@ -104,6 +105,12 @@ const levels: DashboardOptions["levels"] = Object.entries(cellRules.levels)
  * `gates/oracle.ts` `documentKey` keys them. */
 const documents = documentsFile as unknown as Record<string, KpiDocument>;
 
+const plansOf = (schoolId: string) => {
+	const plans = plansBySchool[schoolId];
+	if (!plans) throw new Error(`no plans fixture for school ${schoolId}`);
+	return plans;
+};
+
 /** The fixture Reader. The documents are fixed at the clock the gates use, so it only names the clock. */
 export function createFixtureReader(_options: { clock: Clock }): Reader {
 	return {
@@ -119,6 +126,9 @@ export function createFixtureReader(_options: { clock: Clock }): Reader {
 				return day >= from && day <= to;
 			}),
 		}),
+		menuVersions: async (schoolId) => plansOf(schoolId).versions,
+		menuVersion: async (schoolId, version) => plansOf(schoolId).bodies[version],
+		planSummary: async (schoolId) => plansOf(schoolId).summary,
 		kpiDocument: async ({ preset, level, pinLocked }) =>
 			documents[`${preset}.${level}${pinLocked ? ".pin-locked" : ""}`],
 	};

@@ -28,5 +28,8 @@ export function createFixtureWriter(options: {
 		recordOutcome: (request) =>
 			record("recordOutcome", [request], { creditEffect: "not_wired" }),
 		cancelBooking: (request) => record("cancelBooking", [request], undefined),
+		saveMenu: (schoolId, menu) =>
+			record("saveMenu", [schoolId, menu], undefined),
+		publishMenu: (schoolId) => record("publishMenu", [schoolId], undefined),
 	};
 }

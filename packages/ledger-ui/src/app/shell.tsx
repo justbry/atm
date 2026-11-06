@@ -8,6 +8,8 @@ import type { Dashboard } from "./dashboard.tsx";
 import { Icon, type IconName } from "./icon.tsx";
 import { formatPeriod, parsePeriod } from "./period.ts";
 import { PeriodControl } from "./period-control.tsx";
+import type { Plans } from "./plans.tsx";
+import type { PlansSession } from "./plans-menu.ts";
 import { Popover } from "./popover.tsx";
 import {
 	allSchools,
@@ -109,7 +111,7 @@ type ShellProps = {
 };
 
 /** The mockup's frame (lines 261 to 282): top bar with the scope note, tabs row, stale banner, the current tab's pane, the settings
- * drawer and the toast. The Dashboard and Bookings fill their panes; later slices fill the others. While the drawer is open the regions
+ * drawer and the toast. The Dashboard, Bookings and Plans fill their panes; later slices fill the others. While the drawer is open the regions
  * behind it are inert; the toast stays out of that so it can still be announced. */
 export function Shell({
 	route,
@@ -144,6 +146,23 @@ export function Shell({
 				setBookingsPane(() => module.Bookings),
 			);
 	}, [bookingsOpen, BookingsPane]);
+	/** The Plans pane, loaded the same way. */
+	const [PlansPane, setPlansPane] = useState<typeof Plans | null>(null);
+	const plansOpen = route.tab === "plans";
+	useEffect(() => {
+		if (plansOpen && !PlansPane)
+			import("./plans.tsx").then((module) => setPlansPane(() => module.Plans));
+	}, [plansOpen, PlansPane]);
+	/** Each school's plans and draft, kept for the life of the mount: leaving the tab keeps an unsaved draft, and the
+	 * Plans tab's badge follows the draft. */
+	const [planSessions, setPlanSessions] = useState<
+		Record<string, PlansSession>
+	>({});
+	const keepPlanSession = useCallback(
+		(schoolId: string, session: PlansSession) =>
+			setPlanSessions((kept) => ({ ...kept, [schoolId]: session })),
+		[],
+	);
 	const settingsButton = useRef<HTMLButtonElement>(null);
 	const drawerId = useId();
 	const closeSettings = useCallback(() => {
@@ -310,7 +329,15 @@ export function Shell({
 				>
 					{schoolTabs.map((tab) => {
 						const selected = tab === route.tab;
-						const badge = tabBadge(tab, school);
+						const badge = tabBadge(tab, {
+							...school,
+							tabBadges: {
+								...school.tabBadges,
+								plansDraft:
+									planSessions[school.id]?.hasChanges ??
+									school.tabBadges.plansDraft,
+							},
+						});
 						return (
 							<button
 								key={tab}
@@ -376,6 +403,21 @@ export function Shell({
 						navigate={navigate}
 						onRendered={onRendered}
 						onToast={(text) => setToast({ text })}
+					/>
+				)}
+				{school && plansOpen && PlansPane && (
+					<PlansPane
+						key={school.id}
+						reader={reader}
+						writer={writer}
+						school={school}
+						route={route}
+						navigate={navigate}
+						session={planSessions[school.id]}
+						onSession={keepPlanSession}
+						onRendered={onRendered}
+						onToast={(text) => setToast({ text })}
+						onOpenSettings={() => setSettingsOpen(true)}
 					/>
 				)}
 			</section>
