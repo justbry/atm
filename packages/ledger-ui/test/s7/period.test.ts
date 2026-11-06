@@ -179,3 +179,15 @@ test("the clock's month leaves the hash, any other period writes month=", () => 
 		"2026-09",
 	);
 });
+
+describe("the viewed period's label", () => {
+	test("an audience with a coarser grain or a delay is named by its last visible period", () => {
+		const asked = { from: "2026-11-01", to: "2026-11-30" };
+		expect(periodName(snapPeriod(asked, publicView))).toBe("2024");
+		expect(periodName(snapPeriod(asked, memberView))).toBe("Q2 2026");
+		expect(periodName(snapPeriod(asked, governanceView))).toBe("Sep 2026");
+		expect(periodName(snapPeriod(asked, disclosure.views.finance))).toBe(
+			"Nov 2026",
+		);
+	});
+});

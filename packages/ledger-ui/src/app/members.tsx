@@ -70,14 +70,9 @@ import {
 	type WriteContext,
 } from "./members-writes.ts";
 import { formatMoney } from "./money.ts";
-import {
-	monthAndDay,
-	type Period,
-	parsePeriod,
-	periodLabel,
-} from "./period.ts";
+import { monthAndDay, type Period, periodName } from "./period.ts";
 import { type Route, withQuery } from "./route.ts";
-import { useViewing } from "./viewing.ts";
+import { useViewedPeriod, useViewing } from "./viewing.ts";
 
 /** The status chips: `show=attention|canceled` (absent: all). */
 const statusFilters = [
@@ -666,7 +661,7 @@ function Roster({
 				</div>
 				<div class="stat" data-test="members-stat" data-stat="income">
 					<small data-test="stat-label">
-						<Icon name="coin" /> income · {periodLabel(period)}
+						<Icon name="coin" /> income · {periodName(period)}
 					</small>
 					<b data-test="stat-value">
 						{viewer.finance ? (
@@ -939,9 +934,10 @@ export function Members({
 	onToast: (text: string) => void;
 }): JSX.Element | null {
 	const asked = route.query.get("month");
-	const period = parsePeriod(
-		asked === null && school.dashboardOpensOn ? school.dashboardOpensOn : asked,
+	const period = useViewedPeriod(
+		asked,
 		clock.today,
+		school.dashboardOpensOn ?? null,
 	);
 	const key = `${school.id}/${period.from}/${period.to}`;
 	const [loaded, setLoaded] = useState<Loaded | null>(null);

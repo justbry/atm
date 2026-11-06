@@ -297,6 +297,26 @@ test("an admin preview shows the roster and keeps money to finance", async () =>
 	).toBe("Exit preview to act");
 });
 
+test("a Member audience's income label names its last visible quarter, not the asked month", async () => {
+	await open("#/har/members?theme=light");
+	expect(
+		text("[data-test=members-stat][data-stat=income] [data-test=stat-label]"),
+	).toBe("income · Q2 2026");
+});
+
+test("a payment the viewer may not see carries the per-person title, in the payments and the history", async () => {
+	await open("#/har/members?member=h_32&theme=light");
+	const hidden = "[data-hid=no_grant]";
+	const personTitle = "Finance admins and the owner see money per person";
+	expect(count(`[data-test=payment-row] ${hidden}`)).toBeGreaterThan(0);
+	expect(
+		count(`[data-test=payment-row] ${hidden}[title="${personTitle}"]`),
+	).toBe(count(`[data-test=payment-row] ${hidden}`));
+	expect(
+		count(`[data-test=history-item] ${hidden}[title="${personTitle}"]`),
+	).toBe(count(`[data-test=history-item] ${hidden}`));
+});
+
 test("the search is not part of the route", async () => {
 	await open("#/vol/members?theme=light");
 	await fill("[data-test=member-search]", "ivy");

@@ -52,7 +52,7 @@ export type BookingAction =
 const shortList = 5;
 function FinanceOnly(): JSX.Element {
 	return (
-		<span class="khid" title={financeOnly.title}>
+		<span class="khid" data-hid="no_grant" title={financeOnly.personTitle}>
 			{financeOnly.text}
 		</span>
 	);
