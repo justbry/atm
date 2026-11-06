@@ -2108,3 +2108,46 @@ svg.kc .col.on {
 button.chip {
 	line-height: inherit;
 }
+
+/* The books panes' figures (mockup, disclosure v2): a hidden figure and its reason, a rounded count, a disabled
+ * drill-down. The audience rows give their value column room for "Published after 7 Jan 2027". */
+.khid {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	font-size: 10.5px;
+	font-weight: 500;
+	color: var(--muted-foreground);
+	white-space: normal;
+	text-align: left;
+}
+.khid .i {
+	width: 11px;
+	height: 11px;
+	flex: none;
+}
+.kcard .khid {
+	font-size: 11px;
+}
+.krow,
+.krow.kp {
+	grid-template-columns: minmax(70px, max-content) 1fr minmax(72px, max-content);
+}
+.krow .khid {
+	white-space: nowrap;
+}
+.link[disabled] {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+.kapprox {
+	border-bottom: 1px dotted var(--muted-foreground);
+	cursor: help;
+}
+.kddc {
+	width: 20px;
+}
+.kdd[disabled] {
+	opacity: 0.4;
+	cursor: not-allowed;
+}

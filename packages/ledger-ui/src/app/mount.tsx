@@ -39,8 +39,14 @@ function App({
 	const route = parseRoute(hash, schools?.map((school) => school.id) ?? []);
 	const canonical = schools ? formatRoute(route) : null;
 	const theme = themeOf(route.query);
-	/** The Dashboard and Bookings record their own render, once their data is on screen. */
-	const reportsItself = route.tab === "dashboard" || route.tab === "bookings";
+	/** The tabs that load data record their own render, once it is on screen. */
+	const reportsItself = [
+		"dashboard",
+		"bookings",
+		"ledger",
+		"reports",
+		"promos",
+	].includes(route.tab);
 	useLayoutEffect(() => {
 		root.classList.toggle("light", theme === "light");
 		root.classList.toggle("dark", theme === "dark");

@@ -2,6 +2,7 @@ import type { BooksLevel, KpiDocument } from "../data/kpi-document.ts";
 import type { Reader } from "../data/reader.ts";
 import type { Clock, DashboardOptions, School } from "../data/types.ts";
 import { bookingsBySchool } from "./bookings.ts";
+import { createLedgerReader } from "./ledger.ts";
 import cellRules from "./mart/cell-rules.json";
 import documentsFile from "./mart/documents.json";
 
@@ -104,9 +105,11 @@ const levels: DashboardOptions["levels"] = Object.entries(cellRules.levels)
  * `gates/oracle.ts` `documentKey` keys them. */
 const documents = documentsFile as unknown as Record<string, KpiDocument>;
 
-/** The fixture Reader. The documents are fixed at the clock the gates use, so it only names the clock. */
-export function createFixtureReader(_options: { clock: Clock }): Reader {
+/** The fixture Reader. The documents are fixed at the clock the gates use; the Ledger, Reports and Promos read the
+ * clock for today. */
+export function createFixtureReader(options: { clock: Clock }): Reader {
 	return {
+		...createLedgerReader({ clock: options.clock, schools }),
 		schools: async () => schools,
 		dashboardOptions: async () => ({
 			presets,

@@ -3,6 +3,13 @@ import type { JSX } from "preact";
 /** The mockup's stroke icons (its `IC` table), by full name. Later slices add the ones their views use. */
 const shapes = {
 	alert: <path d="M12 4l9 16H3L12 4zM12 10v4M12 17h.01" />,
+	ban: (
+		<>
+			<circle cx="12" cy="12" r="9" />
+			<path d="M5.6 5.6l12.8 12.8" />
+		</>
+	),
+	bank: <path d="M3 10l9-6 9 6M5 10v8M9 10v8M15 10v8M19 10v8M3 20h18" />,
 	box: <path d="M21 8l-9-5-9 5v8l9 5 9-5V8zM3 8l9 5 9-5M12 13v8" />,
 	building: (
 		<path d="M4 21V7l8-4 8 4v14M9 21v-6h6v6M8 10h.01M12 10h.01M16 10h.01" />
@@ -36,16 +43,27 @@ const shapes = {
 			<path d="M5 15V5a2 2 0 012-2h8" />
 		</>
 	),
+	dot: <circle cx="12" cy="12" r="2" />,
+	download: <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />,
 	eye: (
 		<>
 			<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" />
 			<circle cx="12" cy="12" r="3" />
 		</>
 	),
+	ext: (
+		<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" />
+	),
 	gear: (
 		<>
 			<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
 			<circle cx="12" cy="12" r="3" />
+		</>
+	),
+	gift: (
+		<>
+			<rect x="3" y="8" width="18" height="4" />
+			<path d="M12 8v13M5 12v9h14v-9M12 8c-2-4-6-3-5 0M12 8c2-4 6-3 5 0" />
 		</>
 	),
 	help: (
@@ -80,6 +98,12 @@ const shapes = {
 			<path d="M8 11V8a4 4 0 018 0v3" />
 		</>
 	),
+	mail: (
+		<>
+			<rect x="3" y="5" width="18" height="14" rx="2" />
+			<path d="M3 7l9 6 9-6" />
+		</>
+	),
 	monitor: (
 		<>
 			<rect x="3" y="4" width="18" height="12" rx="2" />
@@ -87,8 +111,18 @@ const shapes = {
 		</>
 	),
 	moon: <path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z" />,
+	plus: <path d="M12 5v14M5 12h14" />,
+	receipt: <path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2V3zM9 8h6M9 12h6" />,
 	scale: (
 		<path d="M12 3v18M5 21h14M5 7h14M5 7l-3 7a3 3 0 006 0L5 7zM19 7l-3 7a3 3 0 006 0l-3-7z" />
+	),
+	sliders: (
+		<>
+			<path d="M4 6h8M16 6h4M4 12h2M10 12h10M4 18h10M18 18h2" />
+			<circle cx="14" cy="6" r="2" />
+			<circle cx="8" cy="12" r="2" />
+			<circle cx="16" cy="18" r="2" />
+		</>
 	),
 	sun: (
 		<>
@@ -101,6 +135,9 @@ const shapes = {
 			<path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z" />
 			<circle cx="7.5" cy="7.5" r="1.3" />
 		</>
+	),
+	ticket: (
+		<path d="M3 9a2 2 0 002-2V6h14v1a2 2 0 002 2v6a2 2 0 00-2 2v1H5v-1a2 2 0 00-2-2V9z" />
 	),
 	undo: (
 		<>
