@@ -1,14 +1,19 @@
-import { Fragment, type JSX } from "preact";
-import { useCallback, useEffect, useId, useRef, useState } from "preact/hooks";
+import type { ComponentChildren, JSX } from "preact";
+import {
+	useCallback,
+	useEffect,
+	useId,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "preact/hooks";
+import type { Disclosure } from "../data/disclosure.ts";
 import type { Reader } from "../data/reader.ts";
 import type { Clock, School } from "../data/types.ts";
 import type { Writer } from "../data/writer.ts";
-import type { Bookings } from "./bookings.tsx";
-import type { Dashboard } from "./dashboard.tsx";
-import { Icon, type IconName } from "./icon.tsx";
-import { formatPeriod, parsePeriod } from "./period.ts";
-import { PeriodControl } from "./period-control.tsx";
-import { Popover } from "./popover.tsx";
+import { CoreIcon, type CoreIconName } from "./core-icon.tsx";
+import { parsePeriod, snapPeriod } from "./period.ts";
 import {
 	allSchools,
 	type Route,
@@ -17,11 +22,12 @@ import {
 	themeOf,
 	withQuery,
 } from "./route.ts";
-import { SchoolSwitcher } from "./school-switcher.tsx";
 import { SettingsDrawer } from "./settings-drawer.tsx";
+import { TopBar } from "./top-bar.tsx";
+import { ViewingContext } from "./viewing.ts";
 
 const toastMilliseconds = 4600;
-const tabs: Record<SchoolTab, { label: string; icon: IconName }> = {
+const tabs: Record<SchoolTab, { label: string; icon: CoreIconName }> = {
 	plans: { label: "Plans", icon: "layers" },
 	dashboard: { label: "Dashboard", icon: "chart" },
 	members: { label: "Members", icon: "users" },
@@ -30,45 +36,6 @@ const tabs: Record<SchoolTab, { label: string; icon: IconName }> = {
 	ledger: { label: "Ledger", icon: "list" },
 	reports: { label: "Reports", icon: "chart" },
 };
-const assistantPrompt = [
-	"You are helping an owner or admin of a school on atm, the bookings and payments service behind ledger.b4uni.com.",
-	"Treat this as read-only context: you can read what I paste from the ledger, and nothing you say changes plans, bookings, promos or payments.",
-	"The ledger is an append-only list of events; reports come from it through hledger and DuckDB, and apps use the School SDK, @b4uni/school.",
-	"When you are not sure what an event means, say so and point me to the ledger event reference.",
-].join(" ");
-const copyFailedToast =
-	"Could not copy the prompt: the browser blocked the clipboard.";
-const helpLinks: Array<{
-	label: string;
-	detail?: string;
-	icon: IconName;
-	toast: string;
-	/** Text the link puts on the clipboard before its toast. */
-	copy?: string;
-}> = [
-	{
-		label: "School SDK",
-		detail: "@b4uni/school",
-		icon: "box",
-		toast: "Opening the School SDK readme…",
-	},
-	{
-		label: "Ledger event reference",
-		icon: "list",
-		toast: "Opening the event reference…",
-	},
-	{
-		label: "Reports with hledger and DuckDB",
-		icon: "chart",
-		toast: "Opening the recipes…",
-	},
-	{
-		label: "Copy a prompt for an AI assistant",
-		icon: "copy",
-		toast: "Prompt copied. It gives an assistant read-only context.",
-		copy: assistantPrompt,
-	},
-];
 
 const counted = (count: number, noun: string): string =>
 	`${count} ${noun}${count === 1 ? "" : "s"}`;
@@ -97,6 +64,23 @@ function tabBadge(
 	return null;
 }
 
+/** A module loaded on demand, once `wanted`: the panes the first time their tab opens, the popovers and the settings
+ * right after the first paint, so that the first page load stays small. */
+function useLazy<Loaded>(
+	load: () => Promise<Loaded>,
+	wanted = true,
+): Loaded | null {
+	const [loaded, setLoaded] = useState<Loaded | null>(null);
+	useEffect(() => {
+		if (wanted && !loaded) load().then(setLoaded);
+	}, [wanted, loaded, load]);
+	return loaded;
+}
+const loadDashboard = () => import("./dashboard.tsx");
+const loadBookings = () => import("./bookings.tsx");
+const loadMenus = () => import("./menus.tsx");
+const loadSettings = () => import("./settings.tsx");
+
 type ShellProps = {
 	route: Route;
 	schools: School[];
@@ -108,9 +92,12 @@ type ShellProps = {
 	onRendered: () => void;
 };
 
-/** The mockup's frame (lines 261 to 282): top bar with the scope note, tabs row, stale banner, the current tab's pane, the settings
- * drawer and the toast. The Dashboard and Bookings fill their panes; later slices fill the others. While the drawer is open the regions
- * behind it are inert; the toast stays out of that so it can still be announced. */
+/** The mockup's frame (lines 375 to 450): top bar, tabs row, the preview banner, the stale banner, the current tab's
+ * pane, the settings drawer, the modal slot and the toast. The Dashboard and Bookings fill their panes; later slices
+ * fill the others. What the route views (`as=`) comes from the school's disclosure and goes to the panes through
+ * `ViewingContext`. While the drawer is open the regions behind it are inert; the toast stays out of that so it can
+ * still be announced. The route is ready (`onRendered`) once the disclosure and the lazy parts are loaded and the pane,
+ * if it loads data, has shown it. */
 export function Shell({
 	route,
 	schools,
@@ -122,30 +109,18 @@ export function Shell({
 }: ShellProps): JSX.Element {
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [toast, setToast] = useState<{ text: string } | null>(null);
-	/** The Dashboard pane, loaded the first time its tab opens so that the first page load stays small. */
-	const [DashboardPane, setDashboardPane] = useState<typeof Dashboard | null>(
-		null,
-	);
+	/** A modal over the drawer (a Settings dialog), handed up by the settings so it sits outside the drawer. */
+	const [modal, setModal] = useState<ComponentChildren>(null);
 	const dashboardOpen = route.tab === "dashboard";
-	useEffect(() => {
-		if (dashboardOpen && !DashboardPane)
-			import("./dashboard.tsx").then((module) =>
-				setDashboardPane(() => module.Dashboard),
-			);
-	}, [dashboardOpen, DashboardPane]);
-	/** The Bookings pane, loaded the same way. */
-	const [BookingsPane, setBookingsPane] = useState<typeof Bookings | null>(
-		null,
-	);
 	const bookingsOpen = route.tab === "bookings";
-	useEffect(() => {
-		if (bookingsOpen && !BookingsPane)
-			import("./bookings.tsx").then((module) =>
-				setBookingsPane(() => module.Bookings),
-			);
-	}, [bookingsOpen, BookingsPane]);
+	const dashboardModule = useLazy(loadDashboard, dashboardOpen);
+	const bookingsModule = useLazy(loadBookings, bookingsOpen);
+	const menus = useLazy(loadMenus);
+	const settingsModule = useLazy(loadSettings);
 	const settingsButton = useRef<HTMLButtonElement>(null);
 	const drawerId = useId();
+	const settingsSeen = useRef(false);
+	if (settingsOpen) settingsSeen.current = true;
 	const closeSettings = useCallback(() => {
 		setSettingsOpen(false);
 		settingsButton.current?.focus();
@@ -155,15 +130,45 @@ export function Shell({
 		const timer = setTimeout(() => setToast(null), toastMilliseconds);
 		return () => clearTimeout(timer);
 	}, [toast]);
+	const onToast = useCallback((text: string) => setToast({ text }), []);
 
 	const school = schools.find((candidate) => candidate.id === route.schoolId);
-	const period = parsePeriod(route.query.get("month"), clock.today);
+	const schoolId = school?.id;
+	const [loadedDisclosure, setLoadedDisclosure] = useState<Disclosure | null>(
+		null,
+	);
+	useEffect(() => {
+		if (!schoolId) return;
+		let current = true;
+		reader.disclosure(schoolId).then((disclosure) => {
+			if (current) setLoadedDisclosure(disclosure);
+		});
+		return () => {
+			current = false;
+		};
+	}, [reader, schoolId]);
+	const disclosure =
+		loadedDisclosure?.school === schoolId ? loadedDisclosure : null;
+	const asked = route.query.get("as");
+	const viewing = useMemo(
+		() =>
+			menus && disclosure ? menus.resolveViewing(disclosure, asked) : null,
+		[menus, disclosure, asked],
+	);
+	const period = snapPeriod(
+		parsePeriod(route.query.get("month"), clock.today),
+		viewing?.view ?? null,
+	);
 	const theme = themeOf(route.query);
-	const periodShown =
-		!school || route.tab === "ledger" || route.tab === "reports";
+
+	const ready = Boolean(menus && settingsModule && (!school || viewing));
+	const paneReports = dashboardOpen || bookingsOpen;
+	useLayoutEffect(() => {
+		if (ready && !paneReports) onRendered();
+	});
 
 	/** Each school's last tab, in memory only (mockup `s.last`): switching school, or leaving All schools, returns to
-	 * it, or to Plans for a school not opened yet. */
+	 * it, or to Plans for a school not opened yet. A school switch ends a preview. */
 	const lastTabs = useRef<Record<string, SchoolTab>>({});
 	const shownTab = route.tab;
 	useEffect(() => {
@@ -171,30 +176,16 @@ export function Shell({
 			lastTabs.current[school.id] = shownTab;
 	}, [school, shownTab]);
 
-	const chooseSchool = (schoolId: string): void => {
-		const query = withQuery(route, "member", null).query;
-		if (schoolId === allSchools) navigate({ schoolId, tab: allSchools, query });
+	const chooseSchool = (nextId: string): void => {
+		const query = withQuery(withQuery(route, "member", null), "as", null).query;
+		if (nextId === allSchools)
+			navigate({ schoolId: nextId, tab: allSchools, query });
 		else
 			navigate({
-				schoolId,
-				tab: lastTabs.current[schoolId] ?? "plans",
+				schoolId: nextId,
+				tab: lastTabs.current[nextId] ?? "plans",
 				query,
 			});
-	};
-	/** Shows the link's toast; a link that copies says so only once the clipboard has taken the text. */
-	const followHelpLink = async (
-		link: (typeof helpLinks)[number],
-	): Promise<void> => {
-		if (!link.copy) {
-			setToast({ text: link.toast });
-			return;
-		}
-		try {
-			await navigator.clipboard.writeText(link.copy);
-			setToast({ text: link.toast });
-		} catch {
-			setToast({ text: copyFailedToast });
-		}
 	};
 	const chooseTab = (tab: SchoolTab): void => navigate({ ...route, tab });
 	/** The tabs pattern: arrows, Home and End move to a tab and open it. */
@@ -219,87 +210,23 @@ export function Shell({
 
 	return (
 		<>
-			<div class="top" inert={settingsOpen}>
-				<span class="logo" data-test="brand">
-					atm
-				</span>
-				<SchoolSwitcher
-					schools={schools}
-					current={route.schoolId}
-					onChoose={chooseSchool}
-				/>
-				{school && (
-					<span
-						class="kview"
-						data-test="scope-note"
-						title={`You are ${school.role === "owner" ? "an owner" : "an admin"} in ${school.name}. Owners and admins own the dashboard and see everyone's data. Members see only themselves and their family.`}
-					>
-						<Icon name="eye" />
-						You see all members
-					</span>
-				)}
-				<span class="sp" />
-				<PeriodControl
-					period={period}
-					today={clock.today}
-					shown={periodShown}
-					timeZoneNote={
-						school
-							? `Times in ${school.timeZone}`
-							: "Each school's own time zone"
-					}
-					onChoose={(chosen) =>
-						navigate(
-							withQuery(route, "month", formatPeriod(chosen, clock.today)),
-						)
-					}
-				/>
-				<Popover
-					trigger={{
-						class: "ib",
-						"data-test": "help-button",
-						title: "Help and SDK",
-						"aria-label": "Help and SDK",
-					}}
-					alignRight
-					label={<Icon name="help" />}
-				>
-					{(close) =>
-						helpLinks.map((link, index) => (
-							<Fragment key={link.label}>
-								{index === helpLinks.length - 1 && <hr />}
-								<button
-									type="button"
-									class="it"
-									data-test="help-link"
-									onClick={() => {
-										close();
-										followHelpLink(link);
-									}}
-								>
-									<Icon name={link.icon} />
-									<span class="sp2">{link.label}</span>
-									{link.detail && <span class="mut">{link.detail}</span>}
-								</button>
-							</Fragment>
-						))
-					}
-				</Popover>
-				<button
-					ref={settingsButton}
-					type="button"
-					class="ib"
-					data-test="settings-button"
-					title="Settings"
-					aria-label="Settings"
-					aria-haspopup="dialog"
-					aria-controls={drawerId}
-					aria-expanded={settingsOpen}
-					onClick={() => setSettingsOpen(!settingsOpen)}
-				>
-					<Icon name="gear" />
-				</button>
-			</div>
+			<TopBar
+				route={route}
+				schools={schools}
+				school={school}
+				clock={clock}
+				period={period}
+				menus={menus}
+				viewing={viewing}
+				inert={settingsOpen}
+				drawerId={drawerId}
+				settingsOpen={settingsOpen}
+				settingsButton={settingsButton}
+				navigate={navigate}
+				onChooseSchool={chooseSchool}
+				onToggleSettings={() => setSettingsOpen(!settingsOpen)}
+				onToast={onToast}
+			/>
 			{school && (
 				<div
 					class="tabs"
@@ -328,7 +255,7 @@ export function Shell({
 								tabIndex={selected ? 0 : -1}
 								onClick={() => chooseTab(tab)}
 							>
-								<Icon name={tabs[tab].icon} />
+								<CoreIcon name={tabs[tab].icon} />
 								{tabs[tab].label}
 								{badge && (
 									<span class={`badge ${badge.tone}`} data-test="tab-badge">
@@ -340,9 +267,16 @@ export function Shell({
 					})}
 				</div>
 			)}
+			{school && menus && viewing?.preview && (
+				<menus.PreviewBanner
+					viewing={viewing}
+					inert={settingsOpen}
+					onExit={() => navigate(withQuery(route, "as", null))}
+				/>
+			)}
 			{school?.stale && (
 				<div class="banner" data-test="stale-banner" inert={settingsOpen}>
-					<Icon name="alert" /> Data is {school.lagMinutes} min behind: the
+					<CoreIcon name="alert" /> Data is {school.lagMinutes} min behind: the
 					shipper may be stuck. Recent events can be missing.
 				</div>
 			)}
@@ -355,33 +289,36 @@ export function Shell({
 				aria-labelledby={school ? `tab-${route.tab}` : undefined}
 				aria-label={school ? undefined : "All schools"}
 			>
-				{school && dashboardOpen && DashboardPane && (
-					<DashboardPane
-						reader={reader}
-						school={school}
-						route={route}
-						navigate={navigate}
-						onRendered={onRendered}
-						onToast={(text) => setToast({ text })}
-					/>
-				)}
-				{school && bookingsOpen && BookingsPane && (
-					<BookingsPane
-						key={school.id}
-						reader={reader}
-						writer={writer}
-						school={school}
-						clock={clock}
-						route={route}
-						navigate={navigate}
-						onRendered={onRendered}
-						onToast={(text) => setToast({ text })}
-					/>
-				)}
+				<ViewingContext.Provider value={viewing}>
+					{ready && school && dashboardModule && dashboardOpen && (
+						<dashboardModule.Dashboard
+							reader={reader}
+							school={school}
+							route={route}
+							navigate={navigate}
+							onRendered={onRendered}
+							onToast={onToast}
+						/>
+					)}
+					{ready && school && bookingsModule && bookingsOpen && (
+						<bookingsModule.Bookings
+							key={school.id}
+							reader={reader}
+							writer={writer}
+							school={school}
+							clock={clock}
+							route={route}
+							navigate={navigate}
+							onRendered={onRendered}
+							onToast={onToast}
+						/>
+					)}
+				</ViewingContext.Provider>
 			</section>
 			<SettingsDrawer
 				id={drawerId}
 				open={settingsOpen}
+				dialogOpen={modal !== null}
 				subtitle={school ? `You and ${school.name}` : "All schools"}
 				theme={theme}
 				onThemeChange={(chosen) =>
@@ -390,7 +327,23 @@ export function Shell({
 					)
 				}
 				onClose={closeSettings}
-			/>
+			>
+				{settingsModule && settingsSeen.current && !school && (
+					<settingsModule.AllSchoolsNote />
+				)}
+				{settingsModule && settingsSeen.current && school && viewing && (
+					<settingsModule.SchoolSettings
+						key={school.id}
+						reader={reader}
+						writer={writer}
+						school={school}
+						viewing={viewing}
+						onToast={onToast}
+						onModal={setModal}
+					/>
+				)}
+			</SettingsDrawer>
+			{modal}
 			<div
 				class={toast ? "toast on" : "toast"}
 				data-test="toast"

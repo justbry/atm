@@ -11,18 +11,24 @@ import type { Reader } from "../data/reader.ts";
 import type { Clock, School } from "../data/types.ts";
 import type { Writer } from "../data/writer.ts";
 import { BookingDialog } from "./booking-dialog.tsx";
+import {
+	type BookingsPeriod,
+	bookingsDays,
+	bookingsLabel,
+	readBookingsPeriod,
+} from "./bookings-period.ts";
 import { Icon, type IconName } from "./icon.tsx";
-import { addDays, monthAndDay, weekdayName, weekStart } from "./period.ts";
+import { LockPanel } from "./lock-panel.tsx";
+import { addDays, monthAndDay, weekdayName } from "./period.ts";
 import { type Route, withQuery } from "./route.ts";
+import { exitPreviewTitle, useViewing } from "./viewing.ts";
 
-type Range = "day" | "week";
 type Filter = "outcome" | "approval" | "cutoff";
-type View = { range: Range; offset: number; filter: Filter | null };
+type View = BookingsPeriod & { filter: Filter | null };
 type Dialog = { action: "noshow" | "release"; booking: Booking };
 
 /** Brief A caps a range at 62 days: the overdue group reads that many days before the range. */
 const overdueDays = 62;
-const daysPerWeek = 7;
 const sentToast =
 	"Sent. It shows as pending, then in the ledger after the next ship (≤5 min).";
 const failedToast = "Could not send. Try again.";
@@ -30,17 +36,6 @@ const refundTitle = "Refunds from this tab are not available yet.";
 const bookingsNote =
 	"Credits are reserved when a booking is made, spent when it's attended, and released when it's cancelled before the item's cutoff. Cutoffs come from each item, not one school-wide number.";
 
-const presets: Array<{
-	slug: string;
-	label: string;
-	range: Range;
-	offset: number;
-}> = [
-	{ slug: "today", label: "Today", range: "day", offset: 0 },
-	{ slug: "tomorrow", label: "Tomorrow", range: "day", offset: 1 },
-	{ slug: "this-week", label: "This week", range: "week", offset: 0 },
-	{ slug: "next-week", label: "Next week", range: "week", offset: 1 },
-];
 const filters: Array<{ slug: "all" | Filter; filter: Filter | null }> = [
 	{ slug: "all", filter: null },
 	{ slug: "outcome", filter: "outcome" },
@@ -48,13 +43,12 @@ const filters: Array<{ slug: "all" | Filter; filter: Filter | null }> = [
 	{ slug: "cutoff", filter: "cutoff" },
 ];
 
-/** `range=day|week` (absent: week), `offset=<n>` (absent: 0) and `filter=outcome|approval|cutoff` (absent: all). */
+/** The period (`range=` and `offset=`, shared with the top bar's control) and `filter=outcome|approval|cutoff`
+ * (absent: all). */
 function readView(query: URLSearchParams): View {
-	const offset = Number(query.get("offset") ?? 0);
 	const filter = query.get("filter");
 	return {
-		range: query.get("range") === "day" ? "day" : "week",
-		offset: Number.isInteger(offset) ? offset : 0,
+		...readBookingsPeriod(query),
 		filter:
 			filter === "outcome" || filter === "approval" || filter === "cutoff"
 				? filter
@@ -62,41 +56,11 @@ function readView(query: URLSearchParams): View {
 	};
 }
 
-/** The route for a view: the defaults (week, offset 0, all) are left out of the hash. */
-function viewRoute(route: Route, { range, offset, filter }: View): Route {
-	return withQuery(
-		withQuery(
-			withQuery(route, "range", range === "day" ? "day" : null),
-			"offset",
-			offset === 0 ? null : String(offset),
-		),
-		"filter",
-		filter,
-	);
-}
-
-/** The days a view covers (mockup `bRange`): a day from the clock's today, or a Monday-to-Sunday week. */
-function viewDays(
-	{ range, offset }: View,
-	today: string,
-): { from: string; to: string } {
-	if (range === "day") {
-		const day = addDays(today, offset);
-		return { from: day, to: day };
-	}
-	const from = addDays(weekStart(today), offset * daysPerWeek);
-	return { from, to: addDays(from, daysPerWeek - 1) };
-}
-
-/** The mockup's `bLabel`. */
-function viewLabel({ range, offset }: View, from: string): string {
-	if (range === "day") {
-		const names = ["Yesterday", "Today", "Tomorrow"];
-		return names[offset + 1] ?? `${weekdayName(from)} ${monthAndDay(from)}`;
-	}
-	const names = ["Last week", "This week", "Next week"];
-	return names[offset + 1] ?? `Week of ${monthAndDay(from)}`;
-}
+const bookingsLock = {
+	reason: "admins_only",
+	who: "Owners and admins see bookings",
+	when: "Not a school-books surface: bookings carry minors' schedules (safeguarding), so they follow ManageBookings, not the audience.",
+} as const;
 
 const byStart = (first: Booking, second: Booking): number =>
 	first.startsAt.localeCompare(second.startsAt);
@@ -193,6 +157,10 @@ function RowActions({
 	onNoShow,
 	onRelease,
 }: Omit<RowProps, "withDate" | "school">): JSX.Element | null {
+	const { preview } = useViewing();
+	const writesOff = preview
+		? { disabled: true, title: exitPreviewTitle }
+		: undefined;
 	if (pending)
 		return (
 			<span class="badge b-warn">
@@ -210,6 +178,7 @@ function RowActions({
 					data-test="booking-action"
 					data-action="confirm"
 					data-booking={booking.id}
+					{...writesOff}
 					onClick={() => onConfirm(booking)}
 				>
 					<Icon name="check" />
@@ -221,6 +190,7 @@ function RowActions({
 					data-test="booking-action"
 					data-action="noshow"
 					data-booking={booking.id}
+					{...writesOff}
 					onClick={() => onNoShow(booking)}
 				>
 					<Icon name="xCircle" />
@@ -252,6 +222,7 @@ function RowActions({
 			data-test="booking-action"
 			data-action="release"
 			data-booking={booking.id}
+			{...writesOff}
 			onClick={() => onRelease(booking)}
 		>
 			<Icon name="unlock" />
@@ -345,13 +316,15 @@ export function Bookings({
 	onRendered: () => void;
 	onToast: (text: string) => void;
 }): JSX.Element | null {
+	const { option, preview } = useViewing();
 	const view = readView(route.query);
-	const { from, to } = viewDays(view, clock.today);
+	const { from, to } = bookingsDays(view, clock.today);
 	const key = `${school.id}/${from}/${to}`;
 	const [loaded, setLoaded] = useState<Loaded | null>(null);
 	const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
 	const [dialog, setDialog] = useState<Dialog | null>(null);
 	useEffect(() => {
+		if (!option.admin) return;
 		let current = true;
 		const load = async (): Promise<void> => {
 			const [inRange, before] = await Promise.all([
@@ -373,11 +346,12 @@ export function Bookings({
 		return () => {
 			current = false;
 		};
-	}, [reader, school.id, from, to, key]);
+	}, [reader, school.id, from, to, key, option.admin]);
 	const shown = loaded?.key === key ? loaded : null;
 	useLayoutEffect(() => {
-		if (shown) onRendered();
+		if (shown || !option.admin) onRendered();
 	});
+	if (!option.admin) return <LockPanel lock={bookingsLock} icon="calendar" />;
 	if (!shown) return null;
 
 	const waiting: Check = ({ id }) => pending.has(id);
@@ -491,7 +465,8 @@ export function Bookings({
 		);
 	};
 
-	const chooseView = (next: View): void => navigate(viewRoute(route, next));
+	const chooseFilter = (filter: Filter | null): void =>
+		navigate(withQuery(route, "filter", filter));
 	const chipLabels: Record<"all" | Filter, string> = {
 		all: "All",
 		outcome: `Needs outcome (${counted.filter(checks.outcome).length})`,
@@ -499,18 +474,6 @@ export function Bookings({
 		cutoff: `Inside cutoff (${counted.filter(checks.cutoff).length})`,
 	};
 	const onThisWeek = view.range === "week" && view.offset === 0;
-	const step = (direction: -1 | 1): JSX.Element => (
-		<button
-			type="button"
-			class="btn ico s"
-			data-test="booking-step"
-			data-step={direction}
-			aria-label={direction < 0 ? "Previous" : "Next"}
-			onClick={() => chooseView({ ...view, offset: view.offset + direction })}
-		>
-			<Icon name={direction < 0 ? "chevronLeft" : "chevronRight"} />
-		</button>
-	);
 	const dialogLine = dialog
 		? [
 				dialog.booking.service,
@@ -540,6 +503,7 @@ export function Bookings({
 							style="float:right"
 							data-test="booking-bulk"
 							data-day={group.key}
+							{...(preview && { disabled: true, title: exitPreviewTitle })}
 							onClick={() => confirmAll(needing)}
 						>
 							<Icon name="check" />
@@ -588,39 +552,12 @@ export function Bookings({
 	return (
 		<>
 			<div class="tools">
-				{/* biome-ignore lint/a11y/useSemanticElements: the mockup's segmented control is a div; a fieldset brings its own border and padding */}
-				<div class="seg" role="group" aria-label="Period">
-					{presets.map((preset) => {
-						const on =
-							view.range === preset.range && view.offset === preset.offset;
-						return (
-							<button
-								key={preset.slug}
-								type="button"
-								class={on ? "on" : undefined}
-								aria-pressed={on}
-								data-test="booking-range"
-								data-range={preset.slug}
-								onClick={() =>
-									chooseView({
-										...view,
-										range: preset.range,
-										offset: preset.offset,
-									})
-								}
-							>
-								{preset.label}
-							</button>
-						);
-					})}
-				</div>
-				{step(-1)}
-				<b data-test="booking-range-label">{viewLabel(view, from)}</b>
+				<b data-test="booking-range-label">{bookingsLabel(view, from)}</b>
 				<span class="mut" data-test="booking-range-dates">
 					{monthAndDay(from)}
-					{from === to ? "" : ` – ${monthAndDay(to)}`}
+					{from === to ? "" : ` – ${monthAndDay(to)}`} · change it in the period
+					control
 				</span>
-				{step(1)}
 				<span class="sp" />
 				{filters.map(({ slug, filter }) => (
 					<button
@@ -630,7 +567,7 @@ export function Bookings({
 						aria-pressed={filter === view.filter}
 						data-test="booking-filter"
 						data-filter={slug}
-						onClick={() => chooseView({ ...view, filter })}
+						onClick={() => chooseFilter(filter)}
 					>
 						{chipLabels[slug]}
 					</button>

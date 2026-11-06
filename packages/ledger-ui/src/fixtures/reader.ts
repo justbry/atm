@@ -1,14 +1,19 @@
+import type { Disclosure, DisclosureFile } from "../data/disclosure.ts";
 import type { BooksLevel, KpiDocument } from "../data/kpi-document.ts";
 import type { Reader } from "../data/reader.ts";
+import type { SchoolSettings } from "../data/settings.ts";
 import type { Clock, DashboardOptions, School } from "../data/types.ts";
 import { bookingsBySchool } from "./bookings.ts";
+import disclosureFixture from "./disclosure.json";
 import cellRules from "./mart/cell-rules.json";
 import documentsFile from "./mart/documents.json";
+import settingsFixture from "./settings.json";
 
-/** The mockup's four schools (its `SC` table), with the counts its headless run shows on 2026-11-05: attention from
+/** The mockup's five schools (its `SC` table), with the counts its headless run shows on 2026-11-05: attention from
  * `attN`, overdue bookings from `groups().out`, expiring promos from `expiring`, stale when `lag` is over 15 minutes.
  * Vibes of Light's Plans tab shows `draft` as the mockup draws it. The books level is `bkDefault`'s: at B4 Uni the
- * signed-in person is Jo A., an admin with the finance grant; elsewhere the owner. B4 Uni, the mockup's fixture
+ * signed-in person is Jo A., an admin with the finance grant; at Harbor Arts Academy Rosa T., an admin without it
+ * and with a live Studio membership, so member; elsewhere the owner. B4 Uni, the mockup's fixture
  * school, opens its Dashboard on Jun (`dm=5`). */
 const schools: School[] = [
 	{
@@ -64,6 +69,19 @@ const schools: School[] = [
 		attentionCount: 0,
 		tabBadges: { plansDraft: false, bookingsOverdue: 0, promosExpiring: 0 },
 	},
+	{
+		id: "har",
+		name: "Harbor Arts Academy",
+		timeZone: "America/New_York",
+		currency: "USD",
+		creditUnit: { one: "credit", other: "credits" },
+		role: "admin",
+		booksLevel: "member",
+		stale: false,
+		lagMinutes: 2,
+		attentionCount: 0,
+		tabBadges: { plansDraft: false, bookingsOverdue: 0, promosExpiring: 0 },
+	},
 ];
 
 /** The mart's 15 presets: the mockup's four scenarios first, with its labels and its annual-prepay note, then the
@@ -104,6 +122,17 @@ const levels: DashboardOptions["levels"] = Object.entries(cellRules.levels)
  * `gates/oracle.ts` `documentKey` keys them. */
 const documents = documentsFile as unknown as Record<string, KpiDocument>;
 
+/** Each school's disclosure as the server works it out at the clock: its own record, with the file they share. */
+const disclosureFile = disclosureFixture.file as unknown as DisclosureFile;
+const disclosures = disclosureFixture.schools as unknown as Record<
+	string,
+	Omit<Disclosure, "file">
+>;
+const settingsBySchool = settingsFixture.schools as unknown as Record<
+	string,
+	SchoolSettings
+>;
+
 /** The fixture Reader. The documents are fixed at the clock the gates use, so it only names the clock. */
 export function createFixtureReader(_options: { clock: Clock }): Reader {
 	return {
@@ -121,5 +150,15 @@ export function createFixtureReader(_options: { clock: Clock }): Reader {
 		}),
 		kpiDocument: async ({ preset, level, pinLocked }) =>
 			documents[`${preset}.${level}${pinLocked ? ".pin-locked" : ""}`],
+		disclosure: async (school) => {
+			const disclosure = disclosures[school];
+			if (!disclosure) throw new Error(`no disclosure for ${school}`);
+			return { ...disclosure, file: disclosureFile };
+		},
+		settings: async (school) => {
+			const settings = settingsBySchool[school];
+			if (!settings) throw new Error(`no settings for ${school}`);
+			return settings;
+		},
 	};
 }
