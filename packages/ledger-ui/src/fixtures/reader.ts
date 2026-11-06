@@ -4,6 +4,7 @@ import type { Clock, DashboardOptions, School } from "../data/types.ts";
 import { bookingsBySchool } from "./bookings.ts";
 import cellRules from "./mart/cell-rules.json";
 import documentsFile from "./mart/documents.json";
+import { fixtureMemberPortal } from "./portal.ts";
 
 /** The mockup's four schools (its `SC` table), with the counts its headless run shows on 2026-11-05: attention from
  * `attN`, overdue bookings from `groups().out`, expiring promos from `expiring`, stale when `lag` is over 15 minutes.
@@ -119,6 +120,7 @@ export function createFixtureReader(_options: { clock: Clock }): Reader {
 				return day >= from && day <= to;
 			}),
 		}),
+		memberPortal: async (query) => fixtureMemberPortal(query),
 		kpiDocument: async ({ preset, level, pinLocked }) =>
 			documents[`${preset}.${level}${pinLocked ? ".pin-locked" : ""}`],
 	};

@@ -1,4 +1,5 @@
 import type { Writer } from "../data/writer.ts";
+import { fixtureQuantityChanged } from "./portal.ts";
 
 /** The fixture Writer: records every call in `calls`; in `hold` mode each call stays pending until `release()`. */
 export function createFixtureWriter(options: {
@@ -28,5 +29,17 @@ export function createFixtureWriter(options: {
 		recordOutcome: (request) =>
 			record("recordOutcome", [request], { creditEffect: "not_wired" }),
 		cancelBooking: (request) => record("cancelBooking", [request], undefined),
+		portalChangeQuantity: (request) =>
+			record(
+				"portalChangeQuantity",
+				[request],
+				fixtureQuantityChanged(request, request.quantity),
+			),
+		portalCancelMembership: (request) =>
+			record("portalCancelMembership", [request], undefined),
+		portalResumeMembership: (request) =>
+			record("portalResumeMembership", [request], undefined),
+		portalCancelBooking: (request) =>
+			record("portalCancelBooking", [request], undefined),
 	};
 }

@@ -6,7 +6,6 @@ import {
 	cellKind,
 	type HiddenKind,
 	type KpiDocument,
-	type KpiFormat,
 	type LagClass,
 	type PeriodInfo,
 } from "../data/kpi-document.ts";
@@ -18,6 +17,7 @@ import type {
 	School,
 } from "../data/types.ts";
 import { Icon, type IconName } from "./icon.tsx";
+import { cellText, KpiValue, numberFormat } from "./kpi-cell.tsx";
 import { type Route, withQuery } from "./route.ts";
 
 type DashboardView = "money" | "members" | "risk";
@@ -57,36 +57,6 @@ const dayChartWidth = 1200;
 const dayChartHeight = 64;
 const dayLabelEvery = 5;
 
-/** cell-rules `formats`. */
-const formatOptions: Record<KpiFormat, Intl.NumberFormatOptions> = {
-	money: { style: "currency" },
-	money0: {
-		style: "currency",
-		minimumFractionDigits: 0,
-		maximumFractionDigits: 0,
-	},
-	integer: {},
-	percent1: {
-		style: "percent",
-		minimumFractionDigits: 1,
-		maximumFractionDigits: 1,
-	},
-};
-const numberFormats = new Map<string, Intl.NumberFormat>();
-function numberFormat(format: KpiFormat, currency: string): Intl.NumberFormat {
-	const key = `${format}:${currency}`;
-	const known = numberFormats.get(key);
-	if (known) return known;
-	const made = new Intl.NumberFormat("en-US", {
-		...formatOptions[format],
-		currency: currency.toUpperCase(),
-	});
-	numberFormats.set(key, made);
-	return made;
-}
-const isMoney = (format: KpiFormat): boolean =>
-	formatOptions[format].style === "currency";
-
 /** What every part of the pane reads: the document, the Reader's labels, the view's lag class, the selected period's
  * index, and how to open a period. */
 type Books = {
@@ -104,23 +74,6 @@ const numberAt = (books: Books, kpi: string, index: number): number | null => {
 	const cell = cellAt(books, kpi, index);
 	return typeof cell === "number" ? cell : null;
 };
-/** A cell as cell-rules writes it. */
-function cellText(
-	{ document, labels }: Books,
-	kpi: string,
-	cell: Cell,
-): string {
-	const format = document.meta[kpi]?.format ?? "integer";
-	if (typeof cell === "number")
-		return numberFormat(format, document.currency).format(
-			isMoney(format) ? cell / 100 : cell,
-		);
-	if ("lt" in cell)
-		return isMoney(format)
-			? `under ${numberFormat("money0", document.currency).format(cell.lt / 100)}`
-			: `<${cell.lt}`;
-	return labels[cell.hidden];
-}
 const seriesStartingWith = (document: KpiDocument, prefix: string): string[] =>
 	Object.keys(document.series).filter((kpi) => kpi.startsWith(prefix));
 /** "A", "A and B", "A, B and C". */
@@ -131,8 +84,7 @@ function namesList(names: string[]): string {
 		: `${names.slice(0, -1).join(", ")} and ${last}`;
 }
 
-/** One document cell (protocol §3): its kind in `data-cell`, its text exactly as cell-rules writes it, and the reason
- * of a hidden cell in its title. */
+/** One document cell of the selected period, or of `index`. */
 function Value({
 	books,
 	kpi,
@@ -144,21 +96,7 @@ function Value({
 	index?: number;
 	test?: string;
 }): JSX.Element {
-	const cell = cellAt(books, kpi, index);
-	const kind = cellKind(cell);
-	const why = typeof cell === "object" && "hidden" in cell ? cell.why : null;
-	return (
-		<span
-			data-test={test}
-			data-kpi={kpi}
-			data-period={books.document.periods[index]}
-			data-cell={kind}
-			class={kind === "suppressed" ? "kcutv" : undefined}
-			title={why ? `Hidden: ${why}` : undefined}
-		>
-			{cellText(books, kpi, cell)}
-		</span>
-	);
+	return <KpiValue context={books} kpi={kpi} index={index} test={test} />;
 }
 
 type Tone = "ok" | "warn" | "bad" | "";

@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useState } from "preact/hooks";
 import type { Reader } from "../data/reader.ts";
 import type { Clock, School } from "../data/types.ts";
 import type { Writer } from "../data/writer.ts";
+import type { Download } from "./download.ts";
 import { formatRoute, parseRoute, type Route, themeOf } from "./route.ts";
 import { Shell } from "./shell.tsx";
 
@@ -18,11 +19,13 @@ function App({
 	reader,
 	writer,
 	clock,
+	download,
 }: {
 	root: HTMLElement;
 	reader: Reader;
 	writer: Writer;
 	clock: Clock;
+	download: Download | undefined;
 }): JSX.Element | null {
 	const [hash, setHash] = useState(window.location.hash);
 	const [schools, setSchools] = useState<School[] | null>(null);
@@ -39,8 +42,12 @@ function App({
 	const route = parseRoute(hash, schools?.map((school) => school.id) ?? []);
 	const canonical = schools ? formatRoute(route) : null;
 	const theme = themeOf(route.query);
-	/** The Dashboard and Bookings record their own render, once their data is on screen. */
-	const reportsItself = route.tab === "dashboard" || route.tab === "bookings";
+	/** The Dashboard, Bookings and the member portal (the Members tab with `portal=`) record their own render, once
+	 * their data is on screen. */
+	const reportsItself =
+		route.tab === "dashboard" ||
+		route.tab === "bookings" ||
+		(route.tab === "members" && route.query.has("portal"));
 	useLayoutEffect(() => {
 		root.classList.toggle("light", theme === "light");
 		root.classList.toggle("dark", theme === "dark");
@@ -64,6 +71,7 @@ function App({
 			reader={reader}
 			writer={writer}
 			navigate={navigate}
+			download={download}
 			onRendered={() => {
 				root.dataset.route = hash;
 			}}
@@ -75,7 +83,13 @@ function App({
  * `.app`. */
 export function mountApp(
 	root: HTMLElement,
-	options: { reader: Reader; writer: Writer; clock: Clock },
+	options: {
+		reader: Reader;
+		writer: Writer;
+		clock: Clock;
+		/** Saves a file the app makes; the browser's download unless given (tests give one to capture it). */
+		download?: Download;
+	},
 ): { unmount(): void } {
 	root.classList.add("app");
 	render(
@@ -84,6 +98,7 @@ export function mountApp(
 			reader={options.reader}
 			writer={options.writer}
 			clock={options.clock}
+			download={options.download}
 		/>,
 		root,
 	);

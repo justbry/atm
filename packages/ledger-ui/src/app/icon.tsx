@@ -3,6 +3,12 @@ import type { JSX } from "preact";
 /** The mockup's stroke icons (its `IC` table), by full name. Later slices add the ones their views use. */
 const shapes = {
 	alert: <path d="M12 4l9 16H3L12 4zM12 10v4M12 17h.01" />,
+	ban: (
+		<>
+			<circle cx="12" cy="12" r="9" />
+			<path d="M5.6 5.6l12.8 12.8" />
+		</>
+	),
 	box: <path d="M21 8l-9-5-9 5v8l9 5 9-5V8zM3 8l9 5 9-5M12 13v8" />,
 	building: (
 		<path d="M4 21V7l8-4 8 4v14M9 21v-6h6v6M8 10h.01M12 10h.01M16 10h.01" />
@@ -11,6 +17,12 @@ const shapes = {
 		<>
 			<rect x="3" y="5" width="18" height="16" rx="2" />
 			<path d="M3 10h18M8 3v4M16 3v4" />
+		</>
+	),
+	card: (
+		<>
+			<rect x="3" y="5" width="18" height="14" rx="2" />
+			<path d="M3 10h18M7 15h3" />
 		</>
 	),
 	chart: <path d="M4 20V11M10 20V5M16 20v-6M2 20h20" />,
@@ -36,6 +48,7 @@ const shapes = {
 			<path d="M5 15V5a2 2 0 012-2h8" />
 		</>
 	),
+	download: <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />,
 	eye: (
 		<>
 			<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" />
@@ -87,8 +100,17 @@ const shapes = {
 		</>
 	),
 	moon: <path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z" />,
+	plug: <path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 01-12 0V8zM12 17v4" />,
 	scale: (
 		<path d="M12 3v18M5 21h14M5 7h14M5 7l-3 7a3 3 0 006 0L5 7zM19 7l-3 7a3 3 0 006 0l-3-7z" />
+	),
+	sliders: (
+		<>
+			<path d="M4 6h8M16 6h4M4 12h2M10 12h10M4 18h10M18 18h2" />
+			<circle cx="14" cy="6" r="2" />
+			<circle cx="8" cy="12" r="2" />
+			<circle cx="16" cy="18" r="2" />
+		</>
 	),
 	sun: (
 		<>
