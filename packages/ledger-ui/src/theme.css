@@ -1,4 +1,4 @@
-/* The mockup's stylesheet (plans/ledger-ui/design/mockup.html lines 2 to 242), unchanged except that .app without a
+/* The mockup's stylesheet (plans/ledger-ui/design/mockup.html lines 2 to 259), unchanged except that .app without a
    theme class takes the light tokens and .a sits before .bar3 .a (same cascade, Biome's specificity order). Before it, the three host tokens of plans/ledger-ui/design/mockup-host.css;
    after it, the shell's own classes, theme=system and the narrow widths. */
 :root {
@@ -1569,6 +1569,114 @@ svg.kc .col.on {
 }
 .kd-warn {
 	background: var(--warning);
+}
+.krole {
+	font-size: 10px;
+	padding: 1px 7px;
+	border-radius: 9px;
+	border: 1px solid var(--border);
+	color: var(--muted-foreground);
+	white-space: nowrap;
+	display: inline-flex;
+	align-items: center;
+	font-weight: 500;
+}
+.krole .i {
+	width: 11px;
+	height: 11px;
+	margin-right: 3px;
+}
+.kr-owner {
+	color: var(--primary);
+	border-color: var(--primary);
+}
+.kr-admin {
+	color: var(--chart-1, var(--primary));
+	border-color: var(--chart-1, var(--primary));
+}
+.kfin {
+	font-size: 10px;
+	padding: 1px 6px;
+	border-radius: 9px;
+	border: 1px dashed var(--success);
+	color: var(--success);
+	white-space: nowrap;
+	display: inline-flex;
+	align-items: center;
+	margin-left: 4px;
+}
+.kfam {
+	font-size: 10px;
+	color: var(--muted-foreground);
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	margin-left: 6px;
+}
+.kfam .i {
+	width: 11px;
+	height: 11px;
+}
+.knoplan {
+	color: var(--muted-foreground);
+	font-style: italic;
+}
+.kview {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 10.5px;
+	color: var(--muted-foreground);
+	border: 1px solid var(--border);
+	border-radius: 999px;
+	padding: 2px 8px;
+	white-space: nowrap;
+}
+.kview .i {
+	width: 12px;
+	height: 12px;
+}
+.kcap {
+	margin: 8px 0 12px;
+	padding: 8px 10px;
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	background: var(--secondary);
+	display: grid;
+	gap: 3px;
+}
+.kcap b {
+	font-weight: 600;
+}
+.kscope {
+	margin: 0;
+	padding: 8px 14px;
+	display: flex;
+	gap: 6px;
+	align-items: center;
+	border-bottom: 1px solid var(--border);
+	background: var(--secondary);
+	font-size: 11px;
+}
+.kscope .i {
+	width: 13px;
+	height: 13px;
+}
+.kfset {
+	display: inline-flex;
+	gap: 6px;
+	align-items: center;
+}
+.menu button[disabled] {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+.mp-fam {
+	display: grid;
+	gap: 10px;
+}
+.mp-fam .mp-card {
+	margin: 0;
 }
 .kempty {
 	height: 126px;

@@ -76,7 +76,7 @@ type ShellProps = {
 	navigate: (route: Route) => void;
 };
 
-/** The mockup's frame (lines 244 to 264): top bar, tabs row, stale banner, the current tab's pane, the settings
+/** The mockup's frame (lines 261 to 282): top bar with the scope note, tabs row, stale banner, the current tab's pane, the settings
  * drawer and the toast. The panes are filled by later slices. */
 export function Shell({
 	route,
@@ -146,6 +146,16 @@ export function Shell({
 					current={route.schoolId}
 					onChoose={chooseSchool}
 				/>
+				{school && (
+					<span
+						class="kview"
+						data-test="scope-note"
+						title={`You are ${school.role === "owner" ? "an owner" : "an admin"} in ${school.name}. Owners and admins own the dashboard and see everyone's data. Members see only themselves and their family.`}
+					>
+						<Icon name="eye" />
+						You see all members
+					</span>
+				)}
 				<span class="sp" />
 				<PeriodControl
 					period={period}
