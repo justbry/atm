@@ -12,9 +12,10 @@
  *   S6  the same under TZ=America/Denver and TZ=Asia/Tokyo
  *
  * The default run is a sample that takes about two minutes. `ATM_GOLDEN_E2E=full` runs every bundle, all kill points and both
- * time zones over everything (`ATM_GOLDEN_E2E_SHARD=1/6` runs one sixth of the bundles, to run six processes at once). S7, the
- * scale probe, is `scripts/golden-e2e-scale.ts`. A finding is something the design says should not happen: the ones known today
- * are listed below and pinned, so a test fails when one appears or goes away.
+ * time zones over everything. `ATM_GOLDEN_E2E_SHARD=1/6` runs one sixth of either run (of its bundles, then of the tests after
+ * them), to run six processes at once. S7, the scale probe, is `scripts/golden-e2e-scale.ts`. A finding is something the
+ * design says should not happen: the ones known today are listed below and pinned, so a test fails when one appears or goes
+ * away.
  */
 import { describe, expect, test } from "bun:test";
 import { appendFileSync, existsSync, readdirSync } from "node:fs";
@@ -106,17 +107,33 @@ const withTimeZone = async <T>(zone: string, run: () => Promise<T>) => {
 	}
 };
 
-const bundleIds = (): string[] => {
-	const all = readdirSync(defaultBundlesDirectory(), { withFileTypes: true })
-		.filter((entry) => entry.isDirectory())
-		.map((entry) => entry.name)
-		.sort();
-	if (!FULL) return QUICK_BUNDLES;
-	if (!SHARD) return all;
-	const index = Number(SHARD[1]) - 1;
-	const count = Number(SHARD[2]);
-	return all.filter((_, position) => position % count === index);
-};
+/** Every bundle of the run, in every shard: the full run's are all of them, the sample's three. */
+const BUNDLES: string[] = FULL
+	? readdirSync(defaultBundlesDirectory(), { withFileTypes: true })
+			.filter((entry) => entry.isDirectory())
+			.map((entry) => entry.name)
+			.sort()
+	: QUICK_BUNDLES;
+
+/** The tests after the bundles of S1, one unit each for a shard. */
+const LATER_UNITS = [
+	"what-if",
+	"years",
+	"erasure",
+	"crash",
+	"zones",
+	"dist",
+] as const;
+
+/** With a shard set, this process runs every n-th unit of the run, from the i-th: the bundles, then the later tests. */
+const inShard = (position: number): boolean =>
+	!SHARD || position % Number(SHARD[2]) === Number(SHARD[1]) - 1;
+
+const bundleIds = (): string[] =>
+	BUNDLES.filter((_, position) => inShard(position));
+
+const runsHere = (unit: (typeof LATER_UNITS)[number]): boolean =>
+	inShard(BUNDLES.length + LATER_UNITS.indexOf(unit));
 
 const runBundle = async (
 	id: string,
@@ -135,9 +152,6 @@ const runBundle = async (
 		await world.dispose();
 	}
 };
-
-/** The tests that are not one bundle each run once: in the first shard, or in an unsharded run. */
-const LEAD = !SHARD || SHARD[1] === "1";
 
 const logFixture = (
 	name: Parameters<typeof checkLogFixture>[0],
@@ -161,7 +175,7 @@ else {
 			);
 	});
 
-	describe.if(LEAD)("S1: the what-if goldens", () => {
+	describe.if(runsHere("what-if"))("S1: the what-if goldens", () => {
 		test(
 			"upgradeGrant prorated, full and none, a price and allowance change and a rollover cap equal golden/simulate",
 			async () => {
@@ -174,25 +188,28 @@ else {
 		);
 	});
 
-	describe.if(LEAD)("S2: the golden year and the multi-school fixture", () => {
-		test(
-			"vibes-multi",
-			async () => {
-				expectPinned("vibes-multi", await logFixture("vibes-multi"));
-			},
-			TEST_TIMEOUT,
-		);
-		if (FULL)
+	describe.if(runsHere("years"))(
+		"S2: the golden year and the multi-school fixture",
+		() => {
 			test(
-				"vibes-year",
+				"vibes-multi",
 				async () => {
-					expectPinned("vibes-year", await logFixture("vibes-year"));
+					expectPinned("vibes-multi", await logFixture("vibes-multi"));
 				},
 				TEST_TIMEOUT,
 			);
-	});
+			if (FULL)
+				test(
+					"vibes-year",
+					async () => {
+						expectPinned("vibes-year", await logFixture("vibes-year"));
+					},
+					TEST_TIMEOUT,
+				);
+		},
+	);
 
-	describe.if(LEAD)("S3: an erasure drill", () => {
+	describe.if(runsHere("erasure"))("S3: an erasure drill", () => {
 		test(
 			"one family is erased and nothing of it is left but what the design keeps",
 			async () => {
@@ -204,7 +221,7 @@ else {
 		);
 	});
 
-	describe.if(LEAD)("S4: SIGKILL and rerun", () => {
+	describe.if(runsHere("crash"))("S4: SIGKILL and rerun", () => {
 		test(
 			"atm inputs ship, atm ship and the erasure settle converge to an uninterrupted run",
 			async () => {
@@ -216,7 +233,7 @@ else {
 		);
 	});
 
-	describe.if(LEAD && !ZONE)("S6: time zones", () => {
+	describe.if(runsHere("zones") && !ZONE)("S6: time zones", () => {
 		test(
 			"create and vibes-multi give the same bytes under Denver and Tokyo as under the machine's zone",
 			async () => {
@@ -241,7 +258,7 @@ else {
 		);
 	});
 
-	describe.if(LEAD && !ZONE)("the built dist/atm.js", () => {
+	describe.if(runsHere("dist") && !ZONE)("the built dist/atm.js", () => {
 		test(
 			"create through the built command line",
 			async () => {
