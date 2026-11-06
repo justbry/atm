@@ -923,7 +923,7 @@
 		},
 		{
 			"id": "menu-owner",
-			"source": "mockup kMenuHtml for Ivy N., the owner viewing: every per-member action in one role=menu, groups split by rules (portal | money and plan | role | export | audit and Stripe), Cancel in the danger style; plans/ledger-ui/design/smoke.mjs 'menu: opens a role=menu with the listed items for the owner', 'menu: groups are separated by rules', 'menu: owner sees every action enabled', 'menu: destructive item uses the danger style'. Items are buttons in document order, so :nth-of-type counts them past the rules",
+			"source": "mockup kMenuHtml for Ivy N., the owner viewing: every per-member action in one role=menu, groups split by rules (portal | money and plan | role | export | audit and Stripe), Cancel in the danger style; plans/ledger-ui/design/smoke.mjs 'menu: opens a role=menu with the listed items for the owner', 'menu: groups are separated by rules', 'menu: owner sees every action enabled', 'menu: destructive item uses the danger style'. Items are buttons in document order, so :nth-of-type counts them past the rules; View in Stripe is a link (G4d: MemberDetail.stripeDashboardUrl), so it is selected by its action",
 			"route": "#/vol/members?theme=light",
 			"steps": [
 				{
@@ -942,8 +942,6 @@
 					"[data-test=member-menu-item]:nth-of-type(8)": "Make admin",
 					"[data-test=member-menu-item]:nth-of-type(9)": "Download CSV",
 					"[data-test=member-menu-item]:nth-of-type(10)": "Audit member",
-					"[data-test=member-menu-item]:nth-of-type(11)": "View in Stripe",
-					"[data-test=member-menu-item]:nth-of-type(12)": "Resend receipt",
 					"[data-test=member-menu-item][data-action=view-as-member]": "View as member",
 					"[data-test=member-menu-item][data-action=invoice]": "Send invoice…",
 					"[data-test=member-menu-item][data-action=adjust]": "Adjust sessions…",
@@ -955,7 +953,8 @@
 					"[data-test=member-menu-item][data-action=csv]": "Download CSV",
 					"[data-test=member-menu-item][data-action=audit]": "Audit member",
 					"[data-test=member-menu-item][data-action=stripe]": "View in Stripe",
-					"[data-test=member-menu-item][data-action=receipt]": "Resend receipt"
+					"[data-test=member-menu-item][data-action=receipt]": "Resend receipt",
+					"[data-test=member-menu-item]:nth-of-type(11)": "Resend receipt"
 				},
 				"count": {
 					"[data-test=member-menu][role=menu]": 1,
@@ -2718,26 +2717,23 @@
 		},
 		{
 			"id": "menu-stripe",
-			"source": "mockup data-toast on View in Stripe (no route)",
+			"source": "View in Stripe is a real link to MemberDetail.stripeDashboardUrl (G4d), opened in a new tab; no toast",
 			"route": "#/vol/members?theme=light",
 			"steps": [
 				{
 					"click": "[data-test=member-row][data-id=\"m_012\"] [data-test=member-menu-button]"
-				},
-				{
-					"click": "[data-test=member-menu-item][data-action=stripe]"
 				}
 			],
 			"expect": {
-				"text": {
-					"[data-test=toast]": "Opening Stripe dashboard…"
+				"count": {
+					"[data-test=member-menu-item][data-action=stripe][href^=\"https://dashboard.stripe.com/\"][target=_blank][rel~=noopener]": 1
 				},
 				"writes": []
 			}
 		},
 		{
 			"id": "menu-receipt",
-			"source": "mockup data-toast on Resend receipt (no route in the briefs; the mockup's toast doubles the full stop after 'Ivy N.')",
+			"source": "Resend receipt calls MembersWriter.resendReceipt (G4d) and toasts only after it is accepted (the mockup's toast doubles the full stop after 'Ivy N.')",
 			"route": "#/vol/members?theme=light",
 			"steps": [
 				{
@@ -2753,7 +2749,17 @@
 						"Receipt resent to Ivy N"
 					]
 				},
-				"writes": []
+				"writes": [
+					{
+						"method": "resendReceipt",
+						"args": [
+							{
+								"schoolId": "vol",
+								"personId": "m_012"
+							}
+						]
+					}
+				]
 			}
 		},
 		{

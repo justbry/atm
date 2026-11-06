@@ -493,12 +493,14 @@ export const expiresSoon = (promo: Promo, clock: Clock): boolean =>
 // ---- Downloads and the one CSV helper (mockup `kCell`, `kCsv`, `kName`, `kSave`)
 
 export const csvMediaType = "text/csv;charset=utf-8";
+/** A JSON file the UI saves (the member audit's report). */
+export const jsonMediaType = "application/json;charset=utf-8";
 
 /** A file the UI saves: the real Writer makes a Blob URL and clicks a hidden link; the fixture records it. Then the
  * UI toasts `Downloaded <n> row(s)`. */
 export type DownloadFile = {
 	name: string;
-	type: typeof csvMediaType;
+	type: typeof csvMediaType | typeof jsonMediaType;
 	text: string;
 };
 

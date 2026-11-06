@@ -1,6 +1,6 @@
 import type { ComponentChildren, JSX } from "preact";
 import { useEffect, useId, useState } from "preact/hooks";
-import type { DownloadFile } from "../data/ledger.ts";
+import { type DownloadFile, jsonMediaType } from "../data/ledger.ts";
 import type {
 	InvoiceItem,
 	Member,
@@ -1005,8 +1005,6 @@ function RoleModal({
 	);
 }
 
-/** What "Export report" saves: the audit as the server returned it, as JSON. */
-const reportMediaType = "application/json;charset=utf-8";
 const auditFailedText = "Could not run the audit. Try again.";
 const reportFailedToast = "Could not save the report. Try again.";
 
@@ -1036,8 +1034,7 @@ function AuditModal({ context }: { context: ModalContext }): JSX.Element {
 		try {
 			await saveReport({
 				name: audit.reportFileName,
-				// The contract types a download as CSV; the report is JSON, so the media type is the file's own.
-				type: reportMediaType as DownloadFile["type"],
+				type: jsonMediaType,
 				text: JSON.stringify(audit, null, 2),
 			});
 			onToast(`${audit.reportFileName} downloaded.`);
