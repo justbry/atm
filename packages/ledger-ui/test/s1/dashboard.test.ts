@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import { options } from "preact";
 import { mountApp } from "../../src/app/mount.tsx";
 import type { KpiDocument } from "../../src/data/kpi-document.ts";
 import type { Reader } from "../../src/data/reader.ts";
@@ -12,8 +13,8 @@ let unmount: (() => void) | null = null;
 
 const macrotask = (): Promise<void> =>
 	new Promise((resolve) => setTimeout(resolve, 0));
-const element = (selector: string): HTMLElement => {
-	const found = document.querySelector<HTMLElement>(selector);
+const element = <T extends HTMLElement = HTMLElement>(selector: string): T => {
+	const found = document.querySelector<T>(selector);
 	if (!found) throw new Error(`no element matches ${selector}`);
 	return found;
 };
@@ -34,6 +35,8 @@ const open = async (
 	hash: string,
 	reader: Reader = createFixtureReader({ clock }),
 ): Promise<void> => {
+	unmount?.();
+	document.body.innerHTML = "";
 	window.location.hash = hash;
 	const container = document.createElement("div");
 	container.id = "app";
@@ -57,159 +60,166 @@ afterEach(() => {
 	window.location.hash = "";
 });
 
-test("the fixture Reader offers the five levels in rank order and returns only committed documents", async () => {
+test("the fixture Reader gives the presets, the five schools, each school's disclosure and exactly the committed documents", async () => {
 	const reader = createFixtureReader({ clock });
-	const { levels, presets } = await reader.dashboardOptions();
-	expect(levels.map(({ id, name, pin }) => [id, name, pin])).toEqual([
-		["public", "Public", false],
-		["member", "Member", false],
-		["governance", "Governance", true],
-		["finance_admin", "Finance admin", true],
-		["owner", "Owner", true],
+	const options = await reader.dashboardOptions();
+	expect(Object.keys(options)).toEqual(["presets"]);
+	expect(options.presets.length).toBe(15);
+	expect((await reader.schools()).map(({ id }) => id)).toEqual([
+		"vol",
+		"b4u",
+		"map",
+		"nw",
+		"har",
 	]);
-	const keys = presets.flatMap(({ id }) =>
-		levels.flatMap((level) =>
-			level.pin
-				? [`${id}.${level.id}`, `${id}.${level.id}.pin-locked`]
-				: [`${id}.${level.id}`],
-		),
-	);
-	expect(keys.sort()).toEqual(Object.keys(committed).sort());
+	expect((await reader.disclosure("har")).viewer.viewAs).toBe("admin");
 	expect(
 		await reader.kpiDocument({
+			school: "har",
 			preset: "monthly-members",
-			level: "public",
+			audience: "member",
+			pinLocked: false,
+		}),
+	).toEqual(committed["har/monthly-members.member"]);
+	expect(
+		await reader.kpiDocument({
+			school: "vol",
+			preset: "disputes",
+			audience: "governance",
+			pinLocked: true,
+		}),
+	).toEqual(committed["vol.governance.pin-locked"]);
+	expect(
+		await reader.kpiDocument({
+			school: "b4u",
+			preset: "monthly-members",
+			audience: "public",
 			pinLocked: true,
 		}),
 	).toBeUndefined();
-	expect(
-		await reader.kpiDocument({
-			preset: "nowhere",
-			level: "owner",
-			pinLocked: false,
-		}),
-	).toBeUndefined();
 });
 
-test("unknown view, level and month fall back to the school's level, Money and its opening month", async () => {
-	await open(
-		"#/b4u/dashboard?preset=disputes&level=nobody&view=charts&month=2031-01",
-	);
-	expect(text("[data-test=books-level].on")).toBe("Finance admin");
+test("an unknown view, a row the viewer does not hold and a month after today fall back to Money, their own row and this month", async () => {
+	await open("#/b4u/dashboard?as=owner&view=charts&month=2031-01");
 	expect(text("[data-test=dash-view].on")).toBe("Money");
-	expect(text("[data-test=dash-period].on")).toBe("Jun");
-});
-
-test("a school without an opening month opens on the last period the level shows", async () => {
-	await open("#/vol/dashboard?preset=monthly-members");
-	expect(text("[data-test=books-level].on")).toBe("Owner");
+	expect(text("[data-test=dash-caption]")).toStartWith("Finance admin sees");
 	expect(text("[data-test=dash-period].on")).toBe("Nov");
-	await click("[data-test=books-level][data-level=governance]");
-	expect(text("[data-test=dash-period].on")).toBe("Sep");
-	await click("[data-test=books-level][data-level=public]");
-	expect(text("[data-test=dash-period].on")).toBe("2024");
-	await click("[data-test=dash-view][data-view=members]");
-	expect(text("[data-test=dash-period].on")).toBe("2025");
 });
 
-test("the step buttons stop at the first month and before a month Governance does not see yet", async () => {
-	await open(
-		"#/b4u/dashboard?preset=monthly-members&level=governance&month=2026-01",
+test("a period the audience may not pick snaps to the last pickable one before it, without rewriting the route", async () => {
+	await open("#/b4u/dashboard?as=governance&month=2026-11");
+	expect(text("[data-test=dash-period].on")).toBe("Sep");
+	expect(element("#app").dataset.route).toBe(
+		"#/b4u/dashboard?as=governance&month=2026-11",
 	);
+	await open("#/b4u/dashboard?as=public&month=2026-06");
+	expect(text("[data-test=dash-period].on")).toBe("2024");
+	await click('[data-test=dash-period][data-period="2024"]');
+	expect(window.location.hash).toContain("month=2024-01-01..2024-12-31");
+});
+
+test("the step buttons stop at the first month and before a month Governance may not see yet", async () => {
+	await open("#/b4u/dashboard?as=governance&month=2026-01");
 	const previous = (): HTMLButtonElement =>
-		element('[data-test=dash-step][data-step="-1"]') as HTMLButtonElement;
+		element('[data-test=dash-step][data-step="-1"]');
 	const next = (): HTMLButtonElement =>
-		element('[data-test=dash-step][data-step="1"]') as HTMLButtonElement;
+		element('[data-test=dash-step][data-step="1"]');
 	expect(previous().disabled).toBe(true);
-	expect(next().disabled).toBe(false);
 	await click('[data-test=dash-step][data-step="1"]');
 	expect(window.location.hash).toContain("month=2026-02");
 	await click('[data-test=dash-period][data-period="2026-09"]');
 	expect(next().disabled).toBe(true);
-	expect(count("[data-test=dash-step]")).toBe(2);
+	expect(
+		element<HTMLButtonElement>('[data-test=dash-period][data-period="2026-10"]')
+			.disabled,
+	).toBe(true);
 });
 
-test("a period a level does not show yet is a waiting box, and its rows say when, never 0", async () => {
-	await open(
-		"#/b4u/dashboard?preset=monthly-members&level=member&view=money&month=2026-Q4",
-	);
-	expect(count("[data-test=kpi-card]")).toBe(0);
-	expect(text("[data-test=dash-wait]")).toContain(
-		"Q4 2026 shows from Apr 2027.",
-	);
-	expect(element("#app").textContent).toContain("from Apr 2027");
-	expect(count('[data-kpi="gross_collected"][data-period="2026-Q4"]')).toBe(0);
-});
-
-test("a flag's Show button opens its period, and the flagged cells are the document's", async () => {
-	await open(
-		"#/b4u/dashboard?preset=heavy-refunds&level=owner&view=risk&month=2026-06",
-	);
+test("a flag's Show button opens its month, and the flagged cells are the document's", async () => {
+	await open("#/b4u/dashboard?preset=heavy-refunds&view=risk&month=2026-06");
 	const flags = [...document.querySelectorAll("[data-test=dash-flag]")];
 	expect(flags.length).toBeGreaterThan(0);
-	const first = flags[0];
-	expect(first?.textContent).toContain("Refund rate");
 	const period =
-		first
+		flags[0]
 			?.querySelector("[data-kpi=refund_rate]")
 			?.getAttribute("data-period") ?? "";
-	(first?.querySelector("button") as HTMLButtonElement).click();
+	(flags[0]?.querySelector("button") as HTMLButtonElement).click();
 	await settle();
 	expect(window.location.hash).toContain(`month=${period}`);
 	expect(element("[data-test=dash-period].on").dataset.period).toBe(period);
 });
 
-test("charts draw a bar only for a number: Governance's months not shown yet have none", async () => {
-	await open(
-		"#/b4u/dashboard?preset=monthly-members&level=governance&view=money&month=2026-06",
-	);
-	const governance = committed["monthly-members.governance"];
+test("charts draw a bar only for a number: Governance's months not shown yet have none and say so", async () => {
+	await open("#/b4u/dashboard?as=governance&view=money&month=2026-06");
+	const month = committed["monthly-members.governance"]?.tables.month;
 	const numbers = (kpi: string): number =>
-		(governance?.series[kpi] ?? []).filter((cell) => typeof cell === "number")
+		(month?.series[kpi] ?? []).filter((cell) => typeof cell === "number")
 			.length;
 	const grossVersusNet = element("#app").querySelector("svg.kc");
-	const bars = grossVersusNet?.querySelectorAll("rect:not(.col)").length;
-	expect(bars).toBe(numbers("gross_collected") + numbers("net_income"));
+	expect(grossVersusNet?.querySelectorAll("rect:not(.col)").length).toBe(
+		numbers("gross_collected") + numbers("net_income"),
+	);
 	expect(numbers("gross_collected")).toBe(9);
+	const titles = [...(grossVersusNet?.querySelectorAll("title") ?? [])]
+		.map((title) => title.textContent ?? "")
+		.filter((title) => /^(Oct|Nov|Dec)/.test(title));
+	expect(titles.length).toBe(3);
+	expect(titles.every((title) => title.includes("not shown yet"))).toBe(true);
 });
 
-test("a band reads 'under $1,000' and a hidden cell its label with the reason, never 0", async () => {
+test("a withheld cell reads its reason with its title, and a suppressed one '—', never 0", async () => {
 	await open(
-		"#/b4u/dashboard?preset=monthly-members&level=public&view=money&month=2024",
+		"#/b4u/dashboard?as=public&view=money&month=2024-01-01..2024-12-31",
 	);
-	const fees = element('[data-test=kpi-value][data-kpi="stripe_fees"]');
-	expect(fees.dataset.cell).toBe("lt");
-	expect(fees.textContent).toBe("under $1,000");
 	const refunds = element('[data-test=kpi-value][data-kpi="refunds"]');
-	expect(refunds.dataset.cell).toBe("suppressed");
-	expect(refunds.getAttribute("title")).toBe("Hidden: fewer than 5 payers");
-	expect(refunds.closest(".kcard")?.classList.contains("kcut")).toBe(true);
+	expect(refunds.dataset.cell).toBe("members_only");
+	expect(refunds.dataset.hid).toBe("members_only");
+	expect(refunds.title).toBe("Members see this");
+	expect(refunds.closest(".kcard")?.textContent).toContain(
+		"Not in this document",
+	);
+	await open("#/b4u/dashboard?as=governance&view=money&month=2026-06");
+	const cut = element(
+		'[data-kpi="revenue_by_tier:audit"][data-period="2026-06"]',
+	);
+	expect(cut.textContent).toBe("—");
+	expect(cut.title).toBe("Hidden: fewer than 5 payers");
+	expect(cut.dataset.cell).toBe("suppressed");
+	await open(
+		"#/b4u/dashboard?as=member&view=money&month=2026-04-01..2026-06-30",
+	);
+	const rounded = element('[data-test=kpi-value][data-kpi="refunds"]');
+	expect(rounded.textContent).toBe("under $100");
 });
 
-test("the PIN state survives a level switch and applies only from Governance up", async () => {
-	await open(
-		"#/b4u/dashboard?preset=monthly-members&level=governance&pin=locked",
-	);
-	expect(count("[data-test=pin-lock]")).toBe(1);
-	await click("[data-test=books-level][data-level=owner]");
-	expect(text("[data-test=pin-lock]")).toContain("Owner opens the books");
-	await click("[data-test=books-level][data-level=member]");
-	expect(count("[data-test=pin-lock]")).toBe(0);
+test("Admin reads its own membership's document, with the plan breakdown as its lock panel", async () => {
+	await open("#/har/dashboard");
+	expect(text("[data-test=dash-caption]")).toStartWith("Member document");
+	expect(
+		text(
+			"[data-test=lock-panel][data-surface=dashboard-plan] [data-test=lock-who]",
+		),
+	).toBe("Governance and up see this");
 	expect(count("[data-test=pin-chip]")).toBe(0);
-	expect(count("[data-test=kpi-card]")).toBe(5);
 });
 
-test("unlocking shows the books and says so", async () => {
-	await open(
-		"#/b4u/dashboard?preset=monthly-members&level=owner&pin=locked&month=2026-06",
+test("the PIN applies only from Governance up, and unlocking says so", async () => {
+	await open("#/b4u/dashboard?as=member&pin=locked");
+	expect(count("[data-test=pin-lock]")).toBe(0);
+	expect(count("[data-test=kpi-card]")).toBe(5);
+	await open("#/b4u/dashboard?pin=locked&month=2026-06");
+	expect(text("[data-test=pin-lock]")).toContain(
+		"Finance admin opens the books",
 	);
-	const input = element("[data-test=pin-input]") as HTMLInputElement;
+	expect(count("[data-test=pin-chip].on")).toBe(1);
+	expect(count("[data-test=dash-period]")).toBe(0);
+	const input = element<HTMLInputElement>("[data-test=pin-input]");
 	input.value = "123";
 	input.dispatchEvent(new Event("input", { bubbles: true }));
 	await macrotask();
-	expect(
-		(element("[data-test=pin-unlock]") as HTMLButtonElement).disabled,
-	).toBe(true);
+	expect(element<HTMLButtonElement>("[data-test=pin-unlock]").disabled).toBe(
+		true,
+	);
 	input.value = "1234";
 	input.dispatchEvent(new Event("input", { bubbles: true }));
 	await macrotask();
@@ -219,6 +229,46 @@ test("unlocking shows the books and says so", async () => {
 	expect(text('[data-test=kpi-value][data-kpi="gross_collected"]')).toBe(
 		"$623.00",
 	);
+});
+
+test("the live audiences draw every day of the month, the days after today as stubs", async () => {
+	await open("#/b4u/dashboard?view=money&month=2026-11");
+	const days = [
+		...document.querySelectorAll<SVGRectElement>(
+			'[data-kpi="gross_collected"][data-day^="2026-11-"]',
+		),
+	];
+	expect(days.length).toBe(30);
+	const day = committed["monthly-members.finance"]?.tables.day;
+	const first =
+		day?.series.gross_collected?.[day.periods.indexOf("2026-11-01")];
+	expect(days[0]?.getAttribute("data-value")).toBe(String(first));
+	expect(
+		days.filter((rect) => rect.getAttribute("data-cell") === "future").length,
+	).toBe(25);
+});
+
+test("switching school drops the Dashboard's query; the school opens as its own person on its own month", async () => {
+	await open(
+		"#/vol/dashboard?as=public&view=risk&month=2024-01-01..2024-12-31&pin=locked&theme=dark",
+	);
+	await click("[data-test=school-switcher]");
+	await click("[data-test=school-option][data-school=b4u]");
+	expect(window.location.hash).toBe("#/b4u/plans?theme=dark");
+	await click("[data-test=tab][data-tab=dashboard]");
+	expect(text("[data-test=dash-view].on")).toBe("Money");
+	expect(text("[data-test=dash-period].on")).toBe("Jun");
+	expect(text('[data-test=kpi-value][data-kpi="gross_collected"]')).toBe(
+		"$623.00",
+	);
+});
+
+test("Bookings follow the View as row: Governance sees the lock panel, Admin the list", async () => {
+	await open("#/b4u/bookings?as=governance");
+	expect(count("[data-test=lock-panel][data-lock=admins_only]")).toBe(1);
+	await open("#/b4u/bookings?as=admin");
+	expect(count("[data-test=lock-panel]")).toBe(0);
+	expect(count("[data-test=booking-note]")).toBe(1);
 });
 
 test("the route is recorded only once the document of that route is on screen", async () => {
@@ -249,4 +299,40 @@ test("the route is recorded only once the document of that route is on screen", 
 	await settle();
 	expect(container.dataset.route).toBe("#/b4u/dashboard?preset=disputes");
 	expect(count("[data-test=kpi-card]")).toBe(5);
+});
+
+test("the Member's year note names the year table's sum of the four rounded quarters", async () => {
+	await open(
+		"#/har/dashboard?preset=monthly-members&view=money&month=2025-10-01..2025-12-31",
+	);
+	expect(text("[data-test=year-note]")).toBe(
+		"The four rounded quarters add up to $236,700; the year is rounded from its own events.",
+	);
+	expect(
+		text('[data-kpi="gross_collected_rounded_quarters"][data-period="2025"]'),
+	).toBe("$236,700");
+});
+
+test("a document with no year note when the audience reads years", async () => {
+	await open("#/b4u/dashboard?as=public&view=money");
+	expect(count("[data-test=year-note]")).toBe(0);
+});
+
+test("picking a View as row shows that audience's Dashboard within the click", async () => {
+	await open("#/b4u/dashboard?preset=monthly-members");
+	// A person's click is drawn before it returns; the page's own scheduling would draw it a task later.
+	const scheduled = options.debounceRendering;
+	options.debounceRendering = (render) => render();
+	try {
+		const seen: string[] = [];
+		for (const audience of ["public", "member", "governance", "finance"]) {
+			element("[data-test=view-as]").click();
+			element(`[data-test=view-as-option][data-as=${audience}]`).click();
+			seen.push(text("[data-test=pane]"));
+		}
+		expect(new Set(seen).size).toBe(4);
+	} finally {
+		if (scheduled) options.debounceRendering = scheduled;
+		else delete options.debounceRendering;
+	}
 });

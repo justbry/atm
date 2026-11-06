@@ -4,30 +4,30 @@ import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { canonicalize, sha256Hex } from "../../atm/src/ledger/util.ts";
 import {
-	type CellRules,
-	documentKey,
-	documentVariants,
-	kpiDocument,
-	type PresetBundle,
-} from "../gates/oracle.ts";
-import { mountApp } from "../src/app/mount.tsx";
+	type DisclosureFixture,
+	importRows,
+	namedRow,
+	type Provenance,
+	plan,
+} from "../scripts/import-mart.ts";
+import type { Audience } from "../src/data/disclosure.ts";
 import {
-	type BooksLevel,
 	type Cell,
 	cellKind,
 	type KpiDocument,
 	type KpiFormat,
 	type KpiQuery,
-	type LagClass,
+	type KpiTable,
+	type TableGrain,
 } from "../src/data/kpi-document.ts";
 import type { Reader } from "../src/data/reader.ts";
-import { createFixtureReader } from "../src/fixtures/reader.ts";
-import { createFixtureWriter } from "../src/fixtures/writer.ts";
 
 /**
  * Gate C (protocol §5): one chain from atm's fixtures to the UI's pixels, hashed with atm's own canonicalize and
- * sha256Hex. C1 and C2 need only data and run from S0; C3 and C4 join in S1 with the fixture documents. The parts that
- * need the S1 build (the fixture Reader's `kpiDocument`) skip until it exists.
+ * sha256Hex. C1 and C2 need only data; C3 checks every school's and audience's document against the oracle, the
+ * committed provenance, atm's goldens and the disclosure object; C4 mounts the Dashboard on every document a school's
+ * viewer may preview. The parts that need the S1b build (the fixture Reader's `kpiDocument` on the audiences) skip
+ * until it exists.
  */
 type KpiRow = { kpiId: string; period: string; unit: string; value: number };
 type KpiExport = {
@@ -150,28 +150,18 @@ describe("C2: atm's read-slice views agree with the export", () => {
 });
 
 type DashboardView = "money" | "members" | "risk";
-type CellLabels = Record<
-	"suppressed" | "locked" | "not_computed" | "not_yet" | "blocked",
-	string
->;
 type KpiReader = Reader & {
-	kpiDocument?: (query: KpiQuery) => KpiDocument | Promise<KpiDocument>;
-};
-type Provenance = {
-	sha256: string;
-	preset: string;
-	fixtureHash: string;
-	kpisHash: string;
+	kpiDocument?: (
+		query: KpiQuery,
+	) => Promise<KpiDocument | undefined> | KpiDocument | undefined;
 };
 
-const mart = join(import.meta.dir, "..", "src/fixtures/mart");
+const packageRoot = join(import.meta.dir, "..");
+const mart = join(packageRoot, "src/fixtures/mart");
 const readJson = <T>(path: string): T =>
 	JSON.parse(readFileSync(path, "utf8")) as T;
 const clock = { today: "2026-11-05", now: "2026-11-05T12:00" };
 const dashboardViews: readonly DashboardView[] = ["money", "members", "risk"];
-const committedRules = readJson<CellRules & { labels: CellLabels }>(
-	join(mart, "cell-rules.json"),
-);
 const committedRows = readJson<Record<string, KpiRow[]>>(
 	join(mart, "rows.json"),
 );
@@ -181,34 +171,41 @@ const committedDocuments = readJson<Record<string, KpiDocument>>(
 const committedProvenance = readJson<Record<string, Provenance>>(
 	join(mart, "provenance.json"),
 );
-const bundle = readJson<{ profiles: Record<string, PresetBundle> }>(
-	join(snapshot, "bundle.json"),
+const disclosure = readJson<DisclosureFixture>(
+	join(packageRoot, "src/fixtures/disclosure.json"),
 );
-const variants = documentVariants(committedRules);
-/** The KPIs each Dashboard view must render for its selected period, per books level (test/golden/S1.json `views`). */
+const { rows: importedRows, sources } = importRows();
+const plans = plan(importedRows, sources);
+/** The KPIs each Dashboard view must render for its selected period, per audience (test/golden/S1.json `views`). */
 const viewKpis = readJson<{
-	views: Record<BooksLevel, Record<DashboardView, string[]>>;
+	views: Record<Audience, Record<DashboardView, string[]>>;
 }>(join(import.meta.dir, "golden", "S1.json")).views;
-const fixtureReader = (): KpiReader =>
-	createFixtureReader({ clock }) as KpiReader;
-const hasKpiDocument = typeof fixtureReader().kpiDocument === "function";
-const goldenOf = (preset: string): KpiExport =>
-	readJson<KpiExport>(join(goldens, `${preset}.json`));
 
-describe("C3: every level's fixture document equals the oracle on atm's rows and traces to atm's hashes", () => {
-	test("the committed cell rules are cell-rules.v3.json", () => {
-		expect(committedRules).toEqual(
-			readJson(join(repositoryRoot, "plans/ledger-ui/loop/cell-rules.v3.json")),
-		);
+/** The fixture adapters load lazily: the Reader is the builder's, and the gate must not fall over when it lags. */
+const loaded = await Promise.all([
+	import("../src/app/mount.tsx"),
+	import("../src/fixtures/reader.ts"),
+	import("../src/fixtures/writer.ts"),
+]).catch(() => null);
+const fixtureReader = (): KpiReader | null =>
+	loaded ? (loaded[1].createFixtureReader({ clock }) as KpiReader) : null;
+/** The Reader answers the audience query (not a books level). */
+const hasKpiDocument = await (async () => {
+	const reader = fixtureReader();
+	if (typeof reader?.kpiDocument !== "function") return false;
+	const answer = await reader.kpiDocument({
+		school: "b4u",
+		preset: "monthly-members",
+		audience: "public",
+		pinLocked: false,
 	});
-	test("one document per preset and level, and per PIN-locked level", () => {
-		const keys = presets
-			.flatMap((preset) =>
-				variants.map(({ level, pinLocked }) =>
-					documentKey(preset, level, pinLocked),
-				),
-			)
-			.sort();
+	return answer?.audience === "public";
+})();
+
+describe("C3: every school's and audience's document equals the oracle, its provenance and the disclosure", () => {
+	test("one document per planned key, and provenance for each", () => {
+		const keys = plans.map(({ key }) => key).sort();
+		expect(new Set(keys).size).toBe(keys.length);
 		expect(Object.keys(committedDocuments).sort()).toEqual(keys);
 		expect(Object.keys(committedProvenance).sort()).toEqual(keys);
 	});
@@ -217,14 +214,23 @@ describe("C3: every level's fixture document equals the oracle on atm's rows and
 			/[0-9a-f]{64}/.test(readFileSync(join(mart, "documents.json"), "utf8")),
 		).toBe(false);
 	});
-	for (const preset of presets) {
-		test(`${preset}: the rows are atm's export rows of the KPIs cell-rules names`, () => {
-			const named = (kpiId: string): boolean =>
-				kpiId in committedRules.kpis ||
-				(kpiId.includes(":") &&
-					`${kpiId.slice(0, kpiId.indexOf(":"))}:*` in committedRules.kpis);
+	test("the mockup schools come from the frozen mockup", () => {
+		const mockupSha256 = sha256Hex(
+			readFileSync(
+				join(repositoryRoot, "plans/ledger-ui/design/mockup.html"),
+				"utf8",
+			),
+		);
+		expect(
+			readJson<{ mockupSha256: string }>(
+				join(packageRoot, "gates/mockup-schools.json"),
+			).mockupSha256,
+		).toBe(mockupSha256);
+	});
+	for (const preset of presets)
+		test(`${preset}: the rows are atm's export rows of school-level KPIs`, () => {
 			const exported = readExport(preset).rows.filter((row) =>
-				named(row.kpiId),
+				namedRow(row.kpiId),
 			);
 			const byKey = new Map(
 				exported.map((row) => [`${row.kpiId}@${row.period}`, row]),
@@ -245,119 +251,207 @@ describe("C3: every level's fixture document equals the oracle on atm's rows and
 				),
 			).toEqual([]);
 		});
-		test(`${preset}: every level's document equals the oracle now, its hash is in provenance, and provenance names atm's goldens`, () => {
-			const presetBundle = bundle.profiles[preset];
-			expect(presetBundle).toBeDefined();
-			if (!presetBundle) return;
-			const golden = goldenOf(preset);
-			for (const { level, pinLocked } of variants) {
-				const key = documentKey(preset, level, pinLocked);
-				const committed = committedDocuments[key];
-				expect({ key, document: committed }).toEqual({
-					key,
-					document: kpiDocument({
-						rows: committedRows[preset] ?? [],
-						bundle: presetBundle,
-						rules: committedRules,
-						preset,
-						level,
-						pinLocked,
-						clock,
-					}),
+	const groups = [
+		...new Set(plans.map((entry) => `${entry.school}/${entry.preset ?? ""}`)),
+	];
+	for (const group of groups)
+		test(`${group}: every audience's document equals the oracle now, traces to its sources and follows the disclosure`, () => {
+			for (const entry of plans.filter(
+				(candidate) =>
+					`${candidate.school}/${candidate.preset ?? ""}` === group,
+			)) {
+				const committed = committedDocuments[entry.key];
+				expect({ key: entry.key, document: committed }).toEqual({
+					key: entry.key,
+					document: entry.build(),
 				});
-				expect({ key, provenance: committedProvenance[key] }).toEqual({
-					key,
-					provenance: {
-						sha256: sha256Hex(canonicalize(committed)),
-						preset,
+				const recorded = committedProvenance[entry.key];
+				expect({ key: entry.key, provenance: recorded }).toEqual({
+					key: entry.key,
+					provenance: entry.provenance(sha256Hex(canonicalize(committed))),
+				});
+				if (recorded && "fixtureHash" in recorded) {
+					const golden = readJson<KpiExport>(
+						join(goldens, `${recorded.preset}.json`),
+					);
+					expect({
+						key: entry.key,
+						fixtureHash: recorded.fixtureHash,
+						kpisHash: recorded.kpisHash,
+					}).toEqual({
+						key: entry.key,
 						fixtureHash: golden.fixtureHash,
 						kpisHash: golden.kpisHash,
-					},
+					});
+				}
+				const view =
+					disclosure.schools[entry.school]?.views[
+						committed?.audience ?? "public"
+					];
+				expect({
+					key: entry.key,
+					roundTo: committed?.roundTo,
+					cellRules: committed?.cellRules,
+					live: committed?.live,
+					size: committed?.size,
+				}).toEqual({
+					key: entry.key,
+					roundTo: view?.roundTo,
+					cellRules: view?.cellRules,
+					live: view?.live,
+					size: disclosure.schools[entry.school]?.size,
 				});
+				/** The strip follows the period control (the disclosure's periods), except that a period the control calls
+				 * "Not started yet" waits on the Dashboard for its close plus the delay (mockup dashFull's strip). */
+				const notStarted = /^Published after \d{1,2} [A-Z][a-z]{2} \d{4}$/;
+				if (committed && !committed.live)
+					expect({
+						key: entry.key,
+						periods: committed.periods.map(
+							({ period, label, state, title }) => ({
+								period,
+								label,
+								state,
+								title:
+									state === "embargoed" &&
+									view?.periods.find((gate) => gate.period === period)
+										?.state === "future" &&
+									notStarted.test(title ?? "")
+										? "Not started yet"
+										: title,
+							}),
+						),
+					}).toEqual({
+						key: entry.key,
+						periods: (view?.periods ?? []).map(
+							({ period, label, state, title }) => ({
+								period,
+								label,
+								state: state === "future" ? "embargoed" : state,
+								title,
+							}),
+						),
+					});
 			}
 		});
-	}
 	test.if(hasKpiDocument)(
 		"the fixture Reader returns exactly the committed documents",
 		async () => {
 			const reader = fixtureReader();
-			for (const preset of presets)
-				for (const { level, pinLocked } of variants) {
-					const key = documentKey(preset, level, pinLocked);
-					expect({
-						key,
-						document: await reader.kpiDocument?.({ preset, level, pinLocked }),
-					}).toEqual({ key, document: committedDocuments[key] });
-				}
+			for (const entry of plans) {
+				const committed = committedDocuments[entry.key];
+				if (!committed) continue;
+				expect({
+					key: entry.key,
+					document: await reader?.kpiDocument?.({
+						school: entry.school,
+						preset: entry.preset ?? "monthly-members",
+						audience: committed.audience,
+						pinLocked: committed.pinLocked,
+					}),
+				}).toEqual({ key: entry.key, document: committed });
+			}
 		},
 	);
 });
 
-/** cell-rules `formats`; percents through Intl with one decimal so a half rounds the same way everywhere. */
-const numberFormats = new Map<string, Intl.NumberFormat>();
-const numberFormat = (
-	format: KpiFormat,
-	currency: string,
-): Intl.NumberFormat => {
-	const key = `${format}:${currency}`;
-	const known = numberFormats.get(key);
-	if (known) return known;
-	const made =
-		format === "money" || format === "money0"
-			? new Intl.NumberFormat("en-US", {
-					style: "currency",
-					currency: currency.toUpperCase(),
-					...(format === "money0"
-						? { minimumFractionDigits: 0, maximumFractionDigits: 0 }
-						: {}),
+/** The mockup's `kusd`, `kusd0` and `kpct`, and String for counts (kpi-document.ts `KpiFormat`). */
+const money = (cents: number, symbol: string, decimals: boolean): string =>
+	`${cents < 0 ? "−" : ""}${symbol}${
+		decimals
+			? (Math.abs(cents) / 100).toLocaleString("en-US", {
+					minimumFractionDigits: 2,
+					maximumFractionDigits: 2,
 				})
-			: format === "integer"
-				? new Intl.NumberFormat("en-US")
-				: new Intl.NumberFormat("en-US", {
-						style: "percent",
-						minimumFractionDigits: 1,
-						maximumFractionDigits: 1,
-					});
-	numberFormats.set(key, made);
-	return made;
-};
+			: Math.round(Math.abs(cents) / 100).toLocaleString("en-US")
+	}`;
 const isMoney = (format: KpiFormat): boolean =>
 	format === "money" || format === "money0";
-const cellText = (cell: Cell, format: KpiFormat, currency: string): string =>
-	typeof cell === "number"
-		? numberFormat(format, currency).format(isMoney(format) ? cell / 100 : cell)
-		: "lt" in cell
-			? isMoney(format)
-				? `under ${numberFormat("money0", currency).format(cell.lt / 100)}`
-				: `<${cell.lt}`
-			: committedRules.labels[cell.hidden];
-/** test/golden/S1.json `notes`: no payment in any period shown, so the Dashboard shows its "No payments yet" state. */
-const isEmpty = (document: KpiDocument): boolean =>
-	(document.series.payments_count ?? []).every(
-		(cell) =>
-			cell === 0 ||
-			(typeof cell === "object" &&
-				"hidden" in cell &&
-				cell.hidden === "not_yet"),
-	);
-const lagOf = (view: DashboardView): LagClass =>
-	view === "members" ? "usage" : "money";
-const requiredKpis = (document: KpiDocument, view: DashboardView): string[] =>
-	viewKpis[document.level][view].flatMap((id) =>
-		id.endsWith(":*")
-			? Object.keys(document.series).filter((kpi) =>
-					kpi.startsWith(id.slice(0, -1)),
-				)
-			: [id],
-	);
+const cellText = (cell: Cell, format: KpiFormat, symbol: string): string => {
+	if (typeof cell === "number") {
+		if (isMoney(format)) return money(cell, symbol, format === "money");
+		if (format === "percent1") return `${(cell * 100).toFixed(1)}%`;
+		return String(cell);
+	}
+	if ("lt" in cell)
+		return isMoney(format)
+			? `under ${money(cell.lt, symbol, false)}`
+			: `<${cell.lt}`;
+	if ("approx" in cell) return String(cell.approx);
+	return cell.hidden === "suppressed" ? "—" : cell.text;
+};
+const cellTitle = (cell: Cell): string | null => {
+	if (typeof cell === "number") return null;
+	if ("hidden" in cell)
+		return cell.hidden === "future" ||
+			cell.hidden === "locked" ||
+			cell.hidden === "not_computed"
+			? null
+			: cell.text;
+	return cell.why ? `Rounded to the nearest 10: ${cell.why}` : null;
+};
+const grainOfPeriod = (period: string): TableGrain =>
+	/^\d{4}$/.test(period)
+		? "year"
+		: /-Q\d$/.test(period)
+			? "quarter"
+			: /^\d{4}-\d{2}$/.test(period)
+				? "month"
+				: "day";
+const monthParameter = (document: KpiDocument, period: string): string => {
+	const found = document.periods.find((entry) => entry.period === period);
+	if (!found) return period;
+	return document.grain === "month" ? period : `${found.from}..${found.to}`;
+};
 const dashboardRoute = (
-	preset: string,
-	level: BooksLevel,
-	pinLocked: boolean,
+	document: KpiDocument,
 	view: DashboardView,
 	period: string,
 ): string =>
-	`#/b4u/dashboard?preset=${preset}&level=${level}${pinLocked ? "&pin=locked" : ""}&view=${view}&month=${period}`;
+	`#/${document.school}/dashboard?${document.source.kind === "mart" ? `preset=${document.source.preset}&` : ""}as=${document.audience}${document.pinLocked ? "&pin=locked" : ""}&view=${view}&month=${monthParameter(document, period)}`;
+/** The KPIs the view must render for the selected period (S1.json `views`); the donor rows only once a donor shows,
+ * the funds that have a gift, every day of the month on the live audiences' Money view. */
+const requiredKpis = (
+	document: KpiDocument,
+	view: DashboardView,
+	period: string,
+): Array<{ selector: string; what: string }> => {
+	if (document.empty || document.pinLocked) return [];
+	const table = document.tables[grainOfPeriod(period)];
+	if (!table) return [];
+	const index = table.periods.indexOf(period);
+	const donors = table.series.donors_count?.[index];
+	const showsDonors = typeof donors === "number" && donors > 0;
+	const ids = viewKpis[document.audience][view].flatMap((id) => {
+		const listed = id.endsWith(":*")
+			? Object.keys(table.series).filter((kpi) =>
+					kpi.startsWith(id.slice(0, -1)),
+				)
+			: id in table.series
+				? [id]
+				: [];
+		return listed.filter((kpi) => {
+			if (kpi.startsWith("donors_")) return showsDonors;
+			if (kpi.startsWith("donations_by_fund:"))
+				return (table.order?.donations_by_fund?.[index] ?? []).includes(kpi);
+			return true;
+		});
+	});
+	const cells = ids.map((kpi) => ({
+		selector: `[data-kpi="${kpi}"][data-period="${period}"]`,
+		what: `${kpi}@${period}`,
+	}));
+	const days =
+		view === "money" && document.live
+			? (document.tables.day?.periods ?? [])
+					.filter((day) => day.startsWith(`${period}-`))
+					.map((day) => ({
+						selector: `[data-kpi="gross_collected"][data-day="${day}"]`,
+						what: `gross_collected@${day}`,
+					}))
+			: [];
+	return [...cells, ...days];
+};
 const macrotask = (): Promise<void> =>
 	new Promise((resolve) => setTimeout(resolve, 0));
 /** Waits for the app to report the hash it rendered (protocol §3), then two more turns as the golden runner does. */
@@ -382,137 +476,127 @@ const checkRender = (
 	hash: string,
 ): string[] => {
 	const problems: string[] = [];
-	const indexOf = new Map(document.periods.map((at, index) => [at, index]));
-	const expectCell = (
-		element: Element,
-		where: string,
-		cell: Cell | undefined,
-		format: KpiFormat | undefined,
-		withText: boolean,
-	): void => {
-		if (cell === undefined || !format) {
-			problems.push(`${hash}: ${where} is not in the document`);
-			return;
-		}
-		const expected = {
-			cell: cellKind(cell),
-			...(withText
-				? { text: cellText(cell, format, document.currency) }
-				: typeof cell === "number"
-					? { value: String(cell) }
-					: {}),
-			...(typeof cell === "object" && "hidden" in cell && cell.why
-				? { title: `Hidden: ${cell.why}` }
-				: {}),
-		};
-		const rendered = {
-			cell: element.getAttribute("data-cell"),
-			...("text" in expected ? { text: normalize(element.textContent) } : {}),
-			...("value" in expected
-				? { value: element.getAttribute("data-value") }
-				: {}),
-			...("title" in expected ? { title: element.getAttribute("title") } : {}),
-		};
-		if (JSON.stringify(expected) !== JSON.stringify(rendered))
-			problems.push(
-				`${hash}: ${where} rendered ${JSON.stringify(rendered)}, the document has ${JSON.stringify(expected)}`,
-			);
+	const lookup = (table: KpiTable | undefined, kpi: string, at: string) => {
+		const index = table?.periods.indexOf(at) ?? -1;
+		return index < 0 ? undefined : table?.series[kpi]?.[index];
 	};
 	for (const element of root.querySelectorAll(
 		"[data-kpi][data-period]:not([data-day])",
 	)) {
 		const kpi = element.getAttribute("data-kpi") ?? "";
 		const at = element.getAttribute("data-period") ?? "";
-		const index = indexOf.get(at);
-		expectCell(
-			element,
-			`${kpi}@${at}`,
-			index === undefined ? undefined : document.series[kpi]?.[index],
-			document.meta[kpi]?.format,
-			true,
-		);
+		const cell = lookup(document.tables[grainOfPeriod(at)], kpi, at);
+		const meta = document.meta[kpi];
+		if (cell === undefined || !meta) {
+			problems.push(`${hash}: ${kpi}@${at} is not in the document`);
+			continue;
+		}
+		const expected = {
+			cell: cellKind(cell),
+			text: cellText(cell, meta.format, document.symbol),
+			...(cellTitle(cell) ? { title: cellTitle(cell) } : {}),
+		};
+		const rendered = {
+			cell: element.getAttribute("data-cell"),
+			text: normalize(element.textContent),
+			...("title" in expected ? { title: element.getAttribute("title") } : {}),
+		};
+		if (JSON.stringify(expected) !== JSON.stringify(rendered))
+			problems.push(
+				`${hash}: ${kpi}@${at} rendered ${JSON.stringify(rendered)}, the document has ${JSON.stringify(expected)}`,
+			);
 	}
-	const dayIndex = new Map(
-		(document.days?.periods ?? []).map((day, index) => [day, index]),
-	);
 	for (const element of root.querySelectorAll("[data-kpi][data-day]")) {
 		const kpi = element.getAttribute("data-kpi") ?? "";
 		const day = element.getAttribute("data-day") ?? "";
-		const index = dayIndex.get(day);
-		expectCell(
-			element,
-			`${kpi}@${day}`,
-			index === undefined ? undefined : document.days?.series[kpi]?.[index],
-			document.meta[kpi]?.format,
-			false,
-		);
+		const cell = lookup(document.tables.day, kpi, day);
+		if (cell === undefined) {
+			problems.push(`${hash}: ${kpi}@${day} is not in the document`);
+			continue;
+		}
+		const expected = {
+			cell: cellKind(cell),
+			...(typeof cell === "number" ? { value: String(cell) } : {}),
+		};
+		const rendered = {
+			cell: element.getAttribute("data-cell"),
+			...("value" in expected
+				? { value: element.getAttribute("data-value") }
+				: {}),
+		};
+		if (JSON.stringify(expected) !== JSON.stringify(rendered))
+			problems.push(
+				`${hash}: ${kpi}@${day} rendered ${JSON.stringify(rendered)}, the document has ${JSON.stringify(expected)}`,
+			);
 	}
-	const info = document.periodInfo.find((entry) => entry.period === period);
-	const shows = info !== undefined && info.shownFrom[lagOf(view)] === null;
-	if (!isEmpty(document) && !document.pinLocked && shows) {
-		for (const kpi of requiredKpis(document, view))
-			if (!root.querySelector(`[data-kpi="${kpi}"][data-period="${period}"]`))
-				problems.push(`${hash}: ${kpi}@${period} is not rendered`);
-		if (view === "money" && document.days)
-			for (const day of document.days.periods.filter((entry) =>
-				entry.startsWith(`${period}-`),
-			))
-				if (
-					!root.querySelector(`[data-kpi="gross_collected"][data-day="${day}"]`)
-				)
-					problems.push(`${hash}: gross_collected@${day} is not rendered`);
-	}
+	for (const { selector, what } of requiredKpis(document, view, period))
+		if (!root.querySelector(selector))
+			problems.push(`${hash}: ${what} is not rendered`);
 	return problems;
 };
+/** The documents a school's viewer can reach: the audiences of the View as rows they hold (mockup vaAllowed). */
+const reachable = (document: KpiDocument): boolean =>
+	(disclosure.schools[document.school]?.viewAs ?? []).some(
+		(option) => option.value === document.audience && option.held,
+	);
 
 /** C4 budget (protocol §5): all mounts and their renders. */
 const c4BudgetMilliseconds = 120_000;
 let c4Milliseconds = 0;
 let c4Renders = 0;
-describe("C4: the Dashboard renders every document cell it shows exactly, at every level", () => {
-	for (const preset of presets)
+describe("C4: the Dashboard renders every document cell it shows exactly, for every audience a viewer may preview", () => {
+	const schools = [...new Set(plans.map((entry) => entry.school))];
+	for (const school of schools)
 		test.if(hasKpiDocument)(
-			preset,
+			school,
 			async () => {
+				if (!loaded) return;
+				const [{ mountApp }, , { createFixtureWriter }] = loaded;
 				const started = performance.now();
 				const problems: string[] = [];
-				for (const { level, pinLocked } of variants) {
-					const key = documentKey(preset, level, pinLocked);
-					const expected = committedDocuments[key];
-					if (!expected) {
-						problems.push(`${key}: no document`);
-						continue;
-					}
+				for (const entry of plans.filter(
+					(candidate) => candidate.school === school,
+				)) {
+					const expected = committedDocuments[entry.key];
+					if (!expected || !reachable(expected)) continue;
+					const shown = expected.periods
+						.filter((period) => period.state === "shown")
+						.map((period) => period.period);
+					if (shown.length === 0) continue;
 					window.location.hash = dashboardRoute(
-						preset,
-						level,
-						pinLocked,
+						expected,
 						"money",
-						expected.periods[0] ?? "",
+						shown[0] ?? "",
 					);
 					const root = document.createElement("div");
 					root.id = "app";
 					document.body.appendChild(root);
+					const reader = fixtureReader();
+					if (!reader) continue;
 					const app = mountApp(root, {
-						reader: fixtureReader(),
+						reader,
 						writer: createFixtureWriter({ mode: "instant" }),
 						clock,
 					});
 					try {
 						for (const view of dashboardViews)
-							for (const period of expected.periods) {
-								const hash = dashboardRoute(
-									preset,
-									level,
-									pinLocked,
-									view,
-									period,
-								);
+							for (const period of shown) {
+								const hash = dashboardRoute(expected, view, period);
 								window.location.hash = hash;
 								c4Renders += 1;
 								if (!(await settle(root))) {
 									problems.push(
 										`${hash}: the app reported ${root.dataset.route ?? "no route"}`,
+									);
+									continue;
+								}
+								if (
+									!window.location.hash.startsWith(
+										`#/${expected.school}/dashboard?`,
+									)
+								) {
+									problems.push(
+										`${hash}: the app opened ${window.location.hash} instead`,
 									);
 									continue;
 								}

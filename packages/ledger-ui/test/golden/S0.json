@@ -1,5 +1,9 @@
 {
 	"slice": "S0",
+	"notes": [
+		"fixtures.schools is exactly what the fixture Reader's schools() returns, in switcher order (src/data/types.ts School): the mockup's SC table at atm dev 742105b64, attention from attN, overdue from groups().out, expiring promos from expiring, stale when lag is over 15 minutes, no books level: the signed-in person's audience comes from the school's disclosure viewer (Harbor Arts Academy: Rosa T., an admin without the finance grant with a live Studio membership, so the admin row with audience member).",
+		"Top bar (frozen mockup): brand, school switcher, ONE period control (#pb: an icon and the period's word Month, Quarter, Year or Custom; aria-label 'Period: <label>'; class pnd when not This month; its popover holds the label, period-prev and period-next, the presets, Custom range and compare) on every tab and on All schools, then View as (S7), then help and settings pinned on the first row. The static scope-note chip is gone. scope-note stays in hooks only so that no earlier file fails on it; shell-default requires that none is rendered."
+	],
 	"hooks": [
 		"brand",
 		"school-switcher",
@@ -13,29 +17,130 @@
 		"help-button",
 		"help-link",
 		"settings-button",
-		"pane",
-		"scope-note"
+		"scope-note",
+		"pane"
 	],
+	"fixtures": {
+		"schools": [
+			{
+				"id": "vol",
+				"name": "Vibes of Light",
+				"timeZone": "America/Denver",
+				"currency": "USD",
+				"creditUnit": {
+					"one": "session",
+					"other": "sessions"
+				},
+				"role": "owner",
+				"stale": false,
+				"lagMinutes": 2,
+				"attentionCount": 4,
+				"tabBadges": {
+					"plansDraft": true,
+					"bookingsOverdue": 2,
+					"promosExpiring": 1
+				}
+			},
+			{
+				"id": "b4u",
+				"name": "B4 Uni",
+				"timeZone": "America/Chicago",
+				"currency": "USD",
+				"creditUnit": {
+					"one": "credit",
+					"other": "credits"
+				},
+				"role": "admin",
+				"dashboardOpensOn": "2026-06",
+				"stale": false,
+				"lagMinutes": 3,
+				"attentionCount": 2,
+				"tabBadges": {
+					"plansDraft": false,
+					"bookingsOverdue": 1,
+					"promosExpiring": 0
+				}
+			},
+			{
+				"id": "map",
+				"name": "Maple Pilates",
+				"timeZone": "America/Toronto",
+				"currency": "CAD",
+				"creditUnit": {
+					"one": "class",
+					"other": "classes"
+				},
+				"role": "owner",
+				"stale": true,
+				"lagMinutes": 26,
+				"attentionCount": 1,
+				"tabBadges": {
+					"plansDraft": false,
+					"bookingsOverdue": 0,
+					"promosExpiring": 0
+				}
+			},
+			{
+				"id": "nw",
+				"name": "Lotus Lane Yoga",
+				"timeZone": "America/Los_Angeles",
+				"currency": "USD",
+				"creditUnit": {
+					"one": "class",
+					"other": "classes"
+				},
+				"role": "owner",
+				"stale": false,
+				"lagMinutes": 1,
+				"attentionCount": 0,
+				"tabBadges": {
+					"plansDraft": false,
+					"bookingsOverdue": 0,
+					"promosExpiring": 0
+				}
+			},
+			{
+				"id": "har",
+				"name": "Harbor Arts Academy",
+				"timeZone": "America/New_York",
+				"currency": "USD",
+				"creditUnit": {
+					"one": "credit",
+					"other": "credits"
+				},
+				"role": "admin",
+				"stale": false,
+				"lagMinutes": 2,
+				"attentionCount": 0,
+				"tabBadges": {
+					"plansDraft": false,
+					"bookingsOverdue": 0,
+					"promosExpiring": 0
+				}
+			}
+		]
+	},
 	"entries": [
 		{
 			"id": "shell-default",
-			"source": "mockup headless: .top brand 'atm', #sw 'Vibes of Light', #pb 'Nov 2026', 7 .tab labels and badges (plans/ledger-ui/loop/tools/s0-text.mjs); mockup #113: #kview 'You see all members' in the top bar for an owner or admin of one school",
+			"source": "mockup headless (atm dev 742105b64): .top brand 'atm', #sw 'Vibes of Light', #pb the period's word 'Month' with aria-label 'Period: Nov 2026' (renderPB), 7 .tab labels and badges (plans/ledger-ui/loop/tools/s0-text.mjs); the static 'You see all members' chip is gone: #kview is the View as button (S7)",
 			"route": "#/vol/plans?theme=light",
 			"expect": {
 				"text": {
 					"[data-test=brand]": "atm",
 					"[data-test=school-switcher]": "Vibes of Light",
-					"[data-test=period-button]": "Nov 2026",
+					"[data-test=period-button]": "Month",
 					"[data-test=tab][data-tab=plans] [data-test=tab-badge]": "draft",
 					"[data-test=tab][data-tab=bookings] [data-test=tab-badge]": "2",
-					"[data-test=tab][data-tab=promos] [data-test=tab-badge]": "1",
-					"[data-test=scope-note]": "You see all members"
+					"[data-test=tab][data-tab=promos] [data-test=tab-badge]": "1"
 				},
 				"count": {
 					"[data-test=tab]": 7,
 					"[data-test=tab-badge]": 3,
 					"#app.light": 1,
-					"[data-test=pane]": 1
+					"[data-test=pane]": 1,
+					"[data-test=period-button][aria-label=\"Period: Nov 2026\"]": 1,
+					"[data-test=scope-note]": 0
 				},
 				"contains": {
 					"[data-test=tab]": [
@@ -56,7 +161,7 @@
 		},
 		{
 			"id": "switcher-open",
-			"source": "mockup headless: #sw click lists 5 [data-sc] rows with attention counts 4, 4, 2, stale 1",
+			"source": "mockup headless (atm dev 742105b64): #sw click lists 6 [data-sc] rows: All schools (5 schools), Vibes of Light 4, B4 Uni 2, Maple Pilates stale 1, Lotus Lane Yoga, Harbor Arts Academy (renderSP; attN 4, 2, 1, 0, 0)",
 			"route": "#/vol/plans?theme=light",
 			"steps": [
 				{
@@ -65,7 +170,7 @@
 			],
 			"expect": {
 				"count": {
-					"[data-test=school-option]": 5
+					"[data-test=school-option]": 6
 				},
 				"contains": {
 					"[data-test=school-option]": [
@@ -74,8 +179,13 @@
 						"B4 Uni",
 						"Maple Pilates",
 						"stale",
-						"Lotus Lane Yoga"
+						"Lotus Lane Yoga",
+						"Harbor Arts Academy"
 					]
+				},
+				"text": {
+					"[data-test=school-option][data-school=har]": "Harbor Arts Academy",
+					"[data-test=school-option][data-school=nw]": "Lotus Lane Yoga"
 				}
 			},
 			"shot": {
@@ -104,7 +214,7 @@
 		},
 		{
 			"id": "period-open",
-			"source": "mockup headless: #pb click lists the five presets with their ranges; on Ledger, where the mockup shows the period group (renderHead: all, led, rep), settled from GOLDEN-DISPUTE S0 r1",
+			"source": "mockup headless (atm dev 742105b64): #pb click opens one popover with the date label, the eight presets of PRE with their ranges, Custom range and compare (renderPP); on Ledger, as before (the control now shows on every tab: period-every-tab)",
 			"route": "#/vol/ledger?theme=light",
 			"steps": [
 				{
@@ -118,8 +228,16 @@
 						"Nov 2026",
 						"Last month",
 						"Oct 2026",
+						"This quarter",
+						"Oct – Dec 2026",
+						"Last quarter",
+						"Jul – Sep 2026",
 						"Last 3 months",
 						"Sep – Nov 2026",
+						"This year",
+						"Jan – Dec 2026",
+						"Last year",
+						"Jan – Dec 2025",
 						"Year to date",
 						"Jan 1 – Nov 5, 2026",
 						"Custom range"
@@ -133,27 +251,32 @@
 		},
 		{
 			"id": "period-step",
-			"source": "mockup headless: #pprev gives 'Oct 2026'; #pnext twice stops at 'Nov 2026' (no month after the clock's); on Ledger, where the mockup shows the period group (renderHead: all, led, rep), settled from GOLDEN-DISPUTE S0 r1",
+			"source": "mockup headless (atm dev 742105b64): the steps sit in the popover (#pprev, #pnext); previous gives 'Period: Oct 2026' and tints the control (class pnd), next returns to Nov 2026 and is then disabled (no month after the clock's); the closed control keeps the word 'Month'",
 			"route": "#/vol/ledger?theme=light",
 			"steps": [
 				{
-					"click": "[data-test=period-prev]",
-					"expect": {
-						"text": {
-							"[data-test=period-button]": "Oct 2026"
-						}
-					}
+					"click": "[data-test=period-button]"
 				},
 				{
-					"click": "[data-test=period-next]"
+					"click": "[data-test=period-prev]",
+					"expect": {
+						"count": {
+							"[data-test=period-button][aria-label=\"Period: Oct 2026\"].pnd": 1
+						},
+						"text": {
+							"[data-test=period-button]": "Month"
+						}
+					}
 				},
 				{
 					"click": "[data-test=period-next]"
 				}
 			],
 			"expect": {
-				"text": {
-					"[data-test=period-button]": "Nov 2026"
+				"count": {
+					"[data-test=period-button][aria-label=\"Period: Nov 2026\"]": 1,
+					"[data-test=period-button].pnd": 0,
+					"[data-test=period-next][disabled]": 1
 				}
 			}
 		},
@@ -208,12 +331,51 @@
 			}
 		},
 		{
-			"id": "scope-note-all-schools",
-			"source": "mockup #113 renderHead: #kview hidden on All schools",
+			"id": "all-schools-bar",
+			"source": "mockup renderHead() on All schools (atm dev 742105b64): #sw 'All schools', the period control still shows ('Month', 'Period: Nov 2026'), View as is hidden (S7 view-as-all-schools)",
 			"route": "#/all/all?theme=light",
 			"expect": {
+				"text": {
+					"[data-test=school-switcher]": "All schools",
+					"[data-test=period-button]": "Month"
+				},
 				"count": {
-					"[data-test=scope-note]": 0
+					"[data-test=period-button][aria-label=\"Period: Nov 2026\"]": 1
+				}
+			}
+		},
+		{
+			"id": "period-every-tab",
+			"source": "mockup renderHead() (atm dev 742105b64): one period control for every tab (smoke 'period: one control drives Dashboard, Reports, Ledger and Members'), Plans included",
+			"route": "#/vol/plans?theme=light",
+			"expect": {
+				"count": {
+					"[data-test=period-button]": 1
+				},
+				"text": {
+					"[data-test=period-button]": "Month"
+				}
+			}
+		},
+		{
+			"id": "switch-to-harbor",
+			"source": "mockup headless: choosing [data-sc=har] makes #sw read 'Harbor Arts Academy'; it has no tab badge (no draft, nothing overdue or expiring)",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=school-switcher]"
+				},
+				{
+					"click": "[data-test=school-option][data-school=har]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=school-switcher]": "Harbor Arts Academy"
+				},
+				"hash": "#/har/",
+				"count": {
+					"[data-test=tab-badge]": 0
 				}
 			}
 		}

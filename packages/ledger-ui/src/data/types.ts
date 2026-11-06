@@ -1,5 +1,3 @@
-import type { BooksLevel, HiddenKind } from "./kpi-document.ts";
-
 /** The clock the UI runs on (protocol §3): the UI never reads the system time. `today` is `YYYY-MM-DD`, `now` is
  * `YYYY-MM-DDTHH:MM`. */
 export type Clock = { today: string; now: string };
@@ -13,10 +11,10 @@ export type School = {
 	/** ISO 4217 code, e.g. `USD`. */
 	currency: string;
 	role: "owner" | "admin";
-	/** The signed-in person's books level here (mockup `bkDefault`): the Dashboard opens at it. */
-	booksLevel: BooksLevel;
-	/** The month the Dashboard opens on at the month grain (the mockup opens its fixture school on Jun); without it,
-	 * the last period shown. */
+	/** What the school calls a held credit (mockup `unit`): "1 session held", "2 sessions held". */
+	creditUnit: { one: string; other: string };
+	/** The month the Dashboard opens on (the mockup opens its fixture school on Jun); without it, the clock's month.
+	 * Either snaps to a period the viewed audience may pick. */
 	dashboardOpensOn?: string;
 	/** The ledger shipper is behind; `lagMinutes` says by how much. */
 	stale: boolean;
@@ -35,19 +33,8 @@ export type School = {
  * has one, the caveat shown above the cards. */
 export type Preset = { id: string; label: string; note?: string };
 
-/** A books level as the switcher offers it (cell-rules `levels`): its name, whether it opens with the family PIN, and
- * its granularity ceiling (`G2` categories, `G4` distributions, `G6` identified). */
-export type BooksLevelOption = {
-	id: BooksLevel;
-	name: string;
-	pin: boolean;
-	steps: string;
-};
-
-/** What the Dashboard may ask the Reader for, each list in switcher order, and the text of each hidden kind
- * (cell-rules `labels`). */
+/** What the Dashboard may ask the Reader for: the presets of the fixture schools, in switcher order. The audiences
+ * come from the disclosure (`disclosure.ts`), and each cell carries its own text. */
 export type DashboardOptions = {
 	presets: [Preset, ...Preset[]];
-	levels: BooksLevelOption[];
-	labels: Record<HiddenKind, string>;
 };

@@ -1,0 +1,3152 @@
+{
+	"slice": "S4",
+	"source": "The mockup's four schools (SC in plans/ledger-ui/design/mockup.html at atm dev 742105b64, the frozen disclosure-v2 mockup) run headless with happy-dom on 2026-11-05, as src/fixtures/members.ts serves them through MembersReader (src/data/members.ts); audiences per src/data/disclosure.ts (Audience, Disclosure) and spec v2.",
+	"notes": [
+		"Route: #/<school>/members?show=&role=&plan=&member=&as=. show is attention or canceled (the status chips), role is admins or members (the Role chips), plan is a tier name (the chip the Plans tab opens, S3), member is a person id (the drawer), as is the audience being viewed (shared contract). Search text is not in the route. root.dataset.route is set once the tab (and the drawer, when member= is set) shows that route's data.",
+		"Data: src/data/members.ts (MembersReader, MembersWriter) and src/fixtures/members.ts. People are listed by attention score (2 per bad reason, 1 per warn), then role (owner, admin, member), then name; a role holder with no plan has 'No plan' in the plan cell and 'no plan' in the available cell, never 0.",
+		"Hooks and attributes: members-stat carries data-stat (outstanding, income, attention; attention is a button that applies the attention filter) with stat-label and stat-value inside. member-filter data-filter (all, attention, canceled) and role-filter data-role-filter (all, admins, members) carry class 'on' when selected; role-filter also aria-pressed; its text is the label, a space and the count. members-column data-column (member, role, plan, available, bar, expires, actions). member-row data-id. role-chip data-role and the mockup classes 'krole kr-<role>'; finance-chip class 'kfin'; audience-chip data-audience and title 'Audience: <reason>'. attention-badge data-kind (Person.attention kinds); status-badge for 'Canceled' and 'Cancels Dec 1'. balance-bar has the title 'used U · held H · available A', class 'low' when nothing is available or under 20% of granted, and three bar-segment children with data-segment (used, held, available) and data-count. member-available is the whole cell: '<available>[ → <pending>]/<granted>[ +<held> held]' with pending-badge (title 'Shows after the pending change ships') and held-badge (title 'Held for upcoming bookings') inside.",
+		"The ⋯ menu: member-menu (role=menu) holds member-menu-item buttons (role=menuitem) with data-action view-as-member, invoice, adjust, refund, release, switch, cancel or resume, make-admin, remove-admin or remove-owner, grant-finance or revoke-finance, csv, audit, stripe, receipt; groups are separated by hr; a destructive item has class 'd'; an action that is not allowed is disabled with the reason as its title. The row's and the drawer's ⋯ (member-menu-button, aria-haspopup=menu, aria-expanded) open the same menu.",
+		"The drawer: member-drawer with drawer-head ('<id> · <school>'), drawer-name (and you-tag), role-chip, finance-chip, member-plan, attention-badge, renews-badge, capability-line data-line (sees, money, audience), drawer-action data-action (view-as-member, invoice, adjust, refund), drawer-note (the owner-role lines), drawer-balance, drawer-booking rows with booking-action buttons (data-action confirm, noshow, release, refund, remind; data-booking), drawer-payments with payment-row (5, then payments-all) and payments-csv, drawer-history with history-item (5; data-pending on a pending one) or history-empty.",
+		"Modals: modal with modal-title, modal-subtitle, modal-body (the role modal's sentence, the resume text), modal-note (the role modal's refresh line), modal-preview, modal-field data-field (type, delta, note; item, memo; payment, amount, typed; waive; tier, quantity; when, reason) and modal-field-label data-field (data-value for the two 'when' radios), modal-fill-rest, modal-confirm, modal-cancel; release-option data-booking in the release picker. Select option values: type goodwill, gift, correction; item the addonId; payment the paymentIntentId; tier the tier id; quantity the number; the when radios period_end and now. Selects and inputs react to the input event (the runner's fill).",
+		"Writes: each action sends exactly the MembersWriter call its entry lists. While the call is pending (writer 'hold') the modal stays open with modal-confirm disabled and aria-busy=true (a quick release keeps the picker open with that release-option busy; a drawer booking action makes that button busy) and no toast is rendered; once it resolves the modal closes, the toast shows (toast is rendered only while it shows) and the pending effect appears: an adjust adds to available ('→ N'); a release returns held credits to available, a forfeit or an attended booking moves them to used; a booking reason drops while its booking has a pending write; the history gets the event first with 'just now · you · ships within 5 min'; a role or grant change updates the chips at once (a role-only person who loses their role leaves the list); a switch or cancel makes Switch, Cancel and Resume wait ('A change is already on its way').",
+		"Audiences: the roster shows to finance and owner only. Below, the tab renders lock-panel data-lock=admins_only with lock-title and lock-text (membersLock) and nothing else of the tab. Viewing as anyone but yourself is a preview: every write control is disabled with the title 'Exit preview to act'. A viewer may preview only audiences they hold (src/data/disclosure.ts); as=owner by a finance admin is their own view.",
+		"Money is formatted with Intl.NumberFormat('en-US', { style: 'currency', currency }) from minor units; dates as the mockup writes them ('Dec 1', 'Nov 1, 26' in the payments, 'Nov 4 · family' in the history), in the school's time zone."
+	],
+	"hooks": [
+		"members-stat",
+		"stat-label",
+		"stat-value",
+		"members-note",
+		"members-note-link",
+		"member-search",
+		"member-filter",
+		"members-sort-note",
+		"plan-filter",
+		"plan-filter-clear",
+		"role-filter",
+		"members-column",
+		"member-row",
+		"member-name",
+		"you-tag",
+		"family-chip",
+		"member-id",
+		"role-chip",
+		"finance-chip",
+		"audience-chip",
+		"member-plan",
+		"attention-badge",
+		"status-badge",
+		"balance-bar",
+		"bar-segment",
+		"member-available",
+		"held-badge",
+		"pending-badge",
+		"member-expires",
+		"view-as-member",
+		"member-menu-button",
+		"members-empty",
+		"members-legend",
+		"member-menu",
+		"member-menu-item",
+		"member-drawer",
+		"drawer-close",
+		"drawer-head",
+		"drawer-name",
+		"renews-badge",
+		"capability-line",
+		"drawer-action",
+		"drawer-note",
+		"drawer-balance",
+		"drawer-booking",
+		"booking-action",
+		"drawer-payments",
+		"payment-row",
+		"payments-all",
+		"payments-csv",
+		"drawer-history",
+		"history-item",
+		"history-empty",
+		"modal",
+		"modal-title",
+		"modal-subtitle",
+		"modal-body",
+		"modal-note",
+		"modal-preview",
+		"modal-field",
+		"modal-field-label",
+		"modal-fill-rest",
+		"modal-confirm",
+		"modal-cancel",
+		"release-option",
+		"toast",
+		"lock-panel",
+		"lock-title",
+		"lock-text"
+	],
+	"matrix": {
+		"audience": [
+			"public",
+			"member",
+			"governance",
+			"finance",
+			"owner"
+		]
+	},
+	"moves": {
+		"fields": [
+			"members.members[].balances[].available",
+			"members.members[].balances[].held",
+			"members.members[].balances[].granted",
+			"membersSummary.creditsOutstanding",
+			"people[].name",
+			"members.members[].name"
+		],
+		"rule": "Paths into each school's MembersFixture (src/fixtures/members.ts). A number is multiplied by the factor; a string gets ' <factor>' appended. An entry's (or a step's) expect.moves lists selectors of its text expectations whose text must still exist, pass the absent list and differ."
+	},
+	"entries": [
+		{
+			"id": "list-vol",
+			"source": "mockup members() for Vibes of Light, the owner Kim R. signed in: 6 plan holders and 2 role holders, attention first (score 2 per bad, 1 per warn), then role, then name; strip, expiring-gift note, role chips; plans/ledger-ui/design/smoke.mjs 'mem role column', 'mem role chips owner/admin/member', 'mem owners and admins listed without a plan', 'mem sort: attention first', 'mem sort: calm rows by role then name', 'menu: every Members row has a ⋯ button with aria-haspopup', 'menu: eye button is still next to it', 'balance bar: three segments on every row with a plan'",
+			"route": "#/vol/members?theme=light",
+			"expect": {
+				"text": {
+					"[data-test=members-stat][data-stat=outstanding] [data-test=stat-label]": "sessions outstanding (incl. held)",
+					"[data-test=members-stat][data-stat=outstanding] [data-test=stat-value]": {
+						"text": "63",
+						"moves": true
+					},
+					"[data-test=members-stat][data-stat=income] [data-test=stat-label]": "income · Nov 2026",
+					"[data-test=members-stat][data-stat=income] [data-test=stat-value]": "$287.00",
+					"[data-test=members-stat][data-stat=attention] [data-test=stat-label]": "need attention",
+					"[data-test=members-stat][data-stat=attention] [data-test=stat-value]": "4",
+					"[data-test=member-filter][data-filter=all]": "All",
+					"[data-test=member-filter][data-filter=attention]": "Needs attention (4)",
+					"[data-test=member-filter][data-filter=canceled]": "Canceled",
+					"[data-test=members-sort-note]": "Needs attention first",
+					"[data-test=role-filter][data-role-filter=all]": "All 8",
+					"[data-test=role-filter][data-role-filter=admins]": "Owners & admins 3",
+					"[data-test=role-filter][data-role-filter=members]": "Members 5",
+					"[data-test=members-column][data-column=member]": "Member",
+					"[data-test=members-column][data-column=role]": "Role",
+					"[data-test=members-column][data-column=plan]": "Plan",
+					"[data-test=members-column][data-column=available]": "Sessions available",
+					"[data-test=members-column][data-column=expires]": "Expires",
+					"[data-test=member-row]:nth-child(1) [data-test=member-name]": {
+						"text": "Mia R.",
+						"moves": true
+					},
+					"[data-test=member-row]:nth-child(2) [data-test=member-name]": "Ana P.",
+					"[data-test=member-row]:nth-child(3) [data-test=member-name]": {
+						"text": "Ivy N.",
+						"moves": true
+					},
+					"[data-test=member-row]:nth-child(4) [data-test=member-name]": "Jon K.",
+					"[data-test=member-row]:nth-child(5) [data-test=member-name]": "Kim R.",
+					"[data-test=member-row]:nth-child(6) [data-test=member-name]": "Ravi S.",
+					"[data-test=member-row]:nth-child(7) [data-test=member-name]": "Lee T.",
+					"[data-test=member-row]:nth-child(8) [data-test=member-name]": "Sam O."
+				},
+				"count": {
+					"[data-test=member-row]": 8,
+					"[data-test=members-column]": 7,
+					"[data-test=members-stat]": 3,
+					"[data-test=member-filter].on[data-filter=all]": 1,
+					"[data-test=role-filter][data-role-filter=all][aria-pressed=true]": 1,
+					"[data-test=role-chip][data-role=owner]": 1,
+					"[data-test=role-chip][data-role=admin]": 2,
+					"[data-test=role-chip][data-role=member]": 5,
+					"[data-test=finance-chip]": 1,
+					"[data-test=audience-chip]": 8,
+					"[data-test=member-menu-button][aria-haspopup=menu][aria-expanded=false]": 8,
+					"[data-test=view-as-member]": 6,
+					"[data-test=balance-bar]": 6,
+					"[data-test=bar-segment]": 18,
+					"[data-test=members-note]": 1,
+					"[data-test=member-menu]": 0,
+					"[data-test=member-drawer]": 0,
+					"[data-test=lock-panel]": 0
+				},
+				"contains": {
+					"[data-test=members-note]": [
+						"1 unredeemed gift expires within 30 days (THA•••U2 · Nov 30)",
+						"View promos"
+					],
+					"[data-test=members-legend]": [
+						"used",
+						"held for bookings",
+						"available"
+					]
+				}
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "document.querySelector('.tab[data-p=mem]').click()"
+			}
+		},
+		{
+			"id": "row-cells-vol",
+			"source": "mockup members() row cells: plan and attention badges, available/granted with the held badge, expiry, the Role, Finance and Audience chips; role holders show 'No plan' / 'no plan', never 0; plans/ledger-ui/design/smoke.mjs 'mem finance chip on the admin with the grant only', 'mem admin with no plan shows no plan, not 0', 'mem admin can also hold a plan', 'audience chip: Owner is Owner · everything', 'audience chip: admin with the finance grant is Finance admin', 'audience chip: adult with a live membership is Member', 'audience chip: admin without the finance grant gets audiences like anyone else (Member by plan)', 'audience chip: a canceled membership is Public', 'chips: role and finance chips carry their styled classes'",
+			"route": "#/vol/members?theme=light",
+			"expect": {
+				"text": {
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=member-name]": {
+						"text": "Mia R.",
+						"moves": true
+					},
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=member-id]": "m_204",
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=role-chip]": "Member",
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=member-plan]": "Sparkle ×2",
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=member-available]": {
+						"text": "0/16 +1 held",
+						"moves": true
+					},
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=held-badge]": "+1 held",
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=member-expires]": "—",
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=audience-chip]": "Audience: Member",
+					"[data-test=member-row][data-id=\"m_093\"] [data-test=role-chip]": "Admin",
+					"[data-test=member-row][data-id=\"m_093\"] [data-test=member-plan]": "Glow ×1",
+					"[data-test=member-row][data-id=\"m_093\"] [data-test=member-available]": {
+						"text": "18/24 +1 held",
+						"moves": true
+					},
+					"[data-test=member-row][data-id=\"m_093\"] [data-test=member-expires]": "Dec 1",
+					"[data-test=member-row][data-id=\"m_012\"] [data-test=member-available]": "20/32 +2 held",
+					"[data-test=member-row][data-id=\"m_088\"] [data-test=member-available]": "7/8 +1 held",
+					"[data-test=member-row][data-id=\"m_051\"] [data-test=status-badge]": "Canceled",
+					"[data-test=member-row][data-id=\"m_051\"] [data-test=member-available]": "9/12",
+					"[data-test=member-row][data-id=\"m_051\"] [data-test=member-expires]": "Nov 11",
+					"[data-test=member-row][data-id=\"m_051\"] [data-test=audience-chip]": "Audience: Public",
+					"[data-test=member-row][data-id=\"u_kim\"] [data-test=member-name]": {
+						"text": "Kim R.",
+						"moves": true
+					},
+					"[data-test=member-row][data-id=\"u_kim\"] [data-test=you-tag]": "(you)",
+					"[data-test=member-row][data-id=\"u_kim\"] [data-test=role-chip]": "Owner",
+					"[data-test=member-row][data-id=\"u_kim\"] [data-test=member-plan]": "No plan",
+					"[data-test=member-row][data-id=\"u_kim\"] [data-test=member-available]": "no plan",
+					"[data-test=member-row][data-id=\"u_kim\"] [data-test=member-expires]": "—",
+					"[data-test=member-row][data-id=\"u_kim\"] [data-test=audience-chip]": "Audience: Owner · everything",
+					"[data-test=member-row][data-id=\"u_rav\"] [data-test=role-chip]": "Admin",
+					"[data-test=member-row][data-id=\"u_rav\"] [data-test=finance-chip]": "Finance",
+					"[data-test=member-row][data-id=\"u_rav\"] [data-test=member-plan]": "No plan",
+					"[data-test=member-row][data-id=\"u_rav\"] [data-test=member-available]": "no plan",
+					"[data-test=member-row][data-id=\"u_rav\"] [data-test=audience-chip]": "Audience: Finance admin"
+				},
+				"contains": {
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=attention-badge]": [
+						"Out of sessions",
+						"Needs outcome"
+					]
+				},
+				"count": {
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=attention-badge]": 2,
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=attention-badge][data-kind=out]": 1,
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=attention-badge][data-kind=needs_outcome]": 1,
+					"[data-test=member-row][data-id=\"m_012\"] [data-test=attention-badge][data-kind=inside_cutoff]": 1,
+					"[data-test=member-row][data-id=\"m_117\"] [data-test=attention-badge][data-kind=low]": 1,
+					"[data-test=member-row][data-id=\"m_088\"] [data-test=attention-badge]": 0,
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=held-badge][title=\"Held for upcoming bookings\"]": 1,
+					"[data-test=member-row][data-id=\"m_051\"] [data-test=held-badge]": 0,
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=role-chip].krole.kr-member": 1,
+					"[data-test=member-row][data-id=\"u_kim\"] [data-test=role-chip].krole.kr-owner": 1,
+					"[data-test=member-row][data-id=\"u_rav\"] [data-test=finance-chip].kfin[title=\"Finance grant: can see money\"]": 1,
+					"[data-test=member-row][data-id=\"m_093\"] [data-test=finance-chip]": 0,
+					"[data-test=member-row][data-id=\"u_kim\"] [data-test=finance-chip]": 0,
+					"[data-test=member-row][data-id=\"u_kim\"] [data-test=audience-chip][data-audience=owner][title=\"Audience: Owner on the roster\"]": 1,
+					"[data-test=member-row][data-id=\"u_rav\"] [data-test=audience-chip][data-audience=finance][title=\"Audience: Admin with the finance grant\"]": 1,
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=audience-chip][data-audience=member][title=\"Audience: Adult with a live Sparkle membership: that tier names Member.\"]": 1,
+					"[data-test=member-row][data-id=\"m_093\"] [data-test=audience-chip][data-audience=member][title=\"Audience: Adult with a live Glow membership: that tier names Member. An admin without the finance grant gets audiences like anyone else.\"]": 1,
+					"[data-test=member-row][data-id=\"m_051\"] [data-test=audience-chip][data-audience=public][title=\"Audience: No live membership: Public.\"]": 1,
+					"[data-test=member-row][data-id=\"u_kim\"] [data-test=balance-bar]": 0,
+					"[data-test=member-row][data-id=\"u_kim\"] [data-test=view-as-member]": 0,
+					"[data-test=member-row][data-id=\"u_rav\"] [data-test=view-as-member]": 0,
+					"[data-test=view-as-member][aria-label=\"View Mia R. as member\"][title=\"View as member\"]": 1,
+					"[data-test=member-menu-button][aria-label=\"More actions for Kim R.\"][title=\"More actions\"]": 1
+				}
+			}
+		},
+		{
+			"id": "balance-bar-vol",
+			"source": "mockup bar3: used, held for bookings and available out of what was granted (used = granted − available − held), title 'used U · held H · available A', class low when nothing is available or under 20% of granted; legend under the table; plans/ledger-ui/design/smoke.mjs 'balance bar: three segments on every row with a plan'",
+			"route": "#/vol/members?theme=light",
+			"expect": {
+				"count": {
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=balance-bar].low[title=\"used 15 · held 1 · available 0\"]": 1,
+					"[data-test=member-row][data-id=\"m_117\"] [data-test=balance-bar].low[title=\"used 20 · held 2 · available 2\"]": 1,
+					"[data-test=member-row][data-id=\"m_012\"] [data-test=balance-bar]:not(.low)[title=\"used 10 · held 2 · available 20\"]": 1,
+					"[data-test=member-row][data-id=\"m_088\"] [data-test=balance-bar]:not(.low)[title=\"used 0 · held 1 · available 7\"]": 1,
+					"[data-test=member-row][data-id=\"m_051\"] [data-test=balance-bar]:not(.low)[title=\"used 3 · held 0 · available 9\"]": 1,
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=bar-segment]": 3,
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=bar-segment][data-segment=used][data-count=\"15\"]": 1,
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=bar-segment][data-segment=held][data-count=\"1\"]": 1,
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=bar-segment][data-segment=available][data-count=\"0\"]": 1,
+					"[data-test=member-row][data-id=\"m_093\"] [data-test=bar-segment]": 3,
+					"[data-test=member-row][data-id=\"m_093\"] [data-test=bar-segment][data-segment=used][data-count=\"5\"]": 1,
+					"[data-test=member-row][data-id=\"m_093\"] [data-test=bar-segment][data-segment=held][data-count=\"1\"]": 1,
+					"[data-test=member-row][data-id=\"m_093\"] [data-test=bar-segment][data-segment=available][data-count=\"18\"]": 1,
+					"[data-test=member-row][data-id=\"m_012\"] [data-test=bar-segment]": 3,
+					"[data-test=member-row][data-id=\"m_012\"] [data-test=bar-segment][data-segment=used][data-count=\"10\"]": 1,
+					"[data-test=member-row][data-id=\"m_012\"] [data-test=bar-segment][data-segment=held][data-count=\"2\"]": 1,
+					"[data-test=member-row][data-id=\"m_012\"] [data-test=bar-segment][data-segment=available][data-count=\"20\"]": 1,
+					"[data-test=member-row][data-id=\"m_117\"] [data-test=bar-segment]": 3,
+					"[data-test=member-row][data-id=\"m_117\"] [data-test=bar-segment][data-segment=used][data-count=\"20\"]": 1,
+					"[data-test=member-row][data-id=\"m_117\"] [data-test=bar-segment][data-segment=held][data-count=\"2\"]": 1,
+					"[data-test=member-row][data-id=\"m_117\"] [data-test=bar-segment][data-segment=available][data-count=\"2\"]": 1,
+					"[data-test=member-row][data-id=\"m_088\"] [data-test=bar-segment]": 3,
+					"[data-test=member-row][data-id=\"m_088\"] [data-test=bar-segment][data-segment=used][data-count=\"0\"]": 1,
+					"[data-test=member-row][data-id=\"m_088\"] [data-test=bar-segment][data-segment=held][data-count=\"1\"]": 1,
+					"[data-test=member-row][data-id=\"m_088\"] [data-test=bar-segment][data-segment=available][data-count=\"7\"]": 1,
+					"[data-test=member-row][data-id=\"m_051\"] [data-test=bar-segment]": 3,
+					"[data-test=member-row][data-id=\"m_051\"] [data-test=bar-segment][data-segment=used][data-count=\"3\"]": 1,
+					"[data-test=member-row][data-id=\"m_051\"] [data-test=bar-segment][data-segment=held][data-count=\"0\"]": 1,
+					"[data-test=member-row][data-id=\"m_051\"] [data-test=bar-segment][data-segment=available][data-count=\"9\"]": 1
+				}
+			}
+		},
+		{
+			"id": "list-b4u",
+			"source": "mockup members() for B4 Uni, Jo A. (an admin with the finance grant) signed in, the period on Jun 2026 (the fixture school opens there): the Wu family's three memberships share one family key, a teen and a child read Public (the guardian holds Member), the Board tier names Governance; plans/ledger-ui/design/smoke.mjs 'b4u viewer is an admin and sees all', 'b4u family chip on the Wu family', 'audience chip: adult with a live Board membership is Governance', 'audience chip: a child never holds Member, the guardian does'",
+			"route": "#/b4u/members?theme=light",
+			"expect": {
+				"text": {
+					"[data-test=member-row]:nth-child(1) [data-test=member-name]": {
+						"text": "Dana W.",
+						"moves": true
+					},
+					"[data-test=member-row]:nth-child(2) [data-test=member-name]": "Omar F.",
+					"[data-test=member-row]:nth-child(3) [data-test=member-name]": "Priya N.",
+					"[data-test=member-row]:nth-child(4) [data-test=member-name]": "Jo A.",
+					"[data-test=member-row]:nth-child(5) [data-test=member-name]": "Tess M.",
+					"[data-test=member-row]:nth-child(6) [data-test=member-name]": "Kai W.",
+					"[data-test=member-row]:nth-child(7) [data-test=member-name]": "Lia W.",
+					"[data-test=member-row]:nth-child(8) [data-test=member-name]": "Marta G.",
+					"[data-test=member-row]:nth-child(9) [data-test=member-name]": "Pia L.",
+					"[data-test=member-row]:nth-child(10) [data-test=member-name]": "Raj S.",
+					"[data-test=members-stat][data-stat=outstanding] [data-test=stat-label]": "credits outstanding (incl. held)",
+					"[data-test=members-stat][data-stat=outstanding] [data-test=stat-value]": {
+						"text": "65",
+						"moves": true
+					},
+					"[data-test=members-stat][data-stat=income] [data-test=stat-label]": "income · Jun 2026",
+					"[data-test=members-stat][data-stat=income] [data-test=stat-value]": "$155.00",
+					"[data-test=members-stat][data-stat=attention] [data-test=stat-value]": "2",
+					"[data-test=members-column][data-column=available]": "Credits available",
+					"[data-test=role-filter][data-role-filter=all]": "All 10",
+					"[data-test=role-filter][data-role-filter=admins]": "Owners & admins 3",
+					"[data-test=role-filter][data-role-filter=members]": "Members 7",
+					"[data-test=member-row][data-id=\"u_jo\"] [data-test=you-tag]": "(you)",
+					"[data-test=member-row][data-id=\"s_25\"] [data-test=family-chip]": "Wu family",
+					"[data-test=member-row][data-id=\"s_27\"] [data-test=audience-chip]": "Audience: Governance",
+					"[data-test=member-row][data-id=\"s_27\"] [data-test=member-plan]": "Board ×1",
+					"[data-test=member-row][data-id=\"s_27\"] [data-test=member-available]": "2/2",
+					"[data-test=member-row][data-id=\"s_26\"] [data-test=audience-chip]": "Audience: Public",
+					"[data-test=member-row][data-id=\"s_21\"] [data-test=audience-chip]": "Audience: Member",
+					"[data-test=member-row][data-id=\"u_tes\"] [data-test=audience-chip]": "Audience: Finance admin",
+					"[data-test=member-row][data-id=\"s_22\"] [data-test=member-available]": {
+						"text": "1/8 +1 held",
+						"moves": true
+					}
+				},
+				"count": {
+					"[data-test=member-row]": 10,
+					"[data-test=family-chip]": 3,
+					"[data-test=family-chip][title=\"Family key fam_wu\"]": 3,
+					"[data-test=role-chip][data-role=owner]": 1,
+					"[data-test=role-chip][data-role=admin]": 2,
+					"[data-test=finance-chip]": 2,
+					"[data-test=members-note]": 0,
+					"[data-test=member-row][data-id=\"s_27\"] [data-test=audience-chip][data-audience=governance][title=\"Audience: Adult with a live Board membership: that tier names Governance.\"]": 1,
+					"[data-test=member-row][data-id=\"s_25\"] [data-test=audience-chip][data-audience=public][title=\"Audience: Teen: never holds Member or Governance, the guardian does (Dana W.)\"]": 1,
+					"[data-test=member-row][data-id=\"s_26\"] [data-test=audience-chip][data-audience=public][title=\"Audience: Child: never holds Member or Governance, the guardian does (Dana W.)\"]": 1
+				}
+			}
+		},
+		{
+			"id": "list-map",
+			"source": "mockup members() for Maple Pilates (classes): Chloe B. is out of classes, Eli Q. is an admin without the finance grant and no plan (Public); two people are named Noor A. (the owner's roster row u_noo and the member p_09). Money is not checked here: the mockup writes C$, Intl writes CA$",
+			"route": "#/map/members?theme=light",
+			"expect": {
+				"text": {
+					"[data-test=members-column][data-column=available]": "Classes available",
+					"[data-test=member-filter][data-filter=attention]": "Needs attention (1)",
+					"[data-test=member-row][data-id=\"p_07\"] [data-test=member-available]": "0/24",
+					"[data-test=member-row][data-id=\"p_07\"] [data-test=attention-badge]": "Out of classes",
+					"[data-test=member-row][data-id=\"p_07\"] [data-test=member-expires]": "—",
+					"[data-test=member-row][data-id=\"p_08\"] [data-test=status-badge]": "Canceled",
+					"[data-test=member-row][data-id=\"p_08\"] [data-test=member-expires]": "Nov 14",
+					"[data-test=member-row][data-id=\"u_eli\"] [data-test=audience-chip]": "Audience: Public",
+					"[data-test=member-row][data-id=\"u_noo\"] [data-test=you-tag]": "(you)",
+					"[data-test=member-row]:nth-child(1) [data-test=member-name]": "Chloe B.",
+					"[data-test=member-row]:nth-child(2) [data-test=member-name]": "Noor A.",
+					"[data-test=member-row]:nth-child(3) [data-test=member-name]": "Cal D.",
+					"[data-test=member-row]:nth-child(4) [data-test=member-name]": "Eli Q.",
+					"[data-test=member-row]:nth-child(5) [data-test=member-name]": "Eli M.",
+					"[data-test=member-row]:nth-child(6) [data-test=member-name]": "Noor A."
+				},
+				"count": {
+					"[data-test=member-row]": 6,
+					"[data-test=member-row][data-id=\"u_eli\"] [data-test=audience-chip][title=\"Audience: No live membership: Public. An admin without the finance grant gets audiences like anyone else.\"]": 1
+				}
+			}
+		},
+		{
+			"id": "empty-nw",
+			"source": "mockup members() for Lotus Lane Yoga: no plans sold, so the strip reads 0, $0.00 and 0 and the table lists only the roster; the Members role chip finds nobody: 'No members match.' (the mockup's 'No members yet…' needs a school with no roster at all, which no fixture has)",
+			"route": "#/nw/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=role-filter][data-role-filter=members]",
+					"expect": {
+						"hash": "role=members"
+					}
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=members-stat][data-stat=outstanding] [data-test=stat-value]": "0",
+					"[data-test=members-stat][data-stat=income] [data-test=stat-value]": "$0.00",
+					"[data-test=members-stat][data-stat=attention] [data-test=stat-value]": "0",
+					"[data-test=member-filter][data-filter=attention]": "Needs attention (0)",
+					"[data-test=role-filter][data-role-filter=members]": "Members 0",
+					"[data-test=members-empty]": "No members match."
+				},
+				"count": {
+					"[data-test=member-row]": 0,
+					"[data-test=members-empty]": 1
+				}
+			}
+		},
+		{
+			"id": "search-name",
+			"source": "mockup #q: matches id, name, plan, status and role label, case-insensitive",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"fill": "[data-test=member-search]",
+					"value": "ana"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=member-row]": 1,
+					"[data-test=member-row][data-id=\"m_093\"]": 1
+				}
+			}
+		},
+		{
+			"id": "search-role",
+			"source": "mockup #q: the role label is searchable ('admin' finds both admins)",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"fill": "[data-test=member-search]",
+					"value": "admin"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=member-row]": 2,
+					"[data-test=member-row][data-id=\"m_093\"]": 1,
+					"[data-test=member-row][data-id=\"u_rav\"]": 1
+				}
+			}
+		},
+		{
+			"id": "search-none",
+			"source": "mockup #q with no match: one empty row 'No members match.'",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"fill": "[data-test=member-search]",
+					"value": "zzz"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=members-empty]": "No members match."
+				},
+				"count": {
+					"[data-test=member-row]": 0
+				}
+			}
+		},
+		{
+			"id": "filter-attention",
+			"source": "mockup .f[data-s=att]: only the rows with a reason, worst first",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-filter][data-filter=attention]"
+				}
+			],
+			"expect": {
+				"hash": "show=attention",
+				"text": {
+					"[data-test=member-row]:nth-child(1) [data-test=member-name]": "Mia R.",
+					"[data-test=member-row]:nth-child(2) [data-test=member-name]": "Ana P.",
+					"[data-test=member-row]:nth-child(3) [data-test=member-name]": "Ivy N.",
+					"[data-test=member-row]:nth-child(4) [data-test=member-name]": "Jon K."
+				},
+				"count": {
+					"[data-test=member-row]": 4,
+					"[data-test=member-filter].on[data-filter=attention]": 1
+				}
+			}
+		},
+		{
+			"id": "filter-attention-stat",
+			"source": "mockup #attbtn: the strip's 'need attention' stat applies the same filter",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=members-stat][data-stat=attention]"
+				}
+			],
+			"expect": {
+				"hash": "show=attention",
+				"count": {
+					"[data-test=member-row]": 4,
+					"[data-test=member-filter].on[data-filter=attention]": 1
+				}
+			}
+		},
+		{
+			"id": "filter-canceled",
+			"source": "mockup .f[data-s=canceled]",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-filter][data-filter=canceled]"
+				}
+			],
+			"expect": {
+				"hash": "show=canceled",
+				"count": {
+					"[data-test=member-row]": 1,
+					"[data-test=member-row][data-id=\"m_051\"]": 1
+				}
+			}
+		},
+		{
+			"id": "role-admins",
+			"source": "mockup #rchips data-rf=oa; plans/ledger-ui/design/smoke.mjs 'mem role filter chips', 'mem filter owners and admins'",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=role-filter][data-role-filter=admins]"
+				}
+			],
+			"expect": {
+				"hash": "role=admins",
+				"text": {
+					"[data-test=member-row]:nth-child(1) [data-test=member-name]": "Ana P.",
+					"[data-test=member-row]:nth-child(2) [data-test=member-name]": "Kim R.",
+					"[data-test=member-row]:nth-child(3) [data-test=member-name]": "Ravi S."
+				},
+				"count": {
+					"[data-test=member-row]": 3,
+					"[data-test=role-filter][data-role-filter=admins][aria-pressed=true].on": 1,
+					"[data-test=role-filter][aria-pressed=true]": 1
+				}
+			}
+		},
+		{
+			"id": "role-members",
+			"source": "mockup #rchips data-rf=m; plans/ledger-ui/design/smoke.mjs 'mem filter members'",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=role-filter][data-role-filter=members]"
+				}
+			],
+			"expect": {
+				"hash": "role=members",
+				"count": {
+					"[data-test=member-row]": 5,
+					"[data-test=member-row][data-id=\"m_093\"]": 0,
+					"[data-test=member-row][data-id=\"u_kim\"]": 0
+				}
+			}
+		},
+		{
+			"id": "role-all",
+			"source": "mockup #rchips data-rf='' from a filtered route; plans/ledger-ui/design/smoke.mjs 'mem filter all'",
+			"route": "#/vol/members?role=members&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=role-filter][data-role-filter=all]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=member-row]": 8,
+					"[data-test=role-filter][data-role-filter=all][aria-pressed=true]": 1
+				}
+			}
+		},
+		{
+			"id": "plan-filter",
+			"source": "mockup #pfchip (opened from a Plans row, S3): 'Plan: Sparkle ×' keeps that plan's holders; × clears it (the first step, a release with nothing pending, only checks the opening state)",
+			"route": "#/vol/members?plan=Sparkle&theme=light",
+			"steps": [
+				{
+					"release": true,
+					"expect": {
+						"text": {
+							"[data-test=plan-filter]": "Plan: Sparkle ×"
+						},
+						"count": {
+							"[data-test=member-row]": 3,
+							"[data-test=member-row][data-id=\"m_204\"]": 1,
+							"[data-test=member-row][data-id=\"m_012\"]": 1,
+							"[data-test=member-row][data-id=\"m_088\"]": 1
+						}
+					}
+				},
+				{
+					"click": "[data-test=plan-filter-clear]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=member-row]": 8,
+					"[data-test=plan-filter]": 0
+				}
+			}
+		},
+		{
+			"id": "note-link",
+			"source": "mockup #expnote 'View promos' opens the Promos tab",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=members-note-link]"
+				}
+			],
+			"expect": {
+				"hash": "#/vol/promos"
+			}
+		},
+		{
+			"id": "drawer-plan-holder",
+			"source": "mockup open(id) for Mia R.: header, chips, capability line, actions, balance line, upcoming booking (S2's row), payments (5 of 29) and history; plans/ledger-ui/design/smoke.mjs 'drawer member capability', 'admin csv: drawer has a Payments section with Download CSV'",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_204\"]"
+				}
+			],
+			"expect": {
+				"hash": "member=m_204",
+				"text": {
+					"[data-test=drawer-head]": "m_204 · Vibes of Light",
+					"[data-test=drawer-name]": {
+						"text": "Mia R.",
+						"moves": true
+					},
+					"[data-test=member-drawer] [data-test=role-chip]": "Member",
+					"[data-test=member-drawer] [data-test=member-plan]": "Sparkle ×2",
+					"[data-test=renews-badge]": "renews Dec 1",
+					"[data-test=capability-line][data-line=sees]": "Sees: only themselves and their family",
+					"[data-test=capability-line][data-line=audience]": "Audience: Member · Adult with a live Sparkle membership: that tier names Member.",
+					"[data-test=drawer-action][data-action=view-as-member]": "View as member",
+					"[data-test=drawer-action][data-action=invoice]": "Send invoice",
+					"[data-test=drawer-action][data-action=adjust]": "Adjust sessions",
+					"[data-test=drawer-action][data-action=refund]": "Refund",
+					"[data-test=drawer-balance]": {
+						"text": "0 available of 16 · 1 held for bookings · rollover 0",
+						"moves": true
+					},
+					"[data-test=payments-all]": "Show all payments (29)",
+					"[data-test=payments-csv]": "Download CSV"
+				},
+				"contains": {
+					"[data-test=member-drawer] [data-test=attention-badge]": [
+						"Out of sessions",
+						"Needs outcome"
+					],
+					"[data-test=drawer-booking]": [
+						"Massage 90 · Nov 4 17:00",
+						"bk_8zz · Kim",
+						"1 session held",
+						"Needs outcome",
+						"Confirm attended",
+						"No-show"
+					],
+					"[data-test=drawer-payments]": [
+						"Payments",
+						"29 rows"
+					],
+					"[data-test=payment-row]:nth-child(1)": [
+						"Nov 1, 26",
+						"Invoice paid, Sparkle ×2",
+						"$65.00",
+						"Paid"
+					],
+					"[data-test=payment-row]:nth-child(2)": [
+						"Oct 31, 26",
+						"Invoice sent, Top-up pack (unpaid)",
+						"$40.00",
+						"Open"
+					],
+					"[data-test=history-item]:nth-child(1)": [
+						"Sessions held",
+						"−1",
+						"Held for Massage 90",
+						"bk_8zz",
+						"Nov 4 · family"
+					],
+					"[data-test=history-item]:nth-child(4)": [
+						"Payment",
+						"+65.00",
+						"Invoice paid, Sparkle ×2",
+						"Nov 1 · stripe"
+					]
+				},
+				"count": {
+					"[data-test=member-drawer]": 1,
+					"[data-test=capability-line]": 2,
+					"[data-test=capability-line][data-line=money]": 0,
+					"[data-test=drawer-action]": 4,
+					"[data-test=drawer-action][disabled]": 0,
+					"[data-test=member-drawer] [data-test=member-menu-button][aria-haspopup=menu]": 1,
+					"[data-test=drawer-booking]": 1,
+					"[data-test=payment-row]": 5,
+					"[data-test=drawer-history]": 1,
+					"[data-test=history-item]": 4,
+					"[data-test=payments-csv][title^=\"Download this member\"]": 1,
+					"[data-test=drawer-note]": 0
+				}
+			}
+		},
+		{
+			"id": "drawer-plan-holder-ivy",
+			"source": "mockup open('m_012'): the balance line with the expiry, a held booking inside its 12h cutoff (S2's Release hold), the promo on a payment in the history, 30 payments",
+			"route": "#/vol/members?member=m_012&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=drawer-balance]": {
+						"text": "20 available of 32 · 2 held for bookings · expire Dec 1 · rollover 0",
+						"moves": true
+					},
+					"[data-test=payments-all]": "Show all payments (30)"
+				},
+				"contains": {
+					"[data-test=drawer-booking]": [
+						"Facial · Nov 5 18:00",
+						"bk_5kd · Kim",
+						"2 sessions held",
+						"Inside 12h cutoff",
+						"Release hold"
+					],
+					"[data-test=history-item]:nth-child(1)": [
+						"Payment",
+						"+117.00",
+						"Invoice paid, Sparkle ×4 (10% off)",
+						"promo SPR•••10",
+						"Nov 1 · stripe"
+					],
+					"[data-test=history-item]:nth-child(2)": [
+						"Sessions granted",
+						"+32",
+						"Plan allowance",
+						"Oct 15 · stripe"
+					]
+				},
+				"count": {
+					"[data-test=history-item]": 3,
+					"[data-test=payment-row]": 5
+				}
+			}
+		},
+		{
+			"id": "drawer-payments-all",
+			"source": "mockup #kpa: 'Show all payments (29)' lists every row",
+			"route": "#/vol/members?member=m_204&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=payments-all]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=payment-row]": 29,
+					"[data-test=payments-all]": 0
+				}
+			}
+		},
+		{
+			"id": "drawer-admin-finance",
+			"source": "mockup openPerson for Ravi S. (admin, finance grant, no plan); plans/ledger-ui/design/smoke.mjs 'drawer admin capability'",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"u_rav\"]"
+				}
+			],
+			"expect": {
+				"hash": "member=u_rav",
+				"text": {
+					"[data-test=drawer-head]": "u_rav · Vibes of Light",
+					"[data-test=drawer-name]": "Ravi S.",
+					"[data-test=member-drawer] [data-test=member-plan]": "No plan",
+					"[data-test=member-drawer] [data-test=role-chip]": "Admin",
+					"[data-test=member-drawer] [data-test=finance-chip]": "Finance",
+					"[data-test=capability-line][data-line=sees]": "Sees: every member, dashboard, bookings",
+					"[data-test=capability-line][data-line=money]": "Money: yes · refunds are owner only",
+					"[data-test=capability-line][data-line=audience]": "Audience: Finance admin · Admin with the finance grant",
+					"[data-test=history-empty]": "No activity yet."
+				},
+				"count": {
+					"[data-test=drawer-action]": 1,
+					"[data-test=drawer-action][data-action=view-as-member][disabled][title=\"No plan, so there is no member portal to view\"]": 1,
+					"[data-test=drawer-balance]": 0,
+					"[data-test=drawer-payments]": 0,
+					"[data-test=history-item]": 0,
+					"[data-test=drawer-note]": 0
+				}
+			}
+		},
+		{
+			"id": "drawer-owner-you",
+			"source": "mockup openPerson for Kim R., the signed-in owner",
+			"route": "#/vol/members?member=u_kim&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=drawer-name] [data-test=you-tag]": "(you)",
+					"[data-test=capability-line][data-line=sees]": "Sees: every member, dashboard, bookings (you)",
+					"[data-test=capability-line][data-line=money]": "Money: yes (owner) · refunds are owner only",
+					"[data-test=capability-line][data-line=audience]": "Audience: Owner · Owner on the roster"
+				}
+			}
+		},
+		{
+			"id": "drawer-admin-no-finance",
+			"source": "mockup open('m_093'): an admin who also holds a plan, no finance grant; plans/ledger-ui/design/smoke.mjs 'drawer admin without finance: money no'",
+			"route": "#/vol/members?member=m_093&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=capability-line][data-line=money]": "Money: no",
+					"[data-test=capability-line][data-line=audience]": "Audience: Member · Adult with a live Glow membership: that tier names Member. An admin without the finance grant gets audiences like anyone else."
+				},
+				"count": {
+					"[data-test=drawer-booking]": 2
+				}
+			}
+		},
+		{
+			"id": "drawer-canceled",
+			"source": "mockup open('m_051'): canceled, credits expire Nov 11, no upcoming booking, a partial refund in the payments",
+			"route": "#/vol/members?member=m_051&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=drawer-balance]": "9 available of 12 · expire Nov 11 · rollover 0",
+					"[data-test=capability-line][data-line=audience]": "Audience: Public · No live membership: Public."
+				},
+				"contains": {
+					"[data-test=payment-row]:nth-child(1)": [
+						"Nov 2, 26",
+						"Partial refund",
+						"−$50.00",
+						"Refunded"
+					],
+					"[data-test=payment-row]:nth-child(3)": [
+						"Partly refunded"
+					]
+				},
+				"count": {
+					"[data-test=drawer-booking]": 0
+				}
+			}
+		},
+		{
+			"id": "drawer-non-owner",
+			"source": "mockup open('s_22') at B4 Uni, Jo A. (admin with the finance grant) signed in: Refund is the owner's, with the reason under the actions",
+			"route": "#/b4u/members?member=s_22&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=drawer-head]": "s_22 · B4 Uni",
+					"[data-test=drawer-action][data-action=adjust]": "Adjust credits",
+					"[data-test=drawer-note]": "Refunds need the owner role in B4 Uni.",
+					"[data-test=drawer-balance]": "1 available of 8 · 1 held for bookings · expire Dec 1 · rollover 0"
+				},
+				"count": {
+					"[data-test=drawer-action][data-action=refund][disabled][title=\"Refunds need the owner role in this school\"]": 1,
+					"[data-test=drawer-action][data-action=invoice][disabled]": 0,
+					"[data-test=drawer-action][data-action=adjust][disabled]": 0
+				},
+				"contains": {
+					"[data-test=drawer-payments]": [
+						"29 rows"
+					]
+				}
+			}
+		},
+		{
+			"id": "drawer-non-owner-roster",
+			"source": "mockup openPerson('u_tes') at B4 Uni: roles are the owner's",
+			"route": "#/b4u/members?member=u_tes&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=drawer-note]": "Changing roles needs the owner role in B4 Uni."
+				}
+			}
+		},
+		{
+			"id": "drawer-stripe-missing",
+			"source": "mockup open('p_09') at Maple Pilates: the Stripe key lacks Invoices and Refunds (write)",
+			"route": "#/map/members?member=p_09&theme=light",
+			"expect": {
+				"count": {
+					"[data-test=drawer-action][data-action=invoice][disabled][title=\"The Stripe key lacks Invoices (write). Fix it in Settings.\"]": 1,
+					"[data-test=drawer-action][data-action=refund][disabled][title=\"The Stripe key lacks Refunds (write). Fix it in Settings.\"]": 1
+				},
+				"text": {
+					"[data-test=drawer-action][data-action=adjust]": "Adjust classes"
+				}
+			}
+		},
+		{
+			"id": "drawer-close",
+			"source": "mockup #drx closes the drawer",
+			"route": "#/vol/members?member=m_204&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=drawer-close]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=member-drawer]": 0
+				}
+			}
+		},
+		{
+			"id": "menu-owner",
+			"source": "mockup kMenuHtml for Ivy N., the owner viewing: every per-member action in one role=menu, groups split by rules (portal | money and plan | role | export | audit and Stripe), Cancel in the danger style; plans/ledger-ui/design/smoke.mjs 'menu: opens a role=menu with the listed items for the owner', 'menu: groups are separated by rules', 'menu: owner sees every action enabled', 'menu: destructive item uses the danger style'. Items are buttons in document order, so :nth-of-type counts them past the rules; View in Stripe is a link (G4d: MemberDetail.stripeDashboardUrl), so it is selected by its action",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_012\"] [data-test=member-menu-button]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=member-menu-item]:nth-of-type(1)": "View as member",
+					"[data-test=member-menu-item]:nth-of-type(2)": "Send invoice…",
+					"[data-test=member-menu-item]:nth-of-type(3)": "Adjust sessions…",
+					"[data-test=member-menu-item]:nth-of-type(4)": "Refund a payment…",
+					"[data-test=member-menu-item]:nth-of-type(5)": "Release a booking…",
+					"[data-test=member-menu-item]:nth-of-type(6)": "Switch plan…",
+					"[data-test=member-menu-item]:nth-of-type(7)": "Cancel membership…",
+					"[data-test=member-menu-item]:nth-of-type(8)": "Make admin",
+					"[data-test=member-menu-item]:nth-of-type(9)": "Download CSV",
+					"[data-test=member-menu-item]:nth-of-type(10)": "Audit member",
+					"[data-test=member-menu-item][data-action=view-as-member]": "View as member",
+					"[data-test=member-menu-item][data-action=invoice]": "Send invoice…",
+					"[data-test=member-menu-item][data-action=adjust]": "Adjust sessions…",
+					"[data-test=member-menu-item][data-action=refund]": "Refund a payment…",
+					"[data-test=member-menu-item][data-action=release]": "Release a booking…",
+					"[data-test=member-menu-item][data-action=switch]": "Switch plan…",
+					"[data-test=member-menu-item][data-action=cancel]": "Cancel membership…",
+					"[data-test=member-menu-item][data-action=make-admin]": "Make admin",
+					"[data-test=member-menu-item][data-action=csv]": "Download CSV",
+					"[data-test=member-menu-item][data-action=audit]": "Audit member",
+					"[data-test=member-menu-item][data-action=stripe]": "View in Stripe",
+					"[data-test=member-menu-item][data-action=receipt]": "Resend receipt",
+					"[data-test=member-menu-item]:nth-of-type(11)": "Resend receipt"
+				},
+				"count": {
+					"[data-test=member-menu][role=menu]": 1,
+					"[data-test=member-menu-item][role=menuitem]": 12,
+					"[data-test=member-menu] hr": 4,
+					"[data-test=member-menu-item][disabled]": 0,
+					"[data-test=member-menu-item].d": 1,
+					"[data-test=member-menu-item][data-action=cancel].d": 1,
+					"[data-test=member-row][data-id=\"m_012\"] [data-test=member-menu-button][aria-expanded=true]": 1,
+					"[data-test=member-menu-item][data-action=csv][title^=\"Download this member\"]": 1
+				}
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "document.querySelector('.tab[data-p=mem]').click();document.querySelector('#mb tr.row[data-id=m_012] [data-kmenu]').click()"
+			}
+		},
+		{
+			"id": "menu-nothing-held",
+			"source": "mockup kMenuHtml for Mia R.: her one booking needs an outcome, so nothing is releasable",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_204\"] [data-test=member-menu-button]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=member-menu-item][data-action=release][disabled][title=\"No held bookings to release\"]": 1,
+					"[data-test=member-menu-item][disabled]": 1
+				}
+			}
+		},
+		{
+			"id": "menu-no-plan-owner",
+			"source": "mockup kMenuHtml for Kim R. (owner, no plan, the only owner): View as member and Download CSV have nothing to act on, the last owner cannot be removed; plans/ledger-ui/design/smoke.mjs 'menu: no-plan admin row has View as member disabled with a title and no money-action group', 'last owner guard: sole owner cannot be removed'",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"u_kim\"] [data-test=member-menu-button]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=member-menu-item][data-action=remove-owner]": "Remove owner role"
+				},
+				"count": {
+					"[data-test=member-menu-item]": 3,
+					"[data-test=member-menu] hr": 2,
+					"[data-test=member-menu-item][data-action=view-as-member][disabled][title=\"No plan, so there is no member portal to view\"]": 1,
+					"[data-test=member-menu-item][data-action=remove-owner].d[disabled][title=\"Last owner: add another owner first\"]": 1,
+					"[data-test=member-menu-item][data-action=csv][disabled][title=\"No plan, so no payment history\"]": 1,
+					"[data-test=member-menu-item][data-action=invoice]": 0,
+					"[data-test=member-menu-item][data-action=refund]": 0
+				}
+			}
+		},
+		{
+			"id": "menu-admin-finance",
+			"source": "mockup roleMenu for Ravi S.: Remove admin and Revoke finance, both enabled for the owner, both in the danger style; plans/ledger-ui/design/smoke.mjs 'owner can use role actions'",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"u_rav\"] [data-test=member-menu-button]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=member-menu-item][data-action=remove-admin]": "Remove admin",
+					"[data-test=member-menu-item][data-action=revoke-finance]": "Revoke finance"
+				},
+				"count": {
+					"[data-test=member-menu-item][data-action=remove-admin].d:not([disabled])": 1,
+					"[data-test=member-menu-item][data-action=revoke-finance].d:not([disabled])": 1,
+					"[data-test=member-menu-item]": 4
+				}
+			}
+		},
+		{
+			"id": "menu-drawer-same",
+			"source": "mockup: the drawer header's ⋯ is the same builder as the row's (Ana P.: an admin with a plan gets Remove admin and Grant finance); plans/ledger-ui/design/smoke.mjs 'menu: drawer header menu is the same builder (same items as the row)'",
+			"route": "#/vol/members?member=m_093&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-drawer] [data-test=member-menu-button]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=member-menu-item][data-action=grant-finance]": "Grant finance",
+					"[data-test=member-menu-item][data-action=remove-admin]": "Remove admin"
+				},
+				"count": {
+					"[data-test=member-menu-item]": 13,
+					"[data-test=member-menu-item][data-action=make-admin]": 0
+				}
+			}
+		},
+		{
+			"id": "menu-canceled",
+			"source": "mockup kMenuHtml for Sam O. (canceled): Resume replaces Cancel, Switch waits for the resume",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_051\"] [data-test=member-menu-button]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=member-menu-item][data-action=resume]": "Resume membership…"
+				},
+				"count": {
+					"[data-test=member-menu-item][data-action=cancel]": 0,
+					"[data-test=member-menu-item][data-action=resume]:not([disabled])": 1,
+					"[data-test=member-menu-item][data-action=switch][disabled][title=\"Resume the membership first\"]": 1
+				}
+			}
+		},
+		{
+			"id": "menu-non-owner",
+			"source": "mockup kMenuHtml at B4 Uni (Jo A. is an admin): role actions and refunds are the owner's; plans/ledger-ui/design/smoke.mjs 'non-owner: make admin disabled with owner-needed title', 'gate: menu Download CSV disabled with the title, refund says owner role' (refund half)",
+			"route": "#/b4u/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"s_22\"] [data-test=member-menu-button]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=member-menu-item][data-action=adjust]": "Adjust credits…"
+				},
+				"count": {
+					"[data-test=member-menu-item][data-action=make-admin][disabled][title=\"Owner role needed\"]": 1,
+					"[data-test=member-menu-item][data-action=refund][disabled][title=\"Owner role needed\"]": 1,
+					"[data-test=member-menu-item][data-action=invoice]:not([disabled])": 1,
+					"[data-test=member-menu-item][data-action=adjust]:not([disabled])": 1,
+					"[data-test=member-menu-item][data-action=csv]:not([disabled])": 1
+				}
+			}
+		},
+		{
+			"id": "menu-non-owner-roster",
+			"source": "mockup roleMenu for Tess M. at B4 Uni; plans/ledger-ui/design/smoke.mjs 'non-owner: finance and remove disabled', 'non-owner click does nothing'",
+			"route": "#/b4u/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"u_tes\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=revoke-finance]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=member-menu-item][data-action=remove-admin][disabled][title=\"Owner role needed\"]": 1,
+					"[data-test=member-menu-item][data-action=revoke-finance][disabled][title=\"Owner role needed\"]": 1,
+					"[data-test=modal]": 0
+				}
+			}
+		},
+		{
+			"id": "menu-non-owner-owner-row",
+			"source": "mockup roleMenu for Priya N. (the owner) at B4 Uni; plans/ledger-ui/design/smoke.mjs 'non-owner: owner row actions disabled'",
+			"route": "#/b4u/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"u_pri\"] [data-test=member-menu-button]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=member-menu-item][data-action=remove-owner][disabled][title=\"Owner role needed\"]": 1,
+					"[data-test=member-menu-item]:not([disabled])": 0
+				}
+			}
+		},
+		{
+			"id": "menu-stripe-missing",
+			"source": "mockup kMenuHtml at Maple Pilates: the Stripe key lacks Invoices and Refunds (write)",
+			"route": "#/map/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"p_09\"] [data-test=member-menu-button]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=member-menu-item][data-action=invoice][disabled][title=\"The Stripe key lacks Invoices (write). Fix it in Settings.\"]": 1,
+					"[data-test=member-menu-item][data-action=refund][disabled][title=\"The Stripe key lacks Refunds (write). Fix it in Settings.\"]": 1,
+					"[data-test=member-menu-item][data-action=adjust]:not([disabled])": 1
+				}
+			}
+		},
+		{
+			"id": "menu-toggle",
+			"source": "mockup: the ⋯ button toggles the menu and keeps aria-expanded; plans/ledger-ui/design/smoke.mjs 'menu: the button toggles it'",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_204\"] [data-test=member-menu-button]",
+					"expect": {
+						"count": {
+							"[data-test=member-menu]": 1
+						}
+					}
+				},
+				{
+					"click": "[data-test=member-row][data-id=\"m_204\"] [data-test=member-menu-button]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=member-menu]": 0,
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=member-menu-button][aria-expanded=false]": 1
+				}
+			}
+		},
+		{
+			"id": "menu-outside-click",
+			"source": "mockup: a click outside closes the menu; plans/ledger-ui/design/smoke.mjs 'menu: outside click closes it'",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_204\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=members-legend]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=member-menu]": 0
+				}
+			}
+		},
+		{
+			"id": "menu-keyboard",
+			"source": "mockup keydown: ArrowDown on the ⋯ button opens the menu, Escape closes it (focus is checked by the builder's tests); plans/ledger-ui/design/smoke.mjs 'kbd: ArrowDown on the button opens the menu and focuses the first item', 'kbd: Escape closes the menu and returns focus to the button'",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"key": "ArrowDown",
+					"target": "[data-test=member-row][data-id=\"m_204\"] [data-test=member-menu-button]",
+					"expect": {
+						"count": {
+							"[data-test=member-menu]": 1,
+							"[data-test=member-row][data-id=\"m_204\"] [data-test=member-menu-button][aria-expanded=true]": 1
+						}
+					}
+				},
+				{
+					"key": "Escape",
+					"target": "[data-test=member-menu-item]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=member-menu]": 0,
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=member-menu-button][aria-expanded=false]": 1
+				}
+			}
+		},
+		{
+			"id": "menu-row-click-opens-drawer",
+			"source": "mockup #mb: a row click opens the drawer, the ⋯ and eye buttons do not",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_204\"] [data-test=member-menu-button]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=member-drawer]": 0,
+					"[data-test=member-menu]": 1
+				}
+			}
+		},
+		{
+			"id": "role-revoke-finance",
+			"source": "mockup roleModal('revoke'): the confirm says it applies at the next sign-in refresh; brief B4 DELETE finance-grants; the grant goes, the admin drops to Public (spec v2 rule 4); plans/ledger-ui/design/smoke.mjs 'role confirm modal explains refresh', 'revoke finance applied', 'role change toast and pending ledger event', 'audience chip: revoking the grant drops the admin to Public'",
+			"route": "#/vol/members?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"u_rav\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=revoke-finance]",
+					"expect": {
+						"text": {
+							"[data-test=modal-title]": {
+								"text": "Revoke finance from Ravi S.?",
+								"moves": true
+							},
+							"[data-test=modal-body]": "Ravi S. stops seeing money in the dashboard and ledger.",
+							"[data-test=modal-note]": "This applies at Ravi S.'s next sign-in refresh. Their access token lasts 5 minutes, so it can take up to 5 minutes to show.",
+							"[data-test=modal-confirm]": "Confirm",
+							"[data-test=modal-cancel]": "Cancel"
+						},
+						"count": {
+							"[data-test=modal]": 1,
+							"[data-test=modal-confirm][disabled]": 0
+						}
+					}
+				},
+				{
+					"click": "[data-test=modal-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "revokeFinance",
+								"args": [
+									{
+										"schoolId": "vol",
+										"subject": "u_rav"
+									}
+								]
+							}
+						],
+						"count": {
+							"[data-test=modal-confirm][aria-busy=true][disabled]": 1,
+							"[data-test=toast]": 0
+						}
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=finance-chip]": 0,
+					"[data-test=modal]": 0
+				},
+				"text": {
+					"[data-test=member-row][data-id=\"u_rav\"] [data-test=audience-chip]": "Audience: Public",
+					"[data-test=toast]": "Ravi S. no longer has finance access. Applies at their next sign-in refresh (token lifetime 5 minutes)."
+				}
+			}
+		},
+		{
+			"id": "role-grant-finance",
+			"source": "mockup roleModal('grant'); brief B4 POST finance-grants",
+			"route": "#/vol/members?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_093\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=grant-finance]",
+					"expect": {
+						"text": {
+							"[data-test=modal-title]": "Grant finance to Ana P.?",
+							"[data-test=modal-body]": "Ana P. will see money in the dashboard and ledger. Refunds stay owner only.",
+							"[data-test=modal-note]": "This applies at Ana P.'s next sign-in refresh. Their access token lasts 5 minutes, so it can take up to 5 minutes to show.",
+							"[data-test=modal-confirm]": "Confirm",
+							"[data-test=modal-cancel]": "Cancel"
+						},
+						"count": {
+							"[data-test=modal]": 1,
+							"[data-test=modal-confirm][disabled]": 0
+						}
+					}
+				},
+				{
+					"click": "[data-test=modal-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "grantFinance",
+								"args": [
+									{
+										"schoolId": "vol",
+										"subject": "m_093"
+									}
+								]
+							}
+						],
+						"count": {
+							"[data-test=modal-confirm][aria-busy=true][disabled]": 1,
+							"[data-test=toast]": 0
+						}
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=finance-chip]": 2,
+					"[data-test=member-row][data-id=\"m_093\"] [data-test=finance-chip]": 1,
+					"[data-test=modal]": 0
+				},
+				"text": {
+					"[data-test=member-row][data-id=\"m_093\"] [data-test=audience-chip]": "Audience: Finance admin",
+					"[data-test=toast]": "Ana P. has finance access. Applies at their next sign-in refresh (token lifetime 5 minutes)."
+				}
+			}
+		},
+		{
+			"id": "role-make-admin",
+			"source": "mockup roleModal('make'): a role is not a plan, the plan stays; not in the briefs (roster write); plans/ledger-ui/design/smoke.mjs 'make admin applied'",
+			"route": "#/vol/members?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_204\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=make-admin]",
+					"expect": {
+						"text": {
+							"[data-test=modal-title]": "Make Mia R. an admin?",
+							"[data-test=modal-body]": "Mia R. will see every member, the dashboard and bookings in Vibes of Light. Money stays off until you grant finance.",
+							"[data-test=modal-note]": "This applies at Mia R.'s next sign-in refresh. Their access token lasts 5 minutes, so it can take up to 5 minutes to show.",
+							"[data-test=modal-confirm]": "Confirm",
+							"[data-test=modal-cancel]": "Cancel"
+						},
+						"count": {
+							"[data-test=modal]": 1,
+							"[data-test=modal-confirm][disabled]": 0
+						}
+					}
+				},
+				{
+					"click": "[data-test=modal-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "changeRole",
+								"args": [
+									{
+										"schoolId": "vol",
+										"personId": "m_204",
+										"role": "admin"
+									}
+								]
+							}
+						],
+						"count": {
+							"[data-test=modal-confirm][aria-busy=true][disabled]": 1,
+							"[data-test=toast]": 0
+						}
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=role-chip][data-role=admin]": 3,
+					"[data-test=modal]": 0
+				},
+				"text": {
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=role-chip]": "Admin",
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=member-plan]": "Sparkle ×2",
+					"[data-test=toast]": "Mia R. is now an admin. Applies at their next sign-in refresh (token lifetime 5 minutes)."
+				}
+			}
+		},
+		{
+			"id": "role-remove-admin",
+			"source": "mockup roleModal('remove') on a role-only person: with no plan and no role they leave the list; plans/ledger-ui/design/smoke.mjs 'remove admin on a role-only person drops them from the roster'",
+			"route": "#/vol/members?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"u_rav\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=remove-admin]",
+					"expect": {
+						"text": {
+							"[data-test=modal-title]": "Remove Ravi S. as admin?",
+							"[data-test=modal-body]": "Ravi S. goes back to member access: only their own data and their family's. Any plan they hold stays.",
+							"[data-test=modal-note]": "This applies at Ravi S.'s next sign-in refresh. Their access token lasts 5 minutes, so it can take up to 5 minutes to show.",
+							"[data-test=modal-confirm]": "Confirm",
+							"[data-test=modal-cancel]": "Cancel"
+						},
+						"count": {
+							"[data-test=modal]": 1,
+							"[data-test=modal-confirm][disabled]": 0
+						}
+					}
+				},
+				{
+					"click": "[data-test=modal-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "changeRole",
+								"args": [
+									{
+										"schoolId": "vol",
+										"personId": "u_rav",
+										"role": "member"
+									}
+								]
+							}
+						],
+						"count": {
+							"[data-test=modal-confirm][aria-busy=true][disabled]": 1,
+							"[data-test=toast]": 0
+						}
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=member-row]": 7,
+					"[data-test=member-row][data-id=\"u_rav\"]": 0,
+					"[data-test=role-chip][data-role=admin]": 1,
+					"[data-test=modal]": 0
+				},
+				"text": {
+					"[data-test=toast]": "Ravi S. is now a member. Applies at their next sign-in refresh (token lifetime 5 minutes)."
+				}
+			}
+		},
+		{
+			"id": "role-remove-admin-with-plan",
+			"source": "mockup roleModal('remove') on an admin with a plan: the row stays as a member; plans/ledger-ui/design/smoke.mjs 'remove admin applied'",
+			"route": "#/vol/members?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_093\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=remove-admin]",
+					"expect": {
+						"text": {
+							"[data-test=modal-title]": "Remove Ana P. as admin?",
+							"[data-test=modal-body]": "Ana P. goes back to member access: only their own data and their family's. Any plan they hold stays.",
+							"[data-test=modal-note]": "This applies at Ana P.'s next sign-in refresh. Their access token lasts 5 minutes, so it can take up to 5 minutes to show.",
+							"[data-test=modal-confirm]": "Confirm",
+							"[data-test=modal-cancel]": "Cancel"
+						},
+						"count": {
+							"[data-test=modal]": 1,
+							"[data-test=modal-confirm][disabled]": 0
+						}
+					}
+				},
+				{
+					"click": "[data-test=modal-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "changeRole",
+								"args": [
+									{
+										"schoolId": "vol",
+										"personId": "m_093",
+										"role": "member"
+									}
+								]
+							}
+						],
+						"count": {
+							"[data-test=modal-confirm][aria-busy=true][disabled]": 1,
+							"[data-test=toast]": 0
+						}
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=member-row][data-id=\"m_093\"]": 1,
+					"[data-test=role-chip][data-role=admin]": 1,
+					"[data-test=modal]": 0
+				},
+				"text": {
+					"[data-test=member-row][data-id=\"m_093\"] [data-test=role-chip]": "Member",
+					"[data-test=toast]": "Ana P. is now a member. Applies at their next sign-in refresh (token lifetime 5 minutes)."
+				}
+			}
+		},
+		{
+			"id": "role-cancel",
+			"source": "mockup roleModal Cancel ([data-close]) writes nothing",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"u_rav\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=revoke-finance]"
+				},
+				{
+					"click": "[data-test=modal-cancel]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=modal]": 0,
+					"[data-test=finance-chip]": 1
+				},
+				"writes": []
+			}
+		},
+		{
+			"id": "role-pending-history",
+			"source": "mockup roleModal: the change shows in the person's drawer history as pending ('just now · you · ships within 5 min')",
+			"route": "#/vol/members?member=u_rav&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-drawer] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=revoke-finance]"
+				},
+				{
+					"click": "[data-test=modal-confirm]"
+				}
+			],
+			"expect": {
+				"contains": {
+					"[data-test=history-item][data-pending]": [
+						"Role change",
+						"Ravi S. no longer has finance access",
+						"just now · you · ships within 5 min"
+					]
+				},
+				"text": {
+					"[data-test=capability-line][data-line=money]": "Money: no"
+				},
+				"count": {
+					"[data-test=history-item][data-pending]": 1,
+					"[data-test=history-empty]": 0
+				}
+			}
+		},
+		{
+			"id": "adjust-credits",
+			"source": "mockup openAct('adjust') for Ivy N.: Type (Goodwill, Gift, Correction), sessions (2 by default, negative to remove), a required note of 3 or more characters; Apply sends brief C2 and the pending change shows as '→ 22' until it ships",
+			"route": "#/vol/members?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_012\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=adjust]",
+					"expect": {
+						"text": {
+							"[data-test=modal-title]": "Adjust sessions · Vibes of Light",
+							"[data-test=modal-subtitle]": {
+								"text": "Ivy N. · m_012",
+								"moves": true
+							},
+							"[data-test=modal-preview]": {
+								"text": "Ivy N.: 20 → 22 available.",
+								"moves": true
+							},
+							"[data-test=modal-confirm]": "Apply",
+							"[data-test=modal-cancel]": "Cancel",
+							"[data-test=modal-field-label][data-field=type]": "Type",
+							"[data-test=modal-field-label][data-field=delta]": "Sessions (negative to remove)",
+							"[data-test=modal-field-label][data-field=note]": "Note (required)"
+						},
+						"count": {
+							"[data-test=modal-confirm][disabled]": 1,
+							"[data-test=modal-field][data-field=type] option": 3,
+							"[data-test=modal-field][data-field=type] option[value=goodwill]": 1,
+							"[data-test=modal-field][data-field=delta][value=\"2\"]": 1
+						}
+					}
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=note]",
+					"value": "ok",
+					"expect": {
+						"count": {
+							"[data-test=modal-confirm][disabled]": 1
+						}
+					}
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=note]",
+					"value": "late cancel",
+					"expect": {
+						"count": {
+							"[data-test=modal-confirm][disabled]": 0
+						}
+					}
+				},
+				{
+					"click": "[data-test=modal-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "adjustCredits",
+								"args": [
+									{
+										"schoolId": "vol",
+										"membershipId": "mem_m_012",
+										"featureId": "session",
+										"amount": 2,
+										"kind": "goodwill",
+										"note": "late cancel"
+									}
+								]
+							}
+						],
+						"count": {
+							"[data-test=modal-confirm][aria-busy=true][disabled]": 1,
+							"[data-test=toast]": 0
+						}
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=toast]": "Sent. It shows as pending, then in the ledger after the next ship (≤5 min).",
+					"[data-test=member-row][data-id=\"m_012\"] [data-test=member-available]": {
+						"text": "20 → 22/32 +2 held",
+						"moves": true
+					},
+					"[data-test=member-row][data-id=\"m_012\"] [data-test=pending-badge]": "→ 22"
+				},
+				"count": {
+					"[data-test=modal]": 0,
+					"[data-test=member-row][data-id=\"m_012\"] [data-test=pending-badge][title=\"Shows after the pending change ships\"]": 1,
+					"[data-test=member-row][data-id=\"m_012\"] [data-test=balance-bar][title=\"used 10 · held 2 · available 22\"]": 1
+				}
+			}
+		},
+		{
+			"id": "adjust-credits-checks",
+			"source": "mockup ACT.adjust.prev: the preview refuses 0, a fraction, below zero and a negative gift, and says gift sessions expire after 6 months; Apply stays disabled",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_012\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=adjust]"
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=delta]",
+					"value": "0",
+					"expect": {
+						"text": {
+							"[data-test=modal-preview]": "Enter a whole number other than 0."
+						}
+					}
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=delta]",
+					"value": "-25",
+					"expect": {
+						"text": {
+							"[data-test=modal-preview]": {
+								"text": "Would go below zero (20 available).",
+								"moves": true
+							}
+						}
+					}
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=type]",
+					"value": "gift"
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=delta]",
+					"value": "-1",
+					"expect": {
+						"text": {
+							"[data-test=modal-preview]": "A gift must be positive."
+						}
+					}
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=delta]",
+					"value": "3",
+					"expect": {
+						"text": {
+							"[data-test=modal-preview]": "Ivy N.: 20 → 23 available. Gift sessions expire after 6 months."
+						}
+					}
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=note]",
+					"value": "ok"
+				}
+			],
+			"expect": {
+				"writes": [],
+				"count": {
+					"[data-test=modal-confirm][disabled]": 1
+				}
+			}
+		},
+		{
+			"id": "adjust-credits-drawer",
+			"source": "mockup open() after an adjust: the drawer's balance line and history show the pending change",
+			"route": "#/vol/members?member=m_012&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=drawer-action][data-action=adjust]"
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=note]",
+					"value": "late cancel"
+				},
+				{
+					"click": "[data-test=modal-confirm]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=drawer-balance]": {
+						"text": "20 available → 22 after pending of 32 · 2 held for bookings · expire Dec 1 · rollover 0",
+						"moves": true
+					}
+				},
+				"contains": {
+					"[data-test=history-item]:nth-child(1)": [
+						"Adjustment",
+						"+2",
+						"Goodwill · late cancel",
+						"just now · you · ships within 5 min"
+					]
+				},
+				"count": {
+					"[data-test=history-item][data-pending]": 1
+				}
+			}
+		},
+		{
+			"id": "send-invoice",
+			"source": "mockup openAct('invoice'): one item (the mockup's three fixed options; brief C3 takes one published add-on), an optional memo; Stripe emails the invoice and credits come only when it is paid; no pending ledger row",
+			"route": "#/vol/members?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_012\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=invoice]",
+					"expect": {
+						"text": {
+							"[data-test=modal-title]": "Send invoice · Vibes of Light",
+							"[data-test=modal-subtitle]": "Ivy N. · m_012",
+							"[data-test=modal-confirm]": "Send invoice",
+							"[data-test=modal-preview]": "Stripe emails Ivy N. an invoice for Top-up pack · 8 sessions · $40.00. Credits are granted only when it is paid.",
+							"[data-test=modal-field][data-field=item] option:nth-child(1)": "Top-up pack · 8 sessions · $40.00",
+							"[data-test=modal-field][data-field=item] option:nth-child(2)": "Top-up pack · 16 sessions · $72.00",
+							"[data-test=modal-field][data-field=item] option:nth-child(3)": "Gift of 4 sessions · $60.00",
+							"[data-test=modal-field-label][data-field=item]": "Item",
+							"[data-test=modal-field-label][data-field=memo]": "Memo (optional)"
+						},
+						"count": {
+							"[data-test=modal-field][data-field=item] option": 3,
+							"[data-test=modal-field][data-field=item] option[value=pack16]": 1,
+							"[data-test=modal-confirm][disabled]": 0
+						}
+					}
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=item]",
+					"value": "pack16",
+					"expect": {
+						"text": {
+							"[data-test=modal-preview]": "Stripe emails Ivy N. an invoice for Top-up pack · 16 sessions · $72.00. Credits are granted only when it is paid."
+						}
+					}
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=memo]",
+					"value": "November top-up"
+				},
+				{
+					"click": "[data-test=modal-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "sendInvoice",
+								"args": [
+									{
+										"schoolId": "vol",
+										"familyId": "fam_m_012",
+										"addonId": "pack16",
+										"memo": "November top-up"
+									}
+								]
+							}
+						],
+						"count": {
+							"[data-test=modal-confirm][aria-busy=true][disabled]": 1,
+							"[data-test=toast]": 0
+						}
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=toast]": "Invoice sent to Ivy N. via Stripe. It appears in the ledger when paid."
+				},
+				"count": {
+					"[data-test=modal]": 0,
+					"[data-test=history-item][data-pending]": 0
+				}
+			}
+		},
+		{
+			"id": "send-invoice-no-memo",
+			"source": "brief C3: an empty memo is left out of the call",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_012\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=invoice]"
+				},
+				{
+					"click": "[data-test=modal-confirm]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "sendInvoice",
+						"args": [
+							{
+								"schoolId": "vol",
+								"familyId": "fam_m_012",
+								"addonId": "pack8"
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"id": "refund",
+			"source": "mockup openAct('refund') for Ivy N.: pick the payment, the amount (what is left by default), type it again to confirm, a required note; brief C1",
+			"route": "#/vol/members?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_012\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=refund]",
+					"expect": {
+						"text": {
+							"[data-test=modal-title]": "Refund a payment · Vibes of Light",
+							"[data-test=modal-subtitle]": "Ivy N. · m_012",
+							"[data-test=modal-confirm]": "Refund in Stripe",
+							"[data-test=modal-field][data-field=payment] option:nth-child(1)": "Invoice paid, Sparkle ×4 (10% off) · $117.00 · not refunded",
+							"[data-test=modal-field][data-field=payment] option:nth-child(2)": "Invoice paid, Sparkle ×4 · $130.00 · not refunded",
+							"[data-test=modal-field-label][data-field=amount]": "Amount ($, up to what is left) Refund the rest",
+							"[data-test=modal-field-label][data-field=typed]": "Type the refund amount to confirm",
+							"[data-test=modal-fill-rest]": "Refund the rest"
+						},
+						"contains": {
+							"[data-test=modal-preview]": [
+								"Stripe refunds $117.00. Sessions from that invoice are taken back when Stripe confirms, never below zero.",
+								"$0.00 already refunded · $0.00 would remain."
+							]
+						},
+						"count": {
+							"[data-test=modal-field][data-field=payment] option[value=pay_1114]": 1,
+							"[data-test=modal-field][data-field=amount][value=\"117.00\"]": 1,
+							"[data-test=modal-confirm][disabled]": 1
+						}
+					}
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=typed]",
+					"value": "117.00",
+					"expect": {
+						"count": {
+							"[data-test=modal-confirm][disabled]": 1
+						}
+					}
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=note]",
+					"value": "duplicate charge",
+					"expect": {
+						"count": {
+							"[data-test=modal-confirm][disabled]": 0
+						}
+					}
+				},
+				{
+					"click": "[data-test=modal-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "refund",
+								"args": [
+									{
+										"schoolId": "vol",
+										"paymentIntentId": "pay_1114",
+										"amountCents": 11700,
+										"reason": "requested_by_customer",
+										"note": "duplicate charge"
+									}
+								]
+							}
+						],
+						"count": {
+							"[data-test=modal-confirm][aria-busy=true][disabled]": 1,
+							"[data-test=toast]": 0
+						}
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=toast]": "Sent. It shows as pending, then in the ledger after the next ship (≤5 min)."
+				},
+				"count": {
+					"[data-test=modal]": 0
+				}
+			}
+		},
+		{
+			"id": "refund-checks",
+			"source": "mockup ACT.refund.prev: over what is left, 0, a partial refund (changes no sessions), Refund the rest; a typed amount that differs keeps the button off",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_012\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=refund]"
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=amount]",
+					"value": "200",
+					"expect": {
+						"text": {
+							"[data-test=modal-preview]": "Only $117.00 is left to refund on this payment ($0.00 already refunded, pending refunds included)."
+						}
+					}
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=amount]",
+					"value": "0",
+					"expect": {
+						"text": {
+							"[data-test=modal-preview]": "Enter an amount above 0."
+						}
+					}
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=amount]",
+					"value": "50",
+					"expect": {
+						"contains": {
+							"[data-test=modal-preview]": [
+								"Stripe refunds $50.00. A partial refund changes no sessions.",
+								"$0.00 already refunded · $67.00 would remain."
+							]
+						}
+					}
+				},
+				{
+					"click": "[data-test=modal-fill-rest]",
+					"expect": {
+						"contains": {
+							"[data-test=modal-preview]": [
+								"Stripe refunds $117.00. Sessions from that invoice are taken back when Stripe confirms, never below zero."
+							]
+						}
+					}
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=payment]",
+					"value": "pay_1714",
+					"expect": {
+						"contains": {
+							"[data-test=modal-preview]": [
+								"Stripe refunds $130.00."
+							]
+						}
+					}
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=typed]",
+					"value": "117.00"
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=note]",
+					"value": "duplicate charge"
+				}
+			],
+			"expect": {
+				"writes": [],
+				"count": {
+					"[data-test=modal-confirm][disabled]": 1
+				}
+			}
+		},
+		{
+			"id": "refund-partly-refunded",
+			"source": "mockup openAct('refund') for Sam O.: $50.00 of $60.00 already refunded",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_051\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=refund]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=modal-field][data-field=payment] option:nth-child(1)": "Invoice paid, Shine ×2 · $60.00 · refunded $50.00, $10.00 left"
+				},
+				"contains": {
+					"[data-test=modal-preview]": [
+						"Stripe refunds $10.00.",
+						"$50.00 already refunded · $0.00 would remain."
+					]
+				}
+			}
+		},
+		{
+			"id": "refund-booking",
+			"source": "mockup openAct('refund') for Lee T.: a booking payment comes first; refunding all of it cancels the booking",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_088\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=refund]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=modal-field][data-field=payment] option:nth-child(1)": "Group event paid · $40.00 · not refunded"
+				},
+				"contains": {
+					"[data-test=modal-preview]": [
+						"Stripe refunds $40.00. Booking bk_3cd is cancelled and the place is freed."
+					]
+				}
+			}
+		},
+		{
+			"id": "refund-drawer",
+			"source": "mockup open() after a full refund: the refund is the first payment row (Open, negative) and the paid row turns Refunded; the history shows it pending",
+			"route": "#/vol/members?member=m_012&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=drawer-action][data-action=refund]"
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=typed]",
+					"value": "117.00"
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=note]",
+					"value": "duplicate charge"
+				},
+				{
+					"click": "[data-test=modal-confirm]"
+				}
+			],
+			"expect": {
+				"contains": {
+					"[data-test=drawer-payments]": [
+						"31 rows"
+					],
+					"[data-test=payment-row]:nth-child(1)": [
+						"Nov 5, 26",
+						"Final refund · duplicate charge",
+						"−$117.00",
+						"Open"
+					],
+					"[data-test=payment-row]:nth-child(2)": [
+						"Invoice paid, Sparkle ×4 (10% off)",
+						"Refunded"
+					],
+					"[data-test=history-item]:nth-child(1)": [
+						"Refund",
+						"−117.00",
+						"Final refund · duplicate charge",
+						"just now · you · ships within 5 min"
+					]
+				}
+			}
+		},
+		{
+			"id": "release-inside-cutoff",
+			"source": "mockup kReleasePick then openAct('release') for Ivy N.'s Facial (6 hours away, 12h cutoff, the school's late rule spends): the preview says the sessions are forfeited unless waived; brief D3 cancel. The pending forfeit takes the held sessions and drops 'Inside cutoff'",
+			"route": "#/vol/members?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_012\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=release]",
+					"expect": {
+						"text": {
+							"[data-test=modal-title]": "Release a booking · Vibes of Light",
+							"[data-test=modal-subtitle]": "Ivy N. · m_012. Pick the booking whose hold to release.",
+							"[data-test=modal-cancel]": "Cancel"
+						},
+						"contains": {
+							"[data-test=release-option][data-booking=bk_5kd]": [
+								"Facial · Nov 5 18:00",
+								"2 sessions held"
+							]
+						},
+						"count": {
+							"[data-test=release-option]": 1
+						}
+					}
+				},
+				{
+					"click": "[data-test=release-option][data-booking=bk_5kd]",
+					"expect": {
+						"text": {
+							"[data-test=modal-title]": "Release hold · Vibes of Light",
+							"[data-test=modal-subtitle]": "Facial · bk_5kd · Ivy N. · m_012",
+							"[data-test=modal-confirm]": "Release hold",
+							"[data-test=modal-field-label][data-field=waive]": "Waive the late-cancel forfeit (return the sessions)",
+							"[data-test=modal-preview]": "Inside the 12h cutoff, the school's rule forfeits 2 sessions. Tick \"Waive\" to return them."
+						}
+					}
+				},
+				{
+					"click": "[data-test=modal-field][data-field=waive]",
+					"expect": {
+						"text": {
+							"[data-test=modal-preview]": "2 sessions return to Ivy N.'s available balance."
+						}
+					}
+				},
+				{
+					"click": "[data-test=modal-field][data-field=waive]"
+				},
+				{
+					"click": "[data-test=modal-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "cancelBooking",
+								"args": [
+									{
+										"schoolId": "vol",
+										"bookingId": "bk_5kd",
+										"reason": "Released by an admin",
+										"waiveCutoff": false
+									}
+								]
+							}
+						],
+						"count": {
+							"[data-test=modal-confirm][aria-busy=true][disabled]": 1,
+							"[data-test=toast]": 0
+						}
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=toast]": "Sent. It shows as pending, then in the ledger after the next ship (≤5 min).",
+					"[data-test=member-row][data-id=\"m_012\"] [data-test=member-available]": "20/32"
+				},
+				"count": {
+					"[data-test=modal]": 0,
+					"[data-test=member-row][data-id=\"m_012\"] [data-test=attention-badge]": 0,
+					"[data-test=member-row][data-id=\"m_012\"] [data-test=balance-bar][title=\"used 12 · held 0 · available 20\"]": 1
+				}
+			}
+		},
+		{
+			"id": "release-waived",
+			"source": "mockup ACT.release with Waive ticked: the call waives the cutoff",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_012\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=release]"
+				},
+				{
+					"click": "[data-test=release-option][data-booking=bk_5kd]"
+				},
+				{
+					"click": "[data-test=modal-field][data-field=waive]"
+				},
+				{
+					"click": "[data-test=modal-confirm]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "cancelBooking",
+						"args": [
+							{
+								"schoolId": "vol",
+								"bookingId": "bk_5kd",
+								"reason": "Released by an admin",
+								"waiveCutoff": true
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"id": "release-outside-cutoff",
+			"source": "mockup kReleasePick then quick('release') for Jon K.'s Massage 90 (3 days away): no second modal, the picked option waits while the call is pending; the released sessions show as '→ 4'. (The mockup's toast doubles the name's full stop and offers Undo; there is no undo route, so neither is checked)",
+			"route": "#/vol/members?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_117\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=release]"
+				},
+				{
+					"click": "[data-test=release-option][data-booking=bk_7hq]",
+					"expect": {
+						"writes": [
+							{
+								"method": "cancelBooking",
+								"args": [
+									{
+										"schoolId": "vol",
+										"bookingId": "bk_7hq",
+										"reason": "Released by an admin",
+										"waiveCutoff": false
+									}
+								]
+							}
+						],
+						"count": {
+							"[data-test=release-option][data-booking=bk_7hq][aria-busy=true][disabled]": 1,
+							"[data-test=toast]": 0
+						}
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"contains": {
+					"[data-test=toast]": [
+						"Hold released for Jon K"
+					]
+				},
+				"text": {
+					"[data-test=member-row][data-id=\"m_117\"] [data-test=member-available]": "2 → 4/24"
+				},
+				"count": {
+					"[data-test=modal]": 0
+				}
+			}
+		},
+		{
+			"id": "record-outcome",
+			"source": "mockup drawer booking row 'Confirm attended' (quick('confirm')) for Mia R.'s past Massage 90: brief D2; while pending the button waits; then the booking waits to ship, its held session is spent and 'Needs outcome' drops",
+			"route": "#/vol/members?member=m_204&theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=member-drawer] [data-test=booking-action][data-action=confirm][data-booking=bk_8zz]",
+					"expect": {
+						"writes": [
+							{
+								"method": "recordOutcome",
+								"args": [
+									{
+										"schoolId": "vol",
+										"bookingId": "bk_8zz",
+										"state": "attended"
+									}
+								]
+							}
+						],
+						"count": {
+							"[data-test=booking-action][data-action=confirm][aria-busy=true][disabled]": 1,
+							"[data-test=toast]": 0
+						}
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"contains": {
+					"[data-test=toast]": [
+						"Attendance confirmed for Mia R"
+					],
+					"[data-test=drawer-booking]": [
+						"waiting to ship"
+					]
+				},
+				"text": {
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=member-available]": "0/16",
+					"[data-test=drawer-balance]": "0 available of 16 · rollover 0"
+				},
+				"count": {
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=attention-badge]": 1,
+					"[data-test=member-row][data-id=\"m_204\"] [data-test=attention-badge][data-kind=out]": 1
+				}
+			}
+		},
+		{
+			"id": "switch-plan",
+			"source": "mockup vAct('switch', admin) for Ivy N.: the other published tiers, an amount for tiers sold in sizes; takes effect at the renewal; then Switch and Cancel wait ('A change is already on its way')",
+			"route": "#/vol/members?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_012\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=switch]",
+					"expect": {
+						"text": {
+							"[data-test=modal-title]": "Switch plan · Ivy N. Admin",
+							"[data-test=modal-subtitle]": "Sparkle ×4 now",
+							"[data-test=modal-confirm]": "Schedule switch",
+							"[data-test=modal-cancel]": "Cancel",
+							"[data-test=modal-field][data-field=tier] option:nth-child(1)": "Shine · $30.00 per session / month",
+							"[data-test=modal-field][data-field=tier] option:nth-child(2)": "Glow · $65.00 / month"
+						},
+						"contains": {
+							"[data-test=modal-preview]": [
+								"From Dec 1: Shine ×2 at $60.00 / month. It takes effect at the renewal and grants nothing until then.",
+								"Stripe's member portal doesn't offer plan switches today, so members can't do this themselves."
+							]
+						},
+						"count": {
+							"[data-test=modal-field][data-field=tier] option": 2,
+							"[data-test=modal-field][data-field=quantity] option": 2
+						}
+					}
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=tier]",
+					"value": "glow",
+					"expect": {
+						"contains": {
+							"[data-test=modal-preview]": [
+								"From Dec 1: Glow at $65.00 / month."
+							]
+						},
+						"count": {
+							"[data-test=modal-field][data-field=quantity]": 0
+						}
+					}
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=tier]",
+					"value": "shine"
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=quantity]",
+					"value": "4",
+					"expect": {
+						"contains": {
+							"[data-test=modal-preview]": [
+								"From Dec 1: Shine ×4 at $120.00 / month."
+							]
+						}
+					}
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=quantity]",
+					"value": "2"
+				},
+				{
+					"click": "[data-test=modal-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "switchTier",
+								"args": [
+									{
+										"schoolId": "vol",
+										"membershipId": "mem_m_012",
+										"tierId": "shine",
+										"quantity": 2
+									}
+								]
+							}
+						],
+						"count": {
+							"[data-test=modal-confirm][aria-busy=true][disabled]": 1,
+							"[data-test=toast]": 0
+						}
+					}
+				},
+				{
+					"release": true
+				},
+				{
+					"click": "[data-test=member-row][data-id=\"m_012\"] [data-test=member-menu-button]",
+					"expect": {
+						"count": {
+							"[data-test=member-menu-item][data-action=switch][disabled][title=\"A change is already on its way\"]": 1,
+							"[data-test=member-menu-item][data-action=cancel][disabled][title=\"A change is already on its way\"]": 1
+						}
+					}
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=toast]": "Switch to Shine ×2 scheduled for Dec 1."
+				},
+				"count": {
+					"[data-test=modal]": 0
+				}
+			}
+		},
+		{
+			"id": "cancel-membership",
+			"source": "mockup vAct('cancel', admin) for Ivy N. at period end: no reason needed; the row gets 'Cancels Dec 1' and the menu offers Resume (waiting)",
+			"route": "#/vol/members?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_012\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=cancel]",
+					"expect": {
+						"text": {
+							"[data-test=modal-title]": "Cancel membership · Ivy N.",
+							"[data-test=modal-subtitle]": "Sparkle ×4",
+							"[data-test=modal-confirm]": "Cancel membership",
+							"[data-test=modal-cancel]": "Keep membership",
+							"[data-test=modal-preview]": {
+								"text": "Stays active until Dec 1. 20 sessions can still be used until then. No further charges.",
+								"moves": true
+							},
+							"[data-test=modal-field-label][data-field=when][data-value=period_end]": "At the end of this period (Dec 1)",
+							"[data-test=modal-field-label][data-field=when][data-value=now]": "Right now Admin",
+							"[data-test=modal-field-label][data-field=reason]": "Reason (optional; required to cancel right now)"
+						},
+						"count": {
+							"[data-test=modal-confirm][disabled]": 0
+						}
+					}
+				},
+				{
+					"click": "[data-test=modal-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "cancelMembership",
+								"args": [
+									{
+										"schoolId": "vol",
+										"membershipId": "mem_m_012",
+										"at": "period_end"
+									}
+								]
+							}
+						],
+						"count": {
+							"[data-test=modal-confirm][aria-busy=true][disabled]": 1,
+							"[data-test=toast]": 0
+						}
+					}
+				},
+				{
+					"release": true
+				},
+				{
+					"click": "[data-test=member-row][data-id=\"m_012\"] [data-test=member-menu-button]",
+					"expect": {
+						"count": {
+							"[data-test=member-menu-item][data-action=cancel]": 0,
+							"[data-test=member-menu-item][data-action=resume][disabled][title=\"A change is already on its way\"]": 1,
+							"[data-test=member-menu-item][data-action=switch][disabled][title=\"Resume the membership first\"]": 1
+						}
+					}
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=toast]": "Membership will end on Dec 1.",
+					"[data-test=member-row][data-id=\"m_012\"] [data-test=status-badge]": "Cancels Dec 1"
+				},
+				"count": {
+					"[data-test=modal]": 0
+				}
+			}
+		},
+		{
+			"id": "cancel-membership-now",
+			"source": "mockup vAct('cancel') Right now: a reason of 3 or more characters is required; the unused sessions are forfeited",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_012\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=cancel]"
+				},
+				{
+					"click": "[data-test=modal-field][data-field=when][value=now]",
+					"expect": {
+						"text": {
+							"[data-test=modal-preview]": "Ends today. 20 sessions unused are forfeited. No refund is issued automatically: use Refund on an invoice if one is owed."
+						},
+						"count": {
+							"[data-test=modal-confirm][disabled]": 1
+						}
+					}
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=reason]",
+					"value": "moving away",
+					"expect": {
+						"count": {
+							"[data-test=modal-confirm][disabled]": 0
+						}
+					}
+				},
+				{
+					"click": "[data-test=modal-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "cancelMembership",
+								"args": [
+									{
+										"schoolId": "vol",
+										"membershipId": "mem_m_012",
+										"at": "now",
+										"reason": "moving away"
+									}
+								]
+							}
+						]
+					}
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=toast]": "Membership canceled.",
+					"[data-test=member-row][data-id=\"m_012\"] [data-test=status-badge]": "Canceled"
+				}
+			}
+		},
+		{
+			"id": "resume-membership",
+			"source": "mockup vAct('resume', admin) for Sam O.: billing continues on Dec 1, nothing charged today; the Canceled badge goes",
+			"route": "#/vol/members?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_051\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=resume]",
+					"expect": {
+						"text": {
+							"[data-test=modal-title]": "Resume membership · Sam O.",
+							"[data-test=modal-subtitle]": "Shine ×2",
+							"[data-test=modal-body]": "Billing continues on Dec 1 as normal. Nothing is charged today.",
+							"[data-test=modal-confirm]": "Resume",
+							"[data-test=modal-cancel]": "Not now"
+						}
+					}
+				},
+				{
+					"click": "[data-test=modal-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "resumeMembership",
+								"args": [
+									{
+										"schoolId": "vol",
+										"membershipId": "mem_m_051"
+									}
+								]
+							}
+						],
+						"count": {
+							"[data-test=modal-confirm][aria-busy=true][disabled]": 1,
+							"[data-test=toast]": 0
+						}
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=toast]": "Membership resumed."
+				},
+				"count": {
+					"[data-test=modal]": 0,
+					"[data-test=member-row][data-id=\"m_051\"] [data-test=status-badge]": 0
+				}
+			}
+		},
+		{
+			"id": "modal-cancel-writes-nothing",
+			"source": "mockup #mc / [data-close]: closing any action modal sends nothing",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_012\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=adjust]"
+				},
+				{
+					"fill": "[data-test=modal-field][data-field=note]",
+					"value": "late cancel"
+				},
+				{
+					"click": "[data-test=modal-cancel]"
+				}
+			],
+			"expect": {
+				"writes": [],
+				"count": {
+					"[data-test=modal]": 0
+				}
+			}
+		},
+		{
+			"id": "menu-stripe",
+			"source": "View in Stripe is a real link to MemberDetail.stripeDashboardUrl (G4d), opened in a new tab; no toast",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_012\"] [data-test=member-menu-button]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=member-menu-item][data-action=stripe][href^=\"https://dashboard.stripe.com/\"][target=_blank][rel~=noopener]": 1
+				},
+				"writes": []
+			}
+		},
+		{
+			"id": "menu-receipt",
+			"source": "Resend receipt calls MembersWriter.resendReceipt (G4d) and toasts only after it is accepted (the mockup's toast doubles the full stop after 'Ivy N.')",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_012\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=receipt]"
+				}
+			],
+			"expect": {
+				"contains": {
+					"[data-test=toast]": [
+						"Receipt resent to Ivy N"
+					]
+				},
+				"writes": [
+					{
+						"method": "resendReceipt",
+						"args": [
+							{
+								"schoolId": "vol",
+								"personId": "m_012"
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"id": "menu-csv",
+			"source": "mockup kMemberCsv: the member's payment history as a file (S6's CSV builder), toast with the row count; plans/ledger-ui/design/smoke.mjs 'menu: Download CSV downloads that member's history'",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_012\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=csv]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=toast]": "Downloaded 30 rows"
+				},
+				"writes": []
+			}
+		},
+		{
+			"id": "menu-audit",
+			"source": "mockup audit(m): the replay modal (its steps appear on timers and are canned; not checked)",
+			"route": "#/vol/members?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_012\"] [data-test=member-menu-button]"
+				},
+				{
+					"click": "[data-test=member-menu-item][data-action=audit]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=modal-title]": "Audit Ivy N.",
+					"[data-test=modal-subtitle]": "Replays the event log and compares it with the live balance and Stripe"
+				}
+			}
+		},
+		{
+			"id": "as-public",
+			"source": "mockup members() under View as Public (VW(s).admin false): the lock panel replaces the strip, the filters and the table (data-lock admins_only); Audience `public` of src/data/disclosure.ts, membersLock of src/data/members.ts; plans/ledger-ui/design/smoke.mjs 'view as: governance preview locks Members and Bookings (roster and ManageBookings, not books)'",
+			"route": "#/vol/members?as=public&theme=light",
+			"covers": {
+				"audience": "public"
+			},
+			"expect": {
+				"text": {
+					"[data-test=lock-panel][data-lock=admins_only] [data-test=lock-title]": "Owners and admins see the roster",
+					"[data-test=lock-panel][data-lock=admins_only] [data-test=lock-text]": "Members see only themselves and their family, in the member portal. To see one person's portal, an admin uses View as member on their row."
+				},
+				"count": {
+					"[data-test=lock-panel]": 1,
+					"[data-test=member-row]": 0,
+					"[data-test=members-stat]": 0,
+					"[data-test=member-search]": 0,
+					"[data-test=role-filter]": 0,
+					"[data-test=members-legend]": 0
+				},
+				"absent": [
+					"Mia R.",
+					"Sessions available",
+					"$287.00"
+				]
+			}
+		},
+		{
+			"id": "as-member",
+			"source": "mockup members() under View as Member (VW(s).admin false): the lock panel replaces the strip, the filters and the table (data-lock admins_only); Audience `member` of src/data/disclosure.ts, membersLock of src/data/members.ts; plans/ledger-ui/design/smoke.mjs 'view as: governance preview locks Members and Bookings (roster and ManageBookings, not books)'",
+			"route": "#/vol/members?as=member&theme=light",
+			"covers": {
+				"audience": "member"
+			},
+			"expect": {
+				"text": {
+					"[data-test=lock-panel][data-lock=admins_only] [data-test=lock-title]": "Owners and admins see the roster",
+					"[data-test=lock-panel][data-lock=admins_only] [data-test=lock-text]": "Members see only themselves and their family, in the member portal. To see one person's portal, an admin uses View as member on their row."
+				},
+				"count": {
+					"[data-test=lock-panel]": 1,
+					"[data-test=member-row]": 0,
+					"[data-test=members-stat]": 0,
+					"[data-test=member-search]": 0,
+					"[data-test=role-filter]": 0,
+					"[data-test=members-legend]": 0
+				},
+				"absent": [
+					"Mia R.",
+					"Sessions available",
+					"$287.00"
+				]
+			}
+		},
+		{
+			"id": "as-governance",
+			"source": "mockup members() under View as Governance (VW(s).admin false): the lock panel replaces the strip, the filters and the table (data-lock admins_only); Audience `governance` of src/data/disclosure.ts, membersLock of src/data/members.ts; plans/ledger-ui/design/smoke.mjs 'view as: governance preview locks Members and Bookings (roster and ManageBookings, not books)'",
+			"route": "#/vol/members?as=governance&theme=light",
+			"covers": {
+				"audience": "governance"
+			},
+			"expect": {
+				"text": {
+					"[data-test=lock-panel][data-lock=admins_only] [data-test=lock-title]": "Owners and admins see the roster",
+					"[data-test=lock-panel][data-lock=admins_only] [data-test=lock-text]": "Members see only themselves and their family, in the member portal. To see one person's portal, an admin uses View as member on their row."
+				},
+				"count": {
+					"[data-test=lock-panel]": 1,
+					"[data-test=member-row]": 0,
+					"[data-test=members-stat]": 0,
+					"[data-test=member-search]": 0,
+					"[data-test=role-filter]": 0,
+					"[data-test=members-legend]": 0
+				},
+				"absent": [
+					"Mia R.",
+					"Sessions available",
+					"$287.00"
+				]
+			}
+		},
+		{
+			"id": "as-governance-b4u",
+			"source": "mockup members() at B4 Uni under View as Governance (Jo A. holds finance, so she may preview Governance)",
+			"route": "#/b4u/members?as=governance&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=lock-panel][data-lock=admins_only] [data-test=lock-title]": "Owners and admins see the roster",
+					"[data-test=lock-panel][data-lock=admins_only] [data-test=lock-text]": "Members see only themselves and their family, in the member portal. To see one person's portal, an admin uses View as member on their row."
+				},
+				"count": {
+					"[data-test=member-row]": 0
+				},
+				"absent": [
+					"Dana W."
+				]
+			}
+		},
+		{
+			"id": "as-finance",
+			"source": "mockup members() under View as Finance admin for the owner of Vibes of Light: the roster and money show; it is a preview, so every write is disabled with 'Exit preview to act' (View in Stripe, Resend receipt and Download CSV stay); plans/ledger-ui/design/smoke.mjs 'view as: writes are disabled while previewing, with Exit preview to act'",
+			"route": "#/vol/members?as=finance&theme=light",
+			"covers": {
+				"audience": "finance"
+			},
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_012\"] [data-test=member-menu-button]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=members-stat][data-stat=income] [data-test=stat-value]": "$287.00"
+				},
+				"count": {
+					"[data-test=lock-panel]": 0,
+					"[data-test=member-row]": 8,
+					"[data-test=member-menu-item][data-action=invoice][disabled][title=\"Exit preview to act\"]": 1,
+					"[data-test=member-menu-item][data-action=adjust][disabled][title=\"Exit preview to act\"]": 1,
+					"[data-test=member-menu-item][data-action=refund][disabled][title=\"Exit preview to act\"]": 1,
+					"[data-test=member-menu-item][data-action=release][disabled][title=\"Exit preview to act\"]": 1,
+					"[data-test=member-menu-item][data-action=switch][disabled][title=\"Exit preview to act\"]": 1,
+					"[data-test=member-menu-item][data-action=cancel][disabled][title=\"Exit preview to act\"]": 1,
+					"[data-test=member-menu-item][data-action=make-admin][disabled][title=\"Exit preview to act\"]": 1,
+					"[data-test=member-menu-item][data-action=audit][disabled][title=\"Exit preview to act\"]": 1,
+					"[data-test=member-menu-item][data-action=csv]:not([disabled])": 1,
+					"[data-test=member-menu-item][data-action=stripe]:not([disabled])": 1,
+					"[data-test=member-menu-item][data-action=receipt]:not([disabled])": 1,
+					"[data-test=member-menu-item][data-action=view-as-member]:not([disabled])": 1
+				}
+			}
+		},
+		{
+			"id": "as-finance-drawer",
+			"source": "mockup open() under the Finance admin preview: the drawer's write buttons are off too",
+			"route": "#/vol/members?as=finance&member=m_012&theme=light",
+			"expect": {
+				"count": {
+					"[data-test=drawer-action][data-action=invoice][disabled][title=\"Exit preview to act\"]": 1,
+					"[data-test=drawer-action][data-action=adjust][disabled][title=\"Exit preview to act\"]": 1,
+					"[data-test=drawer-action][data-action=refund][disabled][title=\"Exit preview to act\"]": 1,
+					"[data-test=drawer-action][data-action=view-as-member]:not([disabled])": 1,
+					"[data-test=booking-action][data-action=release][disabled][title=\"Exit preview to act\"]": 1
+				}
+			}
+		},
+		{
+			"id": "as-owner",
+			"source": "mockup: as=owner for the owner is no preview: everything as without it",
+			"route": "#/vol/members?as=owner&theme=light",
+			"covers": {
+				"audience": "owner"
+			},
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"m_012\"] [data-test=member-menu-button]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=lock-panel]": 0,
+					"[data-test=member-row]": 8,
+					"[data-test=member-menu-item][disabled]": 0
+				}
+			}
+		},
+		{
+			"id": "as-owner-not-held",
+			"source": "mockup vaAllowed: a finance admin cannot preview the owner; as=owner at B4 Uni falls back to Jo A.'s own view (Finance admin), so refunds and roles stay the owner's",
+			"route": "#/b4u/members?as=owner&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=member-row][data-id=\"s_22\"] [data-test=member-menu-button]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=member-row]": 10,
+					"[data-test=member-menu-item][data-action=refund][disabled][title=\"Owner role needed\"]": 1,
+					"[data-test=member-menu-item][data-action=invoice]:not([disabled])": 1
+				}
+			}
+		},
+		{
+			"id": "drawer-shot",
+			"source": "mockup open('m_012') for the full-page shot",
+			"route": "#/vol/members?member=m_012&theme=light",
+			"expect": {
+				"count": {
+					"[data-test=member-drawer]": 1
+				},
+				"text": {
+					"[data-test=drawer-name]": "Ivy N."
+				}
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "document.querySelector('.tab[data-p=mem]').click();document.querySelector('#mb tr.row[data-id=m_012]').click()"
+			}
+		},
+		{
+			"id": "list-har",
+			"source": "mockup members() for Harbor Arts Academy (SC.har), Rosa T. signed in: an admin without the finance grant who also holds a Studio plan, so the roster shows (VW(s).admin) but money is not hers to see: the strip's income is 'Finance only' (financeOnly of src/data/members.ts, data-hid no_grant) for her Member audience's last published quarter; nobody needs attention, so the rows sort by role then name; plans/ledger-ui/design/smoke.mjs 'view as: admin preview shows the roster but money is Finance only' (the same view, as her own)",
+			"route": "#/har/members?theme=light",
+			"expect": {
+				"text": {
+					"[data-test=member-row]:nth-child(1) [data-test=member-name]": {
+						"text": "Hal B.",
+						"moves": true
+					},
+					"[data-test=member-row]:nth-child(2) [data-test=member-name]": "Fay O.",
+					"[data-test=member-row]:nth-child(3) [data-test=member-name]": {
+						"text": "Rosa T.",
+						"moves": true
+					},
+					"[data-test=member-row]:nth-child(4) [data-test=member-name]": "Ben A.",
+					"[data-test=member-row]:nth-child(5) [data-test=member-name]": "Cy L.",
+					"[data-test=member-row]:nth-child(6) [data-test=member-name]": "Dee M.",
+					"[data-test=members-stat][data-stat=outstanding] [data-test=stat-label]": "credits outstanding (incl. held)",
+					"[data-test=members-stat][data-stat=outstanding] [data-test=stat-value]": {
+						"text": "20",
+						"moves": true
+					},
+					"[data-test=members-stat][data-stat=income] [data-test=stat-label]": "income · Q2 2026",
+					"[data-test=members-stat][data-stat=income] [data-test=stat-value]": "Finance only",
+					"[data-test=members-stat][data-stat=attention] [data-test=stat-value]": "0",
+					"[data-test=member-filter][data-filter=attention]": "Needs attention (0)",
+					"[data-test=members-column][data-column=available]": "Credits available",
+					"[data-test=role-filter][data-role-filter=all]": "All 6",
+					"[data-test=role-filter][data-role-filter=admins]": "Owners & admins 3",
+					"[data-test=role-filter][data-role-filter=members]": "Members 3",
+					"[data-test=member-row][data-id=\"h_31\"] [data-test=you-tag]": "(you)",
+					"[data-test=member-row][data-id=\"h_31\"] [data-test=role-chip]": "Admin",
+					"[data-test=member-row][data-id=\"h_31\"] [data-test=member-plan]": "Studio ×1",
+					"[data-test=member-row][data-id=\"h_31\"] [data-test=member-available]": {
+						"text": "5/8",
+						"moves": true
+					},
+					"[data-test=member-row][data-id=\"h_31\"] [data-test=audience-chip]": "Audience: Member",
+					"[data-test=member-row][data-id=\"h_32\"] [data-test=member-available]": {
+						"text": "9/16 +2 held",
+						"moves": true
+					},
+					"[data-test=member-row][data-id=\"h_33\"] [data-test=member-available]": "2/8",
+					"[data-test=member-row][data-id=\"h_34\"] [data-test=audience-chip]": "Audience: Governance",
+					"[data-test=member-row][data-id=\"u_fay\"] [data-test=finance-chip]": "Finance",
+					"[data-test=member-row][data-id=\"u_fay\"] [data-test=audience-chip]": "Audience: Finance admin",
+					"[data-test=member-row][data-id=\"u_hal\"] [data-test=audience-chip]": "Audience: Owner · everything"
+				},
+				"count": {
+					"[data-test=member-row]": 6,
+					"[data-test=lock-panel]": 0,
+					"[data-test=members-stat]": 3,
+					"[data-test=members-note]": 0,
+					"[data-test=members-stat][data-stat=income] [data-hid=no_grant][title=\"Finance admins and the owner see money\"]": 1,
+					"[data-test=finance-chip]": 1,
+					"[data-test=member-row][data-id=\"h_31\"] [data-test=finance-chip]": 0,
+					"[data-test=attention-badge]": 0,
+					"[data-test=role-chip][data-role=owner]": 1,
+					"[data-test=role-chip][data-role=admin]": 2,
+					"[data-test=role-chip][data-role=member]": 3,
+					"[data-test=member-row][data-id=\"h_31\"] [data-test=audience-chip][data-audience=member][title=\"Audience: Adult with a live Studio membership: that tier names Member. An admin without the finance grant gets audiences like anyone else.\"]": 1,
+					"[data-test=member-row][data-id=\"h_32\"] [data-test=balance-bar]:not(.low)[title=\"used 5 · held 2 · available 9\"]": 1,
+					"[data-test=member-row][data-id=\"h_33\"] [data-test=balance-bar]:not(.low)[title=\"used 6 · held 0 · available 2\"]": 1
+				},
+				"absent": [
+					"$360.00",
+					"$120.00"
+				]
+			}
+		},
+		{
+			"id": "member-money-har-no-grant",
+			"source": "mockup open('h_32') and kMenuHtml at Harbor Arts Academy for Rosa T. (admin, no finance grant): money per person shows 'Finance only' (title 'Finance admins and the owner see money per person') in the payments and the history; Send invoice and Adjust are 'Finance only', Refund and roles are the owner's, Download CSV is for finance admins; the first step (a release with nothing pending) checks the drawer before the menu opens; plans/ledger-ui/design/smoke.mjs 'gate: drawer Download CSV disabled with the title', 'gate: menu Download CSV disabled with the title, refund says owner role'",
+			"route": "#/har/members?member=h_32&theme=light",
+			"steps": [
+				{
+					"release": true,
+					"expect": {
+						"text": {
+							"[data-test=drawer-head]": "h_32 · Harbor Arts Academy",
+							"[data-test=drawer-name]": {
+								"text": "Ben A.",
+								"moves": true
+							},
+							"[data-test=drawer-balance]": {
+								"text": "9 available of 16 · 2 held for bookings · expire Dec 1 · rollover 0",
+								"moves": true
+							},
+							"[data-test=drawer-note]": "Refunds need the owner role in Harbor Arts Academy.",
+							"[data-test=capability-line][data-line=audience]": "Audience: Member · Adult with a live Ensemble membership: that tier names Member."
+						},
+						"contains": {
+							"[data-test=payment-row]:nth-child(1)": [
+								"Nov 2, 26",
+								"Invoice paid, Ensemble",
+								"Finance only",
+								"Paid"
+							],
+							"[data-test=history-item]:nth-child(1)": [
+								"Payment",
+								"Finance only",
+								"Invoice paid, Ensemble",
+								"Nov 2 · stripe"
+							],
+							"[data-test=drawer-booking]": [
+								"Ensemble lesson · Nov 9 17:00",
+								"bk_h1 · Ms. Ode",
+								"2 credits held"
+							],
+							"[data-test=drawer-payments]": [
+								"29 rows"
+							]
+						},
+						"count": {
+							"[data-test=drawer-action][data-action=invoice][disabled][title=\"Finance only\"]": 1,
+							"[data-test=drawer-action][data-action=adjust][disabled][title=\"Finance only\"]": 1,
+							"[data-test=drawer-action][data-action=refund][disabled][title=\"Refunds need the owner role in this school\"]": 1,
+							"[data-test=drawer-action][data-action=view-as-member]:not([disabled])": 1,
+							"[data-test=payments-csv][disabled][title=\"Finance admins only\"]": 1,
+							"[data-test=payment-row]:nth-child(1) [data-hid=no_grant][title=\"Finance admins and the owner see money per person\"]": 1
+						},
+						"absent": [
+							"$240.00",
+							"+240.00"
+						]
+					}
+				},
+				{
+					"click": "[data-test=member-drawer] [data-test=member-menu-button]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=member-menu-item][data-action=invoice][disabled][title=\"Finance only\"]": 1,
+					"[data-test=member-menu-item][data-action=adjust][disabled][title=\"Finance only\"]": 1,
+					"[data-test=member-menu-item][data-action=refund][disabled][title=\"Owner role needed\"]": 1,
+					"[data-test=member-menu-item][data-action=make-admin][disabled][title=\"Owner role needed\"]": 1,
+					"[data-test=member-menu-item][data-action=csv][disabled][title=\"Finance admins only\"]": 1,
+					"[data-test=member-menu-item][data-action=release]:not([disabled])": 1,
+					"[data-test=member-menu-item][data-action=switch]:not([disabled])": 1,
+					"[data-test=member-menu-item][data-action=stripe]:not([disabled])": 1
+				},
+				"absent": [
+					"$240.00"
+				]
+			}
+		}
+	]
+}

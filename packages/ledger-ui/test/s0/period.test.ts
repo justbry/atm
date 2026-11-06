@@ -35,7 +35,7 @@ describe("periodLabel", () => {
 });
 
 describe("periodPresets", () => {
-	test("computes the four presets from the clock", () => {
+	test("computes the eight presets from the clock", () => {
 		expect(
 			periodPresets(today).map(({ label, period }) => [
 				label,
@@ -44,17 +44,27 @@ describe("periodPresets", () => {
 		).toEqual([
 			["This month", "Nov 2026"],
 			["Last month", "Oct 2026"],
+			["This quarter", "Oct – Dec 2026"],
+			["Last quarter", "Jul – Sep 2026"],
 			["Last 3 months", "Sep – Nov 2026"],
+			["This year", "Jan – Dec 2026"],
+			["Last year", "Jan – Dec 2025"],
 			["Year to date", "Jan 1 – Nov 5, 2026"],
 		]);
 	});
 	test("crosses the year boundary in January", () => {
-		const [, lastMonth, lastThreeMonths] = periodPresets("2026-01-20");
+		const [, lastMonth, , lastQuarter, lastThreeMonths, , lastYear] =
+			periodPresets("2026-01-20");
 		expect(lastMonth?.period).toEqual({ from: "2025-12-01", to: "2025-12-31" });
+		expect(lastQuarter?.period).toEqual({
+			from: "2025-10-01",
+			to: "2025-12-31",
+		});
 		expect(lastThreeMonths?.period).toEqual({
 			from: "2025-11-01",
 			to: "2026-01-31",
 		});
+		expect(lastYear?.period).toEqual({ from: "2025-01-01", to: "2025-12-31" });
 	});
 });
 

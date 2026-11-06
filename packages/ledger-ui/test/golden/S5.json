@@ -1,0 +1,2009 @@
+{
+	"slice": "S5",
+	"source": "The mockup's schools (plans/ledger-ui/design/mockup.html on dev at 742105b64, disclosure v2 merged and frozen, its SC table): Vibes of Light (vol, the owner Kim R.), B4 Uni (b4u, Jo A., an admin with the finance grant), Lotus Lane Yoga (nw, empty). Ledger events from SC.<school>.E, promos from SC.<school>.K, donors from SC.<school>.don and bkMakeDonors, rules from SC.<school>.rules; the statement as the mockup's calc() works it (Stripe fees invented at 3% of cash taken). Audience gating per spec v2 and the same mockup (View as, VW, lockPanel, kFigHtml). Read headless with plans/ledger-ui/loop/tools/s5-text.mjs and s5-v2-text.mjs; written by s5-golden.ts.",
+	"notes": [
+		"Data: src/data/ledger.ts (LedgerReader, LedgerWriter). The Reader gives ledger({ school, from, to, type, drill, promo }), incomeStatement({ school, from, to, compare }), audienceReport({ school, audience, from, to }), donors({ school, audience, year }), promos({ school, audience }) and schoolRules(school); the Writer gives download(file), createPromo(request) and disablePromo(request). The fixture Reader and Writer share no state: after a write the UI shows what the Writer answered.",
+		"Routes: #/<school>/ledger?month=&type=&drill=&promo=&as=&pin=; #/<school>/reports?month=&compare=&as=&pin=; #/<school>/promos?as=. month is the period control's (S0). type is payment, credit, booking, code, payout or admin (absent: All). drill is a LedgerDrill (a Reports KPI or statement line); promo a promo id (its Redemptions, which also sets month to the year to date). compare=1 is the period dialog's 'Compare with previous period'. as is the audience (shared contract; absent: the signed-in person's, b4u finance, the other schools owner); pin=locked from governance up shows the PIN prompt (S1's pin-lock).",
+		"Fixture ids: a ledger event's id is <school>-e<index>, its index in the mockup's SC.<school>.E after the mockup's own unshifts (s5-events.mjs lists them); payment ids are the mockup's (pay_<index><school name length>, or the pid it presets); a member's key is family:<member id>, except B4 Uni's Wu family (s_21, s_25, s_26: family:fam_wu); an event about no member has key school:<school>. Within a day the rows keep the mockup table's order (vol Nov: e0, e2, e1, e3 | e4, e5, e6, e7 | e9, e8, e10 | e12, e11, e13, e14; b4u Nov: e1, e0, e3, e2 | e4).",
+		"root.dataset.route is set once the tab shows the route's data (or its lock panel).",
+		"Ledger hooks: ledger-type (data-type all|payment|credit|booking|code|payout|admin, class 'on' when selected; the credit chip is named after the unit), ledger-filter (the drill or promo chip; clicking it removes drill and promo), ledger-count, ledger-csv, ledger-credit-head (the credits column head), ledger-day (data-day) with ledger-day-label, ledger-day-credits and ledger-day-amount, ledger-pending (the 'Waiting to ship' row), ledger-row (data-event) with ledger-time, ledger-event, ledger-member, ledger-what (text, then ' · <booking>', ' · promo <masked>', ' · <source>', ' Details'), ledger-credits, ledger-amount (class neg when negative), ledger-details (the row's details line, toggled by clicking the row), ledger-empty.",
+		"Reports hooks: report-download, report-status, report-spark with report-spark-title, report-spark-summary, report-spark-point (one per drawn point, its title '<day or week>: <amount>'), report-spark-axis; report-kpi (data-item income|refund|fees|payout|gifts) with report-kpi-label, report-kpi-value, report-kpi-change; report-statement-title; report-line (data-line memberships|bookings|discounts|income|refunds|fees|net|gifts) with report-line-label and report-line-amount; report-rules, report-rule (data-rule cutoff|no-show|late-cancel; its two cells), report-rules-edit; below finance report-grain, report-grain-note, report-period (one per period of the grain) and report-doc-note. Clicking a report-kpi or report-line with the title 'Show these events in the ledger' opens the Ledger with that drill; the gifts KPI opens Promos.",
+		"Donors hooks: donors (the card), donors-title, donors-csv, donor-row (data-id) with donor-name, donor-kind, donor-id, donor-payments, donor-total, donor-last; donors-more, donors-audit, donors-empty. Governance gets the spread (no donor-row); public and member a lock panel inside donors.",
+		"Promos hooks: promo-note, promo-new, promo-row (data-promo, newest first), promo-code, promo-reveal, promo-copy, promo-type, promo-value, promo-used (data-hid when hidden; a title when rounded or hidden), promo-expires, promo-soon, promo-status, promo-redemptions, promo-disable, promo-empty. The create dialog is the shared dialog (dialog, dialog-title, dialog-confirm, dialog-cancel) with promo-type-input (a select whose option values are member, dollar, session; it answers the input event), promo-value-input, promo-expires-input, promo-note-input and promo-preview; once created, the same dialog shows promo-created-code, promo-created-summary, promo-created-note, promo-email-input (gifts only) and dialog-confirm 'Done'.",
+		"Lock panels (spec v2: who may see it and when, never an empty table or a 0): lock-panel (data-lock no_grant), lock-title, lock-body. The Ledger below finance is one; Reports below finance keeps the audience's document and puts one in the Donors card for public and member. PIN-locked views use S1's pin-lock.",
+		"Audience figures below finance (spec v2 kFigHtml): a hidden figure carries data-hid (embargoed, members_only, no_grant) and its text: embargoed 'Published after <d Mon yyyy>' (the cell's until), members_only 'Members see this', no_grant 'Governance and up see this' or 'Finance admins and the owner see this'; an embargoed report-period carries class kwait. A count from 1 to 9 under the cell rules reads <10 with the title 'Rounded to the nearest 10: fewer than 5 <who>'. Money is rounded per audience and school size by the Reader; the doc note says how.",
+		"as= never previews above the signed-in person: a finance admin asking for as=owner gets Finance admin (mockup vaAllowed; audienceOf in the contract). B4 Uni's mockup opens every tab on Jun 2026 (pDef), so its finance entries pin month=2026-11; period-button labels are S0 and S0b's and are not checked here.",
+		"Anonymous donors (spec v2): the Reader gives the finance admin name 'Anonymous' and anonymous true, and the row reads 'Anonymous name with the owner only'; the owner gets the name and the badge 'Anonymous to finance' (no entry: no mockup school lets its owner see B4 Uni's donors).",
+		"Writes: every write's button is disabled with aria-busy='true' while the Writer's promise is pending; toasts use the shared toast hook. A preview (an as= other than the signed-in person's own audience) acts on nothing: Create promo is disabled with the title 'Exit preview to act'.",
+		"Texts the mockup gets wrong are not checked: its plural for one ('1 events', '1 payments'); its CSV currency for a C$ school (USD); its CSV row order (its array order, not the table's).",
+		"Not mapped: the Ledger's pending rows ('Waiting to ship', written by S2 and S4 actions, have no entry here); the Copy code and Copy checkout link toasts; the created gift's Send by email (no Writer call in the mockup); a tab badge that drops after a disable (the badge is the School's, read once); Maple Pilates (its C$ money and USD CSV); the audience documents' figures (S1b and S7's disclosure documents)."
+	],
+	"hooks": [
+		"lock-panel",
+		"lock-title",
+		"lock-body",
+		"ledger-type",
+		"ledger-filter",
+		"ledger-count",
+		"ledger-csv",
+		"ledger-credit-head",
+		"ledger-day",
+		"ledger-day-label",
+		"ledger-day-credits",
+		"ledger-day-amount",
+		"ledger-pending",
+		"ledger-row",
+		"ledger-time",
+		"ledger-event",
+		"ledger-member",
+		"ledger-what",
+		"ledger-credits",
+		"ledger-amount",
+		"ledger-details",
+		"ledger-empty",
+		"report-download",
+		"report-status",
+		"report-spark",
+		"report-spark-title",
+		"report-spark-summary",
+		"report-spark-point",
+		"report-spark-axis",
+		"report-kpi",
+		"report-kpi-label",
+		"report-kpi-value",
+		"report-kpi-change",
+		"report-statement-title",
+		"report-line",
+		"report-line-label",
+		"report-line-amount",
+		"report-rules",
+		"report-rule",
+		"report-rules-edit",
+		"report-grain",
+		"report-grain-note",
+		"report-period",
+		"report-doc-note",
+		"donors",
+		"donors-title",
+		"donors-csv",
+		"donor-row",
+		"donor-name",
+		"donor-kind",
+		"donor-id",
+		"donor-payments",
+		"donor-total",
+		"donor-last",
+		"donors-more",
+		"donors-audit",
+		"donors-empty",
+		"promo-note",
+		"promo-new",
+		"promo-row",
+		"promo-code",
+		"promo-reveal",
+		"promo-copy",
+		"promo-type",
+		"promo-value",
+		"promo-used",
+		"promo-expires",
+		"promo-soon",
+		"promo-status",
+		"promo-redemptions",
+		"promo-disable",
+		"promo-empty",
+		"promo-type-input",
+		"promo-value-input",
+		"promo-expires-input",
+		"promo-note-input",
+		"promo-preview",
+		"promo-created-code",
+		"promo-created-summary",
+		"promo-created-note",
+		"promo-email-input",
+		"toast",
+		"dialog",
+		"dialog-title",
+		"dialog-confirm",
+		"dialog-cancel"
+	],
+	"moves": {
+		"fields": [
+			"ledger.count",
+			"ledger.days[].count",
+			"ledger.days[].credits",
+			"ledger.days[].amountCents",
+			"ledger.days[].entries[].credits",
+			"ledger.days[].entries[].amountCents",
+			"ledger.days[].entries[].member.name",
+			"incomeStatement.counts.payments",
+			"incomeStatement.amounts.memberships",
+			"incomeStatement.amounts.income",
+			"incomeStatement.amounts.net",
+			"incomeStatement.income.totalCents",
+			"incomeStatement.income.peak.amountCents",
+			"donors.donorCount",
+			"donors.payerCount",
+			"donors.rows[].name",
+			"donors.rows[].totalCents",
+			"promos.promos[].used"
+		]
+	},
+	"matrix": {
+		"tab": ["ledger", "reports", "promos"],
+		"audience": ["public", "member", "governance", "finance", "owner"]
+	},
+	"entries": [
+		{
+			"id": "ledger-default",
+			"source": "mockup 742105b64 ledger() on vol (owner), Nov 2026: the seven type chips with All on and the credit chip named after the unit, the count, Download CSV with its title, the column heads, 4 day groups and 15 rows, newest first; s5-text.mjs led.vol",
+			"route": "#/vol/ledger?theme=light",
+			"covers": {
+				"tab": "ledger",
+				"audience": "owner"
+			},
+			"expect": {
+				"text": {
+					"[data-test=ledger-count]": {
+						"text": "15 events · America/Denver",
+						"moves": true
+					},
+					"[data-test=ledger-csv]": "Download CSV",
+					"[data-test=ledger-credit-head]": "Sessions",
+					"[data-test=ledger-type][data-type=credit]": "Sessions",
+					"[data-test=ledger-type][data-type=all]": "All",
+					"[data-test=ledger-day][data-day=\"2026-11-04\"] [data-test=ledger-day-label]": "Wed Nov 4 · 4 events",
+					"[data-test=ledger-day][data-day=\"2026-11-04\"] [data-test=ledger-day-credits]": {
+						"text": "+22",
+						"moves": true
+					},
+					"[data-test=ledger-day][data-day=\"2026-11-04\"] [data-test=ledger-day-amount]": {
+						"text": "$65.00",
+						"moves": true
+					},
+					"[data-test=ledger-day][data-day=\"2026-11-02\"] [data-test=ledger-day-amount]": "−$10.00",
+					"[data-test=ledger-day][data-day=\"2026-11-01\"] [data-test=ledger-day-label]": "Sun Nov 1 · 4 events",
+					"[data-test=ledger-day][data-day=\"2026-11-01\"] [data-test=ledger-day-amount]": "$182.00",
+					"[data-test=ledger-row][data-event=vol-e0] [data-test=ledger-time]": "16:20",
+					"[data-test=ledger-row][data-event=vol-e0] [data-test=ledger-event]": "Sessions held",
+					"[data-test=ledger-row][data-event=vol-e0] [data-test=ledger-member]": {
+						"text": "Ana P. m_093",
+						"moves": true
+					},
+					"[data-test=ledger-row][data-event=vol-e0] [data-test=ledger-what]": "Held for Massage 90 · bk_9ab · family Details",
+					"[data-test=ledger-row][data-event=vol-e0] [data-test=ledger-credits]": {
+						"text": "−1",
+						"moves": true
+					},
+					"[data-test=ledger-row][data-event=vol-e0] [data-test=ledger-amount]": ""
+				},
+				"count": {
+					"[data-test=ledger-type]": 7,
+					"[data-test=ledger-type].on": 1,
+					"[data-test=ledger-type][data-type=all].on": 1,
+					"[data-test=ledger-day]": 4,
+					"[data-test=ledger-row]": 15,
+					"[data-test=ledger-details]": 0,
+					"[data-test=ledger-pending]": 0,
+					"[data-test=ledger-empty]": 0,
+					"[data-test=ledger-filter]": 0,
+					"[data-test=ledger-csv][title=\"Download the rows in this view as CSV\"]:not([disabled])": 1,
+					"[data-test=lock-panel]": 0
+				},
+				"contains": {
+					"[data-test=ledger-type]": [
+						"All",
+						"Payments",
+						"Sessions",
+						"Bookings",
+						"Promos",
+						"Payouts",
+						"Admin actions"
+					],
+					"[data-test=pane]": [
+						"Time",
+						"Event",
+						"Member",
+						"What happened",
+						"Amount"
+					]
+				}
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "document.querySelector('.tab[data-p=led]').click()"
+			}
+		},
+		{
+			"id": "ledger-row-kinds",
+			"source": "mockup 742105b64 rowHtml: payment amounts signed with two decimals and no currency, a payout unsigned, a refund with −, a gift sold to nobody shows — and its promo masked, a booking payment its booking id; the event labels of lab() and L; s5-text.mjs led.vol",
+			"route": "#/vol/ledger?theme=light",
+			"expect": {
+				"text": {
+					"[data-test=ledger-row][data-event=vol-e2] [data-test=ledger-event]": "Payment",
+					"[data-test=ledger-row][data-event=vol-e2] [data-test=ledger-amount]": {
+						"text": "+65.00",
+						"moves": true
+					},
+					"[data-test=ledger-row][data-event=vol-e2] [data-test=ledger-credits]": "",
+					"[data-test=ledger-row][data-event=vol-e1] [data-test=ledger-event]": "Sessions granted",
+					"[data-test=ledger-row][data-event=vol-e1] [data-test=ledger-credits]": "+24",
+					"[data-test=ledger-row][data-event=vol-e4] [data-test=ledger-event]": "Sessions used",
+					"[data-test=ledger-row][data-event=vol-e5] [data-test=ledger-event]": "Gift sold",
+					"[data-test=ledger-row][data-event=vol-e5] [data-test=ledger-member]": "—",
+					"[data-test=ledger-row][data-event=vol-e5] [data-test=ledger-what]": "Gift certificate sold, GIFT50 · promo GIF•••X2 · stripe Details",
+					"[data-test=ledger-row][data-event=vol-e6] [data-test=ledger-event]": "Out of sessions",
+					"[data-test=ledger-row][data-event=vol-e7] [data-test=ledger-event]": "Payout",
+					"[data-test=ledger-row][data-event=vol-e7] [data-test=ledger-amount]": "202.16",
+					"[data-test=ledger-row][data-event=vol-e8] [data-test=ledger-event]": "Refund",
+					"[data-test=ledger-row][data-event=vol-e8] [data-test=ledger-amount]": "−50.00",
+					"[data-test=ledger-row][data-event=vol-e9] [data-test=ledger-event]": "Sessions returned",
+					"[data-test=ledger-row][data-event=vol-e9] [data-test=ledger-credits]": "−4",
+					"[data-test=ledger-row][data-event=vol-e10] [data-test=ledger-event]": "Booking payment",
+					"[data-test=ledger-row][data-event=vol-e10] [data-test=ledger-what]": "Group event paid · bk_3cd · stripe Details",
+					"[data-test=ledger-row][data-event=vol-e11] [data-test=ledger-what]": "Invoice paid, Sparkle ×4 (10% off) · promo SPR•••10 · stripe Details",
+					"[data-test=ledger-row][data-event=vol-e11] [data-test=ledger-amount]": "+117.00",
+					"[data-test=ledger-row][data-event=vol-e13] [data-test=ledger-event]": "Sessions forfeited",
+					"[data-test=ledger-row][data-event=vol-e14] [data-test=ledger-event]": "Sessions expired",
+					"[data-test=ledger-row][data-event=vol-e14] [data-test=ledger-time]": "00:00",
+					"[data-test=ledger-day][data-day=\"2026-11-03\"] [data-test=ledger-day-credits]": "−2",
+					"[data-test=ledger-day][data-day=\"2026-11-03\"] [data-test=ledger-day-amount]": "$50.00"
+				},
+				"count": {
+					"[data-test=ledger-row][data-event=vol-e8] [data-test=ledger-amount].neg": 1,
+					"[data-test=ledger-row][data-event=vol-e2] [data-test=ledger-amount].neg": 0
+				}
+			}
+		},
+		{
+			"id": "ledger-details",
+			"source": "mockup 742105b64 #lb onclick: a row opens its details line (event type, source, and the event as JSON with its labels); a second click closes it",
+			"route": "#/vol/ledger?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=ledger-row][data-event=vol-e0]",
+					"expect": {
+						"count": {
+							"[data-test=ledger-details]": 1
+						},
+						"contains": {
+							"[data-test=ledger-details]": [
+								"credit.held · source family",
+								"\"event_type\":\"credit.held\"",
+								"\"booking\":\"bk_9ab\""
+							]
+						}
+					}
+				},
+				{
+					"click": "[data-test=ledger-row][data-event=vol-e0]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=ledger-details]": 0
+				}
+			}
+		},
+		{
+			"id": "ledger-type-payment",
+			"source": "mockup 742105b64 #lchips [data-t=payment] and okT: the chip turns on and the rows narrow; s5-text.mjs led.vol.payment",
+			"route": "#/vol/ledger?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=ledger-type][data-type=payment]"
+				}
+			],
+			"expect": {
+				"hash": "type=payment",
+				"text": {
+					"[data-test=ledger-count]": "6 events · America/Denver"
+				},
+				"count": {
+					"[data-test=ledger-row]": 6,
+					"[data-test=ledger-day]": 4,
+					"[data-test=ledger-type][data-type=payment].on": 1,
+					"[data-test=ledger-type].on": 1,
+					"[data-test=ledger-empty]": 0
+				}
+			}
+		},
+		{
+			"id": "ledger-type-credit",
+			"source": "mockup 742105b64 #lchips [data-t=credit] and okT: the chip turns on and the rows narrow; s5-text.mjs led.vol.credit",
+			"route": "#/vol/ledger?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=ledger-type][data-type=credit]"
+				}
+			],
+			"expect": {
+				"hash": "type=credit",
+				"text": {
+					"[data-test=ledger-count]": "8 events · America/Denver"
+				},
+				"count": {
+					"[data-test=ledger-row]": 8,
+					"[data-test=ledger-day]": 4,
+					"[data-test=ledger-type][data-type=credit].on": 1,
+					"[data-test=ledger-type].on": 1,
+					"[data-test=ledger-empty]": 0
+				}
+			}
+		},
+		{
+			"id": "ledger-type-booking",
+			"source": "mockup 742105b64 #lchips [data-t=booking] and okT: the chip turns on and the rows narrow; s5-text.mjs led.vol.booking",
+			"route": "#/vol/ledger?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=ledger-type][data-type=booking]"
+				}
+			],
+			"expect": {
+				"hash": "type=booking",
+				"text": {
+					"[data-test=ledger-count]": "5 events · America/Denver"
+				},
+				"count": {
+					"[data-test=ledger-row]": 5,
+					"[data-test=ledger-day]": 4,
+					"[data-test=ledger-type][data-type=booking].on": 1,
+					"[data-test=ledger-type].on": 1,
+					"[data-test=ledger-empty]": 0
+				}
+			}
+		},
+		{
+			"id": "ledger-type-code",
+			"source": "mockup 742105b64 #lchips [data-t=code] and okT: the chip turns on and the rows narrow; s5-text.mjs led.vol.code",
+			"route": "#/vol/ledger?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=ledger-type][data-type=code]"
+				}
+			],
+			"expect": {
+				"hash": "type=code",
+				"text": {
+					"[data-test=ledger-count]": "2 events · America/Denver"
+				},
+				"count": {
+					"[data-test=ledger-row]": 2,
+					"[data-test=ledger-day]": 2,
+					"[data-test=ledger-type][data-type=code].on": 1,
+					"[data-test=ledger-type].on": 1,
+					"[data-test=ledger-empty]": 0
+				}
+			}
+		},
+		{
+			"id": "ledger-type-payout",
+			"source": "mockup 742105b64 #lchips [data-t=payout] and okT: the chip turns on and the rows narrow; s5-text.mjs led.vol.payout",
+			"route": "#/vol/ledger?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=ledger-type][data-type=payout]"
+				}
+			],
+			"expect": {
+				"hash": "type=payout",
+				"count": {
+					"[data-test=ledger-row]": 1,
+					"[data-test=ledger-day]": 1,
+					"[data-test=ledger-type][data-type=payout].on": 1,
+					"[data-test=ledger-type].on": 1,
+					"[data-test=ledger-empty]": 0
+				}
+			}
+		},
+		{
+			"id": "ledger-type-credit-day-totals",
+			"source": "mockup 742105b64 #lchips [data-t=credit]: the day groups sum only the shown rows; s5-text.mjs led.vol.credit",
+			"route": "#/vol/ledger?type=credit&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=ledger-day][data-day=\"2026-11-04\"] [data-test=ledger-day-label]": "Wed Nov 4 · 3 events",
+					"[data-test=ledger-day][data-day=\"2026-11-04\"] [data-test=ledger-day-credits]": "+22",
+					"[data-test=ledger-day][data-day=\"2026-11-04\"] [data-test=ledger-day-amount]": "",
+					"[data-test=ledger-day][data-day=\"2026-11-01\"] [data-test=ledger-day-credits]": "−8"
+				},
+				"count": {
+					"[data-test=ledger-row]": 8,
+					"[data-test=ledger-type][data-type=credit].on": 1
+				}
+			}
+		},
+		{
+			"id": "ledger-type-empty",
+			"source": "mockup 742105b64 #lchips [data-t=admin] on vol in Nov: no admin action, so the empty line, not an empty table with a 0; s5-text.mjs led.vol.admin",
+			"route": "#/vol/ledger?type=admin&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=ledger-empty]": "No events in this period.",
+					"[data-test=ledger-count]": "0 events · America/Denver"
+				},
+				"count": {
+					"[data-test=ledger-row]": 0,
+					"[data-test=ledger-day]": 0,
+					"[data-test=ledger-type][data-type=admin].on": 1
+				}
+			}
+		},
+		{
+			"id": "ledger-type-all",
+			"source": "mockup 742105b64 #lchips [data-t=\"\"]: All clears the type",
+			"route": "#/vol/ledger?type=payout&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=ledger-type][data-type=all]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=ledger-count]": "15 events · America/Denver"
+				},
+				"count": {
+					"[data-test=ledger-row]": 15,
+					"[data-test=ledger-type][data-type=all].on": 1
+				},
+				"absent": ["type=payout"]
+			}
+		},
+		{
+			"id": "ledger-finance",
+			"source": "mockup 742105b64 ledger() on b4u, where the signed-in Jo A. is an admin with the finance grant (spec v2: finance sees names, live): credits are 'Credits', 2 day groups, 5 rows; s5-text.mjs led.b4u",
+			"route": "#/b4u/ledger?month=2026-11&theme=light",
+			"covers": {
+				"tab": "ledger",
+				"audience": "finance"
+			},
+			"expect": {
+				"text": {
+					"[data-test=ledger-count]": "5 events · America/Chicago",
+					"[data-test=ledger-credit-head]": "Credits",
+					"[data-test=ledger-type][data-type=credit]": "Credits",
+					"[data-test=ledger-day][data-day=\"2026-11-03\"] [data-test=ledger-day-label]": "Tue Nov 3 · 4 events",
+					"[data-test=ledger-day][data-day=\"2026-11-03\"] [data-test=ledger-day-credits]": {
+						"text": "+28",
+						"moves": true
+					},
+					"[data-test=ledger-day][data-day=\"2026-11-03\"] [data-test=ledger-day-amount]": {
+						"text": "$90.00",
+						"moves": true
+					},
+					"[data-test=ledger-day][data-day=\"2026-11-02\"] [data-test=ledger-day-label]": "Mon Nov 2 · 1 event",
+					"[data-test=ledger-day][data-day=\"2026-11-02\"] [data-test=ledger-day-amount]": "",
+					"[data-test=ledger-row][data-event=b4u-e1] [data-test=ledger-member]": {
+						"text": "Lia W. s_26",
+						"moves": true
+					},
+					"[data-test=ledger-row][data-event=b4u-e1] [data-test=ledger-time]": "10:06",
+					"[data-test=ledger-row][data-event=b4u-e4] [data-test=ledger-what]": "Held for Tutoring · bk_b11 · family Details"
+				},
+				"count": {
+					"[data-test=ledger-day]": 2,
+					"[data-test=ledger-row]": 5,
+					"[data-test=lock-panel]": 0
+				},
+				"contains": {
+					"[data-test=pane]": ["Dana W.", "Omar F.", "Kai W."]
+				}
+			}
+		},
+		{
+			"id": "ledger-as-finance-preview",
+			"source": "mockup 742105b64 ledger() as Finance admin: the owner of vol previews the finance audience (as=finance), which still sees every row (spec v2 'finance gets the owner's view')",
+			"route": "#/vol/ledger?as=finance&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=ledger-count]": "15 events · America/Denver"
+				},
+				"count": {
+					"[data-test=ledger-row]": 15,
+					"[data-test=lock-panel]": 0
+				}
+			}
+		},
+		{
+			"id": "ledger-last-month",
+			"source": "mockup 742105b64 ledger() on vol at Oct 2026 (the period control's month=): an adjustment by an admin, a redeemed gift, a day with only a payout shows no totals; s5-text.mjs led.vol.oct",
+			"route": "#/vol/ledger?month=2026-10&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=ledger-count]": "7 events · America/Denver",
+					"[data-test=ledger-row][data-event=vol-e15] [data-test=ledger-event]": "Adjustment",
+					"[data-test=ledger-row][data-event=vol-e15] [data-test=ledger-what]": "Goodwill · late cancel · by admin@vibes · admin Details",
+					"[data-test=ledger-row][data-event=vol-e15] [data-test=ledger-credits]": "+2",
+					"[data-test=ledger-row][data-event=vol-e16] [data-test=ledger-event]": "Gift redeemed",
+					"[data-test=ledger-row][data-event=vol-e16] [data-test=ledger-what]": "Gift redeemed · promo WEL•••E4 · family Details",
+					"[data-test=ledger-day][data-day=\"2026-10-03\"] [data-test=ledger-day-label]": "Sat Oct 3 · 1 event",
+					"[data-test=ledger-day][data-day=\"2026-10-03\"] [data-test=ledger-day-credits]": "",
+					"[data-test=ledger-day][data-day=\"2026-10-03\"] [data-test=ledger-day-amount]": "",
+					"[data-test=ledger-day][data-day=\"2026-10-15\"] [data-test=ledger-day-amount]": "$130.00"
+				},
+				"count": {
+					"[data-test=ledger-row]": 7,
+					"[data-test=ledger-day]": 6
+				}
+			}
+		},
+		{
+			"id": "ledger-empty-school",
+			"source": "mockup 742105b64 ledger() on Lotus Lane (no events): the empty line, the count at 0 and the CSV link stay; s5-text.mjs led.nw",
+			"route": "#/nw/ledger?theme=light",
+			"expect": {
+				"text": {
+					"[data-test=ledger-empty]": "No events in this period.",
+					"[data-test=ledger-count]": "0 events · America/Los_Angeles",
+					"[data-test=ledger-credit-head]": "Classes"
+				},
+				"count": {
+					"[data-test=ledger-row]": 0,
+					"[data-test=ledger-day]": 0,
+					"[data-test=ledger-csv]": 1
+				}
+			}
+		},
+		{
+			"id": "ledger-csv",
+			"source": "mockup 742105b64 kLedgerCsv through kCsv and kSave on b4u, Nov 2026: BOM, CRLF, the ledger header with the event and credits columns, credits with two decimals, the file name keeps the period, the toast counts the rows; smoke.mjs 'admin csv: ledger export uses the same helper'. Rows in the table's order (the mockup writes its array order)",
+			"route": "#/b4u/ledger?month=2026-11&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=ledger-csv]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "download",
+						"args": [
+							{
+								"name": "ledger-2026-11-01_2026-11-30.csv",
+								"type": "text/csv;charset=utf-8",
+								"text": "﻿date,member,description,amount,currency,status,invoice_id,payment_id,event,credits\r\n2026-11-03,s_26,Plan allowance,,USD,Posted,,,credit.granted,8.00\r\n2026-11-03,s_25,Plan allowance,,USD,Posted,,,credit.granted,8.00\r\n2026-11-03,s_21,Plan allowance,,USD,Posted,,,credit.granted,12.00\r\n2026-11-03,s_21,\"Invoice paid, Shine ×2\",90.00,USD,Posted,,pay_26,payment.succeeded,\r\n2026-11-02,s_22,Held for Tutoring,,USD,Posted,,,credit.held,-1.00\r\n"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": "Downloaded 5 rows"
+				}
+			}
+		},
+		{
+			"id": "ledger-csv-pending",
+			"source": "protocol §7 hold writer: while the download is pending its button is busy and disabled and nothing claims the file is saved; the toast comes when the Writer answers",
+			"route": "#/b4u/ledger?month=2026-11&theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=ledger-csv]",
+					"expect": {
+						"writes": [
+							{
+								"method": "download",
+								"args": [
+									{
+										"name": "ledger-2026-11-01_2026-11-30.csv",
+										"type": "text/csv;charset=utf-8",
+										"text": "﻿date,member,description,amount,currency,status,invoice_id,payment_id,event,credits\r\n2026-11-03,s_26,Plan allowance,,USD,Posted,,,credit.granted,8.00\r\n2026-11-03,s_25,Plan allowance,,USD,Posted,,,credit.granted,8.00\r\n2026-11-03,s_21,Plan allowance,,USD,Posted,,,credit.granted,12.00\r\n2026-11-03,s_21,\"Invoice paid, Shine ×2\",90.00,USD,Posted,,pay_26,payment.succeeded,\r\n2026-11-02,s_22,Held for Tutoring,,USD,Posted,,,credit.held,-1.00\r\n"
+									}
+								]
+							}
+						],
+						"count": {
+							"[data-test=ledger-csv][aria-busy=\"true\"][disabled]": 1
+						},
+						"absent": ["Downloaded"]
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=toast]": "Downloaded 5 rows"
+				},
+				"count": {
+					"[data-test=ledger-csv][aria-busy=\"true\"]": 0,
+					"[data-test=ledger-csv]:not([disabled])": 1
+				}
+			}
+		},
+		{
+			"id": "ledger-drill",
+			"source": "mockup 742105b64 drill('income') from Reports: the Ledger with the 'Filter: Income ×' chip (DD.income: payments other than gifts) and All on; clicking the chip clears it (#cfx); s5-text.mjs drill.income, drill.clear",
+			"route": "#/vol/ledger?drill=income&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=ledger-filter]",
+					"expect": {
+						"text": {
+							"[data-test=ledger-count]": "15 events · America/Denver"
+						},
+						"count": {
+							"[data-test=ledger-filter]": 0,
+							"[data-test=ledger-row]": 15
+						},
+						"absent": ["Filter: Income"]
+					}
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=ledger-row]": 15
+				}
+			}
+		},
+		{
+			"id": "ledger-drill-open",
+			"source": "mockup 742105b64 drill('income'): 4 payments (the gift sold is not income); s5-text.mjs drill.income",
+			"route": "#/vol/ledger?drill=income&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=ledger-filter]": "Filter: Income ×",
+					"[data-test=ledger-count]": "4 events · America/Denver"
+				},
+				"count": {
+					"[data-test=ledger-row]": 4,
+					"[data-test=ledger-type][data-type=all].on": 1,
+					"[data-test=ledger-row][data-event=vol-e5]": 0
+				}
+			}
+		},
+		{
+			"id": "ledger-promo-filter",
+			"source": "mockup 742105b64 [data-red] (a promo's Redemptions): the Ledger for the year to date with the 'Promo SPR•••10 ×' chip and the one payment that used it; s5-text.mjs cod.vol.redemptions",
+			"route": "#/vol/ledger?month=2026-01-01..2026-11-05&promo=c_01&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=ledger-filter]": "Promo SPR•••10 ×",
+					"[data-test=ledger-row][data-event=vol-e11] [data-test=ledger-member]": "Ivy N. m_012"
+				},
+				"count": {
+					"[data-test=ledger-row]": 1
+				}
+			}
+		},
+		{
+			"id": "ledger-as-public",
+			"source": "mockup 742105b64 bkBlocked() (s5-v2-text.mjs b4u.public.led): the Ledger is a row per person, identities, so Public gets the lock panel naming who sees it (spec v2: rows and names for finance and owner only), never an empty table",
+			"route": "#/b4u/ledger?as=public&theme=light",
+			"covers": {
+				"tab": "ledger",
+				"audience": "public"
+			},
+			"expect": {
+				"text": {
+					"[data-test=lock-title]": "Finance admins and the owner see this",
+					"[data-test=lock-body]": "This lists who paid what: one row per person with amounts, refunds and member ids. Public sees totals in Reports and the Dashboard. Every identified read is audited."
+				},
+				"count": {
+					"[data-test=lock-panel][data-lock=\"no_grant\"]": 1,
+					"[data-test=ledger-row]": 0,
+					"[data-test=ledger-day]": 0,
+					"[data-test=ledger-type]": 0,
+					"[data-test=ledger-csv]": 0,
+					"[data-test=ledger-count]": 0,
+					"[data-test=ledger-empty]": 0
+				},
+				"absent": [
+					"Dana W.",
+					"Omar F.",
+					"Kai W.",
+					"Lia W.",
+					"Pia L.",
+					"Ines Kim",
+					"Tom Kim"
+				]
+			}
+		},
+		{
+			"id": "ledger-as-member",
+			"source": "mockup 742105b64 bkBlocked() (s5-v2-text.mjs b4u.member.led): the Ledger is a row per person, identities, so Member gets the lock panel naming who sees it (spec v2: rows and names for finance and owner only), never an empty table",
+			"route": "#/b4u/ledger?as=member&theme=light",
+			"covers": {
+				"tab": "ledger",
+				"audience": "member"
+			},
+			"expect": {
+				"text": {
+					"[data-test=lock-title]": "Finance admins and the owner see this",
+					"[data-test=lock-body]": "This lists who paid what: one row per person with amounts, refunds and member ids. Member sees totals in Reports and the Dashboard. Every identified read is audited."
+				},
+				"count": {
+					"[data-test=lock-panel][data-lock=\"no_grant\"]": 1,
+					"[data-test=ledger-row]": 0,
+					"[data-test=ledger-day]": 0,
+					"[data-test=ledger-type]": 0,
+					"[data-test=ledger-csv]": 0,
+					"[data-test=ledger-count]": 0,
+					"[data-test=ledger-empty]": 0
+				},
+				"absent": [
+					"Dana W.",
+					"Omar F.",
+					"Kai W.",
+					"Lia W.",
+					"Pia L.",
+					"Ines Kim",
+					"Tom Kim"
+				]
+			}
+		},
+		{
+			"id": "ledger-as-governance",
+			"source": "mockup 742105b64 bkBlocked() (s5-v2-text.mjs b4u.governance.led): the Ledger is a row per person, identities, so Governance gets the lock panel naming who sees it (spec v2: rows and names for finance and owner only), never an empty table",
+			"route": "#/b4u/ledger?as=governance&theme=light",
+			"covers": {
+				"tab": "ledger",
+				"audience": "governance"
+			},
+			"expect": {
+				"text": {
+					"[data-test=lock-title]": "Finance admins and the owner see this",
+					"[data-test=lock-body]": "This lists who paid what: one row per person with amounts, refunds and member ids. Governance sees totals in Reports and the Dashboard. Every identified read is audited."
+				},
+				"count": {
+					"[data-test=lock-panel][data-lock=\"no_grant\"]": 1,
+					"[data-test=ledger-row]": 0,
+					"[data-test=ledger-day]": 0,
+					"[data-test=ledger-type]": 0,
+					"[data-test=ledger-csv]": 0,
+					"[data-test=ledger-count]": 0,
+					"[data-test=ledger-empty]": 0
+				},
+				"absent": [
+					"Dana W.",
+					"Omar F.",
+					"Kai W.",
+					"Lia W.",
+					"Pia L.",
+					"Ines Kim",
+					"Tom Kim"
+				]
+			}
+		},
+		{
+			"id": "ledger-pin-locked",
+			"source": "mockup 742105b64 bkLock (PIN locked from Governance up, smoke.mjs 'books locked: Ledger shows the lock'): Finance admin with pin=locked sees the PIN prompt, not the rows",
+			"route": "#/b4u/ledger?as=finance&pin=locked&theme=light",
+			"expect": {
+				"contains": {
+					"[data-test=pin-lock]": [
+						"Enter your PIN to see books",
+						"Finance admin opens the books with your family PIN. Nothing is shown until you unlock."
+					]
+				},
+				"count": {
+					"[data-test=pin-lock]": 1,
+					"[data-test=ledger-row]": 0,
+					"[data-test=ledger-day]": 0,
+					"[data-test=ledger-type]": 0,
+					"[data-test=ledger-csv]": 0,
+					"[data-test=ledger-count]": 0,
+					"[data-test=ledger-empty]": 0
+				},
+				"absent": [
+					"Dana W.",
+					"Omar F.",
+					"Kai W.",
+					"Lia W.",
+					"Pia L.",
+					"Ines Kim",
+					"Tom Kim"
+				]
+			}
+		},
+		{
+			"id": "reports-default",
+			"source": "mockup 742105b64 reports() on vol (owner), Nov 2026: the reconciliation line and basis, the daily sparkline to the clock's today, the four KPIs and the gift liability, the income statement with its drill rows, the rules in force, Donors and payers with the audit line; s5-text.mjs rep.vol",
+			"route": "#/vol/reports?theme=light",
+			"covers": {
+				"tab": "reports",
+				"audience": "owner"
+			},
+			"expect": {
+				"text": {
+					"[data-test=report-download]": "Download",
+					"[data-test=report-status]": {
+						"text": "Matches Stripe · 5 payments, 1 refund, 1 payout Cash basis",
+						"moves": true
+					},
+					"[data-test=report-spark-title]": "Daily income",
+					"[data-test=report-spark-summary]": {
+						"text": "$287.00 · peak $182.00 (Nov 1)",
+						"moves": true
+					},
+					"[data-test=report-kpi][data-item=income] [data-test=report-kpi-label]": "Income",
+					"[data-test=report-kpi][data-item=income] [data-test=report-kpi-value]": {
+						"text": "$287.00",
+						"moves": true
+					},
+					"[data-test=report-kpi][data-item=refund] [data-test=report-kpi-value]": "−$50.00",
+					"[data-test=report-kpi][data-item=fees] [data-test=report-kpi-label]": "Stripe fees",
+					"[data-test=report-kpi][data-item=fees] [data-test=report-kpi-value]": "−$10.11",
+					"[data-test=report-kpi][data-item=payout] [data-test=report-kpi-label]": "Paid out",
+					"[data-test=report-kpi][data-item=payout] [data-test=report-kpi-value]": "$202.16",
+					"[data-test=report-kpi][data-item=gifts] [data-test=report-kpi-label]": "Gift certificates outstanding",
+					"[data-test=report-kpi][data-item=gifts] [data-test=report-kpi-value]": "$50.00 + 2 sessions",
+					"[data-test=report-kpi][data-item=gifts] [data-test=report-kpi-change]": "2 unredeemed gifts (a liability)",
+					"[data-test=report-statement-title]": "Income statement · Nov 2026",
+					"[data-test=report-line][data-line=memberships] [data-test=report-line-amount]": "$260.00",
+					"[data-test=report-line][data-line=bookings] [data-test=report-line-amount]": "$40.00",
+					"[data-test=report-line][data-line=discounts] [data-test=report-line-amount]": "−$13.00",
+					"[data-test=report-line][data-line=income] [data-test=report-line-amount]": "$287.00",
+					"[data-test=report-line][data-line=refunds] [data-test=report-line-amount]": "−$50.00",
+					"[data-test=report-line][data-line=fees] [data-test=report-line-amount]": "−$10.11",
+					"[data-test=report-line][data-line=net] [data-test=report-line-label]": "Net",
+					"[data-test=report-line][data-line=net] [data-test=report-line-amount]": {
+						"text": "$226.89",
+						"moves": true
+					},
+					"[data-test=report-line][data-line=gifts]": "Not income: gift certificates sold $50.00 (held as a liability until redeemed)",
+					"[data-test=report-rule][data-rule=cutoff]": "Cancel cutoff (default) 24 hours before",
+					"[data-test=report-rule][data-rule=no-show]": "No-show sessions are spent",
+					"[data-test=report-rule][data-rule=late-cancel]": "Late cancel sessions are forfeited",
+					"[data-test=report-rules-edit]": "Edit in school settings",
+					"[data-test=donors-title]": {
+						"text": "Donors and payers 2026 to date · 5 donors, 6 member payers",
+						"moves": true
+					},
+					"[data-test=donors-csv]": "Download CSV",
+					"[data-test=donors-audit]": "Every identified read is audited.",
+					"[data-test=donor-row][data-id=d_790c] [data-test=donor-name]": {
+						"text": "Ana Pruitt",
+						"moves": true
+					},
+					"[data-test=donor-row][data-id=d_790c] [data-test=donor-kind]": "Donor · Appeal",
+					"[data-test=donor-row][data-id=d_790c] [data-test=donor-total]": {
+						"text": "$300.00",
+						"moves": true
+					},
+					"[data-test=donor-row][data-id=d_790c] [data-test=donor-last]": "Sep 14",
+					"[data-test=donor-row][data-id=m_012] [data-test=donor-kind]": "Member",
+					"[data-test=donor-row][data-id=m_012] [data-test=donor-payments]": "2"
+				},
+				"count": {
+					"[data-test=report-kpi]": 5,
+					"[data-test=report-kpi][title=\"Show these events in the ledger\"]": 4,
+					"[data-test=report-kpi][data-item=gifts][title=\"Open promos\"]": 1,
+					"[data-test=report-line]": 8,
+					"[data-test=report-line][title=\"Show these events in the ledger\"]": 7,
+					"[data-test=report-spark-point]": 5,
+					"[data-test=report-rule]": 3,
+					"[data-test=report-kpi-change]": 1,
+					"[data-test=report-download][title=\"Download the income statement as CSV\"]": 1,
+					"[data-test=donors-csv][title=\"Download donors and payers as CSV\"]:not([disabled])": 1,
+					"[data-test=donor-row]": 11,
+					"[data-test=donors-more]": 0,
+					"[data-test=lock-panel]": 0,
+					"[data-test=report-grain]": 0
+				},
+				"contains": {
+					"[data-test=report-spark-axis]": ["Nov 1", "Nov 5"],
+					"[data-test=report-rules]": [
+						"Rules in force",
+						"School policy: every audience sees it. An item can set its own cutoff."
+					],
+					"[data-test=report-spark]": ["Daily income"]
+				}
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "document.querySelector('.tab[data-p=rep]').click()"
+			}
+		},
+		{
+			"id": "reports-finance",
+			"source": "mockup 742105b64 reports() on b4u as Jo A. (finance): the statement, the rules (48 hours, credits released), and Donors and payers: 62 donors and 3 member payers (the June payments count), the top 15 of 65 by amount, the donor who asked to be anonymous shown as Anonymous to the finance admin (spec v2: the owner alone sees the name), and the audit line; smoke.mjs 'books fin: Donors and payers table with names, amounts and the audit line'; s5-text.mjs rep.b4u",
+			"route": "#/b4u/reports?month=2026-11&theme=light",
+			"covers": {
+				"tab": "reports",
+				"audience": "finance"
+			},
+			"expect": {
+				"text": {
+					"[data-test=report-line][data-line=memberships] [data-test=report-line-amount]": {
+						"text": "$90.00",
+						"moves": true
+					},
+					"[data-test=report-line][data-line=fees] [data-test=report-line-amount]": "−$2.70",
+					"[data-test=report-line][data-line=net] [data-test=report-line-amount]": {
+						"text": "$87.30",
+						"moves": true
+					},
+					"[data-test=report-line][data-line=refunds] [data-test=report-line-amount]": "$0.00",
+					"[data-test=report-kpi][data-item=gifts] [data-test=report-kpi-value]": "$0.00",
+					"[data-test=report-kpi][data-item=gifts] [data-test=report-kpi-change]": "0 unredeemed gifts (a liability)",
+					"[data-test=report-spark-summary]": "$90.00 · peak $90.00 (Nov 3)",
+					"[data-test=report-rule][data-rule=cutoff]": "Cancel cutoff (default) 48 hours before",
+					"[data-test=report-rule][data-rule=no-show]": "No-show credits are released",
+					"[data-test=report-rule][data-rule=late-cancel]": "Late cancel credits are released",
+					"[data-test=donors-title]": {
+						"text": "Donors and payers 2026 to date · 62 donors, 3 member payers",
+						"moves": true
+					},
+					"[data-test=donors-more]": "Top 15 of 65 by amount. Download for the full list.",
+					"[data-test=donors-audit]": "Every identified read is audited.",
+					"[data-test=donor-row][data-id=d_7041] [data-test=donor-name]": {
+						"text": "Ines Kim",
+						"moves": true
+					},
+					"[data-test=donor-row][data-id=d_7041] [data-test=donor-kind]": "Donor · Building fund",
+					"[data-test=donor-row][data-id=d_7041] [data-test=donor-id]": "d_7041",
+					"[data-test=donor-row][data-id=d_7041] [data-test=donor-payments]": "1",
+					"[data-test=donor-row][data-id=d_7041] [data-test=donor-total]": "$5,000.00",
+					"[data-test=donor-row][data-id=d_7041] [data-test=donor-last]": "Feb 22",
+					"[data-test=donor-row][data-id=d_2b08] [data-test=donor-name]": "Raj Ruiz",
+					"[data-test=donor-row][data-id=d_d20a] [data-test=donor-name]": "Anonymous name with the owner only"
+				},
+				"count": {
+					"[data-test=donor-row]": 15,
+					"[data-test=donor-row][data-id=s_21]": 0,
+					"[data-test=lock-panel]": 0
+				},
+				"absent": ["Tom Kim", "Anonymous to finance"]
+			}
+		},
+		{
+			"id": "reports-as-finance-preview",
+			"source": "mockup 742105b64 reports() as Finance admin: the owner of vol previews the finance audience and still sees the statement and the donors table",
+			"route": "#/vol/reports?as=finance&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=report-line][data-line=net] [data-test=report-line-amount]": "$226.89"
+				},
+				"count": {
+					"[data-test=donor-row]": 11,
+					"[data-test=lock-panel]": 0
+				}
+			}
+		},
+		{
+			"id": "reports-compare",
+			"source": "mockup 742105b64 reports() with cmp (the period dialog's 'Compare with previous period', compare=1 in the route): each KPI says how it moved against Oct 2026, the sparkline draws the previous period dashed; s5-cmp.mjs",
+			"route": "#/vol/reports?compare=1&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=report-kpi][data-item=income] [data-test=report-kpi-change]": "▼ $23.00 vs Oct 2026",
+					"[data-test=report-kpi][data-item=refund] [data-test=report-kpi-change]": "▼ $50.00 vs Oct 2026",
+					"[data-test=report-kpi][data-item=fees] [data-test=report-kpi-change]": "▼ $0.81 vs Oct 2026",
+					"[data-test=report-kpi][data-item=payout] [data-test=report-kpi-change]": "▲ $12.16 vs Oct 2026"
+				},
+				"contains": {
+					"[data-test=report-spark-axis]": [
+						"Nov 1",
+						"dashed: previous period",
+						"Nov 5"
+					]
+				},
+				"count": {
+					"[data-test=report-kpi-change]": 5
+				}
+			}
+		},
+		{
+			"id": "reports-year-to-date",
+			"source": "mockup 742105b64 reports() on vol for Jan 1 to Nov 5 (a day range): the partial-period line instead of the Stripe match, weekly points over 62 days, the statement titled with the range; s5-text.mjs rep.vol.ytd",
+			"route": "#/vol/reports?month=2026-01-01..2026-11-05&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=report-status]": "Partial month: summed from daily totals. The hledger report and the Stripe match run on whole months. Cash basis",
+					"[data-test=report-spark-title]": "Weekly income",
+					"[data-test=report-spark-summary]": "$662.00 · peak $287.00 (week of Oct 29)",
+					"[data-test=report-statement-title]": "Income statement · Jan 1 – Nov 5, 2026",
+					"[data-test=report-line][data-line=memberships] [data-test=report-line-amount]": "$635.00",
+					"[data-test=report-line][data-line=net] [data-test=report-line-amount]": "$590.64",
+					"[data-test=report-kpi][data-item=payout] [data-test=report-kpi-value]": "$392.16"
+				},
+				"count": {
+					"[data-test=report-spark-point]": 45
+				},
+				"contains": {
+					"[data-test=report-spark-axis]": ["Jan 1", "Nov 5"]
+				}
+			}
+		},
+		{
+			"id": "reports-empty-school",
+			"source": "mockup 742105b64 reports() on Lotus Lane (no events, no donors): zeros where the books are zero, and 'No donors or payers yet.'; s5-text.mjs rep.nw",
+			"route": "#/nw/reports?theme=light",
+			"expect": {
+				"text": {
+					"[data-test=report-status]": "Matches Stripe · 0 payments, 0 refunds, 0 payouts Cash basis",
+					"[data-test=report-line][data-line=net] [data-test=report-line-amount]": "$0.00",
+					"[data-test=donors-title]": "Donors and payers 2026 to date · 0 donors, 0 member payers",
+					"[data-test=donors-empty]": "No donors or payers yet.",
+					"[data-test=donors-audit]": "Every identified read is audited."
+				},
+				"count": {
+					"[data-test=donor-row]": 0
+				}
+			}
+		},
+		{
+			"id": "reports-download",
+			"source": "mockup 742105b64 kReportCsv on b4u, Nov 2026: the eight statement lines with signed two-decimal amounts, the currency and the period; smoke.mjs 'admin csv: Reports download exports the income statement lines'",
+			"route": "#/b4u/reports?month=2026-11&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=report-download]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "download",
+						"args": [
+							{
+								"name": "income-statement-2026-11-01_2026-11-30.csv",
+								"type": "text/csv;charset=utf-8",
+								"text": "﻿line,amount,currency,period_from,period_to\r\nMemberships,90.00,USD,2026-11-01,2026-11-30\r\nBookings and events,0.00,USD,2026-11-01,2026-11-30\r\nDiscounts given,0.00,USD,2026-11-01,2026-11-30\r\nIncome,90.00,USD,2026-11-01,2026-11-30\r\nRefunds,0.00,USD,2026-11-01,2026-11-30\r\nStripe fees,-2.70,USD,2026-11-01,2026-11-30\r\nNet,87.30,USD,2026-11-01,2026-11-30\r\nGift certificates sold (not income),0.00,USD,2026-11-01,2026-11-30\r\n"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": "Downloaded 8 rows"
+				}
+			}
+		},
+		{
+			"id": "reports-download-pending",
+			"source": "protocol §7 hold writer: the Download button is busy while the file is pending; the toast comes when the Writer answers",
+			"route": "#/b4u/reports?month=2026-11&theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=report-download]",
+					"expect": {
+						"writes": [
+							{
+								"method": "download",
+								"args": [
+									{
+										"name": "income-statement-2026-11-01_2026-11-30.csv",
+										"type": "text/csv;charset=utf-8",
+										"text": "﻿line,amount,currency,period_from,period_to\r\nMemberships,90.00,USD,2026-11-01,2026-11-30\r\nBookings and events,0.00,USD,2026-11-01,2026-11-30\r\nDiscounts given,0.00,USD,2026-11-01,2026-11-30\r\nIncome,90.00,USD,2026-11-01,2026-11-30\r\nRefunds,0.00,USD,2026-11-01,2026-11-30\r\nStripe fees,-2.70,USD,2026-11-01,2026-11-30\r\nNet,87.30,USD,2026-11-01,2026-11-30\r\nGift certificates sold (not income),0.00,USD,2026-11-01,2026-11-30\r\n"
+									}
+								]
+							}
+						],
+						"count": {
+							"[data-test=report-download][aria-busy=\"true\"][disabled]": 1
+						},
+						"absent": ["Downloaded"]
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=toast]": "Downloaded 8 rows"
+				},
+				"count": {
+					"[data-test=report-download][aria-busy=\"true\"]": 0
+				}
+			}
+		},
+		{
+			"id": "reports-donors-csv",
+			"source": "mockup 742105b64 kDonorsCsv on vol (owner): every row, not only the 15 shown, name, kind, id, fund, payments, total, currency, last payment; the file is named for the clock's day",
+			"route": "#/vol/reports?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=donors-csv]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "download",
+						"args": [
+							{
+								"name": "donors-2026-11-05.csv",
+								"type": "text/csv;charset=utf-8",
+								"text": "﻿name,kind,id,fund,payments,total,currency,last_payment\r\nAna Pruitt,Donor,d_790c,Appeal,1,300.00,USD,2026-09-14\r\nIvy N.,Member,m_012,,2,247.00,USD,2026-11-01\r\nJon K.,Member,m_117,,1,120.00,USD,2026-10-12\r\nMia Rowe,Donor,d_3c9e,General,1,120.00,USD,2026-05-19\r\nLee T.,Member,m_088,,2,105.00,USD,2026-11-02\r\nAna P.,Member,m_093,,1,65.00,USD,2026-11-04\r\nMia R.,Member,m_204,,1,65.00,USD,2026-11-01\r\nSam O.,Member,m_051,,1,60.00,USD,2026-10-14\r\nRavi Shah,Donor,d_9e67,General,1,60.00,USD,2026-03-02\r\nJon Kemp,Donor,d_dad5,General,1,40.00,USD,2026-07-08\r\nPat Ellis,Donor,d_0030,General,1,25.00,USD,2026-02-11\r\n"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": "Downloaded 11 rows"
+				}
+			}
+		},
+		{
+			"id": "reports-donors-csv-pending",
+			"source": "protocol §7 hold writer: the donors Download CSV is busy while the file is pending",
+			"route": "#/vol/reports?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=donors-csv]",
+					"expect": {
+						"writes": [
+							{
+								"method": "download",
+								"args": [
+									{
+										"name": "donors-2026-11-05.csv",
+										"type": "text/csv;charset=utf-8",
+										"text": "﻿name,kind,id,fund,payments,total,currency,last_payment\r\nAna Pruitt,Donor,d_790c,Appeal,1,300.00,USD,2026-09-14\r\nIvy N.,Member,m_012,,2,247.00,USD,2026-11-01\r\nJon K.,Member,m_117,,1,120.00,USD,2026-10-12\r\nMia Rowe,Donor,d_3c9e,General,1,120.00,USD,2026-05-19\r\nLee T.,Member,m_088,,2,105.00,USD,2026-11-02\r\nAna P.,Member,m_093,,1,65.00,USD,2026-11-04\r\nMia R.,Member,m_204,,1,65.00,USD,2026-11-01\r\nSam O.,Member,m_051,,1,60.00,USD,2026-10-14\r\nRavi Shah,Donor,d_9e67,General,1,60.00,USD,2026-03-02\r\nJon Kemp,Donor,d_dad5,General,1,40.00,USD,2026-07-08\r\nPat Ellis,Donor,d_0030,General,1,25.00,USD,2026-02-11\r\n"
+									}
+								]
+							}
+						],
+						"count": {
+							"[data-test=donors-csv][aria-busy=\"true\"][disabled]": 1
+						},
+						"absent": ["Downloaded"]
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=toast]": "Downloaded 11 rows"
+				}
+			}
+		},
+		{
+			"id": "reports-drill-kpi",
+			"source": "mockup 742105b64 [data-dd] on a KPI: the Ledger with that drill-down (drill() keeps the period, sets the type to All); s5-text.mjs drill.refund",
+			"route": "#/vol/reports?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=report-kpi][data-item=refund]"
+				}
+			],
+			"expect": {
+				"hash": "#/vol/ledger",
+				"text": {
+					"[data-test=ledger-filter]": "Filter: Refunds ×"
+				},
+				"count": {
+					"[data-test=ledger-row]": 1,
+					"[data-test=ledger-row][data-event=vol-e8]": 1
+				}
+			}
+		},
+		{
+			"id": "reports-drill-line",
+			"source": "mockup 742105b64 [data-dd=gift] on the statement's 'Not income' line: the Ledger with 'Filter: Gift certificates sold ×'; s5-text.mjs drill.gift",
+			"route": "#/vol/reports?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=report-line][data-line=gifts]"
+				}
+			],
+			"expect": {
+				"hash": "drill=gift",
+				"text": {
+					"[data-test=ledger-filter]": "Filter: Gift certificates sold ×"
+				},
+				"count": {
+					"[data-test=ledger-row]": 1,
+					"[data-test=ledger-row][data-event=vol-e5]": 1
+				}
+			}
+		},
+		{
+			"id": "reports-gifts-to-promos",
+			"source": "mockup 742105b64 [data-go=cod] on 'Gift certificates outstanding': opens Promos",
+			"route": "#/vol/reports?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=report-kpi][data-item=gifts]"
+				}
+			],
+			"expect": {
+				"hash": "#/vol/promos",
+				"count": {
+					"[data-test=promo-row]": 4
+				}
+			}
+		},
+		{
+			"id": "reports-as-public",
+			"source": "mockup 742105b64 reportsDoc and bkDonors (s5-v2-text.mjs b4u.public.rep): below finance, Reports is the Public document at its grain (spec v2: year, aggregates only), the Stripe reconciliation and the drill-downs are finance-only, and Donors and payers is a lock panel; figures are the document's (S1b, S7), not checked here",
+			"route": "#/b4u/reports?as=public&theme=light",
+			"covers": {
+				"tab": "reports",
+				"audience": "public"
+			},
+			"expect": {
+				"text": {
+					"[data-test=report-grain]": "Income by year",
+					"[data-test=report-grain-note]": "Public sees years. Days show to finance admins and the owner.",
+					"[data-test=donors] [data-test=lock-title]": "Finance admins and the owner see this",
+					"[data-test=donors] [data-test=lock-body]": "Names and per-person amounts. Governance sees how gifts spread. Public sees totals and categories only.",
+					"[data-test=report-rule][data-rule=cutoff]": "Cancel cutoff (default) 48 hours before",
+					"[data-test=report-kpi][data-item=payout] [data-test=report-kpi-value]": "Governance and up see this",
+					"[data-test=report-kpi][data-item=gifts] [data-test=report-kpi-value]": "Governance and up see this"
+				},
+				"contains": {
+					"[data-test=report-status]": [
+						"Public document",
+						"Reconciliation with Stripe: Finance admins and the owner see this"
+					],
+					"[data-test=report-statement-title]": ["Public document"],
+					"[data-test=report-rules]": [
+						"School policy: every audience sees it."
+					],
+					"[data-test=report-doc-note]": [
+						"Figures from the Public document: years, money rounded to $100 (small school). A figure inside its delay shows when it publishes."
+					],
+					"[data-test=report-period].kwait": [
+						"Published after 7 Jan 2027",
+						"Published after 7 Jan 2028"
+					]
+				},
+				"count": {
+					"[data-test=report-download][title^=\"Download the Public document\"]": 1,
+					"[data-test=report-kpi][disabled][title=\"Finance admins only: the rows behind a figure\"]": 4,
+					"[data-test=report-kpi][data-item=gifts][disabled][title=\"Finance admins only\"]": 1,
+					"[data-test=report-line][title=\"Show these events in the ledger\"]": 0,
+					"[data-test=donors] [data-test=lock-panel][data-lock=\"no_grant\"]": 1,
+					"[data-test=donor-row]": 0,
+					"[data-test=donors-csv]": 0,
+					"[data-test=report-spark-point]": 0,
+					"[data-test=report-rules-edit]": 0,
+					"[data-test=report-period]": 3,
+					"[data-test=report-period].kwait": 2,
+					"[data-test=report-period] [data-hid=embargoed]": 2,
+					"[data-test=report-kpi][data-item=payout] [data-hid=no_grant]": 1
+				},
+				"absent": [
+					"Dana W.",
+					"Omar F.",
+					"Kai W.",
+					"Lia W.",
+					"Pia L.",
+					"Ines Kim",
+					"Tom Kim",
+					"Every identified read is audited",
+					"Matches Stripe"
+				]
+			}
+		},
+		{
+			"id": "reports-as-member",
+			"source": "mockup 742105b64 reportsDoc and bkDonors (s5-v2-text.mjs b4u.member.rep): below finance, Reports is the Member document at its grain (spec v2: quarter, aggregates only), the Stripe reconciliation and the drill-downs are finance-only, and Donors and payers is a lock panel; figures are the document's (S1b, S7), not checked here",
+			"route": "#/b4u/reports?as=member&theme=light",
+			"covers": {
+				"tab": "reports",
+				"audience": "member"
+			},
+			"expect": {
+				"text": {
+					"[data-test=report-grain]": "Income by quarter",
+					"[data-test=report-grain-note]": "Members see quarters. Days show to finance admins and the owner.",
+					"[data-test=donors] [data-test=lock-title]": "Finance admins and the owner see this",
+					"[data-test=donors] [data-test=lock-body]": "Names and per-person amounts. Governance sees how gifts spread. Member sees totals and categories only.",
+					"[data-test=report-rule][data-rule=cutoff]": "Cancel cutoff (default) 48 hours before",
+					"[data-test=report-kpi][data-item=payout] [data-test=report-kpi-value]": "Governance and up see this",
+					"[data-test=report-kpi][data-item=gifts] [data-test=report-kpi-value]": "Governance and up see this"
+				},
+				"contains": {
+					"[data-test=report-status]": [
+						"Member document",
+						"Reconciliation with Stripe: Finance admins and the owner see this"
+					],
+					"[data-test=report-statement-title]": ["Member document"],
+					"[data-test=report-rules]": [
+						"School policy: every audience sees it."
+					],
+					"[data-test=report-doc-note]": [
+						"Figures from the Member document: quarters, money rounded to $100 (small school). A figure inside its delay shows when it publishes."
+					],
+					"[data-test=report-period].kwait": [
+						"Published after 18 Nov 2026",
+						"Published after 18 Feb 2027"
+					]
+				},
+				"count": {
+					"[data-test=report-download][title^=\"Download the Member document\"]": 1,
+					"[data-test=report-kpi][disabled][title=\"Finance admins only: the rows behind a figure\"]": 4,
+					"[data-test=report-kpi][data-item=gifts][disabled][title=\"Finance admins only\"]": 1,
+					"[data-test=report-line][title=\"Show these events in the ledger\"]": 0,
+					"[data-test=donors] [data-test=lock-panel][data-lock=\"no_grant\"]": 1,
+					"[data-test=donor-row]": 0,
+					"[data-test=donors-csv]": 0,
+					"[data-test=report-spark-point]": 0,
+					"[data-test=report-rules-edit]": 0,
+					"[data-test=report-period]": 4,
+					"[data-test=report-period].kwait": 2,
+					"[data-test=report-period] [data-hid=embargoed]": 2,
+					"[data-test=report-kpi][data-item=payout] [data-hid=no_grant]": 1
+				},
+				"absent": [
+					"Dana W.",
+					"Omar F.",
+					"Kai W.",
+					"Lia W.",
+					"Pia L.",
+					"Ines Kim",
+					"Tom Kim",
+					"Every identified read is audited",
+					"Matches Stripe"
+				]
+			}
+		},
+		{
+			"id": "reports-as-governance",
+			"source": "mockup 742105b64 reportsDoc and bkDonors for Governance (s5-v2-text.mjs b4u.governance.rep): months, exact, the statement's plan lines, and 'How donors give' as a spread with no names and no rows; smoke.mjs 'books gov: Reports show the distribution instead of the Donors table'",
+			"route": "#/b4u/reports?as=governance&theme=light",
+			"covers": {
+				"tab": "reports",
+				"audience": "governance"
+			},
+			"expect": {
+				"text": {
+					"[data-test=report-grain]": "Income by month",
+					"[data-test=report-grain-note]": "Governance sees months. Days show to finance admins and the owner."
+				},
+				"contains": {
+					"[data-test=report-status]": [
+						"Governance document",
+						"Reconciliation with Stripe: Finance admins and the owner see this"
+					],
+					"[data-test=donors]": [
+						"How donors give",
+						"spread, no names",
+						"Names, emails and per-person rows show to finance admins and the owner only."
+					],
+					"[data-test=report-doc-note]": [
+						"Figures from the Governance document: months, exact. A figure inside its delay shows when it publishes."
+					],
+					"[data-test=report-period].kwait": [
+						"Published after 7 Nov 2026",
+						"Published after 7 Dec 2026",
+						"Published after 7 Jan 2027"
+					]
+				},
+				"count": {
+					"[data-test=report-period]": 12,
+					"[data-test=report-period].kwait": 3,
+					"[data-test=donor-row]": 0,
+					"[data-test=donors-csv]": 0,
+					"[data-test=donors] [data-test=lock-panel]": 0,
+					"[data-test=report-download][title^=\"Download the Governance document\"]": 1
+				},
+				"absent": [
+					"Dana W.",
+					"Omar F.",
+					"Kai W.",
+					"Lia W.",
+					"Pia L.",
+					"Ines Kim",
+					"Tom Kim",
+					"Every identified read is audited"
+				]
+			}
+		},
+		{
+			"id": "reports-pin-locked",
+			"source": "mockup 742105b64 bkLock on Reports (smoke.mjs 'books locked: Reports and Ledger show the lock, not names'): the owner of vol with pin=locked sees the PIN prompt, no statement and no names (a finance admin may not preview Owner: as=owner from b4u falls back to Finance admin)",
+			"route": "#/vol/reports?pin=locked&theme=light",
+			"covers": {
+				"tab": "reports",
+				"audience": "owner-pin-locked"
+			},
+			"expect": {
+				"contains": {
+					"[data-test=pin-lock]": [
+						"Enter your PIN to see books",
+						"Owner opens the books with your family PIN. Nothing is shown until you unlock."
+					]
+				},
+				"count": {
+					"[data-test=report-line]": 0,
+					"[data-test=report-kpi]": 0,
+					"[data-test=donor-row]": 0,
+					"[data-test=report-spark-point]": 0
+				},
+				"absent": [
+					"Ana Pruitt",
+					"Ivy N.",
+					"Ana P.",
+					"Every identified read is audited"
+				]
+			}
+		},
+		{
+			"id": "promos-default",
+			"source": "mockup 742105b64 codes() on vol (owner): the owner's note, Create promo enabled, four codes masked (mask()), types, values, uses (n or n/max), expiry with 'soon' for an active gift within 30 days, status badges, Redemptions on every row and Disable on the active ones; s5-text.mjs cod.vol",
+			"route": "#/vol/promos?theme=light",
+			"covers": {
+				"tab": "promos",
+				"audience": "owner"
+			},
+			"expect": {
+				"text": {
+					"[data-test=promo-note]": "Owners create promos. Admins can view and disable.",
+					"[data-test=promo-new]": "Create promo",
+					"[data-test=promo-row][data-promo=c_01] [data-test=promo-code]": "SPR•••10",
+					"[data-test=promo-row][data-promo=c_01] [data-test=promo-type]": "Member % off",
+					"[data-test=promo-row][data-promo=c_01] [data-test=promo-value]": "10% off tiers",
+					"[data-test=promo-row][data-promo=c_01] [data-test=promo-used]": {
+						"text": "3",
+						"moves": true
+					},
+					"[data-test=promo-row][data-promo=c_01] [data-test=promo-expires]": "2026-12-31",
+					"[data-test=promo-row][data-promo=c_01] [data-test=promo-status]": "active",
+					"[data-test=promo-row][data-promo=c_02] [data-test=promo-code]": "GIF•••X2",
+					"[data-test=promo-row][data-promo=c_02] [data-test=promo-type]": "Dollar gift",
+					"[data-test=promo-row][data-promo=c_02] [data-test=promo-value]": "$50.00",
+					"[data-test=promo-row][data-promo=c_02] [data-test=promo-used]": "0/1",
+					"[data-test=promo-row][data-promo=c_03] [data-test=promo-type]": "Session gift",
+					"[data-test=promo-row][data-promo=c_03] [data-test=promo-value]": "4 sessions",
+					"[data-test=promo-row][data-promo=c_03] [data-test=promo-used]": {
+						"text": "1/1",
+						"moves": true
+					},
+					"[data-test=promo-row][data-promo=c_03] [data-test=promo-status]": "redeemed",
+					"[data-test=promo-row][data-promo=c_04] [data-test=promo-code]": "THA•••U2",
+					"[data-test=promo-row][data-promo=c_04] [data-test=promo-expires]": "2026-11-30 soon",
+					"[data-test=promo-row][data-promo=c_04] [data-test=promo-soon]": "soon"
+				},
+				"count": {
+					"[data-test=promo-row]": 4,
+					"[data-test=promo-new]:not([disabled])": 1,
+					"[data-test=promo-soon]": 1,
+					"[data-test=promo-redemptions]": 4,
+					"[data-test=promo-disable]": 3,
+					"[data-test=promo-row][data-promo=c_03] [data-test=promo-disable]": 0,
+					"[data-test=promo-reveal][aria-label=\"Show code\"]": 4,
+					"[data-test=promo-copy][aria-label=\"Copy code\"]": 4,
+					"[data-test=promo-empty]": 0
+				},
+				"contains": {
+					"[data-test=pane]": [
+						"Code",
+						"Type",
+						"Value",
+						"Used",
+						"Expires",
+						"Status"
+					]
+				}
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "document.querySelector('.tab[data-p=cod]').click()"
+			}
+		},
+		{
+			"id": "promos-reveal",
+			"source": "mockup 742105b64 [data-rev]: the eye shows the full code and becomes Hide code; a second click masks it again; s5-text.mjs cod.vol.reveal",
+			"route": "#/vol/promos?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=promo-row][data-promo=c_01] [data-test=promo-reveal]",
+					"expect": {
+						"text": {
+							"[data-test=promo-row][data-promo=c_01] [data-test=promo-code]": "SPRING10"
+						},
+						"count": {
+							"[data-test=promo-row][data-promo=c_01] [data-test=promo-reveal][aria-label=\"Hide code\"]": 1
+						}
+					}
+				},
+				{
+					"click": "[data-test=promo-row][data-promo=c_01] [data-test=promo-reveal]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=promo-row][data-promo=c_01] [data-test=promo-code]": "SPR•••10"
+				},
+				"absent": ["SPRING10"]
+			}
+		},
+		{
+			"id": "promos-finance-admin",
+			"source": "mockup 742105b64 codes() on b4u, where Jo A. is an admin (finance grant, not owner): the admin's note, Create promo disabled with the owner-role title, a 5-character code shown unmasked; s5-text.mjs cod.b4u",
+			"route": "#/b4u/promos?theme=light",
+			"covers": {
+				"tab": "promos",
+				"audience": "finance"
+			},
+			"expect": {
+				"text": {
+					"[data-test=promo-note]": "You are an admin here: you can view and disable promos. Owners create them.",
+					"[data-test=promo-row][data-promo=c_11] [data-test=promo-code]": "UNI15",
+					"[data-test=promo-row][data-promo=c_11] [data-test=promo-value]": "15% off tiers",
+					"[data-test=promo-row][data-promo=c_11] [data-test=promo-used]": {
+						"text": "2",
+						"moves": true
+					}
+				},
+				"count": {
+					"[data-test=promo-row]": 1,
+					"[data-test=promo-new][disabled][title=\"Creating promos needs the owner role in this school\"]": 1,
+					"[data-test=promo-disable]": 1,
+					"[data-test=promo-redemptions]:not([disabled])": 1
+				}
+			}
+		},
+		{
+			"id": "promos-empty",
+			"source": "mockup 742105b64 codes() on Lotus Lane: 'No promos yet.' and no rows; s5-text.mjs cod.nw",
+			"route": "#/nw/promos?theme=light",
+			"expect": {
+				"text": {
+					"[data-test=promo-empty]": "No promos yet."
+				},
+				"count": {
+					"[data-test=promo-row]": 0,
+					"[data-test=promo-new]:not([disabled])": 1
+				}
+			}
+		},
+		{
+			"id": "promos-disable",
+			"source": "mockup 742105b64 [data-dis]: the promo is disabled, its row loses Disable and the soon badge, the toast names the masked code; s5-text.mjs cod.vol.disable",
+			"route": "#/vol/promos?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=promo-row][data-promo=c_04] [data-test=promo-disable]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "disablePromo",
+						"args": [
+							{
+								"school": "vol",
+								"promoId": "c_04"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": "Promo THA•••U2 disabled. It stops working at checkout now.",
+					"[data-test=promo-row][data-promo=c_04] [data-test=promo-status]": "disabled",
+					"[data-test=promo-row][data-promo=c_04] [data-test=promo-expires]": "2026-11-30"
+				},
+				"count": {
+					"[data-test=promo-row][data-promo=c_04] [data-test=promo-disable]": 0,
+					"[data-test=promo-soon]": 0,
+					"[data-test=promo-disable]": 2
+				}
+			}
+		},
+		{
+			"id": "promos-disable-pending",
+			"source": "protocol §7 hold writer: while disablePromo is pending the row's Disable is busy and the status still reads active; the toast and the disabled status come when the Writer answers",
+			"route": "#/vol/promos?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=promo-row][data-promo=c_04] [data-test=promo-disable]",
+					"expect": {
+						"writes": [
+							{
+								"method": "disablePromo",
+								"args": [
+									{
+										"school": "vol",
+										"promoId": "c_04"
+									}
+								]
+							}
+						],
+						"text": {
+							"[data-test=promo-row][data-promo=c_04] [data-test=promo-status]": "active"
+						},
+						"count": {
+							"[data-test=promo-row][data-promo=c_04] [data-test=promo-disable][aria-busy=\"true\"][disabled]": 1
+						},
+						"absent": ["stops working at checkout"]
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=promo-row][data-promo=c_04] [data-test=promo-status]": "disabled",
+					"[data-test=toast]": "Promo THA•••U2 disabled. It stops working at checkout now."
+				}
+			}
+		},
+		{
+			"id": "promos-new-dialog",
+			"source": "mockup 742105b64 openAct('code'): the dialog's title and subtitle, the type options, value 10 and expiry 2026-12-31 by default, the required note, the preview line; Create promo stays disabled until the note has 3 characters; Cancel closes it; s5-text.mjs cod.vol.new",
+			"route": "#/vol/promos?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=promo-new]",
+					"expect": {
+						"text": {
+							"[data-test=dialog-title]": "Create promo · Vibes of Light",
+							"[data-test=promo-preview]": "Members get 10% off membership tiers at checkout until 2026-12-31. Sessions granted stay full. One code per checkout.",
+							"[data-test=dialog-confirm]": "Create promo"
+						},
+						"contains": {
+							"[data-test=dialog]": [
+								"New promo",
+								"Member % off",
+								"Dollar gift certificate",
+								"Session gift certificate",
+								"Value (% off, dollars or sessions)",
+								"Expires",
+								"Note (required)"
+							]
+						},
+						"count": {
+							"[data-test=promo-type-input] option": 3,
+							"[data-test=dialog-confirm][disabled]": 1
+						},
+						"value": {
+							"[data-test=promo-value-input]": ["10"],
+							"[data-test=promo-expires-input]": ["2026-12-31"]
+						}
+					}
+				},
+				{
+					"fill": "[data-test=promo-note-input]",
+					"value": "ok",
+					"expect": {
+						"count": {
+							"[data-test=dialog-confirm][disabled]": 1
+						}
+					}
+				},
+				{
+					"click": "[data-test=dialog-cancel]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=dialog]": 0,
+					"[data-test=promo-row]": 4
+				},
+				"writes": []
+			}
+		},
+		{
+			"id": "promos-new-validation",
+			"source": "mockup 742105b64 ACT.code.prev: a value of 0 and a percentage over 100 are refused with the reason; a dollar gift and a session gift preview what they do; s5-text.mjs cod.vol.new.zero, .150, .dollar, .session",
+			"route": "#/vol/promos?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=promo-new]"
+				},
+				{
+					"fill": "[data-test=promo-note-input]",
+					"value": "Autumn offer"
+				},
+				{
+					"fill": "[data-test=promo-value-input]",
+					"value": "0",
+					"expect": {
+						"text": {
+							"[data-test=promo-preview]": "Enter a value above 0."
+						},
+						"count": {
+							"[data-test=dialog-confirm][disabled]": 1
+						}
+					}
+				},
+				{
+					"fill": "[data-test=promo-value-input]",
+					"value": "150",
+					"expect": {
+						"text": {
+							"[data-test=promo-preview]": "A percentage can't exceed 100."
+						},
+						"count": {
+							"[data-test=dialog-confirm][disabled]": 1
+						}
+					}
+				},
+				{
+					"fill": "[data-test=promo-type-input]",
+					"value": "dollar"
+				},
+				{
+					"fill": "[data-test=promo-value-input]",
+					"value": "50",
+					"expect": {
+						"text": {
+							"[data-test=promo-preview]": "A one-use Stripe promotion code worth $50.00, expiring 2026-12-31. Nothing is booked until it is sold or redeemed."
+						},
+						"count": {
+							"[data-test=dialog-confirm]:not([disabled])": 1
+						}
+					}
+				},
+				{
+					"fill": "[data-test=promo-type-input]",
+					"value": "session"
+				},
+				{
+					"fill": "[data-test=promo-value-input]",
+					"value": "4",
+					"expect": {
+						"text": {
+							"[data-test=promo-preview]": "Redeeming grants 4 sessions once, expiring 2026-12-31. No money moves in Stripe."
+						}
+					}
+				}
+			],
+			"expect": {
+				"writes": []
+			}
+		},
+		{
+			"id": "promos-create",
+			"source": "mockup 742105b64 ACT.code then promoDone: the created dialog shows the full code once, its type, value and expiry, and how it will appear masked; Done closes it and the new code heads the table masked with no uses; the fixture Writer answers CODE1000 (the mockup's prefix, the lowest of its random range); s5-text.mjs cod.vol.created",
+			"route": "#/vol/promos?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=promo-new]"
+				},
+				{
+					"fill": "[data-test=promo-note-input]",
+					"value": "Autumn offer"
+				},
+				{
+					"click": "[data-test=dialog-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "createPromo",
+								"args": [
+									{
+										"school": "vol",
+										"type": "member",
+										"value": 10,
+										"expiresOn": "2026-12-31",
+										"note": "Autumn offer"
+									}
+								]
+							}
+						],
+						"text": {
+							"[data-test=dialog-title]": "Promo created · Vibes of Light",
+							"[data-test=promo-created-code]": "CODE1000",
+							"[data-test=promo-created-summary]": "Member % off · 10% off tiers · expires 2026-12-31",
+							"[data-test=promo-created-note]": "The full code is shown only now. Later it appears masked (COD•••00); an owner can still reveal it.",
+							"[data-test=dialog-confirm]": "Done"
+						},
+						"count": {
+							"[data-test=promo-email-input]": 0
+						}
+					}
+				},
+				{
+					"click": "[data-test=dialog-confirm]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=promo-row][data-promo=c_new] [data-test=promo-code]": "COD•••00",
+					"[data-test=promo-row][data-promo=c_new] [data-test=promo-used]": "0",
+					"[data-test=promo-row][data-promo=c_new] [data-test=promo-status]": "active"
+				},
+				"count": {
+					"[data-test=dialog]": 0,
+					"[data-test=promo-row]": 5,
+					"[data-test=promo-row]:first-child[data-promo=c_new]": 1
+				}
+			}
+		},
+		{
+			"id": "promos-create-gift",
+			"source": "mockup 742105b64 ACT.code for a dollar gift: the value is sent in minor units, the code is GIFT…, and the created dialog offers to email it (gift codes only)",
+			"route": "#/vol/promos?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=promo-new]"
+				},
+				{
+					"fill": "[data-test=promo-type-input]",
+					"value": "dollar"
+				},
+				{
+					"fill": "[data-test=promo-value-input]",
+					"value": "50"
+				},
+				{
+					"fill": "[data-test=promo-note-input]",
+					"value": "Raffle prize"
+				},
+				{
+					"click": "[data-test=dialog-confirm]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "createPromo",
+						"args": [
+							{
+								"school": "vol",
+								"type": "dollar",
+								"value": 5000,
+								"expiresOn": "2026-12-31",
+								"note": "Raffle prize"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=promo-created-code]": "GIFT1000",
+					"[data-test=promo-created-summary]": "Dollar gift · $50.00 · expires 2026-12-31"
+				},
+				"contains": {
+					"[data-test=dialog]": ["Email it to the recipient (optional)"]
+				},
+				"count": {
+					"[data-test=promo-email-input]": 1
+				}
+			}
+		},
+		{
+			"id": "promos-create-pending",
+			"source": "protocol §7 hold writer: while createPromo is pending the dialog stays open with Create promo busy, no code is shown and the table is unchanged; the created dialog comes when the Writer answers",
+			"route": "#/vol/promos?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=promo-new]"
+				},
+				{
+					"fill": "[data-test=promo-note-input]",
+					"value": "Autumn offer"
+				},
+				{
+					"click": "[data-test=dialog-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "createPromo",
+								"args": [
+									{
+										"school": "vol",
+										"type": "member",
+										"value": 10,
+										"expiresOn": "2026-12-31",
+										"note": "Autumn offer"
+									}
+								]
+							}
+						],
+						"text": {
+							"[data-test=dialog-title]": "Create promo · Vibes of Light"
+						},
+						"count": {
+							"[data-test=dialog-confirm][aria-busy=\"true\"][disabled]": 1,
+							"[data-test=promo-created-code]": 0,
+							"[data-test=promo-row]": 4
+						}
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=promo-created-code]": "CODE1000"
+				}
+			}
+		},
+		{
+			"id": "promos-redemptions",
+			"source": "mockup 742105b64 [data-red]: Redemptions opens the Ledger for the year to date filtered to that code; s5-text.mjs cod.vol.redemptions",
+			"route": "#/vol/promos?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=promo-row][data-promo=c_01] [data-test=promo-redemptions]"
+				}
+			],
+			"expect": {
+				"hash": "promo=c_01",
+				"text": {
+					"[data-test=ledger-filter]": "Promo SPR•••10 ×"
+				},
+				"count": {
+					"[data-test=ledger-row]": 1
+				}
+			}
+		},
+		{
+			"id": "promos-as-public",
+			"source": "mockup 742105b64 codes() (s5-v2-text.mjs vol.public.cod): a preview below governance shows the codes masked but not how often each was used (a breakdown: Governance and up), not who redeemed (finance and owner), and no action ('Exit preview to act')",
+			"route": "#/vol/promos?as=public&theme=light",
+			"covers": {
+				"tab": "promos",
+				"audience": "public"
+			},
+			"expect": {
+				"text": {
+					"[data-test=promo-note]": "Owners and admins manage promos. Redemption counts are a breakdown (Governance and up); who redeemed is finance and owner only.",
+					"[data-test=promo-row][data-promo=c_01] [data-test=promo-used]": "Governance and up see this"
+				},
+				"count": {
+					"[data-test=promo-row]": 4,
+					"[data-test=promo-used][data-hid=\"no_grant\"][title=\"Governance and up see this\"]": 4,
+					"[data-test=promo-redemptions][disabled][title=\"Finance admins only: lists who redeemed\"]": 4,
+					"[data-test=promo-reveal][disabled][title=\"Owners and admins only\"]": 4,
+					"[data-test=promo-new][disabled][title=\"Exit preview to act\"]": 1
+				},
+				"absent": ["SPRING10"]
+			}
+		},
+		{
+			"id": "promos-as-member",
+			"source": "mockup 742105b64 codes() (s5-v2-text.mjs vol.member.cod): a preview below governance shows the codes masked but not how often each was used (a breakdown: Governance and up), not who redeemed (finance and owner), and no action ('Exit preview to act')",
+			"route": "#/vol/promos?as=member&theme=light",
+			"covers": {
+				"tab": "promos",
+				"audience": "member"
+			},
+			"expect": {
+				"text": {
+					"[data-test=promo-note]": "Owners and admins manage promos. Redemption counts are a breakdown (Governance and up); who redeemed is finance and owner only.",
+					"[data-test=promo-row][data-promo=c_01] [data-test=promo-used]": "Governance and up see this"
+				},
+				"count": {
+					"[data-test=promo-row]": 4,
+					"[data-test=promo-used][data-hid=\"no_grant\"][title=\"Governance and up see this\"]": 4,
+					"[data-test=promo-redemptions][disabled][title=\"Finance admins only: lists who redeemed\"]": 4,
+					"[data-test=promo-reveal][disabled][title=\"Owners and admins only\"]": 4,
+					"[data-test=promo-new][disabled][title=\"Exit preview to act\"]": 1
+				},
+				"absent": ["SPRING10"]
+			}
+		},
+		{
+			"id": "promos-as-governance",
+			"source": "mockup 742105b64 codes() for Governance (s5-v2-text.mjs vol.governance.cod): uses are a breakdown Governance sees, and a count from 1 to 9 under the cell rules shows as <10 (spec v2 small counts), never 0; who redeemed stays finance and owner only",
+			"route": "#/vol/promos?as=governance&theme=light",
+			"covers": {
+				"tab": "promos",
+				"audience": "governance"
+			},
+			"expect": {
+				"text": {
+					"[data-test=promo-row][data-promo=c_01] [data-test=promo-used]": "<10",
+					"[data-test=promo-row][data-promo=c_02] [data-test=promo-used]": "0/1",
+					"[data-test=promo-row][data-promo=c_03] [data-test=promo-used]": "<10/1"
+				},
+				"count": {
+					"[data-test=promo-used][title=\"Rounded to the nearest 10: fewer than 5 redeemers\"]": 2,
+					"[data-test=promo-redemptions][disabled][title=\"Finance admins only: lists who redeemed\"]": 4,
+					"[data-test=promo-new][disabled][title=\"Exit preview to act\"]": 1
+				}
+			}
+		},
+		{
+			"id": "promos-as-finance-preview",
+			"source": "mockup 742105b64 codes() as Finance admin from the owner's seat (s5-v2-text.mjs vol.finance.cod): exact uses and Redemptions enabled, but a preview does not act ('Exit preview to act')",
+			"route": "#/vol/promos?as=finance&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=promo-row][data-promo=c_01] [data-test=promo-used]": "3"
+				},
+				"count": {
+					"[data-test=promo-redemptions]:not([disabled])": 4,
+					"[data-test=promo-new][disabled][title=\"Exit preview to act\"]": 1
+				}
+			}
+		}
+	]
+}

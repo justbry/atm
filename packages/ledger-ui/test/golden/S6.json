@@ -1,0 +1,2593 @@
+{
+	"slice": "S6",
+	"source": "The mockup's schools (plans/ledger-ui/design/mockup.html on dev, SC): B4 Uni's Wu family (Dana W. s_21 adult, Kai W. s_25 teen, Lia W. s_26 child, family key fam_wu), Omar F. s_22 and Marta G. s_27 (Board tier, governance); Vibes of Light's Sam O. m_051 (canceled, ends Nov 11) and Mia R. m_204; run headless with happy-dom (the plans/ledger-ui/loop/tools/s0-text.mjs pattern) at the mockup's clock 2026-11-05. History rows are the mockup's kHist (kLive from SC.E plus kFixture's invented 21 months). The School books card's figures are the member and public KPI documents (src/fixtures/mart/documents.json, monthly-members). Run against the frozen mockup, atm dev 742105b64 (disclosure v2, PR #125), which also gives the gating texts (as=, the lock panel, 'Exit preview to act'); the audiences are Audience of src/data/disclosure.ts (S7), the disclosure object Disclosure of the same file.",
+	"notes": [
+		"Routes: #/<school>/members?portal=<profileId>&portalTab=&siteTheme=&history=&historyAll=&as=. portal opens the member portal of that person (src/data/portal.ts memberPortal); portalTab is overview, bookings, billing or family (absent: overview); siteTheme is b4u, host or dark (absent: b4u, portal.ts siteThemes); history is all, this or last (absent: all, portal.ts historyRowsIn); historyAll=1 shows every history row (absent: the latest 5). as= is the shared audience parameter (public, member, governance, finance, owner; absent: the signed-in person's own); the portal reads it from the route and never writes it. The family switch changes portal= and keeps the other parameters; Exit and Escape (no dialog open) remove portal, portalTab, siteTheme, history and historyAll. A portal= with no such person shows the Members tab without a portal.",
+		"root.dataset.route is set once the portal of the route is on screen (or, when the tab is gated or there is no such person, once the pane shows what replaces it). While the portal is open the pane holds only the portal: the roster is not in the page, so page-wide absent lists hold for the member's view.",
+		"Data: src/data/portal.ts. The Reader gives memberPortal({ school, profileId }), one document scoped by the server (an adult: the family; a teen, a child or a family of one: their own); consistency check C5 reads it for every person: every people[].key is the viewed person's key and every booking and history row belongs to one of people. The School books card reads Reader.kpiDocument as PortalBooks says (an adult at member or public: the first preset, that level, unlocked; its last period shown for money). The Writer gives portalChangeQuantity, portalCancelMembership, portalResumeMembership and portalCancelBooking; Buy, Update, Open school books and Copy snippet write nothing and only toast (Copy snippet first puts embedSnippets().page on the clipboard).",
+		"Hooks: portal is the overlay (mockup #vm). Its preview bar: portal-viewing ('Viewing as <name>'), portal-id ('<profileId> · <school>'), portal-theme (the Site theme select; options in siteThemes order with their names), portal-family-switch (one button per family member, data-profile, the person's name as title, text Adult, Teen or Child, class 'on' for the viewed one; absent without a family), portal-embed ('Embed…'), portal-exit ('Exit'). portal-scope is the 'Members see only themselves and their family.' banner, portal-note the preview note. portal-frame is the member's view (mockup .mpf) with data-site-theme and the portalFrameVariables of its theme on its style; portal-header its header ('<school> Classes Schedule Shop <name>'); portal-tab its tabs (role tab, data-portal-tab, aria-selected, class 'on').",
+		"Overview: portal-plan is the plan card with portal-plan-name ('Shine ×2'), portal-plan-price ('$90.00 / month'), portal-plan-status (the pill: Active or 'Ends <date>'), portal-plan-line (the line under it), portal-plan-note (each note: 'Switches to <tier> ×<n> on <date>.', 'A change is on its way. It can take a few minutes.'; absent when there is none). portal-balance is the credits card with portal-available (the big number). books-card is the School books card with data-audience (the PortalBooks audience), books-pill and books-text; for member its figures are cells as in S1 ([data-kpi][data-period][data-cell], a hidden cell its label with title 'Hidden: <why>'). portal-addons is 'Need more <unit>?' (absent when the school sells none). portal-action is every button of the member's view with data-action quantity, cancel, resume, buy (with data-addon), card, books or cancel-booking (with data-booking); a disabled one carries its reason as title.",
+		"Bookings: portal-booking per booking of the viewed person (data-booking) with portal-booking-service and, instead of a button, portal-booking-status (Awaiting confirmation, Waiting for approval, 'Contact the school to cancel', 'waiting to ship'). Family: portal-family-note is the line above the cards, portal-family-card one card per person (data-profile) with its portal-available. portal-empty is an empty state ('No upcoming bookings.', 'No family on this account. You see only your own <unit> and bookings.').",
+		"Billing: portal-next-invoice and portal-payment-method are the first two cards; history-card is 'Invoices and payments' with history-count ('Showing <shown> of <all>, newest first'), history-period (the period select), history-download (Download CSV, title 'Download this history as CSV', disabled with title 'Finance admins only' unless the viewer's audience is finance or owner, and disabled when the period has no row), history-group (a month heading row, '<Mon> <yyyy>'), history-row (data-profile) with history-date ('Nov 3, 2026'), history-description, history-member (the person's name, only in an adult's family view), history-amount (money with a U+2212 minus for a refund) and history-status (the label), and history-more ('Show all history (<n>)' or 'Show latest 5', absent with 5 rows or fewer). A download builds the file with the shared CSV helper of src/data/ledger.ts (S5) from historyCsvColumns and historyCsvFileName, then toasts 'Downloaded <n> rows' (see csv).",
+		"Dialogs (shared with S2): dialog is the modal, dialog-title, dialog-preview (the mockup's #vpv line), dialog-confirm and dialog-cancel its buttons; quantity-select is Change amount's select (options '<n>' and '<n> (current)'), cancel-reason Cancel membership's textarea. The embed modal is a dialog with embed-snippet (data-step page, server, theme, books: the pre blocks of embedSnippets), embed-books-audience (the Document select: every audience, only public enabled and selected), embed-origins (the Allowed sites input, starting at embedAllowedSitesDefault), embed-copy and embed-done. Escape closes an open dialog; with none open it closes the portal. toast is the shell's toast (shared with S2). lock-panel is the shared lock panel (data-lock, the v2 lockPanel heading and line).",
+		"Writes: the dialog closes when the request is sent; while it is pending the plan card shows 'A change is on its way. It can take a few minutes.' and disables Change amount, Cancel membership and Resume membership (a booking shows 'waiting to ship' instead of its button); the toast and the change itself ('Switches to …', 'Ends <date>', Active) show when the Writer answers. Previewing an audience other than one's own (as= below one's own) disables every write and hand-off button except Open school books, title 'Exit preview to act' (mockup pvLock).",
+		"Selects (portal-theme, history-period, quantity-select) react to the input event, as the runner's fill step sends it.",
+		"moves: a text marked moves is checked again through a Reader whose moves.fields are changed by the holdout factor (protocol §7; numbers multiplied, strings changed); it must exist, pass the absent list and differ.",
+		"Not mapped (no field, route or reachable state): the increase preview of Change amount ('Charged now: $56.33 (26 of 30 days left in this cycle). Adds 14 sessions now.' is the server's proration, no route yet) and its toast; the 'refund pending' pill (no fixture row has a pending refund); the history empty state ('Nothing in this period', 'No invoices or payments in this period.': every mockup person has rows in every period) and Download CSV disabled for a non-finance admin (no as= value is an admin without the finance grant; the mockup's smoke flips Jo A.'s grant); the Members row's eye button that opens the portal (S4's roster hook; entries open the portal by route); the toast's Undo; the tier-audience notice ('What members can see changed on 5 Nov 2026', data-audchg: no fixture tier changed its audience); the history's 'Finance only' amounts for an admin without the finance grant (the mockup's school har, not one of the app's schools)."
+	],
+	"hooks": [
+		"portal",
+		"portal-viewing",
+		"portal-id",
+		"portal-theme",
+		"portal-family-switch",
+		"portal-embed",
+		"portal-exit",
+		"portal-scope",
+		"portal-note",
+		"portal-frame",
+		"portal-header",
+		"portal-tab",
+		"portal-plan",
+		"portal-plan-name",
+		"portal-plan-price",
+		"portal-plan-status",
+		"portal-plan-line",
+		"portal-plan-note",
+		"portal-action",
+		"portal-balance",
+		"portal-available",
+		"portal-addons",
+		"portal-next-invoice",
+		"portal-payment-method",
+		"portal-booking",
+		"portal-booking-service",
+		"portal-booking-status",
+		"portal-family-note",
+		"portal-family-card",
+		"portal-empty",
+		"books-card",
+		"books-pill",
+		"books-text",
+		"history-card",
+		"history-count",
+		"history-period",
+		"history-download",
+		"history-group",
+		"history-row",
+		"history-date",
+		"history-description",
+		"history-member",
+		"history-amount",
+		"history-status",
+		"history-more",
+		"dialog",
+		"dialog-title",
+		"dialog-preview",
+		"dialog-confirm",
+		"dialog-cancel",
+		"quantity-select",
+		"cancel-reason",
+		"embed-snippet",
+		"embed-books-audience",
+		"embed-copy",
+		"embed-done",
+		"embed-origins",
+		"toast",
+		"lock-panel"
+	],
+	"moves": {
+		"fields": [
+			"schools[].name",
+			"memberPortal.people[].name",
+			"memberPortal.people[].tierName",
+			"memberPortal.people[].priceCents",
+			"memberPortal.people[].quantityOptions[].priceCents",
+			"memberPortal.people[].balances[].available",
+			"memberPortal.family.label",
+			"memberPortal.family.members[].name",
+			"memberPortal.bookings[].service",
+			"memberPortal.bookings[].hosts[].name",
+			"memberPortal.history[].description",
+			"memberPortal.history[].amountCents",
+			"memberPortal.addons[].name",
+			"memberPortal.addons[].priceCents",
+			"memberPortal.books.guardian.name"
+		]
+	},
+	"matrix": {
+		"member": ["adult", "teen", "child"],
+		"portalTab": ["overview", "bookings", "billing", "family"]
+	},
+	"csv": {
+		"note": "For the builder's test/s6 (not run by the golden runner): the downloads of the matrix people, from the mockup headless (kPortalCsv, kCsv, kName).",
+		"family": {
+			"profileId": "s_21",
+			"header": "﻿date,member,description,amount,currency,status,invoice_id,payment_id",
+			"firstRows": [
+				"2026-11-03,s_21,\"Invoice paid, Shine ×2\",90.00,USD,Paid,",
+				"2026-10-31,s_21,\"Invoice sent, Top-up pack (unpaid)\",40.00,USD,Open,",
+				"2026-10-31,s_25,\"Invoice sent, Top-up pack (unpaid)\",40.00,USD,Open,"
+			],
+			"rows": {
+				"all": 86,
+				"this": 32,
+				"last": 51
+			},
+			"fileName": {
+				"all": "invoices-s_21-2024-12-01-2026-11-03.csv",
+				"this": "invoices-s_21-2026-01-01-2026-11-03.csv",
+				"last": "invoices-s_21-2025-01-01-2025-12-01.csv"
+			},
+			"memberIds": ["s_21", "s_25", "s_26"]
+		},
+		"own": {
+			"profileId": "s_25",
+			"header": "﻿date,description,amount,currency,status,invoice_id,payment_id",
+			"firstRows": [
+				"2026-10-31,\"Invoice sent, Top-up pack (unpaid)\",40.00,USD,Open,"
+			],
+			"rows": {
+				"all": 28,
+				"this": 10,
+				"last": 17
+			},
+			"fileName": {
+				"all": "invoices-s_25-2024-12-01-2026-10-31.csv"
+			}
+		},
+		"lineEnd": "\r\n",
+		"refund": "2025-11-22,s_21,\"Refund, pack returned\",-40.00,USD,Refunded,"
+	},
+	"entries": [
+		{
+			"id": "matrix-adult-overview",
+			"source": "mockup headless (drawVM, mpHome, mpBooks) on b4u, Dana W. (s_21, adult of the Wu family): the preview bar, scope banner, note, plan card, balance and the School books card at Member (last quarter shown Q2 2026). The card's figures are the member document's cells (src/fixtures/mart/documents.json monthly-members.member, quarter table, 2026-Q2): gross 190000 money0 is '$1,900', as the mockup; net_income 180000 money0 is '$1,800', as the mockup's '$1,800 net' (the cell rules count the period's paying members, G1g); smoke.mjs 'portal scope banner', 'portal adult toggle', 'portal: adult member reads the Member document (quarters, $100)', 'hist: home tab has no admin tools or switch-plan button'",
+			"route": "#/b4u/members?portal=s_21&theme=light",
+			"covers": {
+				"member": "adult",
+				"portalTab": "overview"
+			},
+			"expect": {
+				"text": {
+					"[data-test=portal-viewing]": {
+						"text": "Viewing as Dana W.",
+						"moves": true
+					},
+					"[data-test=portal-id]": {
+						"text": "s_21 · B4 Uni",
+						"moves": true
+					},
+					"[data-test=portal-note]": {
+						"text": "This is the member portal as Dana W. sees it. This is a preview of the member's view: it shows exactly what they see, with no admin tools. Admin actions for this member are in the ⋯ menu on the Members tab.",
+						"moves": true
+					},
+					"[data-test=portal-family-switch].on": "Adult",
+					"[data-test=portal-tab].on": "Overview",
+					"[data-test=portal-tab][data-portal-tab=bookings]": "Bookings (1)",
+					"[data-test=portal-plan-name]": {
+						"text": "Shine ×2",
+						"moves": true
+					},
+					"[data-test=portal-plan-price]": {
+						"text": "$90.00 / month",
+						"moves": true
+					},
+					"[data-test=portal-plan-status]": "Active",
+					"[data-test=portal-plan-line]": {
+						"text": "Renews Dec 1 · next invoice $90.00",
+						"moves": true
+					},
+					"[data-test=portal-action][data-action=quantity]": "Change amount",
+					"[data-test=portal-action][data-action=cancel]": "Cancel membership",
+					"[data-test=portal-available]": {
+						"text": "10",
+						"moves": true
+					},
+					"[data-test=books-pill]": "Member",
+					"[data-test=books-card] [data-kpi=\"gross_collected\"][data-period=\"2026-Q2\"]": "$1,900",
+					"[data-test=books-card] [data-kpi=\"net_income\"][data-period=\"2026-Q2\"]": "$1,800",
+					"[data-test=portal-action][data-action=books]": "Open school books"
+				},
+				"count": {
+					"[data-test=portal]": 1,
+					"[data-test=portal-tab]": 4,
+					"[data-test=portal-tab][aria-selected=true]": 1,
+					"[data-test=portal-frame][data-site-theme=b4u]": 1,
+					"[data-test=portal-family-switch]": 3,
+					"[data-test=portal-family-switch].on[data-profile=s_21]": 1,
+					"[data-test=portal-addons]": 0,
+					"[data-test=portal-plan-note]": 0,
+					"[data-test=portal-action][data-action=resume]": 0,
+					"[data-test=books-card][data-audience=member]": 1,
+					"[data-test=portal-action][data-action=quantity][disabled]": 0,
+					"[data-test=portal] input[type=checkbox]": 0,
+					"[data-test=portal-action][data-action=switch]": 0,
+					"[data-test=books-card] [data-kpi=\"net_income\"][data-period=\"2026-Q2\"][data-cell=number]": 1,
+					"[data-test=books-card] [data-kpi=\"gross_collected\"][data-period=\"2026-Q2\"][data-cell=number]": 1
+				},
+				"contains": {
+					"[data-test=portal-scope]": [
+						"Members see only themselves and their family.",
+						"In this portal: Dana W., Kai W., Lia W. (Wu family)"
+					],
+					"[data-test=portal-header]": [
+						"B4 Uni",
+						"Classes",
+						"Schedule",
+						"Shop",
+						"Dana W."
+					],
+					"[data-test=portal-balance]": [
+						"credits available",
+						"2 held for bookings",
+						"0 used this cycle",
+						"Your allowance refreshes on Dec 1."
+					],
+					"[data-test=books-text]": [
+						"Member document: Quarters, 6 weeks after each closes, money rounded to $100, totals and categories only.",
+						"Q2 2026: $1,900 collected,",
+						"net."
+					]
+				},
+				"absent": [
+					"Admin tools",
+					"Send invoice",
+					"Refund",
+					"Switch plan",
+					"Omar F.",
+					"Pia L.",
+					"Raj S.",
+					"Marta G."
+				]
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "document.querySelector('#sw').click();document.querySelector('[data-sc=b4u]').click();document.querySelector('.tab[data-p=mem]').click();document.querySelector('#mb tr.row[data-id=s_21] [data-vm]').click()"
+			}
+		},
+		{
+			"id": "matrix-adult-bookings",
+			"source": "mockup headless mpBk on b4u, Dana W.: bk_b12 started on Nov 4 15:00 with no outcome (needsOutcome), so 'Awaiting confirmation' and no cancel; only her own booking, not the learners'",
+			"route": "#/b4u/members?portal=s_21&portalTab=bookings&theme=light",
+			"covers": {
+				"member": "adult",
+				"portalTab": "bookings"
+			},
+			"expect": {
+				"text": {
+					"[data-test=portal-viewing]": {
+						"text": "Viewing as Dana W.",
+						"moves": true
+					},
+					"[data-test=portal-id]": {
+						"text": "s_21 · B4 Uni",
+						"moves": true
+					},
+					"[data-test=portal-note]": {
+						"text": "This is the member portal as Dana W. sees it. This is a preview of the member's view: it shows exactly what they see, with no admin tools. Admin actions for this member are in the ⋯ menu on the Members tab.",
+						"moves": true
+					},
+					"[data-test=portal-family-switch].on": "Adult",
+					"[data-test=portal-tab].on": "Bookings (1)",
+					"[data-test=portal-booking][data-booking=bk_b12] [data-test=portal-booking-service]": {
+						"text": "Tutoring",
+						"moves": true
+					},
+					"[data-test=portal-booking][data-booking=bk_b12] [data-test=portal-booking-status]": "Awaiting confirmation"
+				},
+				"count": {
+					"[data-test=portal]": 1,
+					"[data-test=portal-tab]": 4,
+					"[data-test=portal-tab][aria-selected=true]": 1,
+					"[data-test=portal-frame][data-site-theme=b4u]": 1,
+					"[data-test=portal-family-switch]": 3,
+					"[data-test=portal-family-switch].on[data-profile=s_21]": 1,
+					"[data-test=portal-booking]": 1,
+					"[data-test=portal-action][data-action=cancel-booking]": 0
+				},
+				"contains": {
+					"[data-test=portal-booking][data-booking=bk_b12]": [
+						"Nov 4 15:00 · Dr. Lee",
+						"2 credits held"
+					]
+				},
+				"absent": ["Omar F.", "Pia L.", "Raj S.", "Marta G."]
+			}
+		},
+		{
+			"id": "matrix-adult-billing",
+			"source": "mockup headless mpBill and kHistCard on b4u, Dana W.: Next invoice, Payment method, 'Invoices and payments' over the whole family (kScope: the adult sees the family), 86 rows (30 + 28 + 28), latest 5 newest first in month groups, each naming its person; the pure member view (#122): no admin block, tag, toggle or Refund; smoke.mjs 'hist: card is titled Invoices and payments', 'hist: portal is the pure member view (no admin block, tags, toggle, buttons)', 'hist: collapsed shows the latest 5 rows', 'hist: month-year group headings', 'hist: card has a Download CSV button with the tooltip'",
+			"route": "#/b4u/members?portal=s_21&portalTab=billing&theme=light",
+			"covers": {
+				"member": "adult",
+				"portalTab": "billing"
+			},
+			"expect": {
+				"text": {
+					"[data-test=portal-viewing]": {
+						"text": "Viewing as Dana W.",
+						"moves": true
+					},
+					"[data-test=portal-id]": {
+						"text": "s_21 · B4 Uni",
+						"moves": true
+					},
+					"[data-test=portal-note]": {
+						"text": "This is the member portal as Dana W. sees it. This is a preview of the member's view: it shows exactly what they see, with no admin tools. Admin actions for this member are in the ⋯ menu on the Members tab.",
+						"moves": true
+					},
+					"[data-test=portal-family-switch].on": "Adult",
+					"[data-test=portal-tab].on": "Billing",
+					"[data-test=history-count]": "Showing 5 of 86, newest first",
+					"[data-test=history-more]": "Show all history (86)",
+					"[data-test=history-download]": "Download CSV",
+					"[data-test=portal-action][data-action=card]": "Update",
+					"[data-test=history-row][data-profile=s_25] [data-test=history-member]": {
+						"text": "Kai W.",
+						"moves": true
+					},
+					"[data-test=history-row][data-profile=s_25] [data-test=history-date]": "Oct 31, 2026",
+					"[data-test=history-row][data-profile=s_25] [data-test=history-description]": {
+						"text": "Invoice sent, Top-up pack (unpaid)",
+						"moves": true
+					},
+					"[data-test=history-row][data-profile=s_25] [data-test=history-amount]": {
+						"text": "$40.00",
+						"moves": true
+					},
+					"[data-test=history-row][data-profile=s_25] [data-test=history-status]": "Open"
+				},
+				"count": {
+					"[data-test=portal]": 1,
+					"[data-test=portal-tab]": 4,
+					"[data-test=portal-tab][aria-selected=true]": 1,
+					"[data-test=portal-frame][data-site-theme=b4u]": 1,
+					"[data-test=portal-family-switch]": 3,
+					"[data-test=portal-family-switch].on[data-profile=s_21]": 1,
+					"[data-test=history-row]": 5,
+					"[data-test=history-download][title=\"Download this history as CSV\"]": 1,
+					"[data-test=history-download][disabled]": 0,
+					"[data-test=history-period] option": 3,
+					"[data-test=history-member]": 5,
+					"[data-test=history-row][data-profile=s_21]": 3,
+					"[data-test=history-row][data-profile=s_25]": 1,
+					"[data-test=history-row][data-profile=s_26]": 1,
+					"[data-test=history-group]": 3
+				},
+				"contains": {
+					"[data-test=portal-next-invoice]": ["Next invoice", "Dec 1 · $90.00"],
+					"[data-test=portal-payment-method]": [
+						"Payment method",
+						"Card details stay with Stripe."
+					],
+					"[data-test=history-card]": ["Invoices and payments"],
+					"[data-test=history-period] option": [
+						"All",
+						"This year",
+						"Last year"
+					],
+					"[data-test=history-group]": ["Nov 2026", "Oct 2026", "Aug 2026"],
+					"[data-test=history-row]": [
+						"Nov 3, 2026",
+						"Invoice paid, Shine ×2",
+						"$90.00",
+						"Paid",
+						"Oct 31, 2026",
+						"Invoice sent, Top-up pack (unpaid)",
+						"$40.00",
+						"Open",
+						"Aug 1, 2026",
+						"Invoice paid, Shine monthly"
+					],
+					"[data-test=history-member]": ["Dana W.", "Kai W.", "Lia W."]
+				},
+				"absent": [
+					"Admin tools",
+					"Refund",
+					"Omar F.",
+					"Pia L.",
+					"Raj S.",
+					"Marta G."
+				]
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "document.querySelector('#sw').click();document.querySelector('[data-sc=b4u]').click();document.querySelector('.tab[data-p=mem]').click();document.querySelector('#mb tr.row[data-id=s_21] [data-vm]').click();document.querySelector('#vm [data-vtab=bill]').click()"
+			}
+		},
+		{
+			"id": "matrix-adult-family",
+			"source": "mockup headless mpFam on b4u, Dana W.: the adult sees the Wu family's three cards, each with its own balance and bookings, and no other family; smoke.mjs 'portal adult sees the whole family only', 'portal family rows carry their own balance and bookings'",
+			"route": "#/b4u/members?portal=s_21&portalTab=family&theme=light",
+			"covers": {
+				"member": "adult",
+				"portalTab": "family"
+			},
+			"expect": {
+				"text": {
+					"[data-test=portal-viewing]": {
+						"text": "Viewing as Dana W.",
+						"moves": true
+					},
+					"[data-test=portal-id]": {
+						"text": "s_21 · B4 Uni",
+						"moves": true
+					},
+					"[data-test=portal-note]": {
+						"text": "This is the member portal as Dana W. sees it. This is a preview of the member's view: it shows exactly what they see, with no admin tools. Admin actions for this member are in the ⋯ menu on the Members tab.",
+						"moves": true
+					},
+					"[data-test=portal-family-switch].on": "Adult",
+					"[data-test=portal-tab].on": "Family",
+					"[data-test=portal-family-note]": {
+						"text": "Wu family: as the adult you see everyone's credits and bookings.",
+						"moves": true
+					},
+					"[data-test=portal-family-card][data-profile=s_21] [data-test=portal-available]": {
+						"text": "10",
+						"moves": true
+					},
+					"[data-test=portal-family-card][data-profile=s_25] [data-test=portal-available]": {
+						"text": "5",
+						"moves": true
+					},
+					"[data-test=portal-family-card][data-profile=s_26] [data-test=portal-available]": {
+						"text": "6",
+						"moves": true
+					}
+				},
+				"count": {
+					"[data-test=portal]": 1,
+					"[data-test=portal-tab]": 4,
+					"[data-test=portal-tab][aria-selected=true]": 1,
+					"[data-test=portal-frame][data-site-theme=b4u]": 1,
+					"[data-test=portal-family-switch]": 3,
+					"[data-test=portal-family-switch].on[data-profile=s_21]": 1,
+					"[data-test=portal-family-card]": 3
+				},
+				"contains": {
+					"[data-test=portal-family-card][data-profile=s_21]": [
+						"Dana W. (you)",
+						"Adult · Shine ×2",
+						"credits available",
+						"Tutoring · Nov 4 15:00 · 2 credits held"
+					],
+					"[data-test=portal-family-card][data-profile=s_25]": [
+						"Kai W.",
+						"Teen · Sparkle ×1",
+						"credits available",
+						"Tutoring · Nov 10 16:00 · 1 credit held"
+					],
+					"[data-test=portal-family-card][data-profile=s_26]": [
+						"Lia W.",
+						"Child · Sparkle ×1",
+						"credits available",
+						"Tutoring · Nov 11 15:30 · 1 credit held"
+					]
+				},
+				"absent": ["Omar F.", "Pia L.", "Raj S.", "Marta G."]
+			}
+		},
+		{
+			"id": "matrix-teen-overview",
+			"source": "mockup headless (drawVM, mpHome, mpBooks) on b4u, Kai W. (s_25, teen of the Wu family): plan card, balance and the School books card 'Via guardian' (audOf: a teen never holds a member or governance audience, the guardian does); Sparkle is sold in one size; smoke.mjs 'portal: a child sees that their guardian sees school books'",
+			"route": "#/b4u/members?portal=s_25&theme=light",
+			"covers": {
+				"member": "teen",
+				"portalTab": "overview"
+			},
+			"expect": {
+				"text": {
+					"[data-test=portal-viewing]": {
+						"text": "Viewing as Kai W.",
+						"moves": true
+					},
+					"[data-test=portal-id]": {
+						"text": "s_25 · B4 Uni",
+						"moves": true
+					},
+					"[data-test=portal-note]": {
+						"text": "This is the member portal as Kai W. sees it. This is a preview of the member's view: it shows exactly what they see, with no admin tools. Admin actions for this member are in the ⋯ menu on the Members tab.",
+						"moves": true
+					},
+					"[data-test=portal-family-switch].on": "Teen",
+					"[data-test=portal-tab].on": "Overview",
+					"[data-test=portal-tab][data-portal-tab=bookings]": "Bookings (1)",
+					"[data-test=portal-plan-name]": {
+						"text": "Sparkle ×1",
+						"moves": true
+					},
+					"[data-test=portal-plan-price]": {
+						"text": "$20.00 / month",
+						"moves": true
+					},
+					"[data-test=portal-plan-status]": "Active",
+					"[data-test=portal-plan-line]": {
+						"text": "Renews Dec 1 · next invoice $20.00",
+						"moves": true
+					},
+					"[data-test=portal-action][data-action=quantity]": "Change amount",
+					"[data-test=portal-action][data-action=cancel]": "Cancel membership",
+					"[data-test=portal-available]": {
+						"text": "5",
+						"moves": true
+					},
+					"[data-test=books-pill]": "Via guardian",
+					"[data-test=books-text]": {
+						"text": "Your guardian (Dana W.) sees school books. A child never holds a member or governance audience; the adult on the account does.",
+						"moves": true
+					}
+				},
+				"count": {
+					"[data-test=portal]": 1,
+					"[data-test=portal-tab]": 4,
+					"[data-test=portal-tab][aria-selected=true]": 1,
+					"[data-test=portal-frame][data-site-theme=b4u]": 1,
+					"[data-test=portal-family-switch]": 3,
+					"[data-test=portal-family-switch].on[data-profile=s_25]": 1,
+					"[data-test=portal-addons]": 0,
+					"[data-test=portal-plan-note]": 0,
+					"[data-test=portal-action][data-action=resume]": 0,
+					"[data-test=books-card][data-audience=public]": 1,
+					"[data-test=books-card] [data-kpi]": 0,
+					"[data-test=portal-action][data-action=books]": 0,
+					"[data-test=portal-action][data-action=quantity][disabled][title=\"This plan is sold in one size\"]": 1
+				},
+				"contains": {
+					"[data-test=portal-scope]": [
+						"Members see only themselves and their family.",
+						"Kai W. only. Learners don't see other family members' money."
+					],
+					"[data-test=portal-header]": [
+						"B4 Uni",
+						"Classes",
+						"Schedule",
+						"Shop",
+						"Kai W."
+					],
+					"[data-test=portal-balance]": [
+						"credits available",
+						"1 held for bookings",
+						"2 used this cycle",
+						"Your allowance refreshes on Dec 1."
+					]
+				},
+				"absent": [
+					"Admin tools",
+					"Send invoice",
+					"Refund",
+					"Switch plan",
+					"Omar F.",
+					"Pia L.",
+					"Raj S.",
+					"Marta G."
+				]
+			}
+		},
+		{
+			"id": "matrix-teen-bookings",
+			"source": "mockup headless mpBk on b4u, Kai W.: one Tutoring booking with Dr. Lee, outside its 48h cutoff (cut 2880 min), so 'Cancel booking'; only the person's own bookings",
+			"route": "#/b4u/members?portal=s_25&portalTab=bookings&theme=light",
+			"covers": {
+				"member": "teen",
+				"portalTab": "bookings"
+			},
+			"expect": {
+				"text": {
+					"[data-test=portal-viewing]": {
+						"text": "Viewing as Kai W.",
+						"moves": true
+					},
+					"[data-test=portal-id]": {
+						"text": "s_25 · B4 Uni",
+						"moves": true
+					},
+					"[data-test=portal-note]": {
+						"text": "This is the member portal as Kai W. sees it. This is a preview of the member's view: it shows exactly what they see, with no admin tools. Admin actions for this member are in the ⋯ menu on the Members tab.",
+						"moves": true
+					},
+					"[data-test=portal-family-switch].on": "Teen",
+					"[data-test=portal-tab].on": "Bookings (1)",
+					"[data-test=portal-booking][data-booking=bk_b13] [data-test=portal-booking-service]": {
+						"text": "Tutoring",
+						"moves": true
+					},
+					"[data-test=portal-action][data-action=cancel-booking][data-booking=bk_b13]": "Cancel booking"
+				},
+				"count": {
+					"[data-test=portal]": 1,
+					"[data-test=portal-tab]": 4,
+					"[data-test=portal-tab][aria-selected=true]": 1,
+					"[data-test=portal-frame][data-site-theme=b4u]": 1,
+					"[data-test=portal-family-switch]": 3,
+					"[data-test=portal-family-switch].on[data-profile=s_25]": 1,
+					"[data-test=portal-booking]": 1,
+					"[data-test=portal-booking][data-booking=bk_b13] [data-test=portal-booking-status]": 0
+				},
+				"contains": {
+					"[data-test=portal-booking][data-booking=bk_b13]": [
+						"Nov 10 16:00 · Dr. Lee",
+						"1 credit held · free to cancel until 48h before"
+					]
+				},
+				"absent": ["Omar F.", "Pia L.", "Raj S.", "Marta G."]
+			}
+		},
+		{
+			"id": "matrix-teen-billing",
+			"source": "mockup headless kHistCard on b4u, Kai W.: own rows only (kScope: learners see only themselves), 28 rows (kFixture's 21 months Dec 2024 to Aug 2026 plus its packs, refunds and the open invoice), latest 5 in month groups, no member names; smoke.mjs 'hist: teen sees no family names in the card'",
+			"route": "#/b4u/members?portal=s_25&portalTab=billing&theme=light",
+			"covers": {
+				"member": "teen",
+				"portalTab": "billing"
+			},
+			"expect": {
+				"text": {
+					"[data-test=portal-viewing]": {
+						"text": "Viewing as Kai W.",
+						"moves": true
+					},
+					"[data-test=portal-id]": {
+						"text": "s_25 · B4 Uni",
+						"moves": true
+					},
+					"[data-test=portal-note]": {
+						"text": "This is the member portal as Kai W. sees it. This is a preview of the member's view: it shows exactly what they see, with no admin tools. Admin actions for this member are in the ⋯ menu on the Members tab.",
+						"moves": true
+					},
+					"[data-test=portal-family-switch].on": "Teen",
+					"[data-test=portal-tab].on": "Billing",
+					"[data-test=history-count]": "Showing 5 of 28, newest first",
+					"[data-test=history-more]": "Show all history (28)",
+					"[data-test=history-download]": "Download CSV",
+					"[data-test=portal-action][data-action=card]": "Update",
+					"[data-test=history-row][data-profile=s_25] [data-test=history-description]": {
+						"text": "Invoice sent, Top-up pack (unpaid)",
+						"moves": true
+					},
+					"[data-test=history-row][data-profile=s_25] [data-test=history-amount]": {
+						"text": "$40.00",
+						"moves": true
+					}
+				},
+				"count": {
+					"[data-test=portal]": 1,
+					"[data-test=portal-tab]": 4,
+					"[data-test=portal-tab][aria-selected=true]": 1,
+					"[data-test=portal-frame][data-site-theme=b4u]": 1,
+					"[data-test=portal-family-switch]": 3,
+					"[data-test=portal-family-switch].on[data-profile=s_25]": 1,
+					"[data-test=history-row]": 5,
+					"[data-test=history-download][title=\"Download this history as CSV\"]": 1,
+					"[data-test=history-download][disabled]": 0,
+					"[data-test=history-period] option": 3,
+					"[data-test=history-member]": 0,
+					"[data-test=history-row]:not([data-profile=s_25])": 0,
+					"[data-test=history-group]": 5
+				},
+				"contains": {
+					"[data-test=portal-next-invoice]": ["Next invoice", "Dec 1 · $20.00"],
+					"[data-test=portal-payment-method]": [
+						"Payment method",
+						"Card details stay with Stripe."
+					],
+					"[data-test=history-card]": ["Invoices and payments"],
+					"[data-test=history-period] option": [
+						"All",
+						"This year",
+						"Last year"
+					],
+					"[data-test=history-group]": [
+						"Oct 2026",
+						"Aug 2026",
+						"Jul 2026",
+						"Jun 2026",
+						"May 2026"
+					],
+					"[data-test=history-row]": [
+						"Oct 31, 2026",
+						"Invoice sent, Top-up pack (unpaid)",
+						"$40.00",
+						"Open",
+						"Aug 1, 2026",
+						"Invoice paid, Sparkle monthly",
+						"$20.00",
+						"Paid",
+						"May 1, 2026"
+					]
+				},
+				"absent": [
+					"Admin tools",
+					"Refund",
+					"Omar F.",
+					"Pia L.",
+					"Raj S.",
+					"Marta G.",
+					"Dana W.",
+					"Lia W."
+				]
+			}
+		},
+		{
+			"id": "matrix-teen-family",
+			"source": "mockup headless mpFam on b4u, Kai W.: a learner's Family tab holds only their own card; smoke.mjs 'portal teen sees only their own row', 'portal teen scope banner'",
+			"route": "#/b4u/members?portal=s_25&portalTab=family&theme=light",
+			"covers": {
+				"member": "teen",
+				"portalTab": "family"
+			},
+			"expect": {
+				"text": {
+					"[data-test=portal-viewing]": {
+						"text": "Viewing as Kai W.",
+						"moves": true
+					},
+					"[data-test=portal-id]": {
+						"text": "s_25 · B4 Uni",
+						"moves": true
+					},
+					"[data-test=portal-note]": {
+						"text": "This is the member portal as Kai W. sees it. This is a preview of the member's view: it shows exactly what they see, with no admin tools. Admin actions for this member are in the ⋯ menu on the Members tab.",
+						"moves": true
+					},
+					"[data-test=portal-family-switch].on": "Teen",
+					"[data-test=portal-tab].on": "Family",
+					"[data-test=portal-family-note]": "You see only your own credits and bookings. The adult on the account sees the rest of the family.",
+					"[data-test=portal-family-card][data-profile=s_25] [data-test=portal-available]": {
+						"text": "5",
+						"moves": true
+					}
+				},
+				"count": {
+					"[data-test=portal]": 1,
+					"[data-test=portal-tab]": 4,
+					"[data-test=portal-tab][aria-selected=true]": 1,
+					"[data-test=portal-frame][data-site-theme=b4u]": 1,
+					"[data-test=portal-family-switch]": 3,
+					"[data-test=portal-family-switch].on[data-profile=s_25]": 1,
+					"[data-test=portal-family-card]": 1
+				},
+				"contains": {
+					"[data-test=portal-family-card][data-profile=s_25]": [
+						"Kai W. (you)",
+						"Teen · Sparkle ×1",
+						"credits available",
+						"Tutoring · Nov 10 16:00 · 1 credit held"
+					]
+				},
+				"absent": [
+					"Dana W.",
+					"Lia W.",
+					"Wu family",
+					"Omar F.",
+					"Pia L.",
+					"Raj S.",
+					"Marta G."
+				]
+			}
+		},
+		{
+			"id": "matrix-child-overview",
+			"source": "mockup headless (drawVM, mpHome, mpBooks) on b4u, Lia W. (s_26, child of the Wu family): plan card, balance and the School books card 'Via guardian' (audOf: a child never holds a member or governance audience, the guardian does); Sparkle is sold in one size; smoke.mjs 'portal: a child sees that their guardian sees school books'",
+			"route": "#/b4u/members?portal=s_26&theme=light",
+			"covers": {
+				"member": "child",
+				"portalTab": "overview"
+			},
+			"expect": {
+				"text": {
+					"[data-test=portal-viewing]": {
+						"text": "Viewing as Lia W.",
+						"moves": true
+					},
+					"[data-test=portal-id]": {
+						"text": "s_26 · B4 Uni",
+						"moves": true
+					},
+					"[data-test=portal-note]": {
+						"text": "This is the member portal as Lia W. sees it. This is a preview of the member's view: it shows exactly what they see, with no admin tools. Admin actions for this member are in the ⋯ menu on the Members tab.",
+						"moves": true
+					},
+					"[data-test=portal-family-switch].on": "Child",
+					"[data-test=portal-tab].on": "Overview",
+					"[data-test=portal-tab][data-portal-tab=bookings]": "Bookings (1)",
+					"[data-test=portal-plan-name]": {
+						"text": "Sparkle ×1",
+						"moves": true
+					},
+					"[data-test=portal-plan-price]": {
+						"text": "$20.00 / month",
+						"moves": true
+					},
+					"[data-test=portal-plan-status]": "Active",
+					"[data-test=portal-plan-line]": {
+						"text": "Renews Dec 1 · next invoice $20.00",
+						"moves": true
+					},
+					"[data-test=portal-action][data-action=quantity]": "Change amount",
+					"[data-test=portal-action][data-action=cancel]": "Cancel membership",
+					"[data-test=portal-available]": {
+						"text": "6",
+						"moves": true
+					},
+					"[data-test=books-pill]": "Via guardian",
+					"[data-test=books-text]": {
+						"text": "Your guardian (Dana W.) sees school books. A child never holds a member or governance audience; the adult on the account does.",
+						"moves": true
+					}
+				},
+				"count": {
+					"[data-test=portal]": 1,
+					"[data-test=portal-tab]": 4,
+					"[data-test=portal-tab][aria-selected=true]": 1,
+					"[data-test=portal-frame][data-site-theme=b4u]": 1,
+					"[data-test=portal-family-switch]": 3,
+					"[data-test=portal-family-switch].on[data-profile=s_26]": 1,
+					"[data-test=portal-addons]": 0,
+					"[data-test=portal-plan-note]": 0,
+					"[data-test=portal-action][data-action=resume]": 0,
+					"[data-test=books-card][data-audience=public]": 1,
+					"[data-test=books-card] [data-kpi]": 0,
+					"[data-test=portal-action][data-action=books]": 0,
+					"[data-test=portal-action][data-action=quantity][disabled][title=\"This plan is sold in one size\"]": 1
+				},
+				"contains": {
+					"[data-test=portal-scope]": [
+						"Members see only themselves and their family.",
+						"Lia W. only. Learners don't see other family members' money."
+					],
+					"[data-test=portal-header]": [
+						"B4 Uni",
+						"Classes",
+						"Schedule",
+						"Shop",
+						"Lia W."
+					],
+					"[data-test=portal-balance]": [
+						"credits available",
+						"1 held for bookings",
+						"1 used this cycle",
+						"Your allowance refreshes on Dec 1."
+					]
+				},
+				"absent": [
+					"Admin tools",
+					"Send invoice",
+					"Refund",
+					"Switch plan",
+					"Omar F.",
+					"Pia L.",
+					"Raj S.",
+					"Marta G."
+				]
+			}
+		},
+		{
+			"id": "matrix-child-bookings",
+			"source": "mockup headless mpBk on b4u, Lia W.: one Tutoring booking with Dr. Lee, outside its 48h cutoff (cut 2880 min), so 'Cancel booking'; only the person's own bookings",
+			"route": "#/b4u/members?portal=s_26&portalTab=bookings&theme=light",
+			"covers": {
+				"member": "child",
+				"portalTab": "bookings"
+			},
+			"expect": {
+				"text": {
+					"[data-test=portal-viewing]": {
+						"text": "Viewing as Lia W.",
+						"moves": true
+					},
+					"[data-test=portal-id]": {
+						"text": "s_26 · B4 Uni",
+						"moves": true
+					},
+					"[data-test=portal-note]": {
+						"text": "This is the member portal as Lia W. sees it. This is a preview of the member's view: it shows exactly what they see, with no admin tools. Admin actions for this member are in the ⋯ menu on the Members tab.",
+						"moves": true
+					},
+					"[data-test=portal-family-switch].on": "Child",
+					"[data-test=portal-tab].on": "Bookings (1)",
+					"[data-test=portal-booking][data-booking=bk_b14] [data-test=portal-booking-service]": {
+						"text": "Tutoring",
+						"moves": true
+					},
+					"[data-test=portal-action][data-action=cancel-booking][data-booking=bk_b14]": "Cancel booking"
+				},
+				"count": {
+					"[data-test=portal]": 1,
+					"[data-test=portal-tab]": 4,
+					"[data-test=portal-tab][aria-selected=true]": 1,
+					"[data-test=portal-frame][data-site-theme=b4u]": 1,
+					"[data-test=portal-family-switch]": 3,
+					"[data-test=portal-family-switch].on[data-profile=s_26]": 1,
+					"[data-test=portal-booking]": 1,
+					"[data-test=portal-booking][data-booking=bk_b14] [data-test=portal-booking-status]": 0
+				},
+				"contains": {
+					"[data-test=portal-booking][data-booking=bk_b14]": [
+						"Nov 11 15:30 · Dr. Lee",
+						"1 credit held · free to cancel until 48h before"
+					]
+				},
+				"absent": ["Omar F.", "Pia L.", "Raj S.", "Marta G."]
+			}
+		},
+		{
+			"id": "matrix-child-billing",
+			"source": "mockup headless kHistCard on b4u, Lia W.: own rows only (kScope: learners see only themselves), 28 rows (kFixture's 21 months Dec 2024 to Aug 2026 plus its packs, refunds and the open invoice), latest 5 in month groups, no member names; smoke.mjs 'hist: teen sees no family names in the card'",
+			"route": "#/b4u/members?portal=s_26&portalTab=billing&theme=light",
+			"covers": {
+				"member": "child",
+				"portalTab": "billing"
+			},
+			"expect": {
+				"text": {
+					"[data-test=portal-viewing]": {
+						"text": "Viewing as Lia W.",
+						"moves": true
+					},
+					"[data-test=portal-id]": {
+						"text": "s_26 · B4 Uni",
+						"moves": true
+					},
+					"[data-test=portal-note]": {
+						"text": "This is the member portal as Lia W. sees it. This is a preview of the member's view: it shows exactly what they see, with no admin tools. Admin actions for this member are in the ⋯ menu on the Members tab.",
+						"moves": true
+					},
+					"[data-test=portal-family-switch].on": "Child",
+					"[data-test=portal-tab].on": "Billing",
+					"[data-test=history-count]": "Showing 5 of 28, newest first",
+					"[data-test=history-more]": "Show all history (28)",
+					"[data-test=history-download]": "Download CSV",
+					"[data-test=portal-action][data-action=card]": "Update",
+					"[data-test=history-row][data-profile=s_26] [data-test=history-description]": {
+						"text": "Invoice sent, Top-up pack (unpaid)",
+						"moves": true
+					},
+					"[data-test=history-row][data-profile=s_26] [data-test=history-amount]": {
+						"text": "$40.00",
+						"moves": true
+					}
+				},
+				"count": {
+					"[data-test=portal]": 1,
+					"[data-test=portal-tab]": 4,
+					"[data-test=portal-tab][aria-selected=true]": 1,
+					"[data-test=portal-frame][data-site-theme=b4u]": 1,
+					"[data-test=portal-family-switch]": 3,
+					"[data-test=portal-family-switch].on[data-profile=s_26]": 1,
+					"[data-test=history-row]": 5,
+					"[data-test=history-download][title=\"Download this history as CSV\"]": 1,
+					"[data-test=history-download][disabled]": 0,
+					"[data-test=history-period] option": 3,
+					"[data-test=history-member]": 0,
+					"[data-test=history-row]:not([data-profile=s_26])": 0,
+					"[data-test=history-group]": 5
+				},
+				"contains": {
+					"[data-test=portal-next-invoice]": ["Next invoice", "Dec 1 · $20.00"],
+					"[data-test=portal-payment-method]": [
+						"Payment method",
+						"Card details stay with Stripe."
+					],
+					"[data-test=history-card]": ["Invoices and payments"],
+					"[data-test=history-period] option": [
+						"All",
+						"This year",
+						"Last year"
+					],
+					"[data-test=history-group]": [
+						"Oct 2026",
+						"Aug 2026",
+						"Jul 2026",
+						"Jun 2026",
+						"May 2026"
+					],
+					"[data-test=history-row]": [
+						"Oct 31, 2026",
+						"Invoice sent, Top-up pack (unpaid)",
+						"$40.00",
+						"Open",
+						"Aug 1, 2026",
+						"Invoice paid, Sparkle monthly",
+						"$20.00",
+						"Paid",
+						"May 1, 2026"
+					]
+				},
+				"absent": [
+					"Admin tools",
+					"Refund",
+					"Omar F.",
+					"Pia L.",
+					"Raj S.",
+					"Marta G.",
+					"Dana W.",
+					"Kai W."
+				]
+			}
+		},
+		{
+			"id": "matrix-child-family",
+			"source": "mockup headless mpFam on b4u, Lia W.: a learner's Family tab holds only their own card; smoke.mjs 'portal teen sees only their own row', 'portal teen scope banner'",
+			"route": "#/b4u/members?portal=s_26&portalTab=family&theme=light",
+			"covers": {
+				"member": "child",
+				"portalTab": "family"
+			},
+			"expect": {
+				"text": {
+					"[data-test=portal-viewing]": {
+						"text": "Viewing as Lia W.",
+						"moves": true
+					},
+					"[data-test=portal-id]": {
+						"text": "s_26 · B4 Uni",
+						"moves": true
+					},
+					"[data-test=portal-note]": {
+						"text": "This is the member portal as Lia W. sees it. This is a preview of the member's view: it shows exactly what they see, with no admin tools. Admin actions for this member are in the ⋯ menu on the Members tab.",
+						"moves": true
+					},
+					"[data-test=portal-family-switch].on": "Child",
+					"[data-test=portal-tab].on": "Family",
+					"[data-test=portal-family-note]": "You see only your own credits and bookings. The adult on the account sees the rest of the family.",
+					"[data-test=portal-family-card][data-profile=s_26] [data-test=portal-available]": {
+						"text": "6",
+						"moves": true
+					}
+				},
+				"count": {
+					"[data-test=portal]": 1,
+					"[data-test=portal-tab]": 4,
+					"[data-test=portal-tab][aria-selected=true]": 1,
+					"[data-test=portal-frame][data-site-theme=b4u]": 1,
+					"[data-test=portal-family-switch]": 3,
+					"[data-test=portal-family-switch].on[data-profile=s_26]": 1,
+					"[data-test=portal-family-card]": 1
+				},
+				"contains": {
+					"[data-test=portal-family-card][data-profile=s_26]": [
+						"Lia W. (you)",
+						"Child · Sparkle ×1",
+						"credits available",
+						"Tutoring · Nov 11 15:30 · 1 credit held"
+					]
+				},
+				"absent": [
+					"Dana W.",
+					"Kai W.",
+					"Wu family",
+					"Omar F.",
+					"Pia L.",
+					"Raj S.",
+					"Marta G."
+				]
+			}
+		},
+		{
+			"id": "no-family-overview",
+			"source": "mockup headless on b4u, Omar F. (s_22): no family on the account, so no 'Viewing as' switch and the scope banner names him only; Sparkle is sold in one size; an adult with a live membership is Member; smoke.mjs 'portal without family shows only that member' (on vol)",
+			"route": "#/b4u/members?portal=s_22&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=portal-viewing]": {
+						"text": "Viewing as Omar F.",
+						"moves": true
+					},
+					"[data-test=portal-plan-name]": {
+						"text": "Sparkle ×1",
+						"moves": true
+					},
+					"[data-test=portal-plan-price]": {
+						"text": "$20.00 / month",
+						"moves": true
+					},
+					"[data-test=portal-tab][data-portal-tab=bookings]": "Bookings (1)",
+					"[data-test=books-pill]": "Member"
+				},
+				"contains": {
+					"[data-test=portal-scope]": [
+						"Members see only themselves and their family.",
+						"In this portal: Omar F. only (no family on this account)."
+					],
+					"[data-test=portal-balance]": [
+						"credits available",
+						"1 held for bookings",
+						"6 used this cycle"
+					]
+				},
+				"count": {
+					"[data-test=portal-family-switch]": 0,
+					"[data-test=portal-action][data-action=quantity][disabled][title=\"This plan is sold in one size\"]": 1,
+					"[data-test=books-card][data-audience=member]": 1
+				},
+				"absent": ["Dana W.", "Kai W.", "Lia W.", "Wu family"]
+			}
+		},
+		{
+			"id": "no-family-family-tab",
+			"source": "mockup headless mpFam on b4u, Omar F.: 'No family on this account. You see only your own credits and bookings.' and no family card",
+			"route": "#/b4u/members?portal=s_22&portalTab=family&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=portal-empty]": "No family on this account. You see only your own credits and bookings."
+				},
+				"count": {
+					"[data-test=portal-family-card]": 0,
+					"[data-test=portal-family-note]": 0
+				},
+				"absent": ["Dana W.", "Kai W.", "Lia W."]
+			}
+		},
+		{
+			"id": "no-family-billing",
+			"source": "mockup headless kHistCard on b4u, Omar F.: his own 29 rows, no member names; smoke.mjs 'hist: family-less member sees own rows only, no member column'",
+			"route": "#/b4u/members?portal=s_22&portalTab=billing&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=history-count]": "Showing 5 of 29, newest first"
+				},
+				"count": {
+					"[data-test=history-row]": 5,
+					"[data-test=history-member]": 0,
+					"[data-test=history-row]:not([data-profile=s_22])": 0
+				},
+				"absent": ["Dana W.", "Kai W.", "Lia W."]
+			}
+		},
+		{
+			"id": "governance-books-card",
+			"source": "mockup headless mpBooks on b4u, Marta G. (s_27, Board tier, books: governance): 'Governance document: ...' with 'Open the governance view' (a toast only, no write); smoke.mjs 'portal: Governance-tier adult sees the governance view link'",
+			"route": "#/b4u/members?portal=s_27&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=portal-action][data-action=books]",
+					"expect": {
+						"text": {
+							"[data-test=toast]": "Opening the governance view of the school's books…"
+						},
+						"writes": []
+					}
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=portal-plan-name]": {
+						"text": "Board ×1",
+						"moves": true
+					},
+					"[data-test=portal-plan-price]": "$0.00 / month",
+					"[data-test=books-pill]": "Governance",
+					"[data-test=books-text]": "Governance document: months, exact, with plan and fund breakdowns and how gifts spread. No names or per-person rows.",
+					"[data-test=portal-action][data-action=books]": "Open the governance view"
+				},
+				"count": {
+					"[data-test=books-card][data-audience=governance]": 1,
+					"[data-test=books-card] [data-kpi]": 0
+				},
+				"writes": []
+			}
+		},
+		{
+			"id": "governance-bookings-empty",
+			"source": "mockup headless mpBk on b4u, Marta G.: no bookings, so the tab reads 'Bookings' and the card 'No upcoming bookings.'",
+			"route": "#/b4u/members?portal=s_27&portalTab=bookings&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=portal-empty]": "No upcoming bookings.",
+					"[data-test=portal-tab][data-portal-tab=bookings]": "Bookings"
+				},
+				"count": {
+					"[data-test=portal-booking]": 0
+				}
+			}
+		},
+		{
+			"id": "public-books-card",
+			"source": "mockup headless on vol, Sam O. (m_051, membership canceled, ends Nov 11): no live membership reads the Public document ('Public document: years, money rounded to $100, ...', its last published year 2024, no button). Its figures are Vibes of Light's own public document (src/fixtures/mart/documents.json vol.public, year table, 2024): gross_collected suppressed ('—', title 'Hidden: fewer than 5 payers') and net_income members_only ('Members see this'), which agree with the mockup's '2024: — collected, Members see this net.'; the plan card says when it ends and offers Resume, Change amount is disabled 'Resume your membership first', and vol's add-ons are on sale; smoke.mjs 'portal: a member without a live membership reads the Public document'",
+			"route": "#/vol/members?portal=m_051&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=portal-viewing]": {
+						"text": "Viewing as Sam O.",
+						"moves": true
+					},
+					"[data-test=portal-plan-status]": "Ends Nov 11",
+					"[data-test=portal-plan-line]": "Your membership ends on Nov 11. You can keep using your sessions until then.",
+					"[data-test=portal-action][data-action=resume]": "Resume membership",
+					"[data-test=books-pill]": "Public",
+					"[data-test=books-card] [data-kpi=\"gross_collected\"][data-period=\"2024\"]": "—",
+					"[data-test=books-card] [data-kpi=\"net_income\"][data-period=\"2024\"]": "Members see this",
+					"[data-test=portal-action][data-action=buy][data-addon=pack8]": "Buy"
+				},
+				"contains": {
+					"[data-test=books-text]": [
+						"Public document: years, money rounded to $100, published 12 months after a year closes. Totals and categories only.",
+						"2024: — collected, Members see this net."
+					],
+					"[data-test=portal-addons]": [
+						"Need more sessions?",
+						"Top-up pack",
+						"8 sessions · $40.00",
+						"Big top-up pack",
+						"16 sessions · $72.00"
+					],
+					"[data-test=portal-balance]": [
+						"sessions available",
+						"3 used this cycle"
+					]
+				},
+				"count": {
+					"[data-test=books-card][data-audience=public]": 1,
+					"[data-test=portal-action][data-action=books]": 0,
+					"[data-test=portal-action][data-action=cancel]": 0,
+					"[data-test=portal-action][data-action=buy]": 2,
+					"[data-test=portal-action][data-action=quantity][disabled][title=\"Resume your membership first\"]": 1,
+					"[data-test=portal-family-switch]": 0,
+					"[data-test=books-card] [data-kpi=\"gross_collected\"][data-period=\"2024\"][data-cell=suppressed][title=\"Hidden: fewer than 5 payers\"]": 1,
+					"[data-test=books-card] [data-kpi=\"net_income\"][data-period=\"2024\"][data-cell=members_only][title=\"Members see this\"]": 1
+				}
+			}
+		},
+		{
+			"id": "ended-billing",
+			"source": "mockup headless mpBill and kHistCard on vol, Sam O.: 'None. Your membership ends Nov 11.', a partial refund as a negative row with status Refunded and its payment Partly refunded, 30 rows; smoke.mjs 'hist: refunds are negative rows with status Refunded, newest first'",
+			"route": "#/vol/members?portal=m_051&portalTab=billing&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=history-count]": "Showing 5 of 30, newest first"
+				},
+				"contains": {
+					"[data-test=portal-next-invoice]": [
+						"Next invoice",
+						"None. Your membership ends Nov 11."
+					],
+					"[data-test=history-row]": [
+						"Nov 2, 2026",
+						"Partial refund",
+						"−$50.00",
+						"Refunded",
+						"Oct 14, 2026",
+						"Invoice paid, Shine ×2",
+						"$60.00",
+						"Partly refunded"
+					],
+					"[data-test=history-group]": [
+						"Nov 2026",
+						"Oct 2026",
+						"Aug 2026",
+						"Jul 2026"
+					]
+				},
+				"count": {
+					"[data-test=history-row]": 5,
+					"[data-test=history-member]": 0
+				}
+			}
+		},
+		{
+			"id": "unknown-member",
+			"source": "mockup drawVM: no member with that id closes the portal (vm = null); the Members tab stays",
+			"route": "#/b4u/members?portal=s_99&theme=light",
+			"expect": {
+				"count": {
+					"[data-test=portal]": 0
+				}
+			}
+		},
+		{
+			"id": "portal-tab-switch",
+			"source": "mockup [data-vtab] buttons (role tab): a click shows that tab; the app keeps it in the hash",
+			"route": "#/b4u/members?portal=s_21&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=portal-tab][data-portal-tab=billing]"
+				}
+			],
+			"expect": {
+				"hash": "portalTab=billing",
+				"text": {
+					"[data-test=portal-tab].on": "Billing",
+					"[data-test=history-count]": "Showing 5 of 86, newest first"
+				},
+				"count": {
+					"[data-test=portal-tab][aria-selected=true][data-portal-tab=billing]": 1
+				}
+			}
+		},
+		{
+			"id": "family-switch-titles",
+			"source": "mockup drawVM .kfset: 'Viewing as:' Adult, Teen, Child, each titled with the person's name (the preview's own control, not what the member sees)",
+			"route": "#/b4u/members?portal=s_21&theme=light",
+			"expect": {
+				"contains": {
+					"[data-test=portal-family-switch]": ["Adult", "Teen", "Child"]
+				},
+				"count": {
+					"[data-test=portal-family-switch][data-profile=s_21][title=\"Dana W.\"]": 1,
+					"[data-test=portal-family-switch][data-profile=s_25][title=\"Kai W.\"]": 1,
+					"[data-test=portal-family-switch][data-profile=s_26][title=\"Lia W.\"]": 1
+				}
+			}
+		},
+		{
+			"id": "family-switch-teen",
+			"source": "mockup [data-vfam=s_25]: the portal becomes Kai W.'s on the same tab; smoke.mjs 'portal teen sees only their own row', 'hist: teen sees no family names in the card'",
+			"route": "#/b4u/members?portal=s_21&portalTab=billing&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=portal-family-switch][data-profile=s_25]"
+				}
+			],
+			"expect": {
+				"hash": "portal=s_25",
+				"text": {
+					"[data-test=portal-family-switch].on": "Teen",
+					"[data-test=portal-tab].on": "Billing",
+					"[data-test=portal-viewing]": {
+						"text": "Viewing as Kai W.",
+						"moves": true
+					},
+					"[data-test=history-count]": "Showing 5 of 28, newest first"
+				},
+				"contains": {
+					"[data-test=portal-scope]": [
+						"Kai W. only. Learners don't see other family members' money."
+					]
+				},
+				"count": {
+					"[data-test=history-member]": 0
+				},
+				"absent": ["Dana W.", "Lia W."]
+			}
+		},
+		{
+			"id": "family-switch-child-back-to-adult",
+			"source": "mockup [data-vfam]: Child, then Adult again shows the whole family",
+			"route": "#/b4u/members?portal=s_21&portalTab=family&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=portal-family-switch][data-profile=s_26]",
+					"expect": {
+						"hash": "portal=s_26",
+						"count": {
+							"[data-test=portal-family-card]": 1,
+							"[data-test=portal-family-card][data-profile=s_26]": 1
+						}
+					}
+				},
+				{
+					"click": "[data-test=portal-family-switch][data-profile=s_21]"
+				}
+			],
+			"expect": {
+				"hash": "portal=s_21",
+				"text": {
+					"[data-test=portal-family-switch].on": "Adult"
+				},
+				"count": {
+					"[data-test=portal-family-card]": 3
+				}
+			}
+		},
+		{
+			"id": "portal-exit",
+			"source": "mockup #vmx 'Exit' closes the portal (vm = null) back to the Members tab",
+			"route": "#/b4u/members?portal=s_21&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=portal-exit]"
+				}
+			],
+			"expect": {
+				"hash": "#/b4u/members",
+				"count": {
+					"[data-test=portal]": 0
+				}
+			}
+		},
+		{
+			"id": "portal-escape",
+			"source": "mockup keydown Escape: with no dialog open it closes the portal",
+			"route": "#/b4u/members?portal=s_21&theme=light",
+			"steps": [
+				{
+					"key": "Escape",
+					"target": "[data-test=portal]"
+				}
+			],
+			"expect": {
+				"hash": "#/b4u/members",
+				"count": {
+					"[data-test=portal]": 0
+				}
+			}
+		},
+		{
+			"id": "pure-member-view",
+			"source": "mockup #122 (a6b861125): the portal is the pure member view; the Admin tools toggle (#vad), the admin card and the Admin tags are gone and every per-member admin action is in the Members tab's ⋯ menu; smoke.mjs 'hist: portal is the pure member view (no admin block, tags, toggle, buttons)', 'hist: home tab has no admin tools or switch-plan button'",
+			"route": "#/b4u/members?portal=s_21&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=portal-tab][data-portal-tab=bookings]",
+					"expect": {
+						"count": {
+							"[data-test=portal-action][data-action=switch]": 0,
+							"[data-test=portal] input[type=checkbox]": 0
+						},
+						"absent": [
+							"Admin tools",
+							"Attended",
+							"No-show",
+							"Cancel and refund"
+						]
+					}
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=portal-note]": {
+						"text": "This is the member portal as Dana W. sees it. This is a preview of the member's view: it shows exactly what they see, with no admin tools. Admin actions for this member are in the ⋯ menu on the Members tab.",
+						"moves": true
+					}
+				},
+				"count": {
+					"[data-test=portal] input[type=checkbox]": 0,
+					"[data-test=portal-action][data-action=switch]": 0
+				},
+				"absent": [
+					"Admin tools",
+					"Send invoice",
+					"Adjust credits",
+					"View in ledger",
+					"Switch plan"
+				]
+			}
+		},
+		{
+			"id": "history-show-all",
+			"source": "mockup [data-khx]: 'Show all history (86)' shows every row and becomes 'Show latest 5'; the statuses cover Paid, Refunded, Partly refunded, Failed and Open, refunds negative; smoke.mjs 'hist: Show all history reveals older rows (12+ over two years)', 'hist: statuses cover Paid, Refunded, Partly refunded, Failed, Open'",
+			"route": "#/b4u/members?portal=s_21&portalTab=billing&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=history-more]",
+					"expect": {
+						"hash": "historyAll=1",
+						"text": {
+							"[data-test=history-count]": "Showing 86 of 86, newest first",
+							"[data-test=history-more]": "Show latest 5"
+						},
+						"count": {
+							"[data-test=history-row]": 86,
+							"[data-test=history-group]": 23,
+							"[data-test=history-row][data-profile=s_21]": 30,
+							"[data-test=history-row][data-profile=s_25]": 28,
+							"[data-test=history-row][data-profile=s_26]": 28
+						},
+						"contains": {
+							"[data-test=history-status]": [
+								"Paid",
+								"Refunded",
+								"Partly refunded",
+								"Failed",
+								"Open"
+							],
+							"[data-test=history-amount]": ["−$40.00", "−$22.50"],
+							"[data-test=history-description]": [
+								"Refund, pack returned",
+								"Refund, goodwill",
+								"(retry)",
+								"Gift certificate redeemed, GIFT25 (credit applied)"
+							],
+							"[data-test=history-group]": ["Dec 2024"]
+						}
+					}
+				},
+				{
+					"click": "[data-test=history-more]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=history-more]": "Show all history (86)"
+				},
+				"count": {
+					"[data-test=history-row]": 5
+				}
+			}
+		},
+		{
+			"id": "history-last-year",
+			"source": "mockup #khf 'Last year' (kFilter: rows of the clock's year minus one): 51 family rows, all in 2025, 12 month groups when shown in full; smoke.mjs 'hist: filter Last year changes the row count and only shows that year'",
+			"route": "#/b4u/members?portal=s_21&portalTab=billing&historyAll=1&theme=light",
+			"steps": [
+				{
+					"fill": "[data-test=history-period]",
+					"value": "last"
+				}
+			],
+			"expect": {
+				"hash": "history=last",
+				"text": {
+					"[data-test=history-count]": "Showing 51 of 51, newest first"
+				},
+				"count": {
+					"[data-test=history-row]": 51,
+					"[data-test=history-group]": 12
+				},
+				"contains": {
+					"[data-test=history-group]": ["Dec 2025", "Nov 2025", "Jan 2025"]
+				},
+				"absent": ["Dec 2024", "Nov 3, 2026", "Aug 1, 2026"]
+			}
+		},
+		{
+			"id": "history-this-year",
+			"source": "mockup #khf 'This year': 32 family rows of 2026, latest 5",
+			"route": "#/b4u/members?portal=s_21&portalTab=billing&history=this&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=history-count]": "Showing 5 of 32, newest first",
+					"[data-test=history-more]": "Show all history (32)"
+				},
+				"count": {
+					"[data-test=history-row]": 5
+				}
+			}
+		},
+		{
+			"id": "csv-family-all",
+			"source": "mockup #kdl kPortalCsv: the adult's export holds the whole family (86 rows, with a member column); the toast counts the rows (kSave 'Downloaded <n> rows'); the file itself is the builder's test (see csv); smoke.mjs 'csv dl: toast says how many rows', 'csv dl: adult export has only own family ids and no other family', 'csv dl: teen export has only their own rows and no member column', 'csv dl: child export has only their own rows'",
+			"route": "#/b4u/members?portal=s_21&portalTab=billing&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=history-download]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=toast]": "Downloaded 86 rows"
+				},
+				"writes": []
+			}
+		},
+		{
+			"id": "csv-family-last-year",
+			"source": "mockup #kdl kPortalCsv: the export follows the period filter (Last year, 51 rows); the toast counts the rows (kSave 'Downloaded <n> rows'); the file itself is the builder's test (see csv); smoke.mjs 'csv dl: toast says how many rows', 'csv dl: adult export has only own family ids and no other family', 'csv dl: teen export has only their own rows and no member column', 'csv dl: child export has only their own rows'",
+			"route": "#/b4u/members?portal=s_21&portalTab=billing&history=last&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=history-download]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=toast]": "Downloaded 51 rows"
+				},
+				"writes": []
+			}
+		},
+		{
+			"id": "csv-teen",
+			"source": "mockup #kdl kPortalCsv: a teen's export holds only their own 28 rows; the toast counts the rows (kSave 'Downloaded <n> rows'); the file itself is the builder's test (see csv); smoke.mjs 'csv dl: toast says how many rows', 'csv dl: adult export has only own family ids and no other family', 'csv dl: teen export has only their own rows and no member column', 'csv dl: child export has only their own rows'",
+			"route": "#/b4u/members?portal=s_25&portalTab=billing&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=history-download]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=toast]": "Downloaded 28 rows"
+				},
+				"writes": []
+			}
+		},
+		{
+			"id": "csv-child",
+			"source": "mockup #kdl kPortalCsv: a child's export holds only their own 28 rows; the toast counts the rows (kSave 'Downloaded <n> rows'); the file itself is the builder's test (see csv); smoke.mjs 'csv dl: toast says how many rows', 'csv dl: adult export has only own family ids and no other family', 'csv dl: teen export has only their own rows and no member column', 'csv dl: child export has only their own rows'",
+			"route": "#/b4u/members?portal=s_26&portalTab=billing&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=history-download]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=toast]": "Downloaded 28 rows"
+				},
+				"writes": []
+			}
+		},
+		{
+			"id": "change-amount-decrease",
+			"source": "mockup vAct('qty') on Dana W. (Shine ×2, sold in 1 or 2): the dialog opens on the current amount with 'No change.' and Confirm disabled; 1 previews the renewal price; Confirm closes it, toast 'Change to ×1 scheduled for Dec 1.', the card says 'Switches to Shine ×1 on Dec 1.' and that a change is on its way, and Change amount and Cancel are disabled until it ships",
+			"route": "#/b4u/members?portal=s_21&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=portal-action][data-action=quantity]",
+					"expect": {
+						"writes": [],
+						"text": {
+							"[data-test=dialog-title]": {
+								"text": "Change amount · Dana W.",
+								"moves": true
+							},
+							"[data-test=dialog-preview]": "No change.",
+							"[data-test=dialog-confirm]": "Confirm",
+							"[data-test=dialog-cancel]": "Cancel"
+						},
+						"contains": {
+							"[data-test=dialog]": ["Shine · now ×2", "New amount"],
+							"[data-test=quantity-select] option": ["1", "2 (current)"]
+						},
+						"count": {
+							"[data-test=dialog]": 1,
+							"[data-test=quantity-select] option": 2,
+							"[data-test=dialog-confirm][disabled]": 1
+						}
+					}
+				},
+				{
+					"fill": "[data-test=quantity-select]",
+					"value": "1",
+					"expect": {
+						"writes": [],
+						"text": {
+							"[data-test=dialog-preview]": {
+								"text": "From Dec 1: $45.00 / month with fewer credits each month. No refund, and credits now are unchanged until then.",
+								"moves": true
+							}
+						},
+						"count": {
+							"[data-test=dialog-confirm][disabled]": 0
+						}
+					}
+				},
+				{
+					"click": "[data-test=dialog-confirm]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "portalChangeQuantity",
+						"args": [
+							{
+								"school": "b4u",
+								"profileId": "s_21",
+								"quantity": 1
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": "Change to ×1 scheduled for Dec 1."
+				},
+				"contains": {
+					"[data-test=portal-plan-note]": [
+						"Switches to Shine ×1 on Dec 1.",
+						"A change is on its way. It can take a few minutes."
+					]
+				},
+				"count": {
+					"[data-test=dialog]": 0,
+					"[data-test=portal-action][data-action=quantity][disabled]": 1,
+					"[data-test=portal-action][data-action=cancel][disabled]": 1
+				}
+			}
+		},
+		{
+			"id": "change-amount-pending",
+			"source": "protocol §7 hold writer: while portalChangeQuantity is pending the dialog is closed, the card says a change is on its way and the actions are disabled; the toast and 'Switches to' come when the Writer answers",
+			"route": "#/b4u/members?portal=s_21&theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=portal-action][data-action=quantity]"
+				},
+				{
+					"fill": "[data-test=quantity-select]",
+					"value": "1"
+				},
+				{
+					"click": "[data-test=dialog-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "portalChangeQuantity",
+								"args": [
+									{
+										"school": "b4u",
+										"profileId": "s_21",
+										"quantity": 1
+									}
+								]
+							}
+						],
+						"contains": {
+							"[data-test=portal-plan-note]": [
+								"A change is on its way. It can take a few minutes."
+							]
+						},
+						"count": {
+							"[data-test=dialog]": 0,
+							"[data-test=portal-action][data-action=quantity][disabled]": 1,
+							"[data-test=portal-action][data-action=cancel][disabled]": 1
+						},
+						"absent": ["scheduled for Dec 1", "Switches to"]
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "portalChangeQuantity",
+						"args": [
+							{
+								"school": "b4u",
+								"profileId": "s_21",
+								"quantity": 1
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": "Change to ×1 scheduled for Dec 1."
+				},
+				"contains": {
+					"[data-test=portal-plan-note]": ["Switches to Shine ×1 on Dec 1."]
+				}
+			}
+		},
+		{
+			"id": "change-amount-dismiss",
+			"source": "mockup modal Cancel ([data-close]): nothing is written",
+			"route": "#/b4u/members?portal=s_21&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=portal-action][data-action=quantity]"
+				},
+				{
+					"fill": "[data-test=quantity-select]",
+					"value": "1"
+				},
+				{
+					"click": "[data-test=dialog-cancel]"
+				}
+			],
+			"expect": {
+				"writes": [],
+				"count": {
+					"[data-test=dialog]": 0,
+					"[data-test=portal-plan-note]": 0,
+					"[data-test=portal-action][data-action=quantity][disabled]": 0
+				}
+			}
+		},
+		{
+			"id": "change-amount-increase",
+			"source": "mockup vAct('qty') on vol, Mia R. (Sparkle ×2, sold in 1, 2 or 4): 4 is sent as the new quantity. The mockup's prorated preview ('Charged now: $56.33 (26 of 30 days left in this cycle). Adds 14 sessions now.') is the server's number and has no route yet, so only the write is checked",
+			"route": "#/vol/members?portal=m_204&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=portal-action][data-action=quantity]",
+					"expect": {
+						"count": {
+							"[data-test=quantity-select] option": 3
+						},
+						"contains": {
+							"[data-test=quantity-select] option": ["1", "2 (current)", "4"]
+						}
+					}
+				},
+				{
+					"fill": "[data-test=quantity-select]",
+					"value": "4"
+				},
+				{
+					"click": "[data-test=dialog-confirm]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "portalChangeQuantity",
+						"args": [
+							{
+								"school": "vol",
+								"profileId": "m_204",
+								"quantity": 4
+							}
+						]
+					}
+				],
+				"contains": {
+					"[data-test=portal-plan-note]": [
+						"A change is on its way. It can take a few minutes."
+					]
+				},
+				"count": {
+					"[data-test=dialog]": 0
+				}
+			}
+		},
+		{
+			"id": "cancel-membership",
+			"source": "mockup vAct('cancel') as the member: only 'At the end of this period (Dec 1)', an optional reason, the preview; Cancel membership sends the reason, toast 'Membership will end on Dec 1.', the card then reads 'Ends Dec 1' with Resume (disabled while the change ships)",
+			"route": "#/b4u/members?portal=s_21&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=portal-action][data-action=cancel]",
+					"expect": {
+						"writes": [],
+						"text": {
+							"[data-test=dialog-title]": {
+								"text": "Cancel membership · Dana W.",
+								"moves": true
+							},
+							"[data-test=dialog-preview]": {
+								"text": "Stays active until Dec 1. 10 credits can still be used until then. No further charges.",
+								"moves": true
+							},
+							"[data-test=dialog-confirm]": "Cancel membership",
+							"[data-test=dialog-cancel]": "Keep membership"
+						},
+						"contains": {
+							"[data-test=dialog]": [
+								"Shine ×2",
+								"At the end of this period (Dec 1)",
+								"Reason (optional; required to cancel right now)"
+							]
+						},
+						"count": {
+							"[data-test=dialog] input[type=radio]": 1,
+							"[data-test=dialog] input[type=radio]:checked": 1,
+							"[data-test=dialog-confirm][disabled]": 0
+						},
+						"absent": ["Right now"]
+					}
+				},
+				{
+					"fill": "[data-test=cancel-reason]",
+					"value": "Moving away"
+				},
+				{
+					"click": "[data-test=dialog-confirm]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "portalCancelMembership",
+						"args": [
+							{
+								"school": "b4u",
+								"profileId": "s_21",
+								"reason": "Moving away"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": "Membership will end on Dec 1.",
+					"[data-test=portal-plan-status]": "Ends Dec 1",
+					"[data-test=portal-plan-line]": "Your membership ends on Dec 1. You can keep using your credits until then."
+				},
+				"contains": {
+					"[data-test=portal-plan-note]": [
+						"A change is on its way. It can take a few minutes."
+					]
+				},
+				"count": {
+					"[data-test=dialog]": 0,
+					"[data-test=portal-action][data-action=resume][disabled]": 1,
+					"[data-test=portal-action][data-action=cancel]": 0
+				}
+			}
+		},
+		{
+			"id": "cancel-membership-no-reason",
+			"source": "mockup vAct('cancel'): the reason is optional; a blank one (spaces only) is not sent",
+			"route": "#/b4u/members?portal=s_21&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=portal-action][data-action=cancel]"
+				},
+				{
+					"fill": "[data-test=cancel-reason]",
+					"value": "   "
+				},
+				{
+					"click": "[data-test=dialog-confirm]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "portalCancelMembership",
+						"args": [
+							{
+								"school": "b4u",
+								"profileId": "s_21"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": "Membership will end on Dec 1."
+				}
+			}
+		},
+		{
+			"id": "cancel-membership-keep",
+			"source": "mockup 'Keep membership' ([data-close]): nothing is written",
+			"route": "#/b4u/members?portal=s_21&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=portal-action][data-action=cancel]"
+				},
+				{
+					"click": "[data-test=dialog-cancel]"
+				}
+			],
+			"expect": {
+				"writes": [],
+				"text": {
+					"[data-test=portal-plan-status]": "Active"
+				},
+				"count": {
+					"[data-test=dialog]": 0
+				}
+			}
+		},
+		{
+			"id": "cancel-membership-pending",
+			"source": "protocol §7 hold writer: while portalCancelMembership is pending the card still reads Active, says a change is on its way and disables its actions; 'Ends Dec 1' and the toast come when the Writer answers",
+			"route": "#/b4u/members?portal=s_21&theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=portal-action][data-action=cancel]"
+				},
+				{
+					"click": "[data-test=dialog-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "portalCancelMembership",
+								"args": [
+									{
+										"school": "b4u",
+										"profileId": "s_21"
+									}
+								]
+							}
+						],
+						"text": {
+							"[data-test=portal-plan-status]": "Active"
+						},
+						"contains": {
+							"[data-test=portal-plan-note]": [
+								"A change is on its way. It can take a few minutes."
+							]
+						},
+						"count": {
+							"[data-test=dialog]": 0,
+							"[data-test=portal-action][data-action=cancel][disabled]": 1
+						},
+						"absent": ["Membership will end"]
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "portalCancelMembership",
+						"args": [
+							{
+								"school": "b4u",
+								"profileId": "s_21"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": "Membership will end on Dec 1.",
+					"[data-test=portal-plan-status]": "Ends Dec 1"
+				}
+			}
+		},
+		{
+			"id": "resume-membership",
+			"source": "mockup vAct('resume') on vol, Sam O.: 'Resume membership · Sam O.', 'Nothing is charged today.', Not now and Resume; toast 'Membership resumed.', the card reads Active and a change is on its way",
+			"route": "#/vol/members?portal=m_051&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=portal-action][data-action=resume]",
+					"expect": {
+						"writes": [],
+						"text": {
+							"[data-test=dialog-title]": {
+								"text": "Resume membership · Sam O.",
+								"moves": true
+							},
+							"[data-test=dialog-confirm]": "Resume",
+							"[data-test=dialog-cancel]": "Not now"
+						},
+						"contains": {
+							"[data-test=dialog]": ["Shine ×2", "Nothing is charged today."]
+						}
+					}
+				},
+				{
+					"click": "[data-test=dialog-confirm]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "portalResumeMembership",
+						"args": [
+							{
+								"school": "vol",
+								"profileId": "m_051"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": "Membership resumed.",
+					"[data-test=portal-plan-status]": "Active"
+				},
+				"contains": {
+					"[data-test=portal-plan-note]": [
+						"A change is on its way. It can take a few minutes."
+					]
+				},
+				"count": {
+					"[data-test=dialog]": 0,
+					"[data-test=portal-action][data-action=resume]": 0,
+					"[data-test=portal-action][data-action=cancel][disabled]": 1
+				}
+			}
+		},
+		{
+			"id": "resume-membership-pending",
+			"source": "protocol §7 hold writer: while portalResumeMembership is pending the card still reads 'Ends Nov 11', Resume is disabled and a change is on its way; Active and the toast come when the Writer answers",
+			"route": "#/vol/members?portal=m_051&theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=portal-action][data-action=resume]"
+				},
+				{
+					"click": "[data-test=dialog-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "portalResumeMembership",
+								"args": [
+									{
+										"school": "vol",
+										"profileId": "m_051"
+									}
+								]
+							}
+						],
+						"text": {
+							"[data-test=portal-plan-status]": "Ends Nov 11"
+						},
+						"contains": {
+							"[data-test=portal-plan-note]": [
+								"A change is on its way. It can take a few minutes."
+							]
+						},
+						"count": {
+							"[data-test=portal-action][data-action=resume][disabled]": 1
+						},
+						"absent": ["Membership resumed"]
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "portalResumeMembership",
+						"args": [
+							{
+								"school": "vol",
+								"profileId": "m_051"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": "Membership resumed.",
+					"[data-test=portal-plan-status]": "Active"
+				}
+			}
+		},
+		{
+			"id": "cancel-booking",
+			"source": "mockup mpBk [data-act=release] on b4u, Omar F.'s Tutoring Nov 9 16:00 (outside its 48h cutoff): no dialog, the row shows 'waiting to ship' instead of the button, toast 'Hold released for Omar F.' (the mockup's template doubles the period after a name that ends in '.' and adds Undo; the app writes one period and no Undo, as S2)",
+			"route": "#/b4u/members?portal=s_22&portalTab=bookings&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=portal-action][data-action=cancel-booking][data-booking=bk_b11]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "portalCancelBooking",
+						"args": [
+							{
+								"school": "b4u",
+								"profileId": "s_22",
+								"bookingId": "bk_b11"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": {
+						"text": "Hold released for Omar F.",
+						"moves": true
+					},
+					"[data-test=portal-booking][data-booking=bk_b11] [data-test=portal-booking-status]": "waiting to ship"
+				},
+				"contains": {
+					"[data-test=portal-booking][data-booking=bk_b11]": [
+						"Tutoring",
+						"Nov 9 16:00 · Dr. Lee",
+						"1 credit held"
+					]
+				},
+				"count": {
+					"[data-test=portal-action][data-action=cancel-booking]": 0,
+					"[data-test=dialog]": 0
+				}
+			}
+		},
+		{
+			"id": "cancel-booking-pending",
+			"source": "protocol §7 hold writer: while portalCancelBooking is pending the row shows 'waiting to ship' and no button; the toast comes when the Writer answers",
+			"route": "#/b4u/members?portal=s_22&portalTab=bookings&theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=portal-action][data-action=cancel-booking][data-booking=bk_b11]",
+					"expect": {
+						"writes": [
+							{
+								"method": "portalCancelBooking",
+								"args": [
+									{
+										"school": "b4u",
+										"profileId": "s_22",
+										"bookingId": "bk_b11"
+									}
+								]
+							}
+						],
+						"text": {
+							"[data-test=portal-booking][data-booking=bk_b11] [data-test=portal-booking-status]": "waiting to ship"
+						},
+						"count": {
+							"[data-test=portal-action][data-action=cancel-booking]": 0
+						},
+						"absent": ["Hold released"]
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "portalCancelBooking",
+						"args": [
+							{
+								"school": "b4u",
+								"profileId": "s_22",
+								"bookingId": "bk_b11"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": {
+						"text": "Hold released for Omar F.",
+						"moves": true
+					}
+				}
+			}
+		},
+		{
+			"id": "buy-addon",
+			"source": "mockup vAct('buy'): a toast, no write (the member would continue to Stripe Checkout)",
+			"route": "#/vol/members?portal=m_204&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=portal-action][data-action=buy][data-addon=pack8]"
+				}
+			],
+			"expect": {
+				"writes": [],
+				"text": {
+					"[data-test=toast]": {
+						"text": "Member would continue to Stripe Checkout for Top-up pack.",
+						"moves": true
+					}
+				}
+			}
+		},
+		{
+			"id": "update-card",
+			"source": "mockup vAct('card') on the Billing tab: a toast, no write (card details stay with Stripe)",
+			"route": "#/b4u/members?portal=s_21&portalTab=billing&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=portal-action][data-action=card]"
+				}
+			],
+			"expect": {
+				"writes": [],
+				"text": {
+					"[data-test=toast]": "Opens Stripe's billing portal. Card details stay with Stripe."
+				}
+			}
+		},
+		{
+			"id": "open-school-books",
+			"source": "mockup mpBooks 'Open school books' (data-toast): a toast, no write",
+			"route": "#/b4u/members?portal=s_21&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=portal-action][data-action=books]"
+				}
+			],
+			"expect": {
+				"writes": [],
+				"text": {
+					"[data-test=toast]": "Opening the school's books…"
+				}
+			}
+		},
+		{
+			"id": "theme-options",
+			"source": "mockup #vth 'Site theme': THEMES in order, B4 Uni's look first and selected",
+			"route": "#/b4u/members?portal=s_21&theme=light",
+			"expect": {
+				"count": {
+					"[data-test=portal-theme] option": 3,
+					"[data-test=portal-frame][data-site-theme=b4u]": 1
+				},
+				"contains": {
+					"[data-test=portal-theme] option": [
+						"B4 Uni (buzz-school look)",
+						"Host site: warm serif",
+						"Host site: dark"
+					]
+				}
+			}
+		},
+		{
+			"id": "theme-switch",
+			"source": "mockup #vth change: vm.theme drives the frame's --mp-* variables (themeVars); the app keeps it in the hash",
+			"route": "#/b4u/members?portal=s_21&theme=light",
+			"steps": [
+				{
+					"fill": "[data-test=portal-theme]",
+					"value": "host",
+					"expect": {
+						"hash": "siteTheme=host",
+						"count": {
+							"[data-test=portal-frame][data-site-theme=host]": 1
+						}
+					}
+				},
+				{
+					"fill": "[data-test=portal-theme]",
+					"value": "dark"
+				}
+			],
+			"expect": {
+				"hash": "siteTheme=dark",
+				"count": {
+					"[data-test=portal-frame][data-site-theme=dark]": 1,
+					"[data-test=portal-frame][data-site-theme=host]": 0
+				}
+			}
+		},
+		{
+			"id": "embed-open",
+			"source": "mockup #vemb embedModal on b4u in B4 Uni's theme: title with the Proposed badge, the three numbered steps and their snippets (data-school is slug('B4 Uni')), Allowed sites, the sign-in note and 'School books on your site' (only the public document, for the public document's last published year, 2024; the other audiences listed but disabled); smoke.mjs 'embed: only the Public document can be embedded, with the warning'; the theme CSS is written without the mockup's backslashes before the font's quotes (a defect in the mockup's copy: \\' is not CSS)",
+			"route": "#/b4u/members?portal=s_21&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=portal-embed]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=embed-snippet][data-step=page]": "<div id=\"b4-portal\"></div> <script src=\"https://portal.b4uni.com/embed.js\" data-school=\"b4-uni\" data-session-url=\"/api/b4-portal-session\" data-theme=\"inherit\"></script>",
+					"[data-test=embed-snippet][data-step=server]": "// server only. Uses your b4u_sk_ key, never the browser. const { token } = await school.portalSession({ member: user.memberId, returnUrl: \"https://yoursite.com/account\", }); return Response.json({ token });",
+					"[data-test=embed-snippet][data-step=theme]": ":root { --b4-bg: #fbf7f0; --b4-fg: #2a2530; --b4-card: #ffffff; --b4-muted: #7a7385; --b4-border: #e8dfd0; --b4-primary: #3f8068; --b4-on-primary: #ffffff; --b4-radius: 14px; --b4-font: 'Bricolage Grotesque',Figtree,system-ui,sans-serif; }",
+					"[data-test=embed-snippet][data-step=books]": "<script src=\"https://books.b4uni.com/embed.js\" data-src=\"GET /public/schools/b4-uni/books/2024\"></script>",
+					"[data-test=embed-copy]": "Copy snippet",
+					"[data-test=embed-done]": "Done"
+				},
+				"contains": {
+					"[data-test=dialog-title]": ["Embed the member portal", "Proposed"],
+					"[data-test=dialog]": [
+						"B4 Uni · the portal you are viewing, on your own site",
+						"1. Add it to your page",
+						"2. Mint a session on your server",
+						"3. Match your site",
+						"With data-theme=\"inherit\" the portal reads these from your page. This is the theme you picked:",
+						"Allowed sites (sets frame-ancestors)",
+						"Sign-in is yours: your server proves who the member is with a secret key and gets a short-lived token. Changes run in the family service, the same as here. Card changes hand off to Stripe. Tier switches stay admin-only until atm and the Stripe portal support them.",
+						"School books on your site",
+						"Only the public document may be embedded. Member, governance and finance figures need a signed-in session (Cache-Control: private, no-store) and are never embeddable; the embedded portal leaves the School books card out."
+					],
+					"[data-test=embed-books-audience] option": [
+						"Public (no cookie, Cache-Control: public)",
+						"Member: needs a session, can't be embedded",
+						"Governance: needs a session, can't be embedded",
+						"Finance admin: needs a session, can't be embedded",
+						"Owner: needs a session, can't be embedded"
+					]
+				},
+				"count": {
+					"[data-test=dialog]": 1,
+					"[data-test=embed-snippet]": 4,
+					"[data-test=embed-origins]": 1,
+					"[data-test=embed-books-audience] option": 5,
+					"[data-test=embed-books-audience] option[disabled]": 4
+				},
+				"writes": []
+			}
+		},
+		{
+			"id": "embed-theme-host",
+			"source": "mockup embedModal with THEMES.host: step 3's CSS is the picked theme's variables",
+			"route": "#/b4u/members?portal=s_21&siteTheme=host&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=portal-embed]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=embed-snippet][data-step=theme]": ":root { --b4-bg: #ffffff; --b4-fg: #1c1917; --b4-card: #f7f5f2; --b4-muted: #6d6560; --b4-border: #e4dfd9; --b4-primary: #c2410c; --b4-on-primary: #ffffff; --b4-radius: 3px; --b4-font: Georgia,'Times New Roman',serif; }"
+				},
+				"count": {
+					"[data-test=portal-frame][data-site-theme=host]": 1
+				}
+			}
+		},
+		{
+			"id": "embed-theme-dark",
+			"source": "mockup embedModal with THEMES.dark: step 3's CSS is the picked theme's variables",
+			"route": "#/b4u/members?portal=s_21&siteTheme=dark&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=portal-embed]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=embed-snippet][data-step=theme]": ":root { --b4-bg: #101014; --b4-fg: #ececf0; --b4-card: #18181d; --b4-muted: #9a9aa6; --b4-border: #2a2a32; --b4-primary: #7aa2ff; --b4-on-primary: #0b0b0d; --b4-radius: 10px; --b4-font: var(--font-sans); }"
+				},
+				"count": {
+					"[data-test=portal-frame][data-site-theme=dark]": 1
+				}
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "document.querySelector('#sw').click();document.querySelector('[data-sc=b4u]').click();document.querySelector('.tab[data-p=mem]').click();document.querySelector('#mb tr.row[data-id=s_21] [data-vm]').click();var t=document.querySelector('#vth');t.value='dark';t.dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('#vemb').click()"
+			}
+		},
+		{
+			"id": "embed-copy",
+			"source": "mockup embedModal 'Copy snippet' (data-toast 'Snippet copied.'): the app puts step 1's snippet on the clipboard, then the toast; nothing is written; Done closes the dialog and the portal stays",
+			"route": "#/b4u/members?portal=s_21&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=portal-embed]"
+				},
+				{
+					"click": "[data-test=embed-copy]",
+					"expect": {
+						"text": {
+							"[data-test=toast]": "Snippet copied."
+						},
+						"writes": []
+					}
+				},
+				{
+					"click": "[data-test=embed-done]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=dialog]": 0,
+					"[data-test=portal]": 1
+				},
+				"writes": []
+			}
+		},
+		{
+			"id": "embed-escape",
+			"source": "mockup keydown Escape with the modal open closes the modal only (closeM), the portal stays",
+			"route": "#/b4u/members?portal=s_21&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=portal-embed]"
+				},
+				{
+					"key": "Escape",
+					"target": "[data-test=dialog]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=dialog]": 0,
+					"[data-test=portal]": 1
+				}
+			}
+		},
+		{
+			"id": "gated-as-public",
+			"source": "mockup (disclosure v2, PR #125) members(): below an admin (VW(s).admin false for public) the Members tab is the lock panel lockPanel('Owners and admins see the roster', ..., code admins_only); the portal preview opens from the roster, so it is gated with it and shows nothing of the member",
+			"route": "#/b4u/members?portal=s_21&as=public&theme=light",
+			"covers": {
+				"audience": "public"
+			},
+			"expect": {
+				"contains": {
+					"[data-test=lock-panel][data-lock=admins_only]": [
+						"Owners and admins see the roster",
+						"Members see only themselves and their family, in the member portal. To see one person's portal, an admin uses View as member on their row."
+					]
+				},
+				"count": {
+					"[data-test=lock-panel][data-lock=admins_only]": 1,
+					"[data-test=portal]": 0,
+					"[data-test=history-row]": 0
+				},
+				"absent": [
+					"Dana W.",
+					"Kai W.",
+					"Lia W.",
+					"Invoices and payments",
+					"Shine ×2"
+				]
+			}
+		},
+		{
+			"id": "gated-as-member",
+			"source": "mockup (disclosure v2, PR #125) members(): below an admin (VW(s).admin false for member) the Members tab is the lock panel lockPanel('Owners and admins see the roster', ..., code admins_only); the portal preview opens from the roster, so it is gated with it and shows nothing of the member",
+			"route": "#/b4u/members?portal=s_21&as=member&theme=light",
+			"covers": {
+				"audience": "member"
+			},
+			"expect": {
+				"contains": {
+					"[data-test=lock-panel][data-lock=admins_only]": [
+						"Owners and admins see the roster",
+						"Members see only themselves and their family, in the member portal. To see one person's portal, an admin uses View as member on their row."
+					]
+				},
+				"count": {
+					"[data-test=lock-panel][data-lock=admins_only]": 1,
+					"[data-test=portal]": 0,
+					"[data-test=history-row]": 0
+				},
+				"absent": [
+					"Dana W.",
+					"Kai W.",
+					"Lia W.",
+					"Invoices and payments",
+					"Shine ×2"
+				]
+			}
+		},
+		{
+			"id": "gated-as-governance",
+			"source": "mockup (disclosure v2, PR #125) members(): below an admin (VW(s).admin false for governance) the Members tab is the lock panel lockPanel('Owners and admins see the roster', ..., code admins_only); the portal preview opens from the roster, so it is gated with it and shows nothing of the member",
+			"route": "#/b4u/members?portal=s_21&as=governance&theme=light",
+			"covers": {
+				"audience": "governance"
+			},
+			"expect": {
+				"contains": {
+					"[data-test=lock-panel][data-lock=admins_only]": [
+						"Owners and admins see the roster",
+						"Members see only themselves and their family, in the member portal. To see one person's portal, an admin uses View as member on their row."
+					]
+				},
+				"count": {
+					"[data-test=lock-panel][data-lock=admins_only]": 1,
+					"[data-test=portal]": 0,
+					"[data-test=history-row]": 0
+				},
+				"absent": [
+					"Dana W.",
+					"Kai W.",
+					"Lia W.",
+					"Invoices and payments",
+					"Shine ×2"
+				]
+			}
+		},
+		{
+			"id": "as-finance-own",
+			"source": "mockup (disclosure v2, PR #125) VW: at B4 Uni the signed-in person (Jo A.) is a finance admin, so as=finance is their own audience: not a preview, the portal and its writes and CSV work",
+			"route": "#/b4u/members?portal=s_21&as=finance&portalTab=billing&theme=light",
+			"covers": {
+				"audience": "finance"
+			},
+			"expect": {
+				"count": {
+					"[data-test=portal]": 1,
+					"[data-test=lock-panel]": 0,
+					"[data-test=history-download][disabled]": 0,
+					"[data-test=portal-action][data-action=card][disabled]": 0
+				},
+				"text": {
+					"[data-test=history-count]": "Showing 5 of 86, newest first"
+				}
+			}
+		},
+		{
+			"id": "as-owner-own",
+			"source": "mockup (disclosure v2, PR #125) VW: at Vibes of Light the signed-in person is the owner, so as=owner is their own audience",
+			"route": "#/vol/members?portal=m_204&as=owner&theme=light",
+			"covers": {
+				"audience": "owner"
+			},
+			"expect": {
+				"count": {
+					"[data-test=portal]": 1,
+					"[data-test=lock-panel]": 0,
+					"[data-test=portal-action][data-action=quantity][disabled]": 0
+				}
+			}
+		},
+		{
+			"id": "preview-writes-off",
+			"source": "mockup (disclosure v2, PR #125) pvLock: the owner previewing Finance admin (a lower audience) sees the portal with every write control ([data-vact], [data-act]) disabled, title 'Exit preview to act'; Open school books is a toast and stays; a click writes nothing",
+			"route": "#/vol/members?portal=m_204&as=finance&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=portal-action][data-action=quantity]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=portal]": 1,
+					"[data-test=portal-action][data-action=quantity][disabled][title=\"Exit preview to act\"]": 1,
+					"[data-test=portal-action][data-action=cancel][disabled][title=\"Exit preview to act\"]": 1,
+					"[data-test=portal-action][data-action=buy][disabled][title=\"Exit preview to act\"]": 2,
+					"[data-test=portal-action][data-action=books][disabled]": 0,
+					"[data-test=dialog]": 0
+				},
+				"writes": []
+			}
+		}
+	]
+}

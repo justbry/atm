@@ -6,14 +6,28 @@ type PopoverProps = {
 	trigger: {
 		class: string;
 		"data-test": string;
+		/** The id the mockup's stylesheet addresses the button by (`#sw`, `#pb`, `#kview`, `#gb`). */
+		id?: string;
 		"aria-label"?: string;
-		"aria-haspopup"?: "listbox" | "dialog";
-		title?: string;
+		"aria-haspopup"?: "listbox" | "dialog" | "menu";
+		title?: string | undefined;
+		disabled?: boolean | undefined;
 	};
 	label: ComponentChildren;
 	alignRight?: boolean;
-	/** The panel's role and name, when the panel itself is the popup (the period dialog). */
-	panel?: { role: "dialog"; "aria-label": string };
+	/** The wrapper's class, which the stylesheet's narrow-width order and positions address (`tsw`, `tper`, `tva`,
+	 * `thb`). */
+	wrapperClass?: string;
+	/** The panel's class (`pop` by default, `menu` for a menu) and, when the stylesheet addresses it, its id. */
+	panelClass?: string;
+	panelId?: string;
+	/** The panel's role and name, when the panel itself is the popup (the period dialog, the View as list). */
+	panel?: {
+		role: "dialog" | "listbox";
+		"aria-label": string;
+		/** The ids of text inside the panel that is not part of what its role holds (the View as notes). */
+		"aria-describedby"?: string;
+	};
 	/** The id the open trigger's `aria-controls` names, when the popup sits inside the panel (the switcher's
 	 * listbox). */
 	controls?: string;
@@ -28,6 +42,9 @@ export function Popover({
 	trigger,
 	label,
 	alignRight = false,
+	wrapperClass,
+	panelClass = "pop",
+	panelId: panelIdentifier,
 	panel,
 	controls,
 	children,
@@ -35,7 +52,8 @@ export function Popover({
 	const [open, setOpen] = useState(false);
 	const wrapper = useRef<HTMLDivElement>(null);
 	const button = useRef<HTMLButtonElement>(null);
-	const panelId = useId();
+	const generatedId = useId();
+	const panelId = panelIdentifier ?? generatedId;
 	const close = (): void => {
 		setOpen(false);
 		button.current?.focus();
@@ -68,7 +86,7 @@ export function Popover({
 		};
 	}, [open]);
 	return (
-		<div class="pw" ref={wrapper}>
+		<div class={wrapperClass ? `pw ${wrapperClass}` : "pw"} ref={wrapper}>
 			<button
 				{...trigger}
 				type="button"
@@ -80,7 +98,11 @@ export function Popover({
 				{label}
 			</button>
 			{open && (
-				<div {...panel} id={panelId} class={alignRight ? "pop r on" : "pop on"}>
+				<div
+					{...panel}
+					id={panelId}
+					class={alignRight ? `${panelClass} r on` : `${panelClass} on`}
+				>
 					{children(close)}
 				</div>
 			)}

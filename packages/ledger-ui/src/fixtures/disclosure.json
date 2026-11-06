@@ -1,0 +1,3410 @@
+{
+	"source": "Orchestrator data (protocol §2). file: spec v2 'The disclosure file' (the B4 Uni defaults, buzz-school disclosure.v1.json), equal to the disclosure-v2 mockup's DISCLOSURE. Every school stores no override (the mockup sets no discO); Harbor Arts Academy is large for 2026 and the others small (mockup bkSize: the last closed year's income against largeFrom). viewer: the mockup's signed-in person (SC.<id>.R you:true) with audOf's audience and youSub's View as row. viewAs: the mockup's SUBS rows with vaAllowed, vaSummary and VW's books audience for Admin. views: worked out at the clock 2026-11-05 from the file with the mockup's (atm dev 742105b64) pAllow, pList, vaSummary, renderPP and whoTxt; locks in the v2 vocabulary (hidWho, lockPanel). Generated once by the S7 gate author; the UI reads it as given.",
+	"file": {
+		"version": 1,
+		"catalog": "school.v1",
+		"audiences": {
+			"public": {},
+			"member": {
+				"parent": "public"
+			},
+			"governance": {
+				"parent": "member"
+			},
+			"finance": {
+				"parent": "governance",
+				"fixed": true,
+				"identities": true
+			},
+			"owner": {
+				"parent": "finance",
+				"fixed": true,
+				"identities": true
+			}
+		},
+		"classes": {
+			"income": [
+				"gross_collected",
+				"revenue_by_kind",
+				"revenue_by_tier",
+				"net_income"
+			],
+			"losses": [
+				"refunds",
+				"disputes_lost",
+				"dispute_fees",
+				"stripe_fees",
+				"refund_rate",
+				"dispute_rate"
+			],
+			"cash": ["payouts", "closing_balance_usd", "credits_outstanding"],
+			"people": ["paying_members", "new_paying_members", "arpa"],
+			"activity": [
+				"payments_count",
+				"refunds_count",
+				"disputes_opened",
+				"credits_granted",
+				"credits_consumed",
+				"credits_expired",
+				"breakage_rate"
+			],
+			"personal": ["closing_balance_credits"]
+		},
+		"disclose": {
+			"income": {
+				"public": {
+					"detail": "categories",
+					"every": "year",
+					"after": "12 months"
+				},
+				"member": {
+					"detail": "categories",
+					"every": "quarter",
+					"after": "6 weeks"
+				},
+				"governance": {
+					"detail": "breakdown",
+					"every": "month"
+				}
+			},
+			"losses": {
+				"member": {
+					"detail": "total",
+					"every": "quarter",
+					"after": "6 weeks"
+				},
+				"governance": {
+					"detail": "breakdown",
+					"every": "month"
+				}
+			},
+			"cash": {
+				"governance": {
+					"detail": "categories",
+					"every": "month"
+				}
+			},
+			"people": {
+				"public": {
+					"detail": "total",
+					"every": "quarter"
+				},
+				"governance": {
+					"detail": "spread",
+					"every": "month"
+				}
+			},
+			"activity": {
+				"public": {
+					"detail": "categories",
+					"every": "month"
+				},
+				"governance": {
+					"detail": "breakdown",
+					"every": "month"
+				}
+			}
+		},
+		"rounding": {
+			"small": {
+				"public": 10000,
+				"member": 10000
+			},
+			"large": {
+				"public": 100000,
+				"member": 10000
+			},
+			"largeFrom": 10000000
+		},
+		"counts": {
+			"failingRoundTo": 10
+		}
+	},
+	"schools": {
+		"vol": {
+			"school": "vol",
+			"year": 2026,
+			"size": "small",
+			"override": {},
+			"viewer": {
+				"id": "u_kim",
+				"name": "Kim R.",
+				"role": "owner",
+				"financeGrant": false,
+				"audience": "owner",
+				"why": "Owner on the roster",
+				"audiences": ["public", "member", "governance", "finance", "owner"],
+				"viewAs": "owner"
+			},
+			"views": {
+				"public": {
+					"name": "Public",
+					"summary": "Sees years, categories, money rounded, after a delay. Cannot see losses, cash or rows.",
+					"live": false,
+					"identities": false,
+					"detail": "categories",
+					"grain": "year",
+					"delay": "12 months",
+					"roundTo": 10000,
+					"smallCounts": {
+						"fewerThan": 5,
+						"roundTo": 10,
+						"under": "<10"
+					},
+					"cellRules": "on",
+					"pin": false,
+					"sees": "Public sees years",
+					"periodNote": "Public: years only. One period for Dashboard, Reports, Ledger and Members.",
+					"customRangeNote": "Days show to finance admins and the owner. Public sees years.",
+					"presets": [
+						{
+							"label": "This month",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Public sees years"
+						},
+						{
+							"label": "Last month",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Public sees years"
+						},
+						{
+							"label": "This quarter",
+							"state": "hidden",
+							"reason": "members_only",
+							"title": "Members see this: Public sees years"
+						},
+						{
+							"label": "Last quarter",
+							"state": "hidden",
+							"reason": "members_only",
+							"title": "Members see this: Public sees years"
+						},
+						{
+							"label": "Last 3 months",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Public sees years"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2028"
+						},
+						{
+							"label": "Last year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"label": "Year to date",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Finance admins and the owner see this: Public sees years"
+						}
+					],
+					"periods": [
+						{
+							"period": "2024",
+							"label": "2024",
+							"from": "2024-01-01",
+							"to": "2024-12-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2025",
+							"label": "2025",
+							"from": "2025-01-01",
+							"to": "2025-12-31",
+							"state": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"period": "2026",
+							"label": "2026",
+							"from": "2026-01-01",
+							"to": "2026-12-31",
+							"state": "embargoed",
+							"title": "Published after 7 Jan 2028"
+						}
+					]
+				},
+				"member": {
+					"name": "Member",
+					"summary": "Sees quarters, categories, money rounded. Cannot see plans, funds or anyone's rows.",
+					"live": false,
+					"identities": false,
+					"detail": "categories",
+					"grain": "quarter",
+					"delay": "6 weeks",
+					"roundTo": 10000,
+					"smallCounts": {
+						"fewerThan": 5,
+						"roundTo": 10,
+						"under": "<10"
+					},
+					"cellRules": "on",
+					"pin": false,
+					"sees": "Members see quarters",
+					"periodNote": "Member: quarters only. One period for Dashboard, Reports, Ledger and Members.",
+					"customRangeNote": "Days show to finance admins and the owner. Members see quarters.",
+					"presets": [
+						{
+							"label": "This month",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Members see quarters"
+						},
+						{
+							"label": "Last month",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Members see quarters"
+						},
+						{
+							"label": "This quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Feb 2027"
+						},
+						{
+							"label": "Last quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Nov 2026"
+						},
+						{
+							"label": "Last 3 months",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Members see quarters"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Feb 2027"
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Year to date",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Finance admins and the owner see this: Members see quarters"
+						}
+					],
+					"periods": [
+						{
+							"period": "2025-Q1",
+							"label": "Q1 2025",
+							"from": "2025-01-01",
+							"to": "2025-03-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2025-Q2",
+							"label": "Q2 2025",
+							"from": "2025-04-01",
+							"to": "2025-06-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2025-Q3",
+							"label": "Q3 2025",
+							"from": "2025-07-01",
+							"to": "2025-09-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2025-Q4",
+							"label": "Q4 2025",
+							"from": "2025-10-01",
+							"to": "2025-12-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-Q1",
+							"label": "Q1 2026",
+							"from": "2026-01-01",
+							"to": "2026-03-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-Q2",
+							"label": "Q2 2026",
+							"from": "2026-04-01",
+							"to": "2026-06-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-Q3",
+							"label": "Q3 2026",
+							"from": "2026-07-01",
+							"to": "2026-09-30",
+							"state": "embargoed",
+							"title": "Published after 18 Nov 2026"
+						},
+						{
+							"period": "2026-Q4",
+							"label": "Q4 2026",
+							"from": "2026-10-01",
+							"to": "2026-12-31",
+							"state": "embargoed",
+							"title": "Published after 18 Feb 2027"
+						}
+					]
+				},
+				"governance": {
+					"name": "Governance",
+					"summary": "Sees months, plans, spread, exact. Cannot see names or per-person rows.",
+					"live": false,
+					"identities": false,
+					"detail": "spread",
+					"grain": "month",
+					"delay": null,
+					"roundTo": 0,
+					"smallCounts": {
+						"fewerThan": 5,
+						"roundTo": 10,
+						"under": "<10"
+					},
+					"cellRules": "breakdown and spread",
+					"pin": true,
+					"sees": "Governance sees months",
+					"periodNote": "Governance: months only. One period for Dashboard, Reports, Ledger and Members.",
+					"customRangeNote": "Days show to finance admins and the owner. Governance sees months.",
+					"presets": [
+						{
+							"label": "This month",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Dec 2026"
+						},
+						{
+							"label": "Last month",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Nov 2026"
+						},
+						{
+							"label": "This quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last 3 months",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Dec 2026"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Year to date",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Finance admins and the owner see this: Governance sees months"
+						}
+					],
+					"periods": [
+						{
+							"period": "2026-01",
+							"label": "Jan 2026",
+							"from": "2026-01-01",
+							"to": "2026-01-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-02",
+							"label": "Feb 2026",
+							"from": "2026-02-01",
+							"to": "2026-02-28",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-03",
+							"label": "Mar 2026",
+							"from": "2026-03-01",
+							"to": "2026-03-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-04",
+							"label": "Apr 2026",
+							"from": "2026-04-01",
+							"to": "2026-04-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-05",
+							"label": "May 2026",
+							"from": "2026-05-01",
+							"to": "2026-05-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-06",
+							"label": "Jun 2026",
+							"from": "2026-06-01",
+							"to": "2026-06-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-07",
+							"label": "Jul 2026",
+							"from": "2026-07-01",
+							"to": "2026-07-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-08",
+							"label": "Aug 2026",
+							"from": "2026-08-01",
+							"to": "2026-08-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-09",
+							"label": "Sep 2026",
+							"from": "2026-09-01",
+							"to": "2026-09-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-10",
+							"label": "Oct 2026",
+							"from": "2026-10-01",
+							"to": "2026-10-31",
+							"state": "embargoed",
+							"title": "Published after 7 Nov 2026"
+						},
+						{
+							"period": "2026-11",
+							"label": "Nov 2026",
+							"from": "2026-11-01",
+							"to": "2026-11-30",
+							"state": "embargoed",
+							"title": "Published after 7 Dec 2026"
+						},
+						{
+							"period": "2026-12",
+							"label": "Dec 2026",
+							"from": "2026-12-01",
+							"to": "2026-12-31",
+							"state": "future",
+							"title": "Not started yet"
+						}
+					]
+				},
+				"finance": {
+					"name": "Finance admin",
+					"summary": "Sees everything live, payer and donor names. Cannot see anonymous donors' names or change roles.",
+					"live": true,
+					"identities": true,
+					"detail": "names",
+					"grain": "day",
+					"delay": null,
+					"roundTo": 0,
+					"smallCounts": null,
+					"cellRules": "off",
+					"pin": true,
+					"sees": "Finance admins see months",
+					"periodNote": "Finance admin: months and days, live. One period for Dashboard, Reports, Ledger and Members.",
+					"customRangeNote": null,
+					"presets": [
+						{
+							"label": "This month",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last month",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last 3 months",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Year to date",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						}
+					],
+					"periods": []
+				},
+				"owner": {
+					"name": "Owner",
+					"summary": "Sees everything live, donor names, anonymous donors. Cannot be previewed by anyone but the owner.",
+					"live": true,
+					"identities": true,
+					"detail": "names",
+					"grain": "day",
+					"delay": null,
+					"roundTo": 0,
+					"smallCounts": null,
+					"cellRules": "off",
+					"pin": true,
+					"sees": "The owner sees months",
+					"periodNote": "Owner: months and days, live. One period for Dashboard, Reports, Ledger and Members.",
+					"customRangeNote": null,
+					"presets": [
+						{
+							"label": "This month",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last month",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last 3 months",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Year to date",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						}
+					],
+					"periods": []
+				}
+			},
+			"viewAs": [
+				{
+					"value": "owner",
+					"name": "Owner",
+					"summary": "Sees everything live, donor names, anonymous donors. Cannot be previewed by anyone but the owner.",
+					"held": true,
+					"audience": "owner",
+					"admin": true,
+					"locks": {}
+				},
+				{
+					"value": "finance",
+					"name": "Finance admin",
+					"summary": "Sees everything live, payer and donor names. Cannot see anonymous donors' names or change roles.",
+					"held": true,
+					"audience": "finance",
+					"admin": true,
+					"locks": {}
+				},
+				{
+					"value": "admin",
+					"name": "Admin",
+					"summary": "Sees roster, plans, bookings and balances. Cannot see money per person, the ledger or names.",
+					"held": true,
+					"audience": "member",
+					"admin": true,
+					"locks": {
+						"dashboard-plan": {
+							"reason": "no_grant",
+							"who": "Governance and up see this",
+							"when": "Governance sees breakdown by month"
+						},
+						"plans-revenue": {
+							"reason": "no_grant",
+							"who": "Finance or governance only",
+							"when": "Governance sees breakdown by month"
+						}
+					}
+				},
+				{
+					"value": "governance",
+					"name": "Governance",
+					"summary": "Sees months, plans, spread, exact. Cannot see names or per-person rows.",
+					"held": true,
+					"audience": "governance",
+					"admin": false,
+					"locks": {
+						"settings-books": {
+							"reason": "admins_only",
+							"who": "Owners and admins see school settings",
+							"when": "The School books table is the disclosure file; members and the public read the document their audience gets."
+						}
+					}
+				},
+				{
+					"value": "member",
+					"name": "Member",
+					"summary": "Sees quarters, categories, money rounded. Cannot see plans, funds or anyone's rows.",
+					"held": true,
+					"audience": "member",
+					"admin": false,
+					"locks": {
+						"dashboard-plan": {
+							"reason": "no_grant",
+							"who": "Governance and up see this",
+							"when": "Governance sees breakdown by month"
+						},
+						"plans-revenue": {
+							"reason": "no_grant",
+							"who": "Governance and up see this",
+							"when": "Governance sees breakdown by month"
+						},
+						"settings-books": {
+							"reason": "admins_only",
+							"who": "Owners and admins see school settings",
+							"when": "The School books table is the disclosure file; members and the public read the document their audience gets."
+						}
+					}
+				},
+				{
+					"value": "public",
+					"name": "Public",
+					"summary": "Sees years, categories, money rounded, after a delay. Cannot see losses, cash or rows.",
+					"held": true,
+					"audience": "public",
+					"admin": false,
+					"locks": {
+						"dashboard-plan": {
+							"reason": "no_grant",
+							"who": "Governance and up see this",
+							"when": "Governance sees breakdown by month"
+						},
+						"plans-revenue": {
+							"reason": "no_grant",
+							"who": "Governance and up see this",
+							"when": "Governance sees breakdown by month"
+						},
+						"settings-books": {
+							"reason": "admins_only",
+							"who": "Owners and admins see school settings",
+							"when": "The School books table is the disclosure file; members and the public read the document their audience gets."
+						}
+					}
+				}
+			]
+		},
+		"b4u": {
+			"school": "b4u",
+			"year": 2026,
+			"size": "small",
+			"override": {},
+			"viewer": {
+				"id": "u_jo",
+				"name": "Jo A.",
+				"role": "admin",
+				"financeGrant": true,
+				"audience": "finance",
+				"why": "Admin with the finance grant",
+				"audiences": ["public", "member", "governance", "finance"],
+				"viewAs": "finance"
+			},
+			"views": {
+				"public": {
+					"name": "Public",
+					"summary": "Sees years, categories, money rounded, after a delay. Cannot see losses, cash or rows.",
+					"live": false,
+					"identities": false,
+					"detail": "categories",
+					"grain": "year",
+					"delay": "12 months",
+					"roundTo": 10000,
+					"smallCounts": {
+						"fewerThan": 5,
+						"roundTo": 10,
+						"under": "<10"
+					},
+					"cellRules": "on",
+					"pin": false,
+					"sees": "Public sees years",
+					"periodNote": "Public: years only. One period for Dashboard, Reports, Ledger and Members.",
+					"customRangeNote": "Days show to finance admins and the owner. Public sees years.",
+					"presets": [
+						{
+							"label": "This month",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Public sees years"
+						},
+						{
+							"label": "Last month",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Public sees years"
+						},
+						{
+							"label": "This quarter",
+							"state": "hidden",
+							"reason": "members_only",
+							"title": "Members see this: Public sees years"
+						},
+						{
+							"label": "Last quarter",
+							"state": "hidden",
+							"reason": "members_only",
+							"title": "Members see this: Public sees years"
+						},
+						{
+							"label": "Last 3 months",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Public sees years"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2028"
+						},
+						{
+							"label": "Last year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"label": "Year to date",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Finance admins and the owner see this: Public sees years"
+						}
+					],
+					"periods": [
+						{
+							"period": "2024",
+							"label": "2024",
+							"from": "2024-01-01",
+							"to": "2024-12-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2025",
+							"label": "2025",
+							"from": "2025-01-01",
+							"to": "2025-12-31",
+							"state": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"period": "2026",
+							"label": "2026",
+							"from": "2026-01-01",
+							"to": "2026-12-31",
+							"state": "embargoed",
+							"title": "Published after 7 Jan 2028"
+						}
+					]
+				},
+				"member": {
+					"name": "Member",
+					"summary": "Sees quarters, categories, money rounded. Cannot see plans, funds or anyone's rows.",
+					"live": false,
+					"identities": false,
+					"detail": "categories",
+					"grain": "quarter",
+					"delay": "6 weeks",
+					"roundTo": 10000,
+					"smallCounts": {
+						"fewerThan": 5,
+						"roundTo": 10,
+						"under": "<10"
+					},
+					"cellRules": "on",
+					"pin": false,
+					"sees": "Members see quarters",
+					"periodNote": "Member: quarters only. One period for Dashboard, Reports, Ledger and Members.",
+					"customRangeNote": "Days show to finance admins and the owner. Members see quarters.",
+					"presets": [
+						{
+							"label": "This month",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Members see quarters"
+						},
+						{
+							"label": "Last month",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Members see quarters"
+						},
+						{
+							"label": "This quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Feb 2027"
+						},
+						{
+							"label": "Last quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Nov 2026"
+						},
+						{
+							"label": "Last 3 months",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Members see quarters"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Feb 2027"
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Year to date",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Finance admins and the owner see this: Members see quarters"
+						}
+					],
+					"periods": [
+						{
+							"period": "2025-Q1",
+							"label": "Q1 2025",
+							"from": "2025-01-01",
+							"to": "2025-03-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2025-Q2",
+							"label": "Q2 2025",
+							"from": "2025-04-01",
+							"to": "2025-06-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2025-Q3",
+							"label": "Q3 2025",
+							"from": "2025-07-01",
+							"to": "2025-09-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2025-Q4",
+							"label": "Q4 2025",
+							"from": "2025-10-01",
+							"to": "2025-12-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-Q1",
+							"label": "Q1 2026",
+							"from": "2026-01-01",
+							"to": "2026-03-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-Q2",
+							"label": "Q2 2026",
+							"from": "2026-04-01",
+							"to": "2026-06-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-Q3",
+							"label": "Q3 2026",
+							"from": "2026-07-01",
+							"to": "2026-09-30",
+							"state": "embargoed",
+							"title": "Published after 18 Nov 2026"
+						},
+						{
+							"period": "2026-Q4",
+							"label": "Q4 2026",
+							"from": "2026-10-01",
+							"to": "2026-12-31",
+							"state": "embargoed",
+							"title": "Published after 18 Feb 2027"
+						}
+					]
+				},
+				"governance": {
+					"name": "Governance",
+					"summary": "Sees months, plans, spread, exact. Cannot see names or per-person rows.",
+					"live": false,
+					"identities": false,
+					"detail": "spread",
+					"grain": "month",
+					"delay": null,
+					"roundTo": 0,
+					"smallCounts": {
+						"fewerThan": 5,
+						"roundTo": 10,
+						"under": "<10"
+					},
+					"cellRules": "breakdown and spread",
+					"pin": true,
+					"sees": "Governance sees months",
+					"periodNote": "Governance: months only. One period for Dashboard, Reports, Ledger and Members.",
+					"customRangeNote": "Days show to finance admins and the owner. Governance sees months.",
+					"presets": [
+						{
+							"label": "This month",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Dec 2026"
+						},
+						{
+							"label": "Last month",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Nov 2026"
+						},
+						{
+							"label": "This quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last 3 months",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Dec 2026"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Year to date",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Finance admins and the owner see this: Governance sees months"
+						}
+					],
+					"periods": [
+						{
+							"period": "2026-01",
+							"label": "Jan 2026",
+							"from": "2026-01-01",
+							"to": "2026-01-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-02",
+							"label": "Feb 2026",
+							"from": "2026-02-01",
+							"to": "2026-02-28",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-03",
+							"label": "Mar 2026",
+							"from": "2026-03-01",
+							"to": "2026-03-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-04",
+							"label": "Apr 2026",
+							"from": "2026-04-01",
+							"to": "2026-04-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-05",
+							"label": "May 2026",
+							"from": "2026-05-01",
+							"to": "2026-05-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-06",
+							"label": "Jun 2026",
+							"from": "2026-06-01",
+							"to": "2026-06-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-07",
+							"label": "Jul 2026",
+							"from": "2026-07-01",
+							"to": "2026-07-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-08",
+							"label": "Aug 2026",
+							"from": "2026-08-01",
+							"to": "2026-08-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-09",
+							"label": "Sep 2026",
+							"from": "2026-09-01",
+							"to": "2026-09-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-10",
+							"label": "Oct 2026",
+							"from": "2026-10-01",
+							"to": "2026-10-31",
+							"state": "embargoed",
+							"title": "Published after 7 Nov 2026"
+						},
+						{
+							"period": "2026-11",
+							"label": "Nov 2026",
+							"from": "2026-11-01",
+							"to": "2026-11-30",
+							"state": "embargoed",
+							"title": "Published after 7 Dec 2026"
+						},
+						{
+							"period": "2026-12",
+							"label": "Dec 2026",
+							"from": "2026-12-01",
+							"to": "2026-12-31",
+							"state": "future",
+							"title": "Not started yet"
+						}
+					]
+				},
+				"finance": {
+					"name": "Finance admin",
+					"summary": "Sees everything live, payer and donor names. Cannot see anonymous donors' names or change roles.",
+					"live": true,
+					"identities": true,
+					"detail": "names",
+					"grain": "day",
+					"delay": null,
+					"roundTo": 0,
+					"smallCounts": null,
+					"cellRules": "off",
+					"pin": true,
+					"sees": "Finance admins see months",
+					"periodNote": "Finance admin: months and days, live. One period for Dashboard, Reports, Ledger and Members.",
+					"customRangeNote": null,
+					"presets": [
+						{
+							"label": "This month",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last month",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last 3 months",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Year to date",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						}
+					],
+					"periods": []
+				},
+				"owner": {
+					"name": "Owner",
+					"summary": "Sees everything live, donor names, anonymous donors. Cannot be previewed by anyone but the owner.",
+					"live": true,
+					"identities": true,
+					"detail": "names",
+					"grain": "day",
+					"delay": null,
+					"roundTo": 0,
+					"smallCounts": null,
+					"cellRules": "off",
+					"pin": true,
+					"sees": "The owner sees months",
+					"periodNote": "Owner: months and days, live. One period for Dashboard, Reports, Ledger and Members.",
+					"customRangeNote": null,
+					"presets": [
+						{
+							"label": "This month",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last month",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last 3 months",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Year to date",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						}
+					],
+					"periods": []
+				}
+			},
+			"viewAs": [
+				{
+					"value": "owner",
+					"name": "Owner",
+					"summary": "Sees everything live, donor names, anonymous donors. Cannot be previewed by anyone but the owner.",
+					"held": false,
+					"audience": "owner",
+					"admin": true,
+					"locks": {}
+				},
+				{
+					"value": "finance",
+					"name": "Finance admin",
+					"summary": "Sees everything live, payer and donor names. Cannot see anonymous donors' names or change roles.",
+					"held": true,
+					"audience": "finance",
+					"admin": true,
+					"locks": {}
+				},
+				{
+					"value": "admin",
+					"name": "Admin",
+					"summary": "Sees roster, plans, bookings and balances. Cannot see money per person, the ledger or names.",
+					"held": true,
+					"audience": "member",
+					"admin": true,
+					"locks": {
+						"dashboard-plan": {
+							"reason": "no_grant",
+							"who": "Governance and up see this",
+							"when": "Governance sees breakdown by month"
+						},
+						"plans-revenue": {
+							"reason": "no_grant",
+							"who": "Finance or governance only",
+							"when": "Governance sees breakdown by month"
+						}
+					}
+				},
+				{
+					"value": "governance",
+					"name": "Governance",
+					"summary": "Sees months, plans, spread, exact. Cannot see names or per-person rows.",
+					"held": true,
+					"audience": "governance",
+					"admin": false,
+					"locks": {
+						"settings-books": {
+							"reason": "admins_only",
+							"who": "Owners and admins see school settings",
+							"when": "The School books table is the disclosure file; members and the public read the document their audience gets."
+						}
+					}
+				},
+				{
+					"value": "member",
+					"name": "Member",
+					"summary": "Sees quarters, categories, money rounded. Cannot see plans, funds or anyone's rows.",
+					"held": true,
+					"audience": "member",
+					"admin": false,
+					"locks": {
+						"dashboard-plan": {
+							"reason": "no_grant",
+							"who": "Governance and up see this",
+							"when": "Governance sees breakdown by month"
+						},
+						"plans-revenue": {
+							"reason": "no_grant",
+							"who": "Governance and up see this",
+							"when": "Governance sees breakdown by month"
+						},
+						"settings-books": {
+							"reason": "admins_only",
+							"who": "Owners and admins see school settings",
+							"when": "The School books table is the disclosure file; members and the public read the document their audience gets."
+						}
+					}
+				},
+				{
+					"value": "public",
+					"name": "Public",
+					"summary": "Sees years, categories, money rounded, after a delay. Cannot see losses, cash or rows.",
+					"held": true,
+					"audience": "public",
+					"admin": false,
+					"locks": {
+						"dashboard-plan": {
+							"reason": "no_grant",
+							"who": "Governance and up see this",
+							"when": "Governance sees breakdown by month"
+						},
+						"plans-revenue": {
+							"reason": "no_grant",
+							"who": "Governance and up see this",
+							"when": "Governance sees breakdown by month"
+						},
+						"settings-books": {
+							"reason": "admins_only",
+							"who": "Owners and admins see school settings",
+							"when": "The School books table is the disclosure file; members and the public read the document their audience gets."
+						}
+					}
+				}
+			]
+		},
+		"map": {
+			"school": "map",
+			"year": 2026,
+			"size": "small",
+			"override": {},
+			"viewer": {
+				"id": "u_noo",
+				"name": "Noor A.",
+				"role": "owner",
+				"financeGrant": false,
+				"audience": "owner",
+				"why": "Owner on the roster",
+				"audiences": ["public", "member", "governance", "finance", "owner"],
+				"viewAs": "owner"
+			},
+			"views": {
+				"public": {
+					"name": "Public",
+					"summary": "Sees years, categories, money rounded, after a delay. Cannot see losses, cash or rows.",
+					"live": false,
+					"identities": false,
+					"detail": "categories",
+					"grain": "year",
+					"delay": "12 months",
+					"roundTo": 10000,
+					"smallCounts": {
+						"fewerThan": 5,
+						"roundTo": 10,
+						"under": "<10"
+					},
+					"cellRules": "on",
+					"pin": false,
+					"sees": "Public sees years",
+					"periodNote": "Public: years only. One period for Dashboard, Reports, Ledger and Members.",
+					"customRangeNote": "Days show to finance admins and the owner. Public sees years.",
+					"presets": [
+						{
+							"label": "This month",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Public sees years"
+						},
+						{
+							"label": "Last month",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Public sees years"
+						},
+						{
+							"label": "This quarter",
+							"state": "hidden",
+							"reason": "members_only",
+							"title": "Members see this: Public sees years"
+						},
+						{
+							"label": "Last quarter",
+							"state": "hidden",
+							"reason": "members_only",
+							"title": "Members see this: Public sees years"
+						},
+						{
+							"label": "Last 3 months",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Public sees years"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2028"
+						},
+						{
+							"label": "Last year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"label": "Year to date",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Finance admins and the owner see this: Public sees years"
+						}
+					],
+					"periods": [
+						{
+							"period": "2024",
+							"label": "2024",
+							"from": "2024-01-01",
+							"to": "2024-12-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2025",
+							"label": "2025",
+							"from": "2025-01-01",
+							"to": "2025-12-31",
+							"state": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"period": "2026",
+							"label": "2026",
+							"from": "2026-01-01",
+							"to": "2026-12-31",
+							"state": "embargoed",
+							"title": "Published after 7 Jan 2028"
+						}
+					]
+				},
+				"member": {
+					"name": "Member",
+					"summary": "Sees quarters, categories, money rounded. Cannot see plans, funds or anyone's rows.",
+					"live": false,
+					"identities": false,
+					"detail": "categories",
+					"grain": "quarter",
+					"delay": "6 weeks",
+					"roundTo": 10000,
+					"smallCounts": {
+						"fewerThan": 5,
+						"roundTo": 10,
+						"under": "<10"
+					},
+					"cellRules": "on",
+					"pin": false,
+					"sees": "Members see quarters",
+					"periodNote": "Member: quarters only. One period for Dashboard, Reports, Ledger and Members.",
+					"customRangeNote": "Days show to finance admins and the owner. Members see quarters.",
+					"presets": [
+						{
+							"label": "This month",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Members see quarters"
+						},
+						{
+							"label": "Last month",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Members see quarters"
+						},
+						{
+							"label": "This quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Feb 2027"
+						},
+						{
+							"label": "Last quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Nov 2026"
+						},
+						{
+							"label": "Last 3 months",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Members see quarters"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Feb 2027"
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Year to date",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Finance admins and the owner see this: Members see quarters"
+						}
+					],
+					"periods": [
+						{
+							"period": "2025-Q1",
+							"label": "Q1 2025",
+							"from": "2025-01-01",
+							"to": "2025-03-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2025-Q2",
+							"label": "Q2 2025",
+							"from": "2025-04-01",
+							"to": "2025-06-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2025-Q3",
+							"label": "Q3 2025",
+							"from": "2025-07-01",
+							"to": "2025-09-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2025-Q4",
+							"label": "Q4 2025",
+							"from": "2025-10-01",
+							"to": "2025-12-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-Q1",
+							"label": "Q1 2026",
+							"from": "2026-01-01",
+							"to": "2026-03-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-Q2",
+							"label": "Q2 2026",
+							"from": "2026-04-01",
+							"to": "2026-06-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-Q3",
+							"label": "Q3 2026",
+							"from": "2026-07-01",
+							"to": "2026-09-30",
+							"state": "embargoed",
+							"title": "Published after 18 Nov 2026"
+						},
+						{
+							"period": "2026-Q4",
+							"label": "Q4 2026",
+							"from": "2026-10-01",
+							"to": "2026-12-31",
+							"state": "embargoed",
+							"title": "Published after 18 Feb 2027"
+						}
+					]
+				},
+				"governance": {
+					"name": "Governance",
+					"summary": "Sees months, plans, spread, exact. Cannot see names or per-person rows.",
+					"live": false,
+					"identities": false,
+					"detail": "spread",
+					"grain": "month",
+					"delay": null,
+					"roundTo": 0,
+					"smallCounts": {
+						"fewerThan": 5,
+						"roundTo": 10,
+						"under": "<10"
+					},
+					"cellRules": "breakdown and spread",
+					"pin": true,
+					"sees": "Governance sees months",
+					"periodNote": "Governance: months only. One period for Dashboard, Reports, Ledger and Members.",
+					"customRangeNote": "Days show to finance admins and the owner. Governance sees months.",
+					"presets": [
+						{
+							"label": "This month",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Dec 2026"
+						},
+						{
+							"label": "Last month",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Nov 2026"
+						},
+						{
+							"label": "This quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last 3 months",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Dec 2026"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Year to date",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Finance admins and the owner see this: Governance sees months"
+						}
+					],
+					"periods": [
+						{
+							"period": "2026-01",
+							"label": "Jan 2026",
+							"from": "2026-01-01",
+							"to": "2026-01-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-02",
+							"label": "Feb 2026",
+							"from": "2026-02-01",
+							"to": "2026-02-28",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-03",
+							"label": "Mar 2026",
+							"from": "2026-03-01",
+							"to": "2026-03-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-04",
+							"label": "Apr 2026",
+							"from": "2026-04-01",
+							"to": "2026-04-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-05",
+							"label": "May 2026",
+							"from": "2026-05-01",
+							"to": "2026-05-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-06",
+							"label": "Jun 2026",
+							"from": "2026-06-01",
+							"to": "2026-06-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-07",
+							"label": "Jul 2026",
+							"from": "2026-07-01",
+							"to": "2026-07-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-08",
+							"label": "Aug 2026",
+							"from": "2026-08-01",
+							"to": "2026-08-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-09",
+							"label": "Sep 2026",
+							"from": "2026-09-01",
+							"to": "2026-09-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-10",
+							"label": "Oct 2026",
+							"from": "2026-10-01",
+							"to": "2026-10-31",
+							"state": "embargoed",
+							"title": "Published after 7 Nov 2026"
+						},
+						{
+							"period": "2026-11",
+							"label": "Nov 2026",
+							"from": "2026-11-01",
+							"to": "2026-11-30",
+							"state": "embargoed",
+							"title": "Published after 7 Dec 2026"
+						},
+						{
+							"period": "2026-12",
+							"label": "Dec 2026",
+							"from": "2026-12-01",
+							"to": "2026-12-31",
+							"state": "future",
+							"title": "Not started yet"
+						}
+					]
+				},
+				"finance": {
+					"name": "Finance admin",
+					"summary": "Sees everything live, payer and donor names. Cannot see anonymous donors' names or change roles.",
+					"live": true,
+					"identities": true,
+					"detail": "names",
+					"grain": "day",
+					"delay": null,
+					"roundTo": 0,
+					"smallCounts": null,
+					"cellRules": "off",
+					"pin": true,
+					"sees": "Finance admins see months",
+					"periodNote": "Finance admin: months and days, live. One period for Dashboard, Reports, Ledger and Members.",
+					"customRangeNote": null,
+					"presets": [
+						{
+							"label": "This month",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last month",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last 3 months",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Year to date",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						}
+					],
+					"periods": []
+				},
+				"owner": {
+					"name": "Owner",
+					"summary": "Sees everything live, donor names, anonymous donors. Cannot be previewed by anyone but the owner.",
+					"live": true,
+					"identities": true,
+					"detail": "names",
+					"grain": "day",
+					"delay": null,
+					"roundTo": 0,
+					"smallCounts": null,
+					"cellRules": "off",
+					"pin": true,
+					"sees": "The owner sees months",
+					"periodNote": "Owner: months and days, live. One period for Dashboard, Reports, Ledger and Members.",
+					"customRangeNote": null,
+					"presets": [
+						{
+							"label": "This month",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last month",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last 3 months",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Year to date",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						}
+					],
+					"periods": []
+				}
+			},
+			"viewAs": [
+				{
+					"value": "owner",
+					"name": "Owner",
+					"summary": "Sees everything live, donor names, anonymous donors. Cannot be previewed by anyone but the owner.",
+					"held": true,
+					"audience": "owner",
+					"admin": true,
+					"locks": {}
+				},
+				{
+					"value": "finance",
+					"name": "Finance admin",
+					"summary": "Sees everything live, payer and donor names. Cannot see anonymous donors' names or change roles.",
+					"held": true,
+					"audience": "finance",
+					"admin": true,
+					"locks": {}
+				},
+				{
+					"value": "admin",
+					"name": "Admin",
+					"summary": "Sees roster, plans, bookings and balances. Cannot see money per person, the ledger or names.",
+					"held": true,
+					"audience": "member",
+					"admin": true,
+					"locks": {
+						"dashboard-plan": {
+							"reason": "no_grant",
+							"who": "Governance and up see this",
+							"when": "Governance sees breakdown by month"
+						},
+						"plans-revenue": {
+							"reason": "no_grant",
+							"who": "Finance or governance only",
+							"when": "Governance sees breakdown by month"
+						}
+					}
+				},
+				{
+					"value": "governance",
+					"name": "Governance",
+					"summary": "Sees months, plans, spread, exact. Cannot see names or per-person rows.",
+					"held": true,
+					"audience": "governance",
+					"admin": false,
+					"locks": {
+						"settings-books": {
+							"reason": "admins_only",
+							"who": "Owners and admins see school settings",
+							"when": "The School books table is the disclosure file; members and the public read the document their audience gets."
+						}
+					}
+				},
+				{
+					"value": "member",
+					"name": "Member",
+					"summary": "Sees quarters, categories, money rounded. Cannot see plans, funds or anyone's rows.",
+					"held": true,
+					"audience": "member",
+					"admin": false,
+					"locks": {
+						"dashboard-plan": {
+							"reason": "no_grant",
+							"who": "Governance and up see this",
+							"when": "Governance sees breakdown by month"
+						},
+						"plans-revenue": {
+							"reason": "no_grant",
+							"who": "Governance and up see this",
+							"when": "Governance sees breakdown by month"
+						},
+						"settings-books": {
+							"reason": "admins_only",
+							"who": "Owners and admins see school settings",
+							"when": "The School books table is the disclosure file; members and the public read the document their audience gets."
+						}
+					}
+				},
+				{
+					"value": "public",
+					"name": "Public",
+					"summary": "Sees years, categories, money rounded, after a delay. Cannot see losses, cash or rows.",
+					"held": true,
+					"audience": "public",
+					"admin": false,
+					"locks": {
+						"dashboard-plan": {
+							"reason": "no_grant",
+							"who": "Governance and up see this",
+							"when": "Governance sees breakdown by month"
+						},
+						"plans-revenue": {
+							"reason": "no_grant",
+							"who": "Governance and up see this",
+							"when": "Governance sees breakdown by month"
+						},
+						"settings-books": {
+							"reason": "admins_only",
+							"who": "Owners and admins see school settings",
+							"when": "The School books table is the disclosure file; members and the public read the document their audience gets."
+						}
+					}
+				}
+			]
+		},
+		"nw": {
+			"school": "nw",
+			"year": 2026,
+			"size": "small",
+			"override": {},
+			"viewer": {
+				"id": "u_len",
+				"name": "Lena V.",
+				"role": "owner",
+				"financeGrant": false,
+				"audience": "owner",
+				"why": "Owner on the roster",
+				"audiences": ["public", "member", "governance", "finance", "owner"],
+				"viewAs": "owner"
+			},
+			"views": {
+				"public": {
+					"name": "Public",
+					"summary": "Sees years, categories, money rounded, after a delay. Cannot see losses, cash or rows.",
+					"live": false,
+					"identities": false,
+					"detail": "categories",
+					"grain": "year",
+					"delay": "12 months",
+					"roundTo": 10000,
+					"smallCounts": {
+						"fewerThan": 5,
+						"roundTo": 10,
+						"under": "<10"
+					},
+					"cellRules": "on",
+					"pin": false,
+					"sees": "Public sees years",
+					"periodNote": "Public: years only. One period for Dashboard, Reports, Ledger and Members.",
+					"customRangeNote": "Days show to finance admins and the owner. Public sees years.",
+					"presets": [
+						{
+							"label": "This month",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Public sees years"
+						},
+						{
+							"label": "Last month",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Public sees years"
+						},
+						{
+							"label": "This quarter",
+							"state": "hidden",
+							"reason": "members_only",
+							"title": "Members see this: Public sees years"
+						},
+						{
+							"label": "Last quarter",
+							"state": "hidden",
+							"reason": "members_only",
+							"title": "Members see this: Public sees years"
+						},
+						{
+							"label": "Last 3 months",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Public sees years"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2028"
+						},
+						{
+							"label": "Last year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"label": "Year to date",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Finance admins and the owner see this: Public sees years"
+						}
+					],
+					"periods": [
+						{
+							"period": "2024",
+							"label": "2024",
+							"from": "2024-01-01",
+							"to": "2024-12-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2025",
+							"label": "2025",
+							"from": "2025-01-01",
+							"to": "2025-12-31",
+							"state": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"period": "2026",
+							"label": "2026",
+							"from": "2026-01-01",
+							"to": "2026-12-31",
+							"state": "embargoed",
+							"title": "Published after 7 Jan 2028"
+						}
+					]
+				},
+				"member": {
+					"name": "Member",
+					"summary": "Sees quarters, categories, money rounded. Cannot see plans, funds or anyone's rows.",
+					"live": false,
+					"identities": false,
+					"detail": "categories",
+					"grain": "quarter",
+					"delay": "6 weeks",
+					"roundTo": 10000,
+					"smallCounts": {
+						"fewerThan": 5,
+						"roundTo": 10,
+						"under": "<10"
+					},
+					"cellRules": "on",
+					"pin": false,
+					"sees": "Members see quarters",
+					"periodNote": "Member: quarters only. One period for Dashboard, Reports, Ledger and Members.",
+					"customRangeNote": "Days show to finance admins and the owner. Members see quarters.",
+					"presets": [
+						{
+							"label": "This month",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Members see quarters"
+						},
+						{
+							"label": "Last month",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Members see quarters"
+						},
+						{
+							"label": "This quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Feb 2027"
+						},
+						{
+							"label": "Last quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Nov 2026"
+						},
+						{
+							"label": "Last 3 months",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Members see quarters"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Feb 2027"
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Year to date",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Finance admins and the owner see this: Members see quarters"
+						}
+					],
+					"periods": [
+						{
+							"period": "2025-Q1",
+							"label": "Q1 2025",
+							"from": "2025-01-01",
+							"to": "2025-03-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2025-Q2",
+							"label": "Q2 2025",
+							"from": "2025-04-01",
+							"to": "2025-06-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2025-Q3",
+							"label": "Q3 2025",
+							"from": "2025-07-01",
+							"to": "2025-09-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2025-Q4",
+							"label": "Q4 2025",
+							"from": "2025-10-01",
+							"to": "2025-12-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-Q1",
+							"label": "Q1 2026",
+							"from": "2026-01-01",
+							"to": "2026-03-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-Q2",
+							"label": "Q2 2026",
+							"from": "2026-04-01",
+							"to": "2026-06-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-Q3",
+							"label": "Q3 2026",
+							"from": "2026-07-01",
+							"to": "2026-09-30",
+							"state": "embargoed",
+							"title": "Published after 18 Nov 2026"
+						},
+						{
+							"period": "2026-Q4",
+							"label": "Q4 2026",
+							"from": "2026-10-01",
+							"to": "2026-12-31",
+							"state": "embargoed",
+							"title": "Published after 18 Feb 2027"
+						}
+					]
+				},
+				"governance": {
+					"name": "Governance",
+					"summary": "Sees months, plans, spread, exact. Cannot see names or per-person rows.",
+					"live": false,
+					"identities": false,
+					"detail": "spread",
+					"grain": "month",
+					"delay": null,
+					"roundTo": 0,
+					"smallCounts": {
+						"fewerThan": 5,
+						"roundTo": 10,
+						"under": "<10"
+					},
+					"cellRules": "breakdown and spread",
+					"pin": true,
+					"sees": "Governance sees months",
+					"periodNote": "Governance: months only. One period for Dashboard, Reports, Ledger and Members.",
+					"customRangeNote": "Days show to finance admins and the owner. Governance sees months.",
+					"presets": [
+						{
+							"label": "This month",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Dec 2026"
+						},
+						{
+							"label": "Last month",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Nov 2026"
+						},
+						{
+							"label": "This quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last 3 months",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Dec 2026"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Year to date",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Finance admins and the owner see this: Governance sees months"
+						}
+					],
+					"periods": [
+						{
+							"period": "2026-01",
+							"label": "Jan 2026",
+							"from": "2026-01-01",
+							"to": "2026-01-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-02",
+							"label": "Feb 2026",
+							"from": "2026-02-01",
+							"to": "2026-02-28",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-03",
+							"label": "Mar 2026",
+							"from": "2026-03-01",
+							"to": "2026-03-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-04",
+							"label": "Apr 2026",
+							"from": "2026-04-01",
+							"to": "2026-04-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-05",
+							"label": "May 2026",
+							"from": "2026-05-01",
+							"to": "2026-05-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-06",
+							"label": "Jun 2026",
+							"from": "2026-06-01",
+							"to": "2026-06-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-07",
+							"label": "Jul 2026",
+							"from": "2026-07-01",
+							"to": "2026-07-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-08",
+							"label": "Aug 2026",
+							"from": "2026-08-01",
+							"to": "2026-08-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-09",
+							"label": "Sep 2026",
+							"from": "2026-09-01",
+							"to": "2026-09-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-10",
+							"label": "Oct 2026",
+							"from": "2026-10-01",
+							"to": "2026-10-31",
+							"state": "embargoed",
+							"title": "Published after 7 Nov 2026"
+						},
+						{
+							"period": "2026-11",
+							"label": "Nov 2026",
+							"from": "2026-11-01",
+							"to": "2026-11-30",
+							"state": "embargoed",
+							"title": "Published after 7 Dec 2026"
+						},
+						{
+							"period": "2026-12",
+							"label": "Dec 2026",
+							"from": "2026-12-01",
+							"to": "2026-12-31",
+							"state": "future",
+							"title": "Not started yet"
+						}
+					]
+				},
+				"finance": {
+					"name": "Finance admin",
+					"summary": "Sees everything live, payer and donor names. Cannot see anonymous donors' names or change roles.",
+					"live": true,
+					"identities": true,
+					"detail": "names",
+					"grain": "day",
+					"delay": null,
+					"roundTo": 0,
+					"smallCounts": null,
+					"cellRules": "off",
+					"pin": true,
+					"sees": "Finance admins see months",
+					"periodNote": "Finance admin: months and days, live. One period for Dashboard, Reports, Ledger and Members.",
+					"customRangeNote": null,
+					"presets": [
+						{
+							"label": "This month",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last month",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last 3 months",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Year to date",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						}
+					],
+					"periods": []
+				},
+				"owner": {
+					"name": "Owner",
+					"summary": "Sees everything live, donor names, anonymous donors. Cannot be previewed by anyone but the owner.",
+					"live": true,
+					"identities": true,
+					"detail": "names",
+					"grain": "day",
+					"delay": null,
+					"roundTo": 0,
+					"smallCounts": null,
+					"cellRules": "off",
+					"pin": true,
+					"sees": "The owner sees months",
+					"periodNote": "Owner: months and days, live. One period for Dashboard, Reports, Ledger and Members.",
+					"customRangeNote": null,
+					"presets": [
+						{
+							"label": "This month",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last month",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last 3 months",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Year to date",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						}
+					],
+					"periods": []
+				}
+			},
+			"viewAs": [
+				{
+					"value": "owner",
+					"name": "Owner",
+					"summary": "Sees everything live, donor names, anonymous donors. Cannot be previewed by anyone but the owner.",
+					"held": true,
+					"audience": "owner",
+					"admin": true,
+					"locks": {}
+				},
+				{
+					"value": "finance",
+					"name": "Finance admin",
+					"summary": "Sees everything live, payer and donor names. Cannot see anonymous donors' names or change roles.",
+					"held": true,
+					"audience": "finance",
+					"admin": true,
+					"locks": {}
+				},
+				{
+					"value": "admin",
+					"name": "Admin",
+					"summary": "Sees roster, plans, bookings and balances. Cannot see money per person, the ledger or names.",
+					"held": true,
+					"audience": "member",
+					"admin": true,
+					"locks": {
+						"dashboard-plan": {
+							"reason": "no_grant",
+							"who": "Governance and up see this",
+							"when": "Governance sees breakdown by month"
+						},
+						"plans-revenue": {
+							"reason": "no_grant",
+							"who": "Finance or governance only",
+							"when": "Governance sees breakdown by month"
+						}
+					}
+				},
+				{
+					"value": "governance",
+					"name": "Governance",
+					"summary": "Sees months, plans, spread, exact. Cannot see names or per-person rows.",
+					"held": true,
+					"audience": "governance",
+					"admin": false,
+					"locks": {
+						"settings-books": {
+							"reason": "admins_only",
+							"who": "Owners and admins see school settings",
+							"when": "The School books table is the disclosure file; members and the public read the document their audience gets."
+						}
+					}
+				},
+				{
+					"value": "member",
+					"name": "Member",
+					"summary": "Sees quarters, categories, money rounded. Cannot see plans, funds or anyone's rows.",
+					"held": true,
+					"audience": "member",
+					"admin": false,
+					"locks": {
+						"dashboard-plan": {
+							"reason": "no_grant",
+							"who": "Governance and up see this",
+							"when": "Governance sees breakdown by month"
+						},
+						"plans-revenue": {
+							"reason": "no_grant",
+							"who": "Governance and up see this",
+							"when": "Governance sees breakdown by month"
+						},
+						"settings-books": {
+							"reason": "admins_only",
+							"who": "Owners and admins see school settings",
+							"when": "The School books table is the disclosure file; members and the public read the document their audience gets."
+						}
+					}
+				},
+				{
+					"value": "public",
+					"name": "Public",
+					"summary": "Sees years, categories, money rounded, after a delay. Cannot see losses, cash or rows.",
+					"held": true,
+					"audience": "public",
+					"admin": false,
+					"locks": {
+						"dashboard-plan": {
+							"reason": "no_grant",
+							"who": "Governance and up see this",
+							"when": "Governance sees breakdown by month"
+						},
+						"plans-revenue": {
+							"reason": "no_grant",
+							"who": "Governance and up see this",
+							"when": "Governance sees breakdown by month"
+						},
+						"settings-books": {
+							"reason": "admins_only",
+							"who": "Owners and admins see school settings",
+							"when": "The School books table is the disclosure file; members and the public read the document their audience gets."
+						}
+					}
+				}
+			]
+		},
+		"har": {
+			"school": "har",
+			"year": 2026,
+			"size": "large",
+			"override": {},
+			"viewer": {
+				"id": "h_31",
+				"name": "Rosa T.",
+				"role": "admin",
+				"financeGrant": false,
+				"audience": "member",
+				"why": "Adult with a live Studio membership: that tier names Member. An admin without the finance grant gets audiences like anyone else.",
+				"audiences": ["public", "member"],
+				"viewAs": "admin"
+			},
+			"views": {
+				"public": {
+					"name": "Public",
+					"summary": "Sees years, categories, money rounded, after a delay. Cannot see losses, cash or rows.",
+					"live": false,
+					"identities": false,
+					"detail": "categories",
+					"grain": "year",
+					"delay": "12 months",
+					"roundTo": 100000,
+					"smallCounts": {
+						"fewerThan": 5,
+						"roundTo": 10,
+						"under": "<10"
+					},
+					"cellRules": "on",
+					"pin": false,
+					"sees": "Public sees years",
+					"periodNote": "Public: years only. One period for Dashboard, Reports, Ledger and Members.",
+					"customRangeNote": "Days show to finance admins and the owner. Public sees years.",
+					"presets": [
+						{
+							"label": "This month",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Public sees years"
+						},
+						{
+							"label": "Last month",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Public sees years"
+						},
+						{
+							"label": "This quarter",
+							"state": "hidden",
+							"reason": "members_only",
+							"title": "Members see this: Public sees years"
+						},
+						{
+							"label": "Last quarter",
+							"state": "hidden",
+							"reason": "members_only",
+							"title": "Members see this: Public sees years"
+						},
+						{
+							"label": "Last 3 months",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Public sees years"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2028"
+						},
+						{
+							"label": "Last year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"label": "Year to date",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Finance admins and the owner see this: Public sees years"
+						}
+					],
+					"periods": [
+						{
+							"period": "2024",
+							"label": "2024",
+							"from": "2024-01-01",
+							"to": "2024-12-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2025",
+							"label": "2025",
+							"from": "2025-01-01",
+							"to": "2025-12-31",
+							"state": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"period": "2026",
+							"label": "2026",
+							"from": "2026-01-01",
+							"to": "2026-12-31",
+							"state": "embargoed",
+							"title": "Published after 7 Jan 2028"
+						}
+					]
+				},
+				"member": {
+					"name": "Member",
+					"summary": "Sees quarters, categories, money rounded. Cannot see plans, funds or anyone's rows.",
+					"live": false,
+					"identities": false,
+					"detail": "categories",
+					"grain": "quarter",
+					"delay": "6 weeks",
+					"roundTo": 10000,
+					"smallCounts": {
+						"fewerThan": 5,
+						"roundTo": 10,
+						"under": "<10"
+					},
+					"cellRules": "on",
+					"pin": false,
+					"sees": "Members see quarters",
+					"periodNote": "Member: quarters only. One period for Dashboard, Reports, Ledger and Members.",
+					"customRangeNote": "Days show to finance admins and the owner. Members see quarters.",
+					"presets": [
+						{
+							"label": "This month",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Members see quarters"
+						},
+						{
+							"label": "Last month",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Members see quarters"
+						},
+						{
+							"label": "This quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Feb 2027"
+						},
+						{
+							"label": "Last quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Nov 2026"
+						},
+						{
+							"label": "Last 3 months",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Governance and up see this: Members see quarters"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Feb 2027"
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Year to date",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Finance admins and the owner see this: Members see quarters"
+						}
+					],
+					"periods": [
+						{
+							"period": "2025-Q1",
+							"label": "Q1 2025",
+							"from": "2025-01-01",
+							"to": "2025-03-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2025-Q2",
+							"label": "Q2 2025",
+							"from": "2025-04-01",
+							"to": "2025-06-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2025-Q3",
+							"label": "Q3 2025",
+							"from": "2025-07-01",
+							"to": "2025-09-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2025-Q4",
+							"label": "Q4 2025",
+							"from": "2025-10-01",
+							"to": "2025-12-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-Q1",
+							"label": "Q1 2026",
+							"from": "2026-01-01",
+							"to": "2026-03-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-Q2",
+							"label": "Q2 2026",
+							"from": "2026-04-01",
+							"to": "2026-06-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-Q3",
+							"label": "Q3 2026",
+							"from": "2026-07-01",
+							"to": "2026-09-30",
+							"state": "embargoed",
+							"title": "Published after 18 Nov 2026"
+						},
+						{
+							"period": "2026-Q4",
+							"label": "Q4 2026",
+							"from": "2026-10-01",
+							"to": "2026-12-31",
+							"state": "embargoed",
+							"title": "Published after 18 Feb 2027"
+						}
+					]
+				},
+				"governance": {
+					"name": "Governance",
+					"summary": "Sees months, plans, spread, exact. Cannot see names or per-person rows.",
+					"live": false,
+					"identities": false,
+					"detail": "spread",
+					"grain": "month",
+					"delay": null,
+					"roundTo": 0,
+					"smallCounts": {
+						"fewerThan": 5,
+						"roundTo": 10,
+						"under": "<10"
+					},
+					"cellRules": "breakdown and spread",
+					"pin": true,
+					"sees": "Governance sees months",
+					"periodNote": "Governance: months only. One period for Dashboard, Reports, Ledger and Members.",
+					"customRangeNote": "Days show to finance admins and the owner. Governance sees months.",
+					"presets": [
+						{
+							"label": "This month",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Dec 2026"
+						},
+						{
+							"label": "Last month",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Nov 2026"
+						},
+						{
+							"label": "This quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last 3 months",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Dec 2026"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Year to date",
+							"state": "hidden",
+							"reason": "no_grant",
+							"title": "Finance admins and the owner see this: Governance sees months"
+						}
+					],
+					"periods": [
+						{
+							"period": "2026-01",
+							"label": "Jan 2026",
+							"from": "2026-01-01",
+							"to": "2026-01-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-02",
+							"label": "Feb 2026",
+							"from": "2026-02-01",
+							"to": "2026-02-28",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-03",
+							"label": "Mar 2026",
+							"from": "2026-03-01",
+							"to": "2026-03-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-04",
+							"label": "Apr 2026",
+							"from": "2026-04-01",
+							"to": "2026-04-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-05",
+							"label": "May 2026",
+							"from": "2026-05-01",
+							"to": "2026-05-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-06",
+							"label": "Jun 2026",
+							"from": "2026-06-01",
+							"to": "2026-06-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-07",
+							"label": "Jul 2026",
+							"from": "2026-07-01",
+							"to": "2026-07-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-08",
+							"label": "Aug 2026",
+							"from": "2026-08-01",
+							"to": "2026-08-31",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-09",
+							"label": "Sep 2026",
+							"from": "2026-09-01",
+							"to": "2026-09-30",
+							"state": "shown",
+							"title": null
+						},
+						{
+							"period": "2026-10",
+							"label": "Oct 2026",
+							"from": "2026-10-01",
+							"to": "2026-10-31",
+							"state": "embargoed",
+							"title": "Published after 7 Nov 2026"
+						},
+						{
+							"period": "2026-11",
+							"label": "Nov 2026",
+							"from": "2026-11-01",
+							"to": "2026-11-30",
+							"state": "embargoed",
+							"title": "Published after 7 Dec 2026"
+						},
+						{
+							"period": "2026-12",
+							"label": "Dec 2026",
+							"from": "2026-12-01",
+							"to": "2026-12-31",
+							"state": "future",
+							"title": "Not started yet"
+						}
+					]
+				},
+				"finance": {
+					"name": "Finance admin",
+					"summary": "Sees everything live, payer and donor names. Cannot see anonymous donors' names or change roles.",
+					"live": true,
+					"identities": true,
+					"detail": "names",
+					"grain": "day",
+					"delay": null,
+					"roundTo": 0,
+					"smallCounts": null,
+					"cellRules": "off",
+					"pin": true,
+					"sees": "Finance admins see months",
+					"periodNote": "Finance admin: months and days, live. One period for Dashboard, Reports, Ledger and Members.",
+					"customRangeNote": null,
+					"presets": [
+						{
+							"label": "This month",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last month",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last 3 months",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Year to date",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						}
+					],
+					"periods": []
+				},
+				"owner": {
+					"name": "Owner",
+					"summary": "Sees everything live, donor names, anonymous donors. Cannot be previewed by anyone but the owner.",
+					"live": true,
+					"identities": true,
+					"detail": "names",
+					"grain": "day",
+					"delay": null,
+					"roundTo": 0,
+					"smallCounts": null,
+					"cellRules": "off",
+					"pin": true,
+					"sees": "The owner sees months",
+					"periodNote": "Owner: months and days, live. One period for Dashboard, Reports, Ledger and Members.",
+					"customRangeNote": null,
+					"presets": [
+						{
+							"label": "This month",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last month",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last 3 months",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Year to date",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						}
+					],
+					"periods": []
+				}
+			},
+			"viewAs": [
+				{
+					"value": "owner",
+					"name": "Owner",
+					"summary": "Sees everything live, donor names, anonymous donors. Cannot be previewed by anyone but the owner.",
+					"held": false,
+					"audience": "owner",
+					"admin": true,
+					"locks": {}
+				},
+				{
+					"value": "finance",
+					"name": "Finance admin",
+					"summary": "Sees everything live, payer and donor names. Cannot see anonymous donors' names or change roles.",
+					"held": false,
+					"audience": "finance",
+					"admin": true,
+					"locks": {}
+				},
+				{
+					"value": "admin",
+					"name": "Admin",
+					"summary": "Sees roster, plans, bookings and balances. Cannot see money per person, the ledger or names.",
+					"held": true,
+					"audience": "member",
+					"admin": true,
+					"locks": {
+						"dashboard-plan": {
+							"reason": "no_grant",
+							"who": "Governance and up see this",
+							"when": "Governance sees breakdown by month"
+						},
+						"plans-revenue": {
+							"reason": "no_grant",
+							"who": "Finance or governance only",
+							"when": "Governance sees breakdown by month"
+						}
+					}
+				},
+				{
+					"value": "governance",
+					"name": "Governance",
+					"summary": "Sees months, plans, spread, exact. Cannot see names or per-person rows.",
+					"held": false,
+					"audience": "governance",
+					"admin": false,
+					"locks": {
+						"settings-books": {
+							"reason": "admins_only",
+							"who": "Owners and admins see school settings",
+							"when": "The School books table is the disclosure file; members and the public read the document their audience gets."
+						}
+					}
+				},
+				{
+					"value": "member",
+					"name": "Member",
+					"summary": "Sees quarters, categories, money rounded. Cannot see plans, funds or anyone's rows.",
+					"held": true,
+					"audience": "member",
+					"admin": false,
+					"locks": {
+						"dashboard-plan": {
+							"reason": "no_grant",
+							"who": "Governance and up see this",
+							"when": "Governance sees breakdown by month"
+						},
+						"plans-revenue": {
+							"reason": "no_grant",
+							"who": "Governance and up see this",
+							"when": "Governance sees breakdown by month"
+						},
+						"settings-books": {
+							"reason": "admins_only",
+							"who": "Owners and admins see school settings",
+							"when": "The School books table is the disclosure file; members and the public read the document their audience gets."
+						}
+					}
+				},
+				{
+					"value": "public",
+					"name": "Public",
+					"summary": "Sees years, categories, money rounded, after a delay. Cannot see losses, cash or rows.",
+					"held": true,
+					"audience": "public",
+					"admin": false,
+					"locks": {
+						"dashboard-plan": {
+							"reason": "no_grant",
+							"who": "Governance and up see this",
+							"when": "Governance sees breakdown by month"
+						},
+						"plans-revenue": {
+							"reason": "no_grant",
+							"who": "Governance and up see this",
+							"when": "Governance sees breakdown by month"
+						},
+						"settings-books": {
+							"reason": "admins_only",
+							"who": "Owners and admins see school settings",
+							"when": "The School books table is the disclosure file; members and the public read the document their audience gets."
+						}
+					}
+				}
+			]
+		}
+	}
+}

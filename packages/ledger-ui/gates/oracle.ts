@@ -1,19 +1,35 @@
 /**
- * The KPI oracle (protocol §4, §5 C3, §11b): the KPI document for one preset, books level and PIN state, computed
- * from atm's own export rows, the mart bundle (`contrib`, `tiers`, `params.currency`) and `cell-rules` v3 (which also
- * carries the mockup's invented fixtures: earlier years, the daily split, B4 Uni's donors). Pure: no I/O, no clock
- * reads. `scripts/import-mart.ts` writes its output as the fixtures; `test/consistency.test.ts` recomputes it.
+ * The KPI oracle (protocol §4, §5 C3; disclosure spec v2): the KPI document for one school, data source, audience and
+ * PIN state, with every rule taken from the disclosure object of `src/data/disclosure.ts` (the B4 Uni file and the
+ * school's override, `kpiRule`, `classRule`, the rounding by audience and school size, the small-count rounding): no
+ * second rule table. It ports the frozen mockup's `bkFig`, `pAllow`, `pList`, `bkCaption`, `bkDist`, `bkFundHtml`,
+ * `bkRules`, `bkYearLine` and `bkDays` (atm dev 742105b64), the lockup: the cell rules count the period's paying members
+ * (the most in one month of it) as the mockup's `bkFig` does, and a plan's payers as its share of gross over the
+ * average per paying member (`dashFull`); a donor bucket or fund counts its gifts. Pure: no I/O, no clock reads.
  */
+import {
+	type Audience,
+	audienceNames,
+	audiences,
+	classRule,
+	type DetailStep,
+	type DisclosureFile,
+	type DisclosureGrain,
+	detailSteps,
+	disclosureGrains,
+	type KpiClass,
+	kpiClassNames,
+	kpiRule,
+	type SchoolSize,
+} from "../src/data/disclosure.ts";
 import type {
-	BooksLevel,
 	Cell,
-	Grain,
-	HiddenKind,
+	DocumentPeriod,
 	KpiDocument,
 	KpiFormat,
 	KpiMeta,
-	LagClass,
-	PeriodInfo,
+	KpiTable,
+	TableGrain,
 } from "../src/data/kpi-document.ts";
 
 export type KpiRow = {
@@ -22,7 +38,7 @@ export type KpiRow = {
 	unit: string;
 	value: number;
 };
-/** `[distinct holders, largest holder's share]` for one period, or null when the mart has none. */
+/** `[distinct holders, largest holder's share]` for one month, or null when the mart has none. */
 export type ContribEntry = [number, number] | null;
 /** One preset of `M/bundle.json`; arrays are indexed like `periods`. */
 export type PresetBundle = {
@@ -31,116 +47,57 @@ export type PresetBundle = {
 	contrib: Record<string, ContribEntry[] | undefined>;
 	tiers: Record<string, number[]>;
 };
-type Kind = "amount" | "count" | "rate";
-type Policy = "contrib" | "self" | "derived" | "blocked" | "distribution";
-type Step = "G1" | "G2" | "G3" | "G4";
-type KpiRule = {
-	kind: Kind;
-	policy: Policy;
-	step: Step;
-	lag: LagClass;
-	contrib?: string;
-	format?: KpiFormat;
-	inputs?: string[];
-	denominator?: string;
-	rateOf?: "amount" | "count";
-	aggregate?: "max" | "not_computed";
-};
-type LevelRule = {
+export type Gift = { amount: number; date: string; fund: string };
+/** One school of `gates/mockup-schools.json` (the mockup's kpiSeries for a school without fixture data). */
+export type MockupSchool = {
 	name: string;
-	steps: "G2" | "G4" | "G6";
-	grain: "year" | "quarter" | "month" | "month and day";
-	years: number[];
-	delay: { closeDays: number; money: number; usage: number } | null;
-	roundTo: number;
-	cellRules: "all" | "G3 and G4" | "off";
-	pin: boolean;
-	openPeriod: "never" | "shown";
+	currency: string;
+	series: Record<string, number[]>;
+	tiers: Record<string, number[]>;
+	kinds: Record<string, number[]>;
+	donors: Gift[];
+	days: number[][];
 };
-type Gift = { amount: number; date: string; fund: string };
-/** The parts of `cell-rules.v3.json` the oracle reads. */
-export type CellRules = {
-	rule: { minContributors: number; maxShare: number };
-	levels: Record<BooksLevel, LevelRule>;
-	kpis: Record<string, KpiRule>;
-	notComputed: Record<string, string>;
-	complementary: Array<{ total: string; terms: string }>;
-	captions: Record<
-		| "aggregate"
-		| "aggregateNone"
-		| "governance"
-		| "next"
-		| "full"
-		| "ownerOnly",
-		string
-	>;
-	waiting: Record<
-		"title" | "when" | "public.money" | "public.usage" | "member",
-		string
-	>;
-	reasons: {
-		fewer: string;
-		share: string;
-		complementary: string;
-		derived: string;
-	};
-	invented: {
-		years: { scale: Record<string, number> };
-		donors: {
-			buckets: Array<{ id: string; title: string; below: number | null }>;
-			funds: Array<{ id: string; title: string }>;
-			gifts: Gift[];
-		};
-	};
+type Dimension = { id: string; title: string };
+/** Twelve months of the year's figures, as the document is built from them. */
+export type MonthlySource = {
+	kind: "mart" | "events";
+	/** 12 values per KPI id (null: no row). */
+	values: Record<string, Array<number | null>>;
+	tiers: Dimension[];
+	kinds: Dimension[];
+	funds: Dimension[];
+	donors: Gift[];
+	/** Gross per day of each month (events); null: split the month's gross by the mockup's weights. */
+	days: number[][] | null;
+	/** A scaled school (the mockup's Harbor Arts Academy), not atm's figures. */
+	invented: boolean;
 };
 export type KpiDocumentInput = {
-	rows: readonly KpiRow[];
-	bundle: PresetBundle;
-	rules: CellRules;
-	preset: string;
-	level: BooksLevel;
+	school: string;
+	size: SchoolSize;
+	/** The effective disclosure file (`applyOverride(file, override)`). */
+	file: DisclosureFile;
+	audience: Audience;
 	pinLocked: boolean;
+	currency: string;
+	preset: string | null;
+	source: MonthlySource;
 	clock: { today: string; now: string };
 };
 
-/** A cell before its hidden kinds are resolved: every reason it is hidden, why if suppressed, its value if any. */
-type Draft = {
-	hidden: Set<HiddenKind>;
-	why: string | undefined;
-	value: number | undefined;
-};
-/** One month of a period: the 2026 month whose rows it reads, and the factor of an invented year. */
-type SourceMonth = { month: string; factor: number };
-type Period = {
-	period: string;
-	label: string;
-	invented: boolean;
-	end: string;
-	months: SourceMonth[];
-	containsClock: boolean;
-};
-
-const precedence: readonly HiddenKind[] = [
-	"blocked",
-	"not_yet",
-	"locked",
-	"not_computed",
-	"suppressed",
-];
-const stepRank: Record<string, number> = {
-	G1: 1,
-	G2: 2,
-	G3: 3,
-	G4: 4,
-	G5: 5,
-	G6: 6,
-};
-/** atm's ratio precision for refund, dispute and breakage rates (`kpis/school.v1.json`). */
+/** Spec v4's cell rules (disclosure spec v2 "Cell rules"); the small-count unit is the file's `counts`. */
+const minContributors = 5;
+/** The year table's sum of the year's four rounded quarters (mockup bkYearLine's note), beside the year's own total. */
+export const roundedQuartersKpi = "gross_collected_rounded_quarters";
+const maxShare = 0.6;
 const ratioPrecision = 4;
-const schoolName = "Before University";
-const timeZone = "America/Denver";
 const kpiSpecVersion = "school.v1";
-const lagMinutes = 2;
+/** The mockup's earlier years (`BK_SCALE`): invented from the year's months so Public and Member have something to
+ * show. */
+const yearScale: Record<number, number> = { 2024: 0.58, 2025: 0.82 };
+/** The mockup's Harbor Arts Academy: B4 Uni's fixtures times 40 for money and 10 for counts (`SC.har.kpi`). */
+export const largeSchoolScale = { money: 40, count: 10, donors: 20 };
 const monthNames = [
 	"Jan",
 	"Feb",
@@ -155,54 +112,357 @@ const monthNames = [
 	"Nov",
 	"Dec",
 ];
-/** atm's KPI titles (`packages/atm/kpis/school.v1.json`) and the invented donor KPIs. */
-const titles: Record<string, string> = {
-	gross_collected: "Gross collected",
-	stripe_fees: "Stripe fees",
-	payouts: "Payouts",
-	refunds: "Refunds",
-	refunds_count: "Refunds issued",
-	disputes_lost: "Disputes lost",
-	dispute_fees: "Dispute fees",
-	disputes_opened: "Disputes opened",
-	paying_members: "Paying members",
-	payments_count: "Payments",
-	new_paying_members: "New paying members",
-	credits_granted: "Credits granted",
-	credits_consumed: "Credits consumed",
-	credits_expired: "Credits expired",
-	net_income: "Net income",
-	arpa: "Gross collected per paying member",
-	refund_rate: "Refund rate",
-	dispute_rate: "Dispute rate",
-	breakage_rate: "Breakage rate",
-	credits_outstanding: "Credits outstanding",
-	donors_count: "Donors",
-	donors_median_gift: "Median gift",
+
+type Kind = "money" | "count" | "rate";
+type Catalog = {
+	title: string;
+	kind: Kind;
+	/** The KPI whose disclosure rule it follows (a dimension's catalog id, or the donors' class proxies). */
+	ruleOf: string;
+	/** The detail the figure needs (mockup bkFig `need`). */
+	need?: DetailStep;
+	inputs?: string[];
+};
+/** atm's catalog facts the documents need, with the mockup's labels (its `KPI` table). */
+const catalog: Record<string, Catalog> = {
+	gross_collected: {
+		title: "Gross collected",
+		kind: "money",
+		ruleOf: "gross_collected",
+	},
+	"revenue_by_kind:*": {
+		title: "Income by kind",
+		kind: "money",
+		ruleOf: "revenue_by_kind",
+		need: "categories",
+	},
+	"revenue_by_tier:*": {
+		title: "Income by plan",
+		kind: "money",
+		ruleOf: "revenue_by_tier",
+		need: "breakdown",
+	},
+	net_income: {
+		title: "Net income",
+		kind: "money",
+		ruleOf: "net_income",
+		inputs: [
+			"gross_collected",
+			"refunds",
+			"stripe_fees",
+			"disputes_lost",
+			"dispute_fees",
+		],
+	},
+	refunds: {
+		title: "Refunds",
+		kind: "money",
+		ruleOf: "refunds",
+	},
+	disputes_lost: {
+		title: "Disputes lost",
+		kind: "money",
+		ruleOf: "disputes_lost",
+	},
+	dispute_fees: {
+		title: "Dispute fees",
+		kind: "money",
+		ruleOf: "dispute_fees",
+	},
+	/** The mockup's Dispute cost card: one figure, lost plus fees, under the disputes_lost rule. */
+	dispute_cost: {
+		title: "Dispute cost",
+		kind: "money",
+		ruleOf: "disputes_lost",
+		inputs: ["disputes_lost", "dispute_fees"],
+	},
+	stripe_fees: {
+		title: "Payment fees",
+		kind: "money",
+		ruleOf: "stripe_fees",
+	},
+	refund_rate: {
+		title: "Refund rate",
+		kind: "rate",
+		ruleOf: "refund_rate",
+		inputs: ["refunds", "gross_collected"],
+	},
+	dispute_rate: {
+		title: "Dispute rate",
+		kind: "rate",
+		ruleOf: "dispute_rate",
+		inputs: ["disputes_opened", "payments_count"],
+	},
+	payouts: {
+		title: "Paid out",
+		kind: "money",
+		ruleOf: "payouts",
+	},
+	paying_members: {
+		title: "Paying members",
+		kind: "count",
+		ruleOf: "paying_members",
+	},
+	new_paying_members: {
+		title: "New paying",
+		kind: "count",
+		ruleOf: "new_paying_members",
+	},
+	arpa: {
+		title: "Avg per paying member",
+		kind: "money",
+		ruleOf: "arpa",
+		inputs: ["gross_collected", "paying_members"],
+	},
+	payments_count: {
+		title: "Payments",
+		kind: "count",
+		ruleOf: "payments_count",
+	},
+	refunds_count: {
+		title: "Refunds made",
+		kind: "count",
+		ruleOf: "refunds_count",
+	},
+	disputes_opened: {
+		title: "Disputes opened",
+		kind: "count",
+		ruleOf: "disputes_opened",
+	},
+	credits_granted: {
+		title: "Granted",
+		kind: "count",
+		ruleOf: "credits_granted",
+	},
+	credits_consumed: {
+		title: "Used",
+		kind: "count",
+		ruleOf: "credits_consumed",
+	},
+	credits_expired: {
+		title: "Expired",
+		kind: "count",
+		ruleOf: "credits_expired",
+	},
+	breakage_rate: {
+		title: "Breakage rate",
+		kind: "rate",
+		ruleOf: "breakage_rate",
+		inputs: ["credits_expired", "credits_granted"],
+	},
+	"donations_by_fund:*": {
+		title: "Donations by fund",
+		kind: "money",
+		ruleOf: "revenue_by_tier",
+		need: "breakdown",
+	},
+	donors_count: {
+		title: "Donors",
+		kind: "count",
+		ruleOf: "paying_members",
+		need: "spread",
+	},
+	"donors_by_size:*": {
+		title: "Donors by gift",
+		kind: "count",
+		ruleOf: "paying_members",
+		need: "spread",
+	},
+	donors_median_gift: {
+		title: "Median gift",
+		kind: "money",
+		ruleOf: "paying_members",
+		need: "spread",
+	},
+};
+/** The mockup's donor buckets (`bkBuckets`), in cents. */
+const donorBuckets: Array<Dimension & { below: number | null }> = [
+	{ id: "under-100", title: "under $100", below: 10000 },
+	{ id: "100-999", title: "$100 to $999", below: 100000 },
+	{ id: "1000-plus", title: "$1,000 or more", below: null },
+];
+/** The mockup's series keys (`kpiSeries`) and their KPI ids. */
+const mockupKeys: Record<string, string> = {
+	g: "gross_collected",
+	r: "refunds",
+	f: "stripe_fees",
+	n: "net_income",
+	po: "payouts",
+	pm: "paying_members",
+	np: "new_paying_members",
+	cg: "credits_granted",
+	cc: "credits_consumed",
+	ce: "credits_expired",
+	dn: "disputes_opened",
+	dl: "disputes_lost",
+	df: "dispute_fees",
+	pc: "payments_count",
+	rc: "refunds_count",
+};
+const kindTitles: Record<string, string> = {
+	membership: "Memberships",
+	booking: "Bookings and events",
+	discount: "Discounts given",
+};
+const reasons = {
+	fewer: (noun: string) => `fewer than ${minContributors} ${noun}`,
+	share: (noun: string) =>
+		`one ${noun.replace(/s$/, "")} is over ${maxShare * 100}%`,
+	hiddenPair: "hidden so the cell beside it can't be worked out from the total",
+	roundedPair:
+		"rounded so the cell beside it can't be worked out from the total",
 };
 
-// ---- Dates (UTC calendar arithmetic on ISO dates; no clock reads)
+const slug = (text: string): string =>
+	text
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-|-$/g, "");
+const capitalized = (text: string): string =>
+	`${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+const fundsOf = (gifts: Gift[]): Dimension[] =>
+	[...new Set(gifts.map((gift) => gift.fund))].map((fund) => ({
+		id: slug(fund),
+		title: fund,
+	}));
+const monthsOfYear = (year: number): string[] =>
+	monthNames.map((_, index) => `${year}-${String(index + 1).padStart(2, "0")}`);
+
+/** The mart presets' plan order as the mockup shows it (its embedded `t:{Scholar,Fellow,Seminar,Audit}`, atm's
+ * scenario order before canonicalize sorted the bundle's keys). */
+const martTierOrder = ["scholar", "fellow", "seminar", "audit"];
+const martTierRank = (tier: string): number => {
+	const rank = martTierOrder.indexOf(tier);
+	return rank === -1 ? martTierOrder.length : rank;
+};
+
+/** B4 Uni's (or a scaled school's) figures from atm's export rows and the mart bundle. */
+export function martSource(
+	rows: readonly KpiRow[],
+	bundle: PresetBundle,
+	year: number,
+	donors: Gift[],
+	scale: { money: number; count: number } | null,
+): MonthlySource {
+	const months = monthsOfYear(year);
+	const value = new Map(rows.map((row) => [`${row.kpiId}@${row.period}`, row]));
+	const scaled = (row: KpiRow | undefined): number | null => {
+		if (!row) return null;
+		if (!scale) return row.value;
+		return row.value * (row.unit === "cents" ? scale.money : scale.count);
+	};
+	const ids = [
+		...new Set(
+			rows
+				.map((row) => row.kpiId)
+				.filter(
+					(id) =>
+						id in catalog ||
+						id.startsWith("revenue_by_tier:") ||
+						id.startsWith("revenue_by_kind:"),
+				),
+		),
+	];
+	const values: MonthlySource["values"] = {};
+	for (const id of ids)
+		values[id] = months.map((month) => scaled(value.get(`${id}@${month}`)));
+	return {
+		kind: "mart",
+		values,
+		tiers: Object.keys(bundle.tiers)
+			.sort(
+				(first, second) =>
+					martTierRank(first) - martTierRank(second) ||
+					first.localeCompare(second),
+			)
+			.map((tier) => ({
+				id: tier,
+				title: capitalized(tier),
+			})),
+		kinds: ids
+			.filter((id) => id.startsWith("revenue_by_kind:"))
+			.map((id) => {
+				const kind = id.slice("revenue_by_kind:".length);
+				return { id: kind, title: kindTitles[kind] ?? capitalized(kind) };
+			}),
+		funds: fundsOf(donors),
+		donors,
+		days: null,
+		invented: scale !== null,
+	};
+}
+
+/** A school whose figures come from its events: the mockup's own kpiSeries (`gates/mockup-schools.json`). */
+export function eventsSource(school: MockupSchool): MonthlySource {
+	const values: MonthlySource["values"] = {};
+	for (const [key, id] of Object.entries(mockupKeys))
+		values[id] = (school.series[key] ?? []).map((value) => value);
+	const tiers = Object.keys(school.tiers).map((name) => ({
+		id: slug(name),
+		title: name,
+	}));
+	for (const [name, monthly] of Object.entries(school.tiers))
+		values[`revenue_by_tier:${slug(name)}`] = [...monthly];
+	const kindIds: Record<string, string> = {
+		Memberships: "membership",
+		"Bookings and events": "booking",
+		"Discounts given": "discount",
+	};
+	const kinds = Object.keys(school.kinds).map((name) => ({
+		id: kindIds[name] ?? slug(name),
+		title: name,
+	}));
+	for (const [name, monthly] of Object.entries(school.kinds))
+		values[`revenue_by_kind:${kindIds[name] ?? slug(name)}`] = [...monthly];
+	return {
+		kind: "events",
+		values,
+		tiers,
+		kinds,
+		funds: fundsOf(school.donors),
+		donors: school.donors,
+		days: school.days,
+		invented: false,
+	};
+}
+
+// ---- Dates (UTC calendar arithmetic on ISO dates, as the mockup's addDays, addMonths, eom)
 const isoOf = (time: number): string =>
 	new Date(time).toISOString().slice(0, 10);
-const lastDay = (year: number, monthIndex: number): string =>
-	isoOf(Date.UTC(year, monthIndex + 1, 0));
-const daysIn = (year: number, monthIndex: number): number =>
-	new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+const endOfMonth = (iso: string): string => {
+	const [year = 0, month = 1] = iso.split("-").map(Number);
+	return isoOf(Date.UTC(year, month, 0));
+};
 const addDays = (iso: string, days: number): string =>
 	isoOf(Date.parse(`${iso}T00:00:00Z`) + days * 86_400_000);
 const addMonths = (iso: string, months: number): string => {
 	const [year = 0, month = 1, day = 1] = iso.split("-").map(Number);
-	return isoOf(Date.UTC(year, month - 1 + months, day));
+	const target = Date.UTC(year, month - 1 + months, 1);
+	const last = new Date(Date.UTC(year, month + months, 0)).getUTCDate();
+	const shifted = new Date(target);
+	shifted.setUTCDate(Math.min(day, last));
+	return isoOf(shifted.getTime());
 };
-const monthYearLabel = (iso: string): string =>
-	`${monthNames[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`;
-const monthDayLabel = (iso: string): string =>
-	`${monthNames[Number(iso.slice(5, 7)) - 1]} ${Number(iso.slice(8, 10))}`;
+const addAfter = (iso: string, after: string | null): string => {
+	if (!after) return iso;
+	const [count = "0", unit = ""] = after.split(" ");
+	if (unit.startsWith("month")) return addMonths(iso, Number(count));
+	if (unit.startsWith("week")) return addDays(iso, 7 * Number(count));
+	return addDays(iso, Number(count));
+};
+/** A period closes 7 days after its last month ends (spec "Closed months"). */
+const closeOf = (to: string): string => addDays(endOfMonth(to), 7);
+const longDate = (iso: string): string =>
+	`${Number(iso.slice(8, 10))} ${monthNames[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`;
 
-/** atm's `roundedRatio` (`packages/atm/src/scenario/kpis.ts`): half up, away from zero, on integers. */
-const roundedRatio = (numerator: number, denominator: number): number => {
+/** atm's `roundedRatio`: half up, away from zero, on integers; 0 when the denominator is 0 (atm and the mockup). */
+const ratio = (numerator: number, denominator: number): number => {
+	if (denominator === 0) return 0;
 	if (!Number.isInteger(numerator) || !Number.isInteger(denominator))
-		throw new Error(`ratio of non-integers ${numerator}/${denominator}`);
+		return (
+			Math.round((numerator / denominator) * 10 ** ratioPrecision) /
+			10 ** ratioPrecision
+		);
 	const scale = 10n ** BigInt(ratioPrecision);
 	const scaled = BigInt(numerator) * scale;
 	const divisor = BigInt(denominator);
@@ -212,729 +472,823 @@ const roundedRatio = (numerator: number, denominator: number): number => {
 		(2n * absolute(scaled) + absolute(divisor)) / (2n * absolute(divisor));
 	return Number(negative ? -quotient : quotient) / Number(scale);
 };
-const capitalized = (text: string): string =>
-	`${text.charAt(0).toUpperCase()}${text.slice(1)}`;
-const formatMoney0 = (cents: number, currency: string): string =>
-	new Intl.NumberFormat("en-US", {
-		style: "currency",
-		currency: currency.toUpperCase(),
-		minimumFractionDigits: 0,
-		maximumFractionDigits: 0,
-	}).format(cents / 100);
+const noNegativeZero = (value: number): number => (value === 0 ? 0 : value);
 
-/** Everything the oracle knows about the books level (cell-rules v3 `levels`). The rest of the oracle reads only
- * this. */
-type LevelPolicy = {
-	rule: LevelRule;
-	grain: Grain;
-	hasDays: boolean;
-	/** The KPI's step is within the level's ceiling. */
-	shows: (rule: KpiRule) => boolean;
-	/** The cell rule applies to the KPI's step. */
-	ruled: (step: Step) => boolean;
-	/** The PIN-locked variant locks the KPI. */
-	locks: (rule: KpiRule) => boolean;
-	showsOpen: boolean;
-	pinLocked: boolean;
+const grainRank = (grain: string): number =>
+	disclosureGrains.indexOf(grain as DisclosureGrain);
+const detailRank = (detail: string): number =>
+	detailSteps.indexOf(detail as DetailStep);
+
+type Period = {
+	period: string;
+	label: string;
+	from: string;
+	to: string;
+	grain: TableGrain;
+	year: number;
+	/** Month indexes of the source year (0 to 11). */
+	months: number[];
+	invented: boolean;
 };
-const levelPolicy = (
-	rules: CellRules,
-	level: BooksLevel,
-	pinLocked: boolean,
-): LevelPolicy => {
-	const rule = rules.levels[level];
-	if (pinLocked && !rule.pin)
-		throw new Error(`${level} has no PIN-locked variant`);
-	const ceiling = stepRank[rule.steps] ?? 0;
+const yearPeriod = (year: number): Period => ({
+	period: String(year),
+	label: String(year),
+	from: `${year}-01-01`,
+	to: `${year}-12-31`,
+	grain: "year",
+	year,
+	months: [...Array(12).keys()],
+	invented: year in yearScale,
+});
+const quarterPeriod = (year: number, quarter: number): Period => ({
+	period: `${year}-Q${quarter + 1}`,
+	label: `Q${quarter + 1} ${year}`,
+	from: `${year}-${String(3 * quarter + 1).padStart(2, "0")}-01`,
+	to: endOfMonth(`${year}-${String(3 * quarter + 3).padStart(2, "0")}-01`),
+	grain: "quarter",
+	year,
+	months: [3 * quarter, 3 * quarter + 1, 3 * quarter + 2],
+	invented: year in yearScale,
+});
+const monthPeriod = (year: number, index: number): Period => ({
+	period: `${year}-${String(index + 1).padStart(2, "0")}`,
+	label: `${monthNames[index]} ${year}`,
+	from: `${year}-${String(index + 1).padStart(2, "0")}-01`,
+	to: endOfMonth(`${year}-${String(index + 1).padStart(2, "0")}-01`),
+	grain: "month",
+	year,
+	months: [index],
+	invented: year in yearScale,
+});
+
+/** What the disclosure gives one audience (the contract's rules, read once). */
+type AudiencePolicy = {
+	audience: Audience;
+	live: boolean;
+	identities: boolean;
+	/** Below governance every figure is ruled; governance only breakdowns and spreads; live audiences none. */
+	ruled: (need: DetailStep | undefined) => boolean;
+	roundTo: number;
+	failingRoundTo: number;
+	grain: "year" | "quarter" | "month";
+	years: number[];
+	rule: (kpi: string) => ReturnType<typeof kpiRule>;
+};
+const audiencePolicy = (
+	file: DisclosureFile,
+	audience: Audience,
+	size: SchoolSize,
+	year: number,
+): AudiencePolicy => {
+	const rank = audiences.indexOf(audience);
+	const gross = kpiRule(file, audience, "gross_collected");
+	if (!gross) throw new Error(`${audience} has no rule for gross_collected`);
+	const live = gross.live;
+	const grain = live ? "month" : (gross.every as "year" | "quarter" | "month");
+	const rounding = file.rounding[size];
+	const roundTo =
+		audience === "public" || audience === "member" ? rounding[audience] : 0;
 	return {
-		rule,
-		grain: rule.grain === "month and day" ? "month" : rule.grain,
-		hasDays: rule.grain === "month and day",
-		shows: (kpi) => (stepRank[kpi.step] ?? 99) <= ceiling,
-		ruled: (step) =>
-			rule.cellRules === "all" ||
-			(rule.cellRules === "G3 and G4" && (step === "G3" || step === "G4")),
-		locks: (kpi) =>
-			pinLocked &&
-			(kpi.kind === "amount" ||
-				(kpi.kind === "rate" && kpi.rateOf === "amount")),
-		showsOpen: rule.openPeriod === "shown",
-		pinLocked,
+		audience,
+		live,
+		identities: Boolean(file.audiences[audience].identities),
+		ruled: (need) =>
+			!live &&
+			(rank < audiences.indexOf("governance") ||
+				(need !== undefined && detailRank(need) >= detailRank("breakdown"))),
+		roundTo,
+		failingRoundTo: file.counts.failingRoundTo,
+		grain,
+		years:
+			grain === "year"
+				? [year - 2, year - 1, year]
+				: grain === "quarter"
+					? [year - 1, year]
+					: [year],
+		rule: (kpi) => kpiRule(file, audience, kpi),
 	};
 };
 
-/** The document's KPI ids in `cell-rules` order, a `<kpi>:*` entry expanded over its dimensions. */
-const expandIds = (
-	rules: CellRules,
-	bundle: PresetBundle,
-): Array<{ id: string; rule: KpiRule; title: string }> =>
-	Object.entries(rules.kpis).flatMap(([key, rule]) => {
-		if (!key.endsWith(":*"))
-			return [{ id: key, rule, title: titles[key] ?? key }];
-		const prefix = key.slice(0, -1);
-		const dimensions =
-			prefix === "revenue_by_tier:"
-				? Object.keys(bundle.tiers)
-						.sort()
-						.map((tier) => ({ id: tier, title: capitalized(tier) }))
-				: prefix === "donations_by_fund:"
-					? rules.invented.donors.funds
-					: rules.invented.donors.buckets;
-		return dimensions.map((dimension) => {
-			const contrib = rule.contrib?.replace(/<[^>]+>/, dimension.id);
-			return {
-				id: `${prefix}${dimension.id}`,
-				rule: contrib === undefined ? rule : { ...rule, contrib },
-				title: dimension.title,
-			};
-		});
+/** The first audience that sees the KPI (at the detail and grain asked), as the mockup's `whoSees` and `whoTxt`. */
+const whoSees = (
+	file: DisclosureFile,
+	kpi: string,
+	need?: DetailStep,
+	grain?: TableGrain,
+): { reason: "members_only" | "no_grant"; text: string } => {
+	const who = audiences.find((audience) => {
+		const rule = kpiRule(file, audience, kpi);
+		return (
+			rule &&
+			(!need || detailRank(rule.detail) >= detailRank(need)) &&
+			(!grain || grainRank(rule.every) >= grainRank(grain))
+		);
 	});
-
-const resolve = (draft: Draft, rule: KpiRule, roundTo: number): Cell => {
-	const reason = precedence.find((kind) => draft.hidden.has(kind));
-	if (reason)
-		return reason === "suppressed" && draft.why
-			? { hidden: reason, why: draft.why }
-			: { hidden: reason };
-	const value = draft.value;
-	if (value === undefined) return { hidden: "not_computed" };
-	if (value === 0) return 0;
-	if (rule.kind !== "amount" || roundTo === 0) return value;
-	const rounded = Math.sign(value) * Math.round(Math.abs(value) / roundTo);
-	if (rounded === 0) return value > 0 ? { lt: roundTo } : 0;
-	return rounded * roundTo;
+	return {
+		reason: who === "member" ? "members_only" : "no_grant",
+		text:
+			who === "member"
+				? "Members see this"
+				: who === "governance"
+					? "Governance and up see this"
+					: "Finance admins and the owner see this",
+	};
 };
 
 export function kpiDocument(input: KpiDocumentInput): KpiDocument {
-	const { rows, bundle, rules, preset, level, pinLocked, clock } = input;
-	const policy = levelPolicy(rules, level, pinLocked);
+	const { school, size, file, audience, pinLocked, source, clock } = input;
 	const year = Number(clock.today.slice(0, 4));
-	const clockMonth = clock.today.slice(0, 7);
-	const currency = bundle.params.currency ?? "usd";
-	const { minContributors, maxShare } = rules.rule;
-	const realMonths = bundle.periods.filter(
-		(month) => month.startsWith(`${year}-`) && month <= clockMonth,
-	);
-	const allMonths = bundle.periods.filter((month) =>
-		month.startsWith(`${year}-`),
-	);
-	const hasClockMonth = bundle.periods.includes(clockMonth);
+	const today = clock.today;
+	const clockMonth = Number(clock.today.slice(5, 7)) - 1;
+	const policy = audiencePolicy(file, audience, size, year);
+	if (
+		pinLocked &&
+		!(audiences.indexOf(audience) >= audiences.indexOf("governance"))
+	)
+		throw new Error(`${audience} opens no books with a PIN`);
 
-	// ---- Periods of the level's grain; earlier years are invented from this year's months
-	const sourceMonths = (
-		periodYear: number,
-		monthIndexes: number[],
-	): SourceMonth[] => {
-		const invented = periodYear !== year;
-		const factor = invented
-			? rules.invented.years.scale[String(periodYear)]
-			: 1;
-		if (factor === undefined)
-			throw new Error(`no scale for invented year ${periodYear}`);
-		const pool = invented ? allMonths : realMonths;
-		return monthIndexes
-			.map((index) => `${year}-${String(index + 1).padStart(2, "0")}`)
-			.filter((month) => pool.includes(month))
-			.map((month) => ({ month, factor }));
+	// ---- The KPIs this audience's document carries: the dimensions expanded; plans, funds and donors from governance up
+	const dimensions: Record<string, Dimension[]> = {
+		"revenue_by_kind:*": source.kinds,
+		"revenue_by_tier:*": source.tiers,
+		"donations_by_fund:*": source.funds,
+		"donors_by_size:*": donorBuckets,
 	};
-	const clockMonthIndex = Number(clockMonth.slice(5, 7)) - 1;
-	const periods: Period[] =
-		policy.grain === "year"
-			? policy.rule.years.map((periodYear) => ({
-					period: String(periodYear),
-					label: String(periodYear),
-					invented: periodYear !== year,
-					end: lastDay(periodYear, 11),
-					months: sourceMonths(periodYear, [...Array(12).keys()]),
-					containsClock: periodYear === year,
-				}))
-			: policy.grain === "quarter"
-				? policy.rule.years.flatMap((periodYear) =>
-						[0, 1, 2, 3]
-							.filter(
-								(quarter) =>
-									periodYear < year || 3 * quarter <= clockMonthIndex,
-							)
-							.map((quarter) => ({
-								period: `${periodYear}-Q${quarter + 1}`,
-								label: `Q${quarter + 1} ${periodYear}`,
-								invented: periodYear !== year,
-								end: lastDay(periodYear, 3 * quarter + 2),
-								months: sourceMonths(periodYear, [
-									3 * quarter,
-									3 * quarter + 1,
-									3 * quarter + 2,
-								]),
-								containsClock:
-									periodYear === year &&
-									Math.floor(clockMonthIndex / 3) === quarter,
-							})),
-					)
-				: realMonths.map((month) => {
-						const index = Number(month.slice(5, 7)) - 1;
-						return {
-							period: month,
-							label: monthNames[index] ?? month,
-							invented: false,
-							end: lastDay(year, index),
-							months: [{ month, factor: 1 }],
-							containsClock: month === clockMonth,
-						};
-					});
-
-	// ---- Delay: when each period shows, per lag class
-	const shownFrom = (period: Period, lag: LagClass): string | null => {
-		const delay = policy.rule.delay;
-		if (!delay) return null;
-		const from = addMonths(addDays(period.end, delay.closeDays), delay[lag]);
-		return from <= clock.today ? null : from;
-	};
-	const fromLabel = (iso: string): string =>
-		policy.grain === "month" ? monthDayLabel(iso) : monthYearLabel(iso);
-	const waitingWhy = (lag: LagClass): string =>
-		level === "public"
-			? rules.waiting[lag === "usage" ? "public.usage" : "public.money"]
-			: level === "member"
-				? rules.waiting.member
-				: "A month shows once it has closed, 7 days after it ends.";
-	const partialPeriod =
-		policy.showsOpen && hasClockMonth
-			? periods.find((period) => period.containsClock)
-			: undefined;
-	const periodInfo: PeriodInfo[] = periods.map((period) => {
-		const from = {
-			money: shownFrom(period, "money"),
-			usage: shownFrom(period, "usage"),
-		};
-		const label = (lag: LagClass): string | null => {
-			const iso = from[lag];
-			return iso ? fromLabel(iso) : null;
-		};
-		const waiting = (lag: LagClass) => {
-			const when = label(lag);
-			return when
-				? {
-						title: rules.waiting.title.replace("{label}", period.label),
-						when: rules.waiting.when
-							.replace("{label}", period.label)
-							.replace("{shownFromLabel}", when),
-						why: waitingWhy(lag),
-					}
-				: null;
-		};
-		return {
-			period: period.period,
-			label: period.label,
-			invented: period.invented,
-			partial: period === partialPeriod,
-			shownFrom: from,
-			shownFromLabel: { money: label("money"), usage: label("usage") },
-			waiting: { money: waiting("money"), usage: waiting("usage") },
-		};
+	const governanceUp =
+		audiences.indexOf(audience) >= audiences.indexOf("governance");
+	const kpis = Object.entries(catalog).flatMap(([key, entry]) => {
+		const donorKpi = key.startsWith("donor") || key.startsWith("donations");
+		if ((donorKpi || key.startsWith("revenue_by_tier")) && !governanceUp)
+			return [];
+		if (donorKpi && source.donors.length === 0) return [];
+		if (!key.endsWith(":*")) return [{ id: key, entry, title: entry.title }];
+		const prefix = key.slice(0, -1);
+		return (dimensions[key] ?? []).map((dimension) => ({
+			id: `${prefix}${dimension.id}`,
+			entry: {
+				...entry,
+			},
+			title: dimension.title,
+		}));
 	});
-	const infoOf = new Map(periodInfo.map((info) => [info.period, info]));
+	const catalogOf = new Map(kpis.map((kpi) => [kpi.id, kpi]));
 
-	// ---- Rows, scaled for invented months
-	const rowValue = new Map(
-		rows.map((row) => [`${row.kpiId}@${row.period}`, row.value]),
-	);
-	const monthValue = (id: string, source: SourceMonth): number | undefined => {
-		const value = rowValue.get(`${id}@${source.month}`);
-		if (value === undefined) return undefined;
-		return source.factor === 1 ? value : Math.round(value * source.factor);
-	};
-	const raw = (
+	// ---- Values: a month of the year, or of an invented earlier year (scaled, rounded per month as bkYear)
+	const monthValue = (
 		id: string,
-		period: Period,
-		how: "sum" | "max" = "sum",
-	): number | undefined => {
-		if (period.months.length === 0) return undefined;
-		let total = how === "max" ? Number.NEGATIVE_INFINITY : 0;
-		for (const source of period.months) {
-			const value = monthValue(id, source);
-			if (value === undefined) return undefined;
-			total = how === "max" ? Math.max(total, value) : total + value;
+		periodYear: number,
+		month: number,
+	): number | null => {
+		const value = source.values[id]?.[month];
+		if (value === null || value === undefined) return null;
+		const factor = periodYear === year ? 1 : (yearScale[periodYear] ?? 0);
+		return factor === 1 ? value : Math.round(value * factor);
+	};
+	const sumOf = (id: string, period: Period): number | null => {
+		const found = period.months
+			.map((month) => monthValue(id, period.year, month))
+			.filter((value): value is number => value !== null);
+		return found.length
+			? found.reduce((total, value) => total + value, 0)
+			: null;
+	};
+	const figureOf = (id: string, period: Period): number | null => {
+		if (id === "paying_members") {
+			const found = period.months
+				.map((month) => monthValue(id, period.year, month))
+				.filter((value): value is number => value !== null);
+			return found.length ? Math.max(...found) : null;
 		}
-		return total;
+		const entry = catalogOf.get(id)?.entry ?? catalog[id];
+		if (entry?.kind === "rate") {
+			const [numerator, denominator] = entry.inputs ?? [];
+			const top = numerator ? sumOf(numerator, period) : null;
+			const bottom = denominator ? sumOf(denominator, period) : null;
+			// A rate over nothing is not a rate: not_computed, never 0 (GOAL.md: null is never shown as 0).
+			return top === null || bottom === null || bottom === 0
+				? null
+				: ratio(top, bottom);
+		}
+		if (id === "dispute_cost") {
+			const lost = sumOf("disputes_lost", period);
+			const fees = sumOf("dispute_fees", period);
+			return lost === null || fees === null ? null : lost + fees;
+		}
+		if (id === "arpa") {
+			const gross = sumOf("gross_collected", period);
+			const payers = figureOf("paying_members", period);
+			return gross === null || payers === null || payers === 0
+				? null
+				: Math.round((gross / payers) * 100) / 100;
+		}
+		return sumOf(id, period);
 	};
 
-	const kpis = expandIds(rules, bundle).filter(({ rule }) =>
-		policy.shows(rule),
-	);
-	const ruleOf = new Map(kpis.map((kpi) => [kpi.id, kpi]));
-	const reason = (template: string, noun: string): string =>
-		template
-			.replace("{noun}", noun)
-			.replace("{noun, singular}", noun.replace(/s$/, ""));
-
-	/** Whether one source month passes the cell rule, or why not. */
-	const monthCheck = (
-		id: string,
-		rule: KpiRule,
-		source: SourceMonth,
-	): { kind: HiddenKind; why?: string } | null => {
-		const value = monthValue(id, source);
-		if (value === undefined) return { kind: "not_computed" };
-		if (value === 0) return null;
-		if (rule.policy === "self")
-			return value >= minContributors
-				? null
-				: { kind: "suppressed", why: reason(rules.reasons.fewer, "payers") };
-		const entry =
-			bundle.contrib[rule.contrib ?? id]?.[
-				bundle.periods.indexOf(source.month)
-			];
-		if (!entry) return { kind: "not_computed" };
-		const [holders, largestShare] = entry;
-		if (holders < minContributors)
-			return { kind: "suppressed", why: reason(rules.reasons.fewer, "payers") };
-		if (largestShare > maxShare)
-			return { kind: "suppressed", why: reason(rules.reasons.share, "payers") };
+	// ---- The cell rules: the cell's own holders on the mart, the period's paying members on the mockup's schools
+	/** Mockup bkFig: a figure fails when the period has fewer than 5 paying members (the most in one month of it);
+	 * dashFull counts a plan's payers as its gross over the average per paying member. */
+	const failure = (id: string, period: Period, value: number): string => {
+		if (value === 0) return "";
+		const payers = id.startsWith("revenue_by_tier:")
+			? planPayers(value, period)
+			: (figureOf("paying_members", period) ?? 0);
+		return payers < minContributors ? reasons.fewer("payers") : "";
+	};
+	const planPayers = (value: number, period: Period): number =>
+		Math.round(value / Math.max(1, figureOf("arpa", period) ?? 0));
+	const roundCount = (value: number, why: string): Cell =>
+		value < policy.failingRoundTo
+			? { lt: policy.failingRoundTo, why }
+			: {
+					approx:
+						Math.round(value / policy.failingRoundTo) * policy.failingRoundTo,
+					why,
+				};
+	const finish = (kind: Kind, value: number, why: string): Cell => {
+		if (why) {
+			if (kind === "count") return roundCount(value, why);
+			return { hidden: "suppressed", text: `Hidden: ${why}` };
+		}
+		if (kind !== "money" || policy.roundTo === 0) return noNegativeZero(value);
+		const rounded = noNegativeZero(
+			Math.round(value / policy.roundTo) * policy.roundTo,
+		);
+		return value > 0 && rounded === 0 ? { lt: policy.roundTo } : rounded;
+	};
+	/** A cell before its value: hidden by the audience's rule, its grain, its detail or its delay (mockup bkFig). */
+	const gate = (id: string, period: Period): Cell | null => {
+		const entry = catalogOf.get(id)?.entry;
+		if (!entry) throw new Error(`${id} is not in the catalog`);
+		const rule = policy.rule(entry.ruleOf);
+		if (!rule) {
+			const who = whoSees(file, entry.ruleOf);
+			return { hidden: who.reason, text: who.text };
+		}
+		if (rule.live) return null;
+		if (grainRank(period.grain) > grainRank(rule.every)) {
+			const who = whoSees(file, entry.ruleOf, undefined, period.grain);
+			return { hidden: who.reason, text: who.text };
+		}
+		if (entry.need && detailRank(entry.need) > detailRank(rule.detail)) {
+			const who = whoSees(file, entry.ruleOf, entry.need);
+			return { hidden: who.reason, text: who.text };
+		}
+		const published = addAfter(closeOf(period.to), rule.after);
+		if (published > today)
+			return {
+				hidden: "embargoed",
+				text: `Published after ${longDate(published)}`,
+			};
 		return null;
 	};
-
-	const drafts = new Map<string, Draft>();
-	const draftOf = (id: string, period: Period): Draft => {
-		const key = `${id}@${period.period}`;
-		const known = drafts.get(key);
-		if (known) return known;
-		const kpi = ruleOf.get(id);
-		if (!kpi) throw new Error(`${id} is not in this level's KPIs`);
-		const draft = computeDraft(id, kpi.rule, period);
-		drafts.set(key, draft);
-		return draft;
+	const cellOf = (id: string, period: Period): Cell => {
+		const gated = gate(id, period);
+		if (gated) return gated;
+		const value = figureOf(id, period);
+		if (value === null) return { hidden: "not_computed", text: "Not computed" };
+		const entry = catalogOf.get(id)?.entry;
+		const why =
+			entry && policy.ruled(entry.need) ? failure(id, period, value) : "";
+		return finish(entry?.kind ?? "money", value, why);
 	};
-	const computeDraft = (id: string, rule: KpiRule, period: Period): Draft => {
-		const draft: Draft = {
-			hidden: new Set(),
-			why: undefined,
-			value: undefined,
+
+	// ---- Tables
+	const tablePeriods: Partial<Record<TableGrain, Period[]>> =
+		policy.grain === "month"
+			? { month: monthNames.map((_, index) => monthPeriod(year, index)) }
+			: {
+					year: policy.years.map(yearPeriod),
+					quarter: policy.years.flatMap((periodYear) =>
+						[0, 1, 2, 3].map((quarter) => quarterPeriod(periodYear, quarter)),
+					),
+					month: policy.years.flatMap((periodYear) =>
+						monthNames.map((_, index) => monthPeriod(periodYear, index)),
+					),
+				};
+	const plainKpis = kpis.filter(
+		({ id }) => !id.startsWith("donor") && !id.startsWith("donations"),
+	);
+	const tables: KpiDocument["tables"] = {};
+	for (const [grain, periods] of Object.entries(tablePeriods) as Array<
+		[TableGrain, Period[]]
+	>) {
+		const series: Record<string, Cell[]> = {};
+		for (const { id } of plainKpis)
+			series[id] = periods.map((period) => cellOf(id, period));
+		const table: KpiTable = {
+			periods: periods.map((period) => period.period),
+			series,
 		};
-		const hide = (kind: HiddenKind, why?: string): void => {
-			draft.hidden.add(kind);
-			if (kind === "suppressed" && why && !draft.why) draft.why = why;
-		};
-		if (rule.policy === "blocked") {
-			hide("blocked");
-			return draft;
-		}
-		if (infoOf.get(period.period)?.shownFrom[rule.lag]) hide("not_yet");
-		if (policy.locks(rule)) hide("locked");
-		const aggregated = policy.grain !== "month";
-		if (rule.policy === "derived") {
-			for (const inputId of rule.inputs ?? []) {
-				const input = draftOf(inputId, period);
-				for (const kind of input.hidden)
-					if (kind !== "blocked")
-						hide(
-							kind,
-							rules.reasons.derived.replace(
-								"{input title, lower case}",
-								(ruleOf.get(inputId)?.title ?? inputId).toLowerCase(),
-							),
-						);
-			}
-			const denominator = rule.denominator
-				? raw(rule.denominator, period)
-				: undefined;
-			if (rule.denominator && denominator === 0) hide("not_computed");
-			if (!aggregated)
-				draft.value = rowValue.get(`${id}@${period.months[0]?.month}`);
-			else if (rule.aggregate === "not_computed") hide("not_computed");
-			else if (rule.kind !== "rate") draft.value = raw(id, period);
-			else {
-				const numerator = rule.inputs?.[0]
-					? raw(rule.inputs[0], period)
-					: undefined;
+		complementPlans(table, periods);
+		const tierIds = plainKpis
+			.filter(({ id }) => id.startsWith("revenue_by_tier:"))
+			.map(({ id }) => id);
+		if (tierIds.length > 0)
+			table.order = { revenue_by_tier: periods.map(() => tierIds) };
+		if (grain === "month" && governanceUp) addDonors(table, periods);
+		tables[grain] = table;
+	}
+	/** Mockup bkYearLine: at the quarter grain the year's own total (the year table's gross, rounded from the year's
+	 * events) and the sum of its four rounded quarters, which the mockup shows beside it when all five are figures. */
+	const yearTable = tables.year;
+	const quarterTable = tables.quarter;
+	if (policy.grain === "quarter" && yearTable && quarterTable)
+		yearTable.series[roundedQuartersKpi] = yearTable.periods.map(
+			(period, index) => {
+				const total = yearTable.series.gross_collected?.[index];
+				const quarters = [1, 2, 3, 4].map(
+					(quarter) =>
+						quarterTable.series.gross_collected?.[
+							quarterTable.periods.indexOf(`${period}-Q${quarter}`)
+						],
+				);
 				if (
-					numerator !== undefined &&
-					denominator !== undefined &&
-					denominator !== 0
+					typeof total !== "number" ||
+					!quarters.every((cell) => typeof cell === "number")
 				)
-					draft.value = roundedRatio(numerator, denominator);
-			}
-			return draft;
-		}
-		if (aggregated && rule.aggregate === "not_computed") {
-			hide("not_computed");
-			return draft;
-		}
-		draft.value = raw(
-			id,
-			period,
-			aggregated && rule.aggregate === "max" ? "max" : "sum",
+					return { hidden: "not_computed", text: "Not computed" };
+				return quarters.reduce<number>(
+					(sum, cell) => sum + (typeof cell === "number" ? cell : 0),
+					0,
+				);
+			},
 		);
-		if (draft.value === undefined) hide("not_computed");
-		if (policy.ruled(rule.step))
-			for (const source of period.months) {
-				const failure = monthCheck(id, rule, source);
-				if (failure) hide(failure.kind, failure.why);
-			}
-		return draft;
-	};
 
-	const series: Record<string, Cell[]> = {};
-	const roundTo = policy.rule.roundTo;
-	for (const { id, rule } of kpis) {
-		if (rule.policy === "distribution") continue;
-		series[id] = periods.map((period) =>
-			resolve(draftOf(id, period), rule, roundTo),
-		);
+	/** Mockup dlt: in the month table, each money or count cell's change against the month before, when both are
+	 * figures as this audience sees them. */
+	const monthTable = tables.month;
+	if (monthTable) {
+		const changes: Record<string, Array<number | null>> = {};
+		for (const { id, entry } of plainKpis) {
+			const cells = monthTable.series[id];
+			if (entry.kind === "rate" || !cells) continue;
+			changes[id] = cells.map((cell, index) => {
+				const before = cells[index - 1];
+				return typeof cell === "number" && typeof before === "number"
+					? cell - before
+					: null;
+			});
+		}
+		monthTable.changes = changes;
 	}
 
-	// ---- Complementary suppression (cell-rules `complementary`), where the terms' step is ruled
-	const isSuppressed = (cell: Cell | undefined): boolean =>
-		typeof cell === "object" &&
-		"hidden" in cell &&
-		cell.hidden === "suppressed";
-	for (const { total, terms } of rules.complementary) {
-		const prefix = terms.endsWith("*") ? terms.slice(0, -1) : terms;
-		const termIds = kpis
-			.filter(
-				({ id, rule }) => id.startsWith(prefix) && policy.ruled(rule.step),
-			)
+	/** bkRules over the plans of a period (governance): one hidden plan hides the smallest shown one too. */
+	function complementPlans(table: KpiTable, periods: Period[]): void {
+		const ids = plainKpis
+			.filter(({ id }) => id.startsWith("revenue_by_tier:"))
 			.map(({ id }) => id);
+		if (!policy.ruled("breakdown")) return;
 		periods.forEach((period, index) => {
-			if (typeof series[total]?.[index] !== "number") return;
-			const suppressed = termIds.filter((id) =>
-				isSuppressed(series[id]?.[index]),
-			);
-			if (suppressed.length !== 1) return;
-			const next = termIds
-				.map((id) => ({ id, value: series[id]?.[index] }))
+			const isCut = (id: string): boolean => {
+				const found = table.series[id]?.[index];
+				return (
+					typeof found === "object" &&
+					"hidden" in found &&
+					found.hidden === "suppressed"
+				);
+			};
+			const cut = ids.filter(isCut);
+			if (cut.length !== 1) return;
+			const next = ids
+				.map((id) => ({ id, value: table.series[id]?.[index] }))
 				.filter(
 					(term): term is { id: string; value: number } =>
-						typeof term.value === "number" && term.value !== 0,
+						typeof term.value === "number" &&
+						planPayers(term.value, period) > 0,
 				)
 				.sort((first, second) => first.value - second.value)[0];
-			if (!next)
-				throw new Error(
-					`${preset} ${level} ${period.period}: ${suppressed[0]} is the only non-zero term of ${total}`,
-				);
-			const cells = series[next.id];
-			if (cells)
+			const cells = next ? table.series[next.id] : undefined;
+			if (next && cells)
 				cells[index] = {
 					hidden: "suppressed",
-					why: rules.reasons.complementary,
+					text: `Hidden: ${reasons.hiddenPair}`,
 				};
 		});
 	}
 
-	// ---- The invented donors (G3 funds, G4 distribution), cumulative from January
-	const donorKpis = kpis.filter(({ rule }) => rule.policy === "distribution");
-	if (donorKpis.length > 0) {
-		const { buckets, funds, gifts } = rules.invented.donors;
-		const donorNoun = "donors";
-		for (const { id } of donorKpis) series[id] = [];
-		type Item = {
-			id: string;
-			count: number;
-			sum: number;
-			top: number;
-			order: number;
-			why: string;
+	/** The donors (mockup bkDist and bkFundHtml), 2026 from January to the end of each month. */
+	function addDonors(table: KpiTable, periods: Period[]): void {
+		if (source.donors.length === 0) return;
+		const ruled = policy.ruled("spread");
+		const funds = source.funds;
+		const series: Record<string, Cell[]> = {
+			donors_count: [],
+			donors_median_gift: [],
+			...Object.fromEntries(
+				donorBuckets.map((bucket) => [`donors_by_size:${bucket.id}`, []]),
+			),
+			...Object.fromEntries(
+				funds.map((fund) => [`donations_by_fund:${fund.id}`, []]),
+			),
 		};
-		const applyRules = (items: Item[], by: "count" | "sum"): void => {
-			for (const item of items)
-				item.why =
-					item.count === 0
-						? ""
-						: item.count < minContributors
-							? reason(rules.reasons.fewer, donorNoun)
-							: item.sum > 0 && item.top / item.sum > maxShare
-								? reason(rules.reasons.share, donorNoun)
-								: "";
-			const hidden = items.filter((item) => item.why);
-			if (hidden.length !== 1) return;
-			const next = items
-				.filter((item) => !item.why && item.count > 0)
-				.sort(
-					(first, second) =>
-						first[by] - second[by] || first.order - second.order,
-				)[0];
-			if (next) next.why = rules.reasons.complementary;
-		};
-		const itemOf = (id: string, chosen: Gift[], order: number): Item => ({
-			id,
-			count: chosen.length,
-			sum: chosen.reduce((total, gift) => total + gift.amount, 0),
-			top: Math.max(0, ...chosen.map((gift) => gift.amount)),
-			order,
-			why: "",
-		});
+		const order: string[][] = [];
 		for (const period of periods) {
-			const given = gifts.filter((gift) => gift.date <= period.end);
+			const given = source.donors.filter((gift) => gift.date <= period.to);
 			const count = given.length;
 			const sorted = given.map((gift) => gift.amount).sort((a, b) => a - b);
 			const median =
 				count === 0
-					? undefined
+					? null
 					: count % 2
-						? sorted[(count - 1) / 2]
+						? (sorted[(count - 1) / 2] ?? 0)
 						: ((sorted[count / 2 - 1] ?? 0) + (sorted[count / 2] ?? 0)) / 2;
-			const bucketItems = buckets.map((bucket, order) => {
-				const lower = buckets[order - 1]?.below ?? 0;
-				return itemOf(
-					`donors_by_size:${bucket.id}`,
-					given.filter(
-						(gift) =>
-							gift.amount >= lower &&
-							(bucket.below === null || gift.amount < bucket.below),
-					),
-					order,
+			const buckets = donorBuckets.map((bucket, index) => {
+				const lower = donorBuckets[index - 1]?.below ?? 0;
+				const inside = given.filter(
+					(gift) =>
+						gift.amount >= lower &&
+						(bucket.below === null || gift.amount < bucket.below),
 				);
-			});
-			const fundItems = funds
-				.map((fund, order) =>
-					itemOf(
-						`donations_by_fund:${fund.id}`,
-						given.filter((gift) => gift.fund === fund.title),
-						order,
-					),
-				)
-				.sort(
-					(first, second) =>
-						second.sum - first.sum || first.order - second.order,
-				)
-				.map((item, order) => ({ ...item, order }));
-			const distributionRuled = policy.ruled("G4");
-			if (distributionRuled) applyRules(bucketItems, "count");
-			if (policy.ruled("G3")) applyRules(fundItems, "sum");
-			const tooFew = distributionRuled && count > 0 && count < minContributors;
-			const values = new Map<
-				string,
-				{ value: number | undefined; why: string }
-			>([
-				[
-					"donors_count",
-					{
-						value: count,
-						why: tooFew ? reason(rules.reasons.fewer, donorNoun) : "",
-					},
-				],
-				[
-					"donors_median_gift",
-					{
-						value: median,
-						why: tooFew ? reason(rules.reasons.fewer, donorNoun) : "",
-					},
-				],
-				...bucketItems.map(
-					(item) =>
-						[
-							item.id,
-							{
-								value: item.count,
-								why: tooFew ? reason(rules.reasons.fewer, donorNoun) : item.why,
-							},
-						] as const,
-				),
-				...fundItems.map(
-					(item) => [item.id, { value: item.sum, why: item.why }] as const,
-				),
-			]);
-			for (const { id, rule } of donorKpis) {
-				const found = values.get(id);
-				const draft: Draft = {
-					hidden: new Set(),
-					why: found?.why || undefined,
-					value: found?.value,
+				return {
+					id: `donors_by_size:${bucket.id}`,
+					count: inside.length,
+					why: "",
 				};
-				if (infoOf.get(period.period)?.shownFrom[rule.lag])
-					draft.hidden.add("not_yet");
-				if (policy.locks(rule)) draft.hidden.add("locked");
-				if (found?.why) draft.hidden.add("suppressed");
-				series[id]?.push(resolve(draft, rule, roundTo));
-			}
-		}
-	}
-
-	// ---- Days (finance admin and owner): the mockup's split of each month's gross
-	const days = policy.hasDays
-		? (() => {
-				const dayPeriods: string[] = [];
-				const cells: Cell[] = [];
-				const grossRule = ruleOf.get("gross_collected")?.rule;
-				if (!grossRule) throw new Error("no gross_collected rule");
-				for (const period of periods) {
-					const monthIndex = Number(period.period.slice(5, 7)) - 1;
-					const count = daysIn(year, monthIndex);
-					const last = period.containsClock
-						? Number(clock.today.slice(8, 10))
-						: count;
-					const gross = rowValue.get(`gross_collected@${period.period}`);
-					const weights = [...Array(count).keys()].map((day) =>
-						day < last ? 1 + ((day * 7 + monthIndex * 3) % 5) : 0,
-					);
-					const totalWeight =
-						weights.reduce((sum, weight) => sum + weight, 0) || 1;
-					let left = gross ?? 0;
-					for (let day = 0; day < count; day += 1) {
-						dayPeriods.push(
-							`${period.period}-${String(day + 1).padStart(2, "0")}`,
-						);
-						const draft: Draft = {
-							hidden: new Set(),
-							why: undefined,
-							value: undefined,
-						};
-						if (day >= last) draft.hidden.add("not_yet");
-						if (policy.locks(grossRule)) draft.hidden.add("locked");
-						if (gross === undefined) draft.hidden.add("not_computed");
-						else if (day < last - 1) {
-							draft.value = Math.round(
-								(gross * (weights[day] ?? 0)) / totalWeight,
-							);
-							left -= draft.value;
-						} else if (day === last - 1) draft.value = left;
-						cells.push(resolve(draft, grossRule, 0));
-					}
+			});
+			if (ruled) {
+				const failing = buckets.filter(
+					(bucket) => bucket.count > 0 && bucket.count < minContributors,
+				);
+				for (const bucket of failing) bucket.why = reasons.fewer("donors");
+				if (failing.length === 1) {
+					const next = buckets
+						.filter((bucket) => !bucket.why && bucket.count > 0)
+						.sort((first, second) => first.count - second.count)[0];
+					if (next) next.why = reasons.roundedPair;
 				}
-				return { periods: dayPeriods, series: { gross_collected: cells } };
-			})()
-		: null;
-
-	// ---- Captions, one per lag class
-	const caption = (lag: LagClass): string => {
-		const next = periodInfo.find((info) => info.shownFromLabel[lag]);
-		const nextText = next
-			? rules.captions.next
-					.replace("{label}", next.label)
-					.replace("{shownFromLabel}", next.shownFromLabel[lag] ?? "")
-			: "";
-		if (level === "public" || level === "member")
-			return rules.captions.aggregate
-				.replace("{Level}", policy.rule.name)
-				.replace("{grain}", policy.grain)
-				.replace("{roundTo}", formatMoney0(roundTo, currency))
-				.replace("{next}", nextText || rules.captions.aggregateNone);
-		if (level === "governance")
-			return rules.captions.governance.replace("{next}", nextText).trim();
-		return rules.captions.full
-			.replace("{Level}", policy.rule.name)
-			.replace(
-				"{ownerOnly}",
-				level === "owner" ? rules.captions.ownerOnly : "",
+			}
+			const tooFew = ruled && count > 0 && count < minContributors;
+			const fundItems = funds
+				.map((fund) => {
+					const inside = given.filter((gift) => gift.fund === fund.title);
+					const sum = inside.reduce((total, gift) => total + gift.amount, 0);
+					return {
+						id: `donations_by_fund:${fund.id}`,
+						count: inside.length,
+						sum,
+						top: Math.max(0, ...inside.map((gift) => gift.amount)),
+						why: "",
+					};
+				})
+				.sort((first, second) => second.sum - first.sum);
+			if (policy.ruled("breakdown")) {
+				for (const item of fundItems)
+					item.why =
+						item.count === 0
+							? ""
+							: item.count < minContributors
+								? reasons.fewer("donors")
+								: item.top / item.sum > maxShare
+									? reasons.share("donors")
+									: "";
+				const hidden = fundItems.filter((item) => item.why);
+				if (hidden.length === 1) {
+					const next = fundItems
+						.filter((item) => !item.why && item.count > 0)
+						.sort((first, second) => first.sum - second.sum)[0];
+					if (next) next.why = reasons.hiddenPair;
+				}
+			}
+			order.push(
+				fundItems.filter((item) => item.count > 0).map((item) => item.id),
 			);
-	};
-
-	const meta: Record<string, KpiMeta> = {};
-	for (const { id, rule, title } of kpis) {
-		const format: KpiFormat =
-			rule.kind === "amount" && roundTo > 0
-				? "money0"
-				: (rule.format ??
-					(rule.kind === "amount"
-						? "money"
-						: rule.kind === "count"
-							? "integer"
-							: "percent1"));
-		const entry: KpiMeta = {
-			title,
-			unit:
-				rule.kind === "amount"
-					? "cents"
-					: rule.kind === "count"
-						? "count"
-						: "ratio",
-			precision: format === "money" ? 2 : format === "percent1" ? 1 : 0,
-			format,
-			step: rule.step,
-			lag: rule.lag,
-			derived: rule.policy === "derived",
-			invented: rule.policy === "distribution",
-		};
-		if (policy.grain !== "month" && rule.aggregate === "max")
-			entry.note = "most in one month of the period";
-		else if (rule.policy === "distribution")
-			entry.note = "2026 from January to the end of the period";
-		meta[id] = entry;
+			const put = (id: string, cell: Cell): void => {
+				const gated = gate(id, period);
+				series[id]?.push(gated ?? cell);
+			};
+			put(
+				"donors_count",
+				tooFew
+					? { lt: policy.failingRoundTo, why: reasons.fewer("donors") }
+					: count,
+			);
+			put(
+				"donors_median_gift",
+				median === null
+					? { hidden: "not_computed", text: "No donations recorded yet" }
+					: tooFew
+						? {
+								hidden: "suppressed",
+								text: `Hidden: ${reasons.fewer("donors")}`,
+							}
+						: median,
+			);
+			for (const bucket of buckets)
+				put(
+					bucket.id,
+					tooFew
+						? {
+								hidden: "suppressed",
+								text: `Hidden: ${reasons.fewer("donors")}`,
+							}
+						: bucket.why
+							? roundCount(bucket.count, bucket.why)
+							: bucket.count,
+				);
+			for (const item of fundItems)
+				put(
+					item.id,
+					item.why
+						? { hidden: "suppressed", text: `Hidden: ${item.why}` }
+						: item.sum,
+				);
+		}
+		Object.assign(table.series, series);
+		table.order = { ...table.order, donations_by_fund: order };
 	}
 
-	const notComputed = [
-		...Object.entries(rules.notComputed).map(([id, text]) => ({
-			id,
-			reason: text,
-		})),
-		...(policy.grain !== "month"
-			? kpis
-					.filter(({ rule }) => rule.aggregate === "not_computed")
-					.map(({ id }) => ({
-						id,
-						reason: "needs distinct paying members per period",
-					}))
-			: []),
-	];
+	// ---- Days (live audiences): the month's gross by day, as the mockup draws it
+	if (policy.live) {
+		const dayPeriods: string[] = [];
+		const cells: Cell[] = [];
+		monthNames.forEach((_, month) => {
+			const count = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+			const last =
+				month === clockMonth ? Number(clock.today.slice(8, 10)) : count;
+			const gross = monthValue("gross_collected", year, month);
+			const fromEvents = source.days?.[month];
+			const weights = [...Array(count).keys()].map((day) =>
+				day < last ? 1 + ((day * 7 + month * 3) % 5) : 0,
+			);
+			const totalWeight = weights.reduce((sum, weight) => sum + weight, 0) || 1;
+			let left = gross ?? 0;
+			for (let day = 0; day < count; day += 1) {
+				dayPeriods.push(
+					`${year}-${String(month + 1).padStart(2, "0")}-${String(day + 1).padStart(2, "0")}`,
+				);
+				if (day >= last) {
+					cells.push({ hidden: "future", text: "not yet" });
+					continue;
+				}
+				if (fromEvents) {
+					cells.push(fromEvents[day] ?? 0);
+					continue;
+				}
+				if (gross === null) {
+					cells.push({ hidden: "not_computed", text: "Not computed" });
+					continue;
+				}
+				if (day < last - 1) {
+					const share = Math.round((gross * (weights[day] ?? 0)) / totalWeight);
+					left -= share;
+					cells.push(share);
+				} else cells.push(left);
+			}
+		});
+		tables.day = { periods: dayPeriods, series: { gross_collected: cells } };
+	}
+
+	// ---- The strip: the audience's periods and what the period control says of each (mockup pList and pAllow)
+	const stripPeriods =
+		policy.grain === "year"
+			? policy.years.map(yearPeriod)
+			: policy.grain === "quarter"
+				? policy.years.flatMap((periodYear) =>
+						[0, 1, 2, 3].map((quarter) => quarterPeriod(periodYear, quarter)),
+					)
+				: monthNames.map((_, index) => monthPeriod(year, index));
+	const grossRule = policy.rule("gross_collected");
+	const periods: DocumentPeriod[] = stripPeriods.map((period) => {
+		const published =
+			grossRule && !grossRule.live
+				? addAfter(closeOf(period.to), grossRule.after)
+				: null;
+		/** The Dashboard's strip (mockup dashAgg and dashFull's mstrip): below the live audiences a period not shown yet,
+		 * started or not, waits for its close plus the delay ("Published after 7 Jan 2027"); only the live audiences
+		 * see a month after the clock as "Not started yet". */
+		const state: DocumentPeriod["state"] =
+			published && published > today
+				? "embargoed"
+				: period.from > today
+					? "future"
+					: "shown";
+		return {
+			period: period.period,
+			label: period.label,
+			from: period.from,
+			to: period.to,
+			state,
+			title:
+				state === "future"
+					? "Not started yet"
+					: state === "embargoed" && published
+						? `Published after ${longDate(published)}`
+						: null,
+			open:
+				policy.live &&
+				period.grain === "month" &&
+				period.months[0] === clockMonth,
+			invented: period.invented,
+		};
+	});
+
+	// ---- Captions (mockup bkCaption), by year
+	const captionOf = (captionYear: number): string => {
+		const name = audienceNames[audience];
+		if (policy.identities)
+			return `${name} sees everything, live: months and days, the open month included, names included. Cell rules are off, so no figure is hidden or banded. ${audience === "owner" ? "Owner-only actions (refunds, roles, publishing) stay on their own tabs. Anonymous donors' names show to the owner only. " : ""}Every identified read is audited.`;
+		const classes: KpiClass[] = [
+			"income",
+			"losses",
+			"cash",
+			"people",
+			"activity",
+		];
+		const parts = classes.map((kpiClass) => {
+			const own = classRule(file, kpiClass, audience);
+			if (own)
+				return `${kpiClassNames[kpiClass]}: ${own.live ? "everything, live" : `${own.detail} by ${own.every}${own.after ? `, ${own.after} after it closes` : ""}`}`;
+			const first = audiences.find((other) => classRule(file, kpiClass, other));
+			const who =
+				first === "member"
+					? "Members"
+					: first === "governance"
+						? "Governance and up"
+						: "Finance admins and the owner";
+			return `${kpiClassNames[kpiClass]}: ${who} only`;
+		});
+		const money = policy.roundTo
+			? `rounded to ${formatMoney0(policy.roundTo, input.currency)} (${size} school, fixed for ${captionYear} on 1 Jan ${captionYear})`
+			: "exact";
+		const rules =
+			audiences.indexOf(audience) < audiences.indexOf("governance")
+				? `Cell rules on: a count under ${minContributors} payers shows as <${policy.failingRoundTo} or to the nearest ${policy.failingRoundTo}; an amount is hidden.`
+				: "Cell rules on for breakdowns and spreads. No names, emails or per-person rows.";
+		const next = periods.find((period) => period.state === "embargoed");
+		const nextText = next
+			? policy.grain === "month"
+				? ` ${monthNames[Number(next.period.slice(5, 7)) - 1]}: published after ${(next.title ?? "").replace("Published after ", "")}.`
+				: ` ${next.label}: published after ${(next.title ?? "").replace("Published after ", "")}.`
+			: "";
+		return `${name} document · ${parts.join(" · ")}. Money ${money}. ${rules}${nextText}`;
+	};
+	const captions = Object.fromEntries(
+		policy.years.map((captionYear) => [
+			String(captionYear),
+			captionOf(captionYear),
+		]),
+	);
+
+	// ---- No payments yet (mockup dashFull): the year's months the audience sees hold no gross and no payer
+	const seen = monthNames
+		.map((_, month) => month)
+		.filter((month) => periods[month]?.state !== "embargoed");
+	const empty =
+		policy.grain === "month" &&
+		seen.every(
+			(month) =>
+				!monthValue("gross_collected", year, month) &&
+				!monthValue("paying_members", year, month),
+		);
+
+	// ---- Meta
+	const meta: Record<string, KpiMeta> = {};
+	for (const { id, entry, title } of kpis) {
+		const rule = policy.rule(entry.ruleOf);
+		const wholeUnits =
+			entry.kind === "money" &&
+			(policy.roundTo > 0 ||
+				id.startsWith("revenue_by_tier:") ||
+				id.startsWith("donations_by_fund:") ||
+				id === "donors_median_gift");
+		const format: KpiFormat =
+			entry.kind === "count"
+				? "integer"
+				: entry.kind === "rate"
+					? "percent1"
+					: wholeUnits
+						? "money0"
+						: "money";
+		meta[id] = {
+			title,
+			kind: entry.kind,
+			format,
+			kpiClass:
+				(Object.entries(file.classes).find(([, members]) =>
+					members.includes(entry.ruleOf),
+				)?.[0] as KpiClass | undefined) ?? "income",
+			every: !rule
+				? policy.grain
+				: rule.live
+					? "day"
+					: (rule.every as TableGrain),
+			detail: rule?.detail ?? "total",
+			invented:
+				source.invented || id.startsWith("donor") || id.startsWith("donations"),
+		};
+	}
+
+	if (tables.year?.series[roundedQuartersKpi])
+		meta[roundedQuartersKpi] = {
+			title: "The four rounded quarters",
+			kind: "money",
+			format: "money0",
+			kpiClass: "income",
+			every: "year",
+			detail: policy.rule("gross_collected")?.detail ?? "total",
+			invented: source.invented,
+		};
+
+	// ---- The PIN-locked document: nothing shows until the PIN is entered (mockup bkLock)
+	if (pinLocked)
+		for (const table of Object.values(tables))
+			if (table) {
+				for (const cells of Object.values(table.series))
+					cells.fill({ hidden: "locked", text: "Locked" });
+				delete table.changes;
+			}
+
 	const notes = [
-		...(periods.some((period) => period.invented)
+		...(policy.years.some((periodYear) => periodYear in yearScale)
 			? [
-					"Years before the clock's are invented from 2026's months, scaled (cell-rules invented.years); their periods are marked invented.",
+					"Years before 2026 are invented from 2026's months scaled by the mockup's BK_SCALE (0.58 for 2024, 0.82 for 2025), rounded per month.",
 				]
 			: []),
-		...(donorKpis.length
+		...(source.invented
 			? [
-					"Donors and donations are the mockup's B4 Uni fixture, the same for every preset (cell-rules invented.donors).",
+					"A large school: B4 Uni's mart figures times 40 for money and 10 for counts, as the mockup's Harbor Arts Academy.",
 				]
 			: []),
-		...(days
+		...(governanceUp && source.donors.length
 			? [
-					"Days split each month's gross by the mockup's weights (cell-rules invented.days).",
+					"Donors and donations are the mockup's fixture gifts (atm books no donations yet).",
 				]
 			: []),
-		...(policy.grain !== "month"
-			? [
-					"Each period is rounded on its own, so a year is not the sum of its rounded quarters.",
-				]
+		...(policy.live && !source.days
+			? ["Days split each month's gross by the mockup's weights (bkDays)."]
 			: []),
 	];
 
 	return {
-		school: schoolName,
-		preset,
-		level,
+		school,
+		source: input.preset
+			? { kind: "mart", preset: input.preset }
+			: { kind: "events" },
+		dataSource: source.kind === "mart" ? "fixture" : "events",
+		audience,
 		pinLocked,
 		year,
 		basis: "cash",
-		currency,
-		tz: timeZone,
+		currency: input.currency,
+		symbol: currencySymbols[input.currency] ?? "$",
 		kpiSpecVersion,
-		grain: policy.grain,
 		asOf: clock.now,
-		lagMinutes,
-		partialPeriods: partialPeriod ? [partialPeriod.period] : [],
-		rules: { minContributors, maxShare },
-		policy: {
-			steps: policy.rule.steps,
-			roundTo,
-			cellRules: policy.rule.cellRules,
-			pin: policy.rule.pin,
-		},
-		caption: { money: caption("money"), usage: caption("usage") },
-		periods: periods.map((period) => period.period),
-		periodInfo,
-		series,
+		size,
+		roundTo: policy.roundTo,
+		live: policy.live,
+		cellRules: policy.live
+			? "off"
+			: audiences.indexOf(audience) < audiences.indexOf("governance")
+				? "on"
+				: "breakdown and spread",
+		grain: policy.grain,
+		periods,
+		captions,
+		empty,
+		tables,
 		meta,
-		days,
-		notComputed,
+		notComputed: [
+			{
+				id: "mrr",
+				reason:
+					"MRR is not computed: cash basis, a yearly payer counts in the month paid",
+			},
+			{ id: "churned_members", reason: "Churn is not computed: cash basis" },
+		],
 		notes,
 		verified: true,
 	};
 }
 
-/** Every document the fixtures hold: one per books level, and the PIN-locked variant where the level has a PIN. */
-export const documentVariants = (
-	rules: CellRules,
-): Array<{ level: BooksLevel; pinLocked: boolean }> =>
-	(Object.keys(rules.levels) as BooksLevel[]).flatMap((level) =>
-		rules.levels[level].pin
+/** The mockup's money symbols (`s.cur`). */
+const currencySymbols: Record<string, string> = {
+	usd: "$",
+	cad: "C$",
+	eur: "€",
+};
+/** The mockup's `kusd0`. */
+const formatMoney0 = (cents: number, currency: string): string =>
+	`${cents < 0 ? "−" : ""}${currencySymbols[currency] ?? "$"}${Math.round(Math.abs(cents) / 100).toLocaleString("en-US")}`;
+
+/** Every document of a school: one per audience, and the PIN-locked one from governance up (the mockup's PIN chip). */
+export const documentVariants = (): Array<{
+	audience: Audience;
+	pinLocked: boolean;
+}> =>
+	audiences.flatMap((audience) =>
+		audiences.indexOf(audience) >= audiences.indexOf("governance")
 			? [
-					{ level, pinLocked: false },
-					{ level, pinLocked: true },
+					{ audience, pinLocked: false },
+					{ audience, pinLocked: true },
 				]
-			: [{ level, pinLocked: false }],
+			: [{ audience, pinLocked: false }],
 	);
-export const documentKey = (
-	preset: string,
-	level: BooksLevel,
-	pinLocked: boolean,
-): string => `${preset}.${level}${pinLocked ? ".pin-locked" : ""}`;
+/** B4 Uni's mart documents are `<preset>.<audience>`; another fixture school's `<school>/<preset>.<audience>`; a
+ * school whose figures come from its events `<school>.<audience>`; PIN-locked ones end in `.pin-locked`. */
+export const documentKey = (query: {
+	school: string;
+	preset: string | null;
+	audience: Audience;
+	pinLocked: boolean;
+}): string =>
+	`${query.preset === null ? query.school : query.school === "b4u" ? query.preset : `${query.school}/${query.preset}`}.${query.audience}${query.pinLocked ? ".pin-locked" : ""}`;

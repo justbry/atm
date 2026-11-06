@@ -2,7 +2,8 @@
  * The gate runner (protocol §6). The orchestrator runs gate P itself in its worktree before this script, so this file
  * is the orchestrator's own. Usage, from packages/ledger-ui:
  *   bun gates/run.ts --slice S<k> --changed <file of repo-relative paths> --head <sha>
- * Runs I, Y, B, S, T (builder tests, then the orchestrator suites) and stops at the first red gate.
+ * Runs I, Y, B, S, T (builder tests, then the orchestrator suites), then R (parity with smoke.mjs), and stops at the
+ * first red gate.
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -128,13 +129,19 @@ const bytes = [...firstLoad].reduce(
 const budget = JSON.parse(
 	readFileSync(join(import.meta.dir, "budget.json"), "utf8"),
 ) as Budget;
-const previous = budget.sizes[`S${sliceNumber - 1}`];
+/** The last recorded slice before this one, and how many slices lie between (each may grow by `growth`). */
+const recorded = Array.from(
+	{ length: sliceNumber },
+	(_, index) => sliceNumber - 1 - index,
+).find((number) => budget.sizes[`S${number}`] !== undefined);
+const previous =
+	recorded === undefined ? undefined : budget.sizes[`S${recorded}`];
 const limit =
 	sliceNumber === 0
 		? budget.S0Ceiling
-		: previous === undefined
+		: previous === undefined || recorded === undefined
 			? Number.NaN
-			: Math.floor(previous * budget.growth);
+			: Math.floor(previous * budget.growth ** (sliceNumber - recorded));
 if (!(bytes <= limit)) {
 	process.stdout.write(`S red: ${bytes} gzip bytes, limit ${limit}\n`);
 	process.exit(1);
@@ -162,4 +169,12 @@ run(
 		env: { LEDGER_SLICE: slice, LEDGER_HEAD: head },
 	},
 );
+/** Gate R (protocol v9 addendum §3): smoke.mjs run against the UI; every check owned by a slice up to this one passes
+ * or is na with a reason. Prints the per-slice coverage either way. */
+const parity = spawnSync("bun", ["test/parity/run.ts", "--slice", slice], {
+	cwd: packageRoot,
+	encoding: "utf8",
+});
+process.stdout.write(`${parity.stdout ?? ""}${parity.stderr ?? ""}`);
+if (parity.status !== 0) process.exit(1);
 process.stdout.write(`all gates green; size ${bytes}\n`);
