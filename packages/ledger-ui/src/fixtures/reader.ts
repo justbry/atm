@@ -147,7 +147,24 @@ const settingsBySchool = settingsFixture.schools as unknown as Record<
  * clock for today. */
 export function createFixtureReader(options: { clock: Clock }): Reader {
 	return {
-		...createLedgerReader({ clock: options.clock, schools }),
+		...createLedgerReader({
+			clock: options.clock,
+			schools,
+			reportDocument: ({ school, audience }) => {
+				const document =
+					documents[
+						documentKey({
+							school,
+							preset: presets[0]?.id ?? "",
+							audience,
+							pinLocked: false,
+						})
+					];
+				if (!document)
+					throw new Error(`no ${audience} document for school ${school}`);
+				return document;
+			},
+		}),
 		schools: async () => schools,
 		dashboardOptions: async () => ({ presets }),
 		bookings: async ({ school, from, to }) => ({

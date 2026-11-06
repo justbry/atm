@@ -11,8 +11,8 @@ import type { Reader } from "../data/reader.ts";
 import type { Clock, School } from "../data/types.ts";
 import type { Writer } from "../data/writer.ts";
 import { Icon } from "./icon.tsx";
-import { LockPanel } from "./lock-panel.tsx";
 import type { PaneProps } from "./panes.tsx";
+import { monthOfPeriod } from "./period.ts";
 import { PlanCode } from "./plan-code.tsx";
 import { PlanDrawer } from "./plan-drawer.tsx";
 import {
@@ -44,7 +44,7 @@ import { parseMenu } from "./plans-yaml.ts";
 import { type Route, type SchoolTab, withQuery } from "./route.ts";
 import { keepLoading } from "./use-loaded.ts";
 import { usePlanYaml } from "./use-plan-yaml.ts";
-import { exitPreviewTitle, useViewing } from "./viewing.ts";
+import { exitPreviewTitle, useViewedPeriod, useViewing } from "./viewing.ts";
 
 type Mode = "edit" | "preview" | "code";
 
@@ -175,6 +175,11 @@ export function Plans({
 	onOpenSettings,
 }: PlansProps): JSX.Element | null {
 	const viewing = useViewing();
+	const viewedPeriod = useViewedPeriod(
+		route.query.get("month"),
+		clock.today,
+		school.dashboardOpensOn ?? null,
+	);
 	const [editing, setEditing] = useState<{
 		kind: PlanKind;
 		id: string | null;
@@ -242,8 +247,6 @@ export function Plans({
 	if (!session) return null;
 	const { live, draft, summary, saveStatus } = session;
 	const view = plansViewOf(viewing);
-	/** The per-plan members and revenue this row may not see (the disclosure's `plans-revenue` surface). */
-	const revenueLock = viewing.option.locks["plans-revenue"];
 	const owner = school.role === "owner";
 	const mode = modeOf(route.query);
 	const changes = diffMenus(live, draft);
@@ -394,6 +397,7 @@ export function Plans({
 						summary={summary}
 						currency={live.currency}
 						attentionCount={school.attentionCount}
+						viewedMonth={monthOfPeriod(viewedPeriod, clock.today)}
 						onMembers={() => leave("members")}
 						onDashboard={() => leave("dashboard")}
 					/>
@@ -466,7 +470,7 @@ export function Plans({
 						Review and publish
 					</button>
 					{reason && (
-						<span class="mut" id={reasonId}>
+						<span class="visually-hidden" id={reasonId}>
 							{reason}
 						</span>
 					)}
@@ -505,9 +509,6 @@ export function Plans({
 						onOpen={open}
 						onMembers={(tierId) => leave("members", ["plan", tierId])}
 					/>
-				)}
-				{mode === "edit" && revenueLock && (
-					<LockPanel lock={revenueLock} surface="plans-revenue" />
 				)}
 				{mode === "preview" && (
 					<PlanPreview

@@ -1,3 +1,4 @@
+import type { Cell, KpiDocument } from "../data/kpi-document.ts";
 import {
 	type AudienceReport,
 	type AudienceReportQuery,
@@ -357,15 +358,6 @@ function giftsOutstanding(school: string): IncomeStatement["giftsOutstanding"] {
 
 // ---- Public, Member and Governance: the audience's document.
 
-type Grain = AudienceReport["grain"];
-const audienceTerms: Record<
-	AudienceReportQuery["audience"],
-	{ grain: Grain; unitCents: number }
-> = {
-	public: { grain: "year", unitCents: 10_000 },
-	member: { grain: "quarter", unitCents: 10_000 },
-	governance: { grain: "month", unitCents: 0 },
-};
 const monthNames = [
 	"Jan",
 	"Feb",
@@ -382,6 +374,8 @@ const monthNames = [
 ];
 const firstPublicYear = 2024;
 const quarterDelayDays = 49;
+
+type Grain = "year" | "quarter" | "month";
 
 type DocumentPeriod = {
 	label: string;
@@ -428,107 +422,87 @@ function documentPeriods(
 	});
 }
 
-const moneyCell = (cents: number, unitCents: number): ReportCell => {
-	if (unitCents === 0) return cents;
-	const rounded = Math.round(cents / unitCents) * unitCents;
-	return cents > 0 && rounded === 0 ? { lt: unitCents } : rounded;
-};
+const notComputed: Cell = { hidden: "not_computed", text: "Not computed" };
 
-const tierOf = (text: string): string | null =>
-	/^Invoice paid, ([A-Za-z]+)/.exec(text)?.[1] ?? null;
-
+/** Reports reads the audience's own KPI document (the Dashboard's, from `documents.json`): every cell, its rounding,
+ * its "<10" and its "—" are the document's, so the two surfaces cannot disagree about one school, audience and
+ * period. The fixture only picks which period to show and lays the cells out. */
 function audienceDocument(
 	school: School,
-	clock: Clock,
+	document: KpiDocument,
 	query: AudienceReportQuery,
 ): AudienceReport {
 	const { audience } = query;
-	const { grain, unitCents } = audienceTerms[audience];
-	const sources = eventsBySchool[school.id] ?? [];
-	const periods = documentPeriods(
-		grain,
-		Number(query.from.slice(0, 4)),
-		clock.today,
-	);
-	const published = (period: DocumentPeriod): boolean =>
-		period.shownFrom <= clock.today;
-	const asked = periods.find(
+	const { grain } = document;
+	const table = document.tables[grain];
+	if (!table)
+		throw new Error(`the ${audience} document of ${school.id} has no table`);
+	const asked = document.periods.find(
 		({ from, to }) => from <= query.from && query.from <= to,
 	);
 	const shown =
-		(asked && published(asked) ? asked : periods.filter(published).at(-1)) ??
-		periods[0];
+		(asked?.state === "shown"
+			? asked
+			: document.periods.filter(({ state }) => state === "shown").at(-1)) ??
+		document.periods[0];
 	if (!shown) throw new Error(`no ${grain} periods for ${school.id}`);
-	const { amounts, counts } = statementOf(sources, shown.from, shown.to);
-	const money = (cents: number): ReportCell => moneyCell(cents, unitCents);
-	const members: ReportCell = {
-		hidden: "members_only",
-		who: "Members",
-	};
+	const cellAt = (kpi: string, period: string): Cell =>
+		table.series[kpi]?.[table.periods.indexOf(period)] ?? notComputed;
+	const cell = (kpi: string): Cell => cellAt(kpi, shown.period);
+	// A preset with no booking or discount revenue has no series for it: its line reads 0 where the income does, and
+	// whatever withholds the income (delay, minimum payers) withholds the line.
+	const kindCell = (kpi: string): Cell =>
+		table.series[kpi]
+			? cell(kpi)
+			: typeof cell("gross_collected") === "number"
+				? 0
+				: cell("gross_collected");
+	const year = shown.period.slice(0, 4);
+	const strip = document.periods.filter(
+		({ period }) => grain === "year" || period.startsWith(year),
+	);
+	const index = table.periods.indexOf(shown.period);
+	const tierKpis = table.order?.revenue_by_tier?.[index] ?? [];
+	const tiers = tierKpis.flatMap((kpi) => {
+		const income = cell(kpi);
+		// A plan with nothing in the period has no line (mockup `reportsDoc` keeps the tiers with a figure).
+		return income === 0
+			? []
+			: [{ name: document.meta[kpi]?.title ?? kpi, income }];
+	});
+	const governance = audience === "governance";
 	const governanceUp: ReportCell = {
 		hidden: "no_grant",
 		who: "Governance and up",
 	};
-	const refunds = Math.abs(amounts.refunds);
-	const fees = Math.abs(amounts.fees);
-	const sales = sources.filter(
-		(source) =>
-			isSale(source) &&
-			source.at.slice(0, 10) >= shown.from &&
-			source.at.slice(0, 10) <= shown.to,
-	);
-	const tiers =
-		audience === "governance"
-			? [...new Set(sales.flatMap(({ text }) => tierOf(text) ?? []))].map(
-					(name) => {
-						const own = sales.filter((sale) => tierOf(sale.text) === name);
-						const payers = new Set(own.map(({ member }) => member)).size;
-						return {
-							name,
-							income:
-								payers < smallCount
-									? ({
-											hidden: "suppressed",
-											text: "Hidden: fewer than 5 payers",
-										} as const)
-									: money(sum(own.map((sale) => sale.amountCents ?? 0))),
-						};
-					},
-				)
-			: [];
 	return {
 		audience,
 		grain,
 		periodLabel: shown.label,
-		payments:
-			audience !== "governance" &&
-			counts.payments > 0 &&
-			counts.payments < smallCount
-				? { lt: 10 }
-				: counts.payments,
-		periods: periods.map((period) => ({
-			label: period.label,
-			income: published(period)
-				? money(statementOf(sources, period.from, period.to).amounts.income)
-				: { hidden: "embargoed", until: period.shownFrom },
+		payments: cell("payments_count"),
+		periods: strip.map(({ period, label }) => ({
+			label,
+			income: cellAt("gross_collected", period),
 		})),
 		figures: {
-			memberships: money(amounts.memberships),
-			bookings: money(amounts.bookings),
-			discounts: money(Math.abs(amounts.discounts)),
-			income: money(amounts.income),
-			refunds: audience === "public" ? members : money(refunds),
-			fees: audience === "public" ? members : money(fees),
-			net: audience === "public" ? members : money(amounts.net),
-			paidOut:
-				audience === "governance" ? money(amounts.paidOut) : governanceUp,
-			giftsOutstanding:
-				audience === "governance"
-					? money(giftsOutstanding(school.id).amountCents)
-					: governanceUp,
+			memberships: kindCell("revenue_by_kind:membership"),
+			bookings: kindCell("revenue_by_kind:booking"),
+			discounts: kindCell("revenue_by_kind:discount"),
+			income: cell("gross_collected"),
+			refunds: cell("refunds"),
+			fees: cell("stripe_fees"),
+			net: cell("net_income"),
+			paidOut: cell("payouts"),
+			// The documents carry no gift liability: the Governance row reads the school's promos, the rest see none.
+			giftsOutstanding: governance
+				? giftsOutstanding(school.id).amountCents
+				: governanceUp,
 		},
 		tiers,
-		rounding: unitCents === 0 ? null : { unitCents, size: "small" },
+		rounding:
+			document.roundTo === 0
+				? null
+				: { unitCents: document.roundTo, size: document.size },
 	};
 }
 
@@ -749,6 +723,8 @@ function donorSpread(
 export function createLedgerReader(options: {
 	clock: Clock;
 	schools: School[];
+	/** The KPI document the Dashboard shows for this school and audience: Reports reads its cells. */
+	reportDocument: (query: AudienceReportQuery) => KpiDocument;
 }): LedgerReader {
 	const { clock, schools } = options;
 	const schoolOf = (id: string): School => {
@@ -797,7 +773,11 @@ export function createLedgerReader(options: {
 			};
 		},
 		audienceReport: async (query) =>
-			audienceDocument(schoolOf(query.school), clock, query),
+			audienceDocument(
+				schoolOf(query.school),
+				options.reportDocument(query),
+				query,
+			),
 		donors: async (query) => {
 			const school = schoolOf(query.school);
 			if (seesIdentities(query.audience))

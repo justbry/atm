@@ -10,14 +10,18 @@ import {
 	type Cell,
 	cellKind,
 	type DocumentPeriod,
-	type HiddenKind,
 	type KpiDocument,
 	type TableGrain,
 } from "../data/kpi-document.ts";
 import type { Preset } from "../data/types.ts";
 import type { BooksPaneProps } from "./books-pane.ts";
 import { Icon, type IconName } from "./icon.tsx";
-import { cellText, figureText, notComputedCell } from "./kpi-cell.tsx";
+import {
+	cellText,
+	figureText,
+	notComputedCell,
+	withheldKinds,
+} from "./kpi-cell.tsx";
 import { monthName, type Period, parsePeriod } from "./period.ts";
 import { PinLock } from "./pin-lock.tsx";
 import { withQuery } from "./route.ts";
@@ -57,13 +61,6 @@ const dayLabelEvery = 5;
 const openMonthTitle = "Open month: live, can still change";
 /** A suppressed cell's text is "Hidden: <why>"; its reason line names the row before the why. */
 const hiddenPrefix = /^Hidden: /;
-/** The hidden kinds that keep a figure from an audience: their cells say why, with the clock or the lock. */
-const withheldKinds = new Set<HiddenKind>([
-	"embargoed",
-	"members_only",
-	"no_grant",
-]);
-
 const grainOf = (period: string): TableGrain => {
 	if (/^\d{4}$/.test(period)) return "year";
 	if (/-Q\d$/.test(period)) return "quarter";
@@ -766,6 +763,7 @@ function AggregateBody({
 }): JSX.Element {
 	const { document, selected } = books;
 	const { label } = selected;
+	const rate = numberAt(document, "refund_rate", selected.period);
 	if (view === "money") {
 		const kinds = seriesStartingWith(
 			document,
@@ -787,7 +785,8 @@ function AggregateBody({
 							: label}
 					</Card>
 					<Card books={books} label="Refunds" kpi="refunds">
-						<Value books={books} kpi="refund_rate" /> of gross
+						<Value books={books} kpi="refund_rate" />
+						{rate === null ? "" : " of gross"}
 					</Card>
 					<Card books={books} label="Payment fees" kpi="stripe_fees">
 						in {label}
@@ -1062,7 +1061,8 @@ function MonthBody({
 							rate !== null && rate > refundRateWarn ? refundTone(rate) : ""
 						}
 					>
-						<Value books={books} kpi="refund_rate" /> of gross
+						<Value books={books} kpi="refund_rate" />
+						{rate === null ? "" : " of gross"}
 					</Card>
 					<Card books={books} label="Payment fees" kpi="stripe_fees">
 						<Change books={books} kpi="stripe_fees" />

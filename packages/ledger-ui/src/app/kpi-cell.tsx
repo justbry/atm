@@ -2,10 +2,12 @@ import type { JSX } from "preact";
 import {
 	type Cell,
 	cellKind,
+	type HiddenKind,
 	type KpiDocument,
 	type KpiFormat,
 	type TableGrain,
 } from "../data/kpi-document.ts";
+import { Icon } from "./icon.tsx";
 
 const minorUnitsPerUnit = 100;
 const decimals: Record<"money" | "money0", number> = { money: 2, money0: 0 };
@@ -52,6 +54,13 @@ export function cellText(
 	return cell.hidden === "suppressed" ? suppressedText : cell.text;
 }
 
+/** The hidden kinds that keep a figure from an audience: their cells say why, with the clock or the lock. */
+export const withheldKinds = new Set<HiddenKind>([
+	"embargoed",
+	"members_only",
+	"no_grant",
+]);
+
 /** What a KPI the table lacks reads: the Dashboard's cells and the portal's share this. */
 export const notComputedCell: Cell = {
 	hidden: "not_computed",
@@ -84,15 +93,26 @@ export function KpiValue({
 	const index = table?.periods.indexOf(period) ?? -1;
 	const cell: Cell = table?.series[kpi]?.[index] ?? notComputedCell;
 	const kind = cellKind(cell);
+	const withheld =
+		typeof cell === "object" &&
+		"hidden" in cell &&
+		withheldKinds.has(cell.hidden)
+			? cell.hidden
+			: null;
+	let className: string | undefined;
+	if (kind === "suppressed") className = "kcutv";
+	else if (withheld) className = "khid";
 	return (
 		<span
 			data-test={test}
 			data-kpi={kpi}
 			data-period={period}
 			data-cell={kind}
-			class={kind === "suppressed" ? "kcutv" : undefined}
+			data-hid={withheld ?? undefined}
+			class={className}
 			title={cellWhy(cell)}
 		>
+			{withheld && <Icon name={withheld === "embargoed" ? "clock" : "lock"} />}
 			{cellText(document, kpi, cell)}
 		</span>
 	);

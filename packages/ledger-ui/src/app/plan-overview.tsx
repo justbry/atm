@@ -161,12 +161,15 @@ function collectedFigure(
 }
 
 /** The strip over the tables (mockup `strip`): the server's counts and the month's gross, which an admin without the
- * finance grant does not see. Active members, Ending soon and Need attention open Members; Collected the Dashboard. */
+ * finance grant does not see. Active members, Ending soon and Need attention open Members; Collected the Dashboard. Collected names the month the
+ * viewed period reads from (mockup `dm`) while its figure is withheld; with a figure it names the month the server
+ * summed, so the label never claims a month the figure is not for. */
 export function PlanStrip({
 	view,
 	summary,
 	currency,
 	attentionCount,
+	viewedMonth,
 	onMembers,
 	onDashboard,
 }: {
@@ -174,6 +177,8 @@ export function PlanStrip({
 	summary: PlanSummary;
 	currency: string;
 	attentionCount: number;
+	/** The month the viewed period reads from (`YYYY-MM-01`): it names the stat when its figure is withheld. */
+	viewedMonth: string;
 	onMembers: () => void;
 	onDashboard: () => void;
 }): JSX.Element {
@@ -193,7 +198,7 @@ export function PlanStrip({
 				icon="coin"
 				label={
 					collected
-						? `Collected in ${monthName(`${collected.period}-01`)}`
+						? `Collected in ${monthName(view.finance ? `${collected.period}-01` : viewedMonth)}`
 						: "Collected"
 				}
 				onClick={onDashboard}

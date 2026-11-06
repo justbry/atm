@@ -100,7 +100,7 @@ export function Figure({
 		);
 	return (
 		<span class="khid" data-hid={cell.hidden} title={cell.text}>
-			<Icon name="lock" />
+			<Icon name={cell.hidden === "embargoed" ? "clock" : "lock"} />
 			{hidden}
 		</span>
 	);

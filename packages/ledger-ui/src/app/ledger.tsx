@@ -27,6 +27,10 @@ import { useLoaded } from "./use-loaded.ts";
 import { useViewing } from "./viewing.ts";
 import { capitalise, plural } from "./wording.ts";
 
+/** The mockup's bkBlocked admin branch: an admin without the finance grant still has Members. */
+const adminBooksSentence =
+	"Admins without the finance grant see the roster, balances and bookings in Members.";
+
 const typeChips: Array<{
 	slug: string;
 	type: LedgerTypeFilter | null;
@@ -200,7 +204,7 @@ export function Ledger({
 	onToast,
 }: BooksPaneProps): JSX.Element | null {
 	const { query } = route;
-	const { audience } = useViewing().option;
+	const { audience, value: viewedAs } = useViewing().option;
 	const pinLocked = query.get("pin") === "locked" && needsPin(audience);
 	const readable = seesIdentities(audience) && !pinLocked;
 	const period = parsePeriod(query.get("month"), clock.today);
@@ -256,7 +260,7 @@ export function Ledger({
 				lock={{
 					reason: "no_grant",
 					who: identitiesLockHeading,
-					when: `This lists who paid what: one row per person with amounts, refunds and member ids. ${audienceNames[audience]} sees totals in Reports and the Dashboard. Every identified read is audited.`,
+					when: `This lists who paid what: one row per person with amounts, refunds and member ids. ${viewedAs === "admin" ? adminBooksSentence : `${audienceNames[audience]} sees totals in Reports and the Dashboard.`} Every identified read is audited.`,
 				}}
 				hooks="books"
 			/>
