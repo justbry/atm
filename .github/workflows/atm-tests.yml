@@ -8,7 +8,10 @@ name: atm tests
 # runs the typecheck, lint and build. All of them restore Bun's install cache, keyed on bun.lock and .bun-version.
 #
 # The test shards are balanced with tests/test-timings.json, each file's serial time on a hosted runner: a file left out of
-# it (a new one) still runs, in whichever shard bun puts it. To refresh it, run each shard with --update-timings.
+# it (a new one, or one that skips on a runner) still runs, in whichever shard bun puts it. To refresh it, run every file
+# at once (not a shard: a shard writes only its own files) and format it after, as bun writes it with spaces:
+#   bun test --timeout 60000 --timings=tests/test-timings.json --update-timings tests
+#   ../../node_modules/.bin/biome check --write tests/test-timings.json
 #
 # Where it runs follows B4 Uni's CI (buzz-school docs/ci-and-deploy.md): the repository variable CI_RUNNER, a JSON
 # runner label list, sends the job to a self-hosted Sprite box (for example '["self-hosted","b4u-sprite"]'); unset, it

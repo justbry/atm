@@ -40,6 +40,13 @@ import { hasHledger } from "./helpers.js";
 
 const FULL = process.env.ATM_GOLDEN_E2E === "full";
 const SHARD = /^(\d+)\/(\d+)$/.exec(process.env.ATM_GOLDEN_E2E_SHARD ?? "");
+if (
+	process.env.ATM_GOLDEN_E2E_SHARD &&
+	!(SHARD && Number(SHARD[1]) >= 1 && Number(SHARD[1]) <= Number(SHARD[2]))
+)
+	throw new Error(
+		`ATM_GOLDEN_E2E_SHARD must be i/n with 1 <= i <= n, not ${process.env.ATM_GOLDEN_E2E_SHARD}`,
+	);
 const QUICK_BUNDLES = ["create", "second-school", "refused-invoice"];
 const TIME_ZONES = ["America/Denver", "Asia/Tokyo"] as const;
 const MINUTES = 60_000;
