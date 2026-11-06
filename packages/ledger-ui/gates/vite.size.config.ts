@@ -7,6 +7,7 @@ export default defineConfig({
 		target: "es2022",
 		sourcemap: false,
 		outDir: "dist-size",
+		manifest: true,
 		emptyOutDir: true,
 		rollupOptions: { input: "gates/size-entry.html" },
 	},
