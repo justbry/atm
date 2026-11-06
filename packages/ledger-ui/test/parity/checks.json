@@ -31,126 +31,98 @@
 			"name": "dash money cards",
 			"line": 18,
 			"slice": "S1",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard",
-			"reason": "fail: 0",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard"
 		},
 		"dash-derived-badge.1": {
 			"name": "dash derived badge",
 			"line": 19,
 			"slice": "S1b",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kt",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kt"
 		},
 		"dash-nov-gross.1": {
 			"name": "dash nov gross",
 			"line": 20,
 			"slice": "S1",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard b",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard b"
 		},
 		"members-view.1": {
 			"name": "members view",
 			"line": 21,
 			"slice": "S1",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard | #pane[aria-labelledby=tab-dashboard] .kcard b",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard | #pane[aria-labelledby=tab-dashboard] .kcard b"
 		},
 		"risk-view.1": {
 			"name": "risk view",
 			"line": 22,
 			"slice": "S1",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kcards",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcards"
 		},
 		"month-step.1": {
 			"name": "month step",
 			"line": 23,
 			"slice": "S1",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths button.on",
-			"reason": "unreached: not reached: the step at line 23 threw: null is not an object (evaluating '$(\"#dash [data-dstep='-1']\").click')",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths button.on"
 		},
 		"b4u-fixture-badge.1": {
 			"name": "b4u fixture badge",
 			"line": 26,
 			"slice": "S1",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kt",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kt"
 		},
 		"b4u-jun-gross.1": {
 			"name": "b4u jun gross",
 			"line": 27,
 			"slice": "S1b",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard b",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard b"
 		},
 		"b4u-jun-net.1": {
 			"name": "b4u jun net",
 			"line": 28,
 			"slice": "S1b",
-			"status": "fail",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass"
 		},
 		"b4u-members-paying-23.1": {
 			"name": "b4u members paying 23",
 			"line": 29,
 			"slice": "S1b",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard b",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard b"
 		},
 		"disputes-flags.1": {
 			"name": "disputes flags",
 			"line": 30,
 			"slice": "S1",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kflag",
-			"reason": "fail: 0",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kflag"
 		},
 		"annual-note.1": {
 			"name": "annual note",
 			"line": 31,
 			"slice": "S1",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .note",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .note"
 		},
 		"annual-jan-gross.1": {
 			"name": "annual jan gross",
 			"line": 32,
 			"slice": "S1",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard b",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard b"
 		},
 		"nw-empty.1": {
 			"name": "nw empty",
 			"line": 34,
 			"slice": "S1b",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard]",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard]"
 		},
 		"bk-default-week.1": {
 			"name": "bk default week",
@@ -648,24 +620,20 @@
 			"slice": "S1b",
 			"status": "fail",
 			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"note": "Harness limit, not yet a diagnosed gap: the check reads the Dashboard for each audience inside a callback ([...].map(l => [l, lvl(l)])), where the harness cannot wait for the audience's document to load, so the snapshots read a Dashboard still loading. Needs a replay with waits before it is classed."
 		},
 		"books-every-audience-has-a-caption.1": {
 			"name": "books: every audience has a caption",
 			"line": 145,
 			"slice": "S1b",
-			"status": "fail",
-			"ui": "#kview | #kvp [data-bv=public] | #pane[aria-labelledby=tab-dashboard] | #pane[aria-labelledby=tab-dashboard] .kcaption",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#kview | #kvp [data-bv=public] | #pane[aria-labelledby=tab-dashboard] | #pane[aria-labelledby=tab-dashboard] .kcaption | #kvp [data-bv=member] | #kvp [data-bv=governance] | #kvp [data-bv=finance]"
 		},
 		"books-pin-chip-only-from-governance-up.1": {
 			"name": "books: PIN chip only from Governance up",
 			"line": 146,
 			"slice": "S1b",
-			"status": "fail",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it.",
+			"status": "pass",
 			"ui": "#kview | #kvp [data-bv=public] | #pane[aria-labelledby=tab-dashboard] | #pane[aria-labelledby=tab-dashboard] [data-blk] | #kvp [data-bv=member] | #kvp [data-bv=governance] | #kvp [data-bv=finance]"
 		},
 		"books-public-switching-re-snaps-the-period-with-a-toast.1": {
@@ -679,63 +647,51 @@
 			"name": "books public: year grain only",
 			"line": 150,
 			"slice": "S1b",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths [data-dpk] | #pane[aria-labelledby=tab-dashboard] .kmonths button",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths [data-dpk] | #pane[aria-labelledby=tab-dashboard] [data-dm] | #pane[aria-labelledby=tab-dashboard] .kmonths button"
 		},
 		"books-public-small-school-money-rounded-to-100-not-1-000.1": {
 			"name": "books public: small school, money rounded to $100 (not $1,000)",
 			"line": 151,
 			"slice": "S1b",
-			"status": "fail",
+			"status": "na",
 			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard b",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"reason": "Its last clause asks T.bkSize(T.SC.b4u, 2024). The disclosure contract (Disclosure.size, src/fixtures/disclosure.json) and the oracle that builds the documents from it (gates/oracle.ts kpiDocument takes one size) carry a school's size for the disclosure year, 2026, only; T.bkSize is mapped to that and throws for any other year, and nothing in the UI or the fixtures holds a size for 2024. Probe (a year-blind bkSize answering the 2026 size): every on-screen clause passes. The UI rounds B4 Uni's Public money to $100 (some figures not a $1,000 multiple), as the check wants."
 		},
 		"books-public-years-inside-the-delay-are-listed-disabled-published-after.1": {
 			"name": "books public: years inside the delay are listed, disabled, Published after",
 			"line": 152,
 			"slice": "S1b",
-			"status": "fail",
-			"reason": "unreached: not reached: the step at line 152 threw: null is not an object (evaluating '$(\"#dash [data-dpk='2025']\").disabled')",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] [data-dpk='2025'] | #pane[aria-labelledby=tab-dashboard] [data-dpk='2026']"
 		},
 		"books-public-a-disabled-year-cannot-be-picked.1": {
 			"name": "books public: a disabled year cannot be picked",
 			"line": 153,
 			"slice": "S1b",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths button.on",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths button.on"
 		},
 		"books-public-losses-and-cash-are-members-only-governance-with-the-reason-never-0.1": {
 			"name": "books public: losses and cash are members_only / governance, with the reason, never 0",
 			"line": 154,
 			"slice": "S1b",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard[data-k=refunds] [data-hid=members_only] | #pane[aria-labelledby=tab-dashboard] .kcard[data-k=refunds] b | #pane[aria-labelledby=tab-dashboard] .kcard[data-k=payouts] b",
-			"reason": "fail: |",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard[data-k=refunds] [data-hid=members_only] | #pane[aria-labelledby=tab-dashboard] .kcard[data-k=refunds] b | #pane[aria-labelledby=tab-dashboard] .kcard[data-k=payouts] b | #pane[aria-labelledby=tab-dashboard] .kcard[data-k=net_income] b"
 		},
 		"books-public-categories-only-no-plan-breakdown.1": {
 			"name": "books public: categories only, no plan breakdown",
 			"line": 155,
 			"slice": "S1b",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard]",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard]"
 		},
 		"books-public-people-by-quarter-and-activity-by-month-from-the-file.1": {
 			"name": "books public: people by quarter and activity by month, from the file",
 			"line": 157,
 			"slice": "S1b",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard]",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard]"
 		},
 		"books-member-re-snaps-to-the-latest-published-quarter-with-the-toast.1": {
 			"name": "books member: re-snaps to the latest published quarter with the toast",
@@ -748,45 +704,36 @@
 			"name": "books member: quarter grain",
 			"line": 162,
 			"slice": "S1b",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths [data-dpk]",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths [data-dpk] | #pane[aria-labelledby=tab-dashboard] [data-dpk]"
 		},
 		"books-member-money-rounded-to-100.1": {
 			"name": "books member: money rounded to $100",
 			"line": 163,
 			"slice": "S1b",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard b",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard b"
 		},
 		"books-member-a-quarter-publishes-6-weeks-after-it-closes-q3-2026-after-18-nov-2026.1": {
 			"name": "books member: a quarter publishes 6 weeks after it closes (Q3 2026 after 18 Nov 2026)",
 			"line": 164,
 			"slice": "S1b",
-			"status": "fail",
-			"reason": "unreached: not reached: the step at line 164 threw: null is not an object (evaluating '$(\"#dash [data-dpk=2026Q3]\").disabled')",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] [data-dpk=2026Q3] | #pane[aria-labelledby=tab-dashboard] [data-dpk=2026Q2]"
 		},
 		"books-member-losses-as-one-total-cash-governance-and-up.1": {
 			"name": "books member: losses as one total, cash Governance and up",
 			"line": 165,
 			"slice": "S1b",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard[data-k=refunds] b",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard[data-k=refunds] b | #pane[aria-labelledby=tab-dashboard] .kcard[data-k=payouts] b"
 		},
 		"books-gov-month-grain-closed-months-only.1": {
 			"name": "books gov: month grain, closed months only",
 			"line": 168,
 			"slice": "S1b",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths button[data-dm]:not(.kwait) | #pane[aria-labelledby=tab-dashboard] .kcaption",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths button[data-dm]:not(.kwait) | #pane[aria-labelledby=tab-dashboard] .kmonths button.kwait[disabled] | #pane[aria-labelledby=tab-dashboard] .kcaption"
 		},
 		"books-gov-exact-figures-cents.1": {
 			"name": "books gov: exact figures (cents)",
@@ -799,18 +746,14 @@
 			"name": "books gov: plan breakdown with cell rules, suppressed cell shows — with the reason",
 			"line": 171,
 			"slice": "S1b",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kcutv | #pane[aria-labelledby=tab-dashboard] .kwhy",
-			"reason": "fail: 0 ",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcutv | #pane[aria-labelledby=tab-dashboard] .kwhy"
 		},
 		"books-gov-spread-of-donors-a-failing-bucket-as-10-and-its-neighbour-rounded-to-10-the-median-no-rows.1": {
 			"name": "books gov: spread of donors, a failing bucket as <10 and its neighbour rounded to 10, the median, no rows",
 			"line": 173,
 			"slice": "S1b",
-			"status": "fail",
-			"reason": "fail: null",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass"
 		},
 		"books-gov-no-personal-names-emails-or-per-person-rows.1": {
 			"name": "books gov: no personal names, emails or per-person rows",
@@ -851,19 +794,15 @@
 			"name": "books fin: open month is hatched and live, days shown",
 			"line": 184,
 			"slice": "S1",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths .kopen",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths .kopen | #pane[aria-labelledby=tab-dashboard] .kopen | #pane[aria-labelledby=tab-dashboard] .kmonths"
 		},
 		"books-fin-caption-says-everything-names-included-audited.1": {
 			"name": "books fin: caption says everything, names included, audited",
 			"line": 185,
 			"slice": "S1",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kcaption",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcaption"
 		},
 		"books-fin-no-fixture-value-renders-as-null-or-nan.1": {
 			"name": "books fin: no fixture value renders as null or NaN",
@@ -882,19 +821,15 @@
 			"name": "books owner: open month is hatched and live, days shown",
 			"line": 184,
 			"slice": "S1",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths .kopen",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths .kopen | #pane[aria-labelledby=tab-dashboard] .kopen | #pane[aria-labelledby=tab-dashboard] .kmonths"
 		},
 		"books-owner-caption-says-everything-names-included-audited.1": {
 			"name": "books owner: caption says everything, names included, audited",
 			"line": 185,
 			"slice": "S1",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kcaption",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcaption"
 		},
 		"books-owner-no-fixture-value-renders-as-null-or-nan.1": {
 			"name": "books owner: no fixture value renders as null or NaN",
@@ -906,10 +841,8 @@
 			"name": "books fin: daily gross for the open month",
 			"line": 188,
 			"slice": "S1",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] svg[aria-label^='Gross by day'] rect",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] svg[aria-label^='Gross by day'] rect"
 		},
 		"ranked-1-finance-sees-donors-and-payers-with-names-amounts-and-the-audit-line.1": {
 			"name": "ranked 1: finance sees Donors and payers with names, amounts and the audit line",
@@ -958,71 +891,57 @@
 			"name": "books gov PIN locked: lock state, not zeros",
 			"line": 203,
 			"slice": "S1",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard]",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] | #pane[aria-labelledby=tab-dashboard] .kcard | #pane[aria-labelledby=tab-dashboard] svg.kc"
 		},
 		"books-fin-pin-locked-lock-state-not-zeros.1": {
 			"name": "books fin PIN locked: lock state, not zeros",
 			"line": 203,
 			"slice": "S1",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard]",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] | #pane[aria-labelledby=tab-dashboard] .kcard | #pane[aria-labelledby=tab-dashboard] svg.kc"
 		},
 		"books-owner-pin-locked-lock-state-not-zeros.1": {
 			"name": "books owner PIN locked: lock state, not zeros",
 			"line": 203,
 			"slice": "S1",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard]",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] | #pane[aria-labelledby=tab-dashboard] .kcard | #pane[aria-labelledby=tab-dashboard] svg.kc"
 		},
 		"books-locked-reports-show-the-lock-not-names.1": {
 			"name": "books locked: Reports show the lock, not names",
 			"line": 204,
 			"slice": "S5",
-			"status": "fail",
-			"ui": "#rblock",
-			"reason": "fail",
-			"note": "GAP (blocked by S1b): the step needs the Dashboard's PIN chip (#dash [data-blk]), missing while the Dashboard throws; with pin=locked in the route Reports reads 'Enter your PIN to see books' (checked)."
+			"status": "pass",
+			"ui": "#rblock | #donors"
 		},
 		"books-locked-ledger-shows-the-lock.1": {
 			"name": "books locked: Ledger shows the lock",
 			"line": 205,
 			"slice": "S5",
-			"status": "fail",
-			"ui": "#lblock",
-			"reason": "fail",
-			"note": "GAP (blocked by S1b): as above; with pin=locked the Ledger reads 'Enter your PIN to see books' (checked)."
+			"status": "pass",
+			"ui": "#lblock"
 		},
 		"books-pin-entering-the-pin-unlocks-the-books.1": {
 			"name": "books PIN: entering the PIN unlocks the books",
 			"line": 207,
 			"slice": "S1",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] | #pane[aria-labelledby=tab-dashboard] .kcard",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] | #pane[aria-labelledby=tab-dashboard] .kcard | #pane[aria-labelledby=tab-dashboard] [data-blk]"
 		},
 		"rounding-harbor-arts-is-a-large-school-for-2024-and-2026-b4-uni-small.1": {
 			"name": "rounding: Harbor Arts is a large school for 2024 and 2026, B4 Uni small",
 			"line": 211,
 			"slice": "S1b",
 			"status": "na",
-			"reason": "Calls the mockup's internal T.bkSize(school, year); the UI's disclosure data carries the size of the disclosure year only, so there is no honest value for other years. The rounding it implies is checked on screen by rounding-large-school-public-money-to-the-nearest-1-000.1."
+			"reason": "It asks T.bkSize for Harbor Arts 2024 and 2026 and B4 Uni 2026; the 2024 call has no counterpart. The disclosure contract (Disclosure.size, src/fixtures/disclosure.json) and the oracle that builds the documents from it (gates/oracle.ts kpiDocument takes one size) carry a school's size for the disclosure year, 2026, only; T.bkSize is mapped to that and throws for any other year, and nothing in the UI or the fixtures holds a size for 2024. Probe (a year-blind bkSize answering the 2026 size): every on-screen clause passes. The 2026 answers (Harbor Arts large, B4 Uni small) match the disclosure, and the rounding on screen is checked by rounding-large-school-public-money-to-the-nearest-1-000.1."
 		},
 		"rounding-large-school-public-money-to-the-nearest-1-000.1": {
 			"name": "rounding: large school, Public money to the nearest $1,000",
 			"line": 212,
 			"slice": "S1b",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard b",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard b"
 		},
 		"rounding-large-school-member-money-to-100-and-the-year-total-is-not-the-sum-of-its-rounded-quarters.1": {
 			"name": "rounding: large school, Member money to $100, and the year total is not the sum of its rounded quarters",
@@ -1030,8 +949,8 @@
 			"slice": "S1b",
 			"status": "fail",
 			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard[data-k=gross_collected] b | #pane[aria-labelledby=tab-dashboard] .kyear",
-			"reason": "fail:  | ",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"reason": "fail: 2025 total$236,800 | ",
+			"note": "GAP: under the quarter strip's '<year> total' row the UI shows only the generic 'Each period is rounded on its own…' line; the mockup's .kyearnote says 'The four rounded quarters add up to $X; the year is rounded from its own events.' with the summed figure (the oracle's gross_collected_rounded_quarters). The UI must render that note with the document's figure."
 		},
 		"ranked-7-admin-without-the-grant-sees-plan-structure-revenue-and-counts-finance-or-governance-only.1": {
 			"name": "ranked 7: admin without the grant sees plan structure, revenue and counts Finance or governance only",
@@ -1053,18 +972,15 @@
 			"name": "ranked 3: drawer for an admin without the grant: payments Finance only, invoice and adjust Finance only, CSV finance admins only",
 			"line": 221,
 			"slice": "S4",
-			"status": "fail",
-			"ui": "#dr .kpay | #dr [data-act=invoice]",
-			"reason": "fail",
-			"note": "GAP: no Members fixture for Harbor Arts (src/fixtures/members.ts has vol, b4u, map, nw): the UI must serve har's roster with h_32 and the viewer as an admin without the finance grant; the drawer then shows payments 'Finance only', invoice and adjust disabled 'Finance only', CSV 'Finance admins only'."
+			"status": "pass",
+			"ui": "#dr .kpay | #dr [data-act=invoice] | #dr [data-kx=csv] | #dr"
 		},
 		"ranked-3-the-menu-gates-money-items-for-an-admin-without-the-grant.1": {
 			"name": "ranked 3: the ⋯ menu gates money items for an admin without the grant",
 			"line": 222,
 			"slice": "S4",
-			"status": "fail",
-			"reason": "unreached: not reached: the step at line 222 threw: null is not an object (evaluating '$(\"#dr [data-kmenu]\").click')",
-			"note": "GAP: as above (no har roster, no h_32 row); the ⋯ menu must gate invoice and adjust 'Finance only' and CSV 'Finance admins only' for that viewer."
+			"status": "pass",
+			"ui": "#kmm [data-act=invoice] | #kmm [data-act=adjust] | #kmm [data-kx=csv] | #kmm [data-role]"
 		},
 		"ranked-3-the-portal-preview-by-an-admin-without-the-grant-shows-no-amounts-and-cannot-export.1": {
 			"name": "ranked 3: the portal preview by an admin without the grant shows no amounts and cannot export",
@@ -1073,7 +989,7 @@
 			"status": "fail",
 			"ui": "#khist",
 			"reason": "fail",
-			"note": "GAP: no har Members or portal fixture (h_32); the portal preview by an admin without the grant must show history amounts as 'Finance only' (no $) and a disabled Download CSV."
+			"note": "GAP: Harbor Arts now has a Members roster with h_32, but no member portal fixture for it (src/fixtures/portal.ts has no h_32): the portal preview by an admin without the finance grant must show the history amounts as 'Finance only' (no $) and a disabled Download CSV."
 		},
 		"ranked-7-governance-sees-per-plan-counts-with-small-counts-as-10-and-revenue-hidden-under-5-payers.1": {
 			"name": "ranked 7: governance sees per-plan counts with small counts as <10 and revenue hidden under 5 payers",
@@ -1100,17 +1016,15 @@
 			"name": "counts: tiny school at Public shows a failing count as <10 and hides the amount",
 			"line": 231,
 			"slice": "S1b",
-			"status": "fail",
-			"reason": "unreached: not reached: the step at line 231 threw: null is not an object (evaluating '$(\"#dash [data-dv=members]\").click')",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "[data-test=school-switcher] | [data-sc=vol] | .tab[data-p=dash] | #kview | #kvp [data-bv=public] | #pane[aria-labelledby=tab-dashboard] | #pane[aria-labelledby=tab-dashboard] [data-dv=members] | #pane[aria-labelledby=tab-dashboard] .kcard[data-k=paying_members] b | #pane[aria-labelledby=tab-dashboard] .kcut | #pane[aria-labelledby=tab-dashboard] .kcards"
 		},
 		"counts-failing-counts-round-to-the-nearest-10-and-1-9-shows-10-never-0.1": {
 			"name": "counts: failing counts round to the nearest 10 and 1-9 shows <10, never 0",
 			"line": 232,
 			"slice": "S1b",
-			"status": "fail",
-			"reason": "unreached: not reached: the step at line 232 threw: T.perY is not a function. (In 'T.perY(2024)', 'T.perY' is undefined)",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "na",
+			"reason": "Feeds synthetic cells ({v:14,n:3}, {v:3,n:3}, ...) to the mockup's figure function T.bkFig over T.pMeta(T.perY(2024)). The UI derives no figure: the small-count rounding is done when the documents are built (gates/oracle.ts kpiDocument, its inner roundCount, not exported), and the UI only formats the cells it is given (src/data/kpi-document.ts). perY alone has a counterpart (a document period's from/to), but pMeta and bkFig do not, so the check cannot run; a shim would re-implement the mockup's rule. The on-screen counterpart passes: counts-tiny-school-at-public-shows-a-failing-count-as-10-and-hides-the-amount.1."
 		},
 		"disclosure-changing-one-rule-in-the-js-object-changes-the-rendered-caption.1": {
 			"name": "disclosure: changing one rule in the JS object changes the rendered caption",
@@ -1352,28 +1266,22 @@
 			"name": "period: closed control shows no dates, only an icon and a preset word, with an accessible name",
 			"line": 301,
 			"slice": "S7",
-			"status": "fail",
-			"ui": "#pb",
-			"reason": "fail: Quarter",
-			"note": "GAP: switching school keeps month= in the route (chooseSchool drops only member and as); the mockup resets the period on a switch (S1 golden: a switch drops as=, view=, month=, preset=), so the control still says Quarter from the earlier school."
+			"status": "pass",
+			"ui": "#pb"
 		},
 		"period-the-popover-holds-the-date-label-arrows-presets-custom-range-and-compare.1": {
 			"name": "period: the popover holds the date label, arrows, presets, custom range and compare",
 			"line": 302,
 			"slice": "S7",
-			"status": "fail",
-			"ui": "#pp | #pplab",
-			"reason": "fail",
-			"note": "GAP: same period carry-over across a school switch; with month= dropped the popover shows the expected label, arrows, presets, custom range and compare."
+			"status": "pass",
+			"ui": "#pp | #pplab | #pprev | #pnext | #pp [data-pk=this] | #pp [data-pk=last] | #pp [data-pk=tq] | #pp [data-pk=lq] | #pp [data-pk=ty] | #pp [data-pk=ly] | #pp [data-pk=ytd] | #cf | #cmpc"
 		},
 		"period-one-control-drives-dashboard-reports-ledger-and-members.1": {
 			"name": "period: one control drives Dashboard, Reports, Ledger and Members",
 			"line": 304,
 			"slice": "S7",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths button.on",
-			"reason": "fail",
-			"note": "GAP: same carry-over, and the Dashboard part waits for S1b (Reports and Ledger follow the control: checked)."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths button.on | .tab[data-p=rep] | #stmt | .tab[data-p=led] | #lb tr.day:not(.wait) | .tab[data-p=mem] | #strip"
 		},
 		"period-a-non-default-period-tints-the-control.1": {
 			"name": "period: a non-default period tints the control",
@@ -1386,10 +1294,8 @@
 			"name": "period: a month picked on the dashboard is the same period everywhere",
 			"line": 306,
 			"slice": "S7",
-			"status": "fail",
-			"ui": ".tab[data-p=rep] | #stmt",
-			"reason": "fail",
-			"note": "GAP: needs the Dashboard's month strip (S1b) and the period carry-over fix."
+			"status": "pass",
+			"ui": ".tab[data-p=rep] | #stmt"
 		},
 		"period-public-may-pick-only-years-presets-it-cannot-use-are-disabled-with-the-reason.1": {
 			"name": "period: Public may pick only years; presets it cannot use are disabled with the reason",
@@ -1597,19 +1503,15 @@
 			"name": "axis: gross vs net has 12 month labels, none are SVG text",
 			"line": 344,
 			"slice": "S1b",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kax | #pane[aria-labelledby=tab-dashboard] svg.kc text",
-			"reason": "fail: 0",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kax | #pane[aria-labelledby=tab-dashboard] svg.kc text"
 		},
 		"axis-gross-by-day-has-day-labels.1": {
 			"name": "axis: gross by day has day labels",
 			"line": 345,
 			"slice": "S1",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kaxd span",
-			"reason": "fail: 0",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kaxd span"
 		},
 		"axis-label-font-is-at-least-11px.1": {
 			"name": "axis: label font is at least 11px",
@@ -1621,10 +1523,8 @@
 			"name": "axis: the selected month label is marked",
 			"line": 347,
 			"slice": "S1",
-			"status": "fail",
-			"ui": "#pane[aria-labelledby=tab-dashboard] .kax span.on",
-			"reason": "fail",
-			"note": "Blocked: on this branch the Dashboard throws (dashboard.tsx reads options.levels, which the integrated Reader's dashboardOptions no longer returns) and renders nothing; S1b's Dashboard port fixes it."
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kax span.on"
 		},
 		"chips-role-and-finance-chips-carry-their-styled-classes.1": {
 			"name": "chips: role and finance chips carry their styled classes",
@@ -2359,8 +2259,8 @@
 			"line": 570,
 			"slice": "S0",
 			"status": "fail",
-			"reason": "fail: unhandled rejection: undefined is not an object (evaluating 'options.levels.find') | unhandled rejection: undefined is not an object (evaluating 'options.levels.find') | unhandled rejection: undefined is not an object (evaluating 'options.levels.find') | unhandled rejection: undefined is not an obje",
-			"note": "GAP: unhandled rejections from the Dashboard (options.levels is undefined, see S1b) and from reader.people for Harbor Arts ('no Members fixture for school har')."
+			"reason": "fail: unhandled rejection: no rules for har | unhandled rejection: no rules for har | unhandled rejection: no rules for har | unhandled rejection: no rules for har | unhandled rejection: no rules for har",
+			"note": "GAP: unhandled rejections 'no rules for har' while the body visits Harbor Arts: a Reader call for har has no fixture rules behind it; every school the switcher offers must load without a rejection."
 		},
 		"top-bar-says-admins-see-all-members.1": {
 			"name": "top bar says admins see all members",

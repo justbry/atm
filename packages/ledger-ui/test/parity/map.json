@@ -1156,7 +1156,7 @@
 		"window.__t.bkAggP": null,
 		"window.__t.bkAgg": null,
 		"window.__t.bkYear": null,
-		"window.__t.bkSize": null,
+		"window.__t.bkSize": "bkSize",
 		"window.__t.pMeta": null,
 		"window.__t.perY": null,
 		"window.__t.perQ": null,

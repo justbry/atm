@@ -251,6 +251,15 @@ const shims: Shims = {
 	kFilter: () => (rows: MockupRow[], period: HistoryPeriod) =>
 		historyRowsIn(rows, period, clock),
 	/** `kCsv(rows, {member})`: the UI's CSV helper over the history columns, the mockup row renamed. */
+	/** `bkSize(s, y)`: the school's size from the Reader's disclosure (`size`, fixed for `year` on its first day from
+	 * the last closed year's income). The disclosure contract, and the oracle that builds the documents from it, carry
+	 * the size of that one year only; for any other year there is no counterpart, so the call throws rather than guess. */
+	bkSize: () => (school: School, year: number) => {
+		if (year === school.disclosure.year) return school.disclosure.size;
+		throw new Error(
+			`bkSize(${school.id}, ${year}): the disclosure carries the school size for ${school.disclosure.year} only`,
+		);
+	},
 	kCsv:
 		() =>
 		(
