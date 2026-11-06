@@ -86,6 +86,8 @@ const harness = ({
 		schoolId: SCHOOL,
 		nowMs: () => clock.now,
 		workerId: "env-test",
+		// a delivery with no paymentFee warns (fee_unknown) once per payment; tests/handler-fee-unknown.test.ts reads those lines
+		warn: () => undefined,
 		context: contextFor(env),
 		...(env === undefined ? {} : { env }),
 	};

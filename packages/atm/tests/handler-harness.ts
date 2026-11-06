@@ -145,9 +145,13 @@ export const harness = (
 	db.exec(HANDLER_DDL);
 	const clock = { now: T0 };
 	const asked: string[] = [];
+	// The lines `deps.warn` gets are kept, not written to stderr: most deliveries here pass no `paymentFee`, and each would
+	// print a `fee_unknown` line (about a thousand in a full run). A test that reads them sets its own `deps.warn`.
+	const warnings: string[] = [];
 	const deps: WebhookDeps = {
 		db,
 		secret: SECRET,
+		warn: (line) => warnings.push(line),
 		schoolId: school,
 		nowMs: () => clock.now,
 		workerId: "worker-a",
@@ -206,5 +210,5 @@ export const harness = (
 				`SELECT state FROM atm_event_claims WHERE env = ? AND event_id = ?`,
 			)
 			.get(env, eventId) as { state: string } | null;
-	return { db, raw, deps, deliver, outbox, claim, asked };
+	return { db, raw, deps, deliver, outbox, claim, asked, warnings };
 };

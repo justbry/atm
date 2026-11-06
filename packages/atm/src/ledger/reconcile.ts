@@ -649,6 +649,7 @@ export const reconcile = (input: ReconcileInput): ReconcileResult => {
 		skipped[reason] = (skipped[reason] ?? 0) + 1;
 	}
 	const feePostings = postedCents(events.filter(inScope), FEE_ACCOUNTS);
+	const feeUnknown = events.filter(inScope).filter(isFeeUnknown).length;
 	const notSupplied: ReconcileStripeList[] = (
 		[
 			"invoices",
@@ -706,6 +707,7 @@ export const reconcile = (input: ReconcileInput): ReconcileResult => {
 		},
 		ignored,
 		skipped,
+		feeUnknown,
 	};
 };
 
@@ -738,6 +740,13 @@ const payoutsNotInLog = (
 		},
 	];
 };
+
+/**
+ * A payment the handler booked at its gross amount because no fee was given (`fee_known: false`): its fee is not in the log,
+ * and a fee learned later is never booked. Strictly `false`: an event with no `fee_known` (written by hand) is not counted.
+ */
+const isFeeUnknown = (event: AtmEvent): boolean =>
+	event.event_type === "payment.succeeded" && event.payload.fee_known === false;
 
 const movesStripeBalance = (event: AtmEvent): boolean =>
 	event.event_type !== "payout.paid" &&
@@ -774,6 +783,11 @@ const money = ({
 	const feePostings = postedCents(events, FEE_ACCOUNTS);
 	const logFees = sum(feePostings);
 	const feesInLog = feePostings.length > 0;
+	const unknown = events.filter(isFeeUnknown).length;
+	const because =
+		unknown > 0
+			? `; ${unknown} payment(s) in the log have fee_known false: their fee was never booked`
+			: "";
 	if (!feesInLog && stripeFees !== 0) {
 		found.push({
 			kind: "not_in_log",
@@ -784,7 +798,7 @@ const money = ({
 			stripe: totalSide(stripeFees),
 			log: null,
 			period: scope.label,
-			message: `fees: Stripe took ${stripeFees} cents in fees; the log has no ${FEES_ACCOUNT} or ${DISPUTE_FEES_ACCOUNT} postings`,
+			message: `fees: Stripe took ${stripeFees} cents in fees; the log has no ${FEES_ACCOUNT} or ${DISPUTE_FEES_ACCOUNT} postings${because}`,
 		});
 	} else if (stripeFees !== logFees) {
 		found.push({
@@ -800,7 +814,7 @@ const money = ({
 			stripe: totalSide(stripeFees),
 			log: totalSide(logFees),
 			period: scope.label,
-			message: `fees: Stripe took ${stripeFees} cents, the log booked ${logFees}`,
+			message: `fees: Stripe took ${stripeFees} cents, the log booked ${logFees}${because}`,
 		});
 	}
 	const stripeNet = sum(

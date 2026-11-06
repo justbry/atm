@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import type {
+	FeeUnknownPayments,
 	ReportChoice,
 	ReportFormat,
 	ReportName,
@@ -39,6 +40,21 @@ export const skippedNote = ({
 	skippedNonUsd.total === 0
 		? null
 		: `atm report: ${skippedNonUsd.inMonth} non-USD money line(s) skipped in ${month} (${skippedNonUsd.total} in all events); the reports are USD only and leave them out\n`;
+
+/**
+ * One line for stderr when the reports show payments without their Stripe fee; null when every payment has it. Such a
+ * payment is in the books at its gross amount: the fee expense is short and `assets:stripe` keeps the fee after a payout.
+ */
+export const feeUnknownNote = ({
+	feeUnknown,
+	month,
+}: {
+	feeUnknown: FeeUnknownPayments;
+	month: string;
+}): string | null =>
+	feeUnknown.total === 0
+		? null
+		: `atm report: ${feeUnknown.inMonth} payment(s) in ${month} were booked without their Stripe fee (${feeUnknown.total} in all events); expenses:billing:stripe-fees and net income are off by those fees, and assets:stripe keeps them after a payout\n`;
 
 /** Node's `spawnSync` stops a child at 1 MiB of output (ENOBUFS); a year of CSV can pass that, and Bun's never did. */
 const HLEDGER_MAX_BUFFER = 256 * 1024 * 1024;
@@ -107,10 +123,16 @@ export const reportMonth = async ({
 	const journal = await journalMonth({ root, school, month });
 	const books = join(root, "schools", school);
 	const names = report === "all" ? REPORT_NAMES : [report];
-	const skipped = (await readEvents(root, school)).events.filter(
+	const { events } = await readEvents(root, school);
+	const skipped = events.filter(
 		(event) =>
 			event.event_type === "money.skipped" &&
 			event.payload.reason === "non_usd",
+	);
+	const feeUnknown = events.filter(
+		(event) =>
+			event.event_type === "payment.succeeded" &&
+			event.payload.fee_known === false,
 	);
 	return {
 		journal,
@@ -122,6 +144,11 @@ export const reportMonth = async ({
 			inMonth: skipped.filter((event) => event.date.startsWith(`${month}-`))
 				.length,
 			total: skipped.length,
+		},
+		feeUnknown: {
+			inMonth: feeUnknown.filter((event) => event.date.startsWith(`${month}-`))
+				.length,
+			total: feeUnknown.length,
 		},
 	};
 };
