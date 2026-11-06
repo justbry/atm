@@ -1,0 +1,12 @@
+import {Window} from "happy-dom";
+import {readFileSync} from "node:fs";
+const html=readFileSync(process.argv[2],"utf8"),m=html.match(/<script>([\s\S]*)<\/script>/);
+const win=new Window({url:"https://localhost/",console:{log(){},warn(){},info(){},debug(){},error(){}}});
+win.document.write(html.replace(m[0],""));await win.happyDOM.waitUntilComplete();
+win.eval(m[1]+"\n;window.__t={setCmp(v){cmp=v;render()},setP(v){P=v;render()}}");
+const d=win.document,n=s=>(s||"").replace(/\s+/g," ").trim(),all=s=>[...d.querySelectorAll(s)],$=s=>d.querySelector(s),T=win.__t;
+const sc=id=>{$("#sw").click();$(`[data-sc=${id}]`).click()},tab=p=>$(`.tab[data-p=${p}]`).click();
+sc("vol");tab("rep");T.setCmp(true);
+console.log(JSON.stringify({kpis:all("#kpis .stat").map(b=>[n(b.querySelector("small").textContent),n(b.querySelector("b").textContent),n(b.querySelector("i")?.textContent)]),ax:all("#spark .spax span").map(x=>n(x.textContent)),poly:all("#spark polyline").length,head:n($("#spark .sphead").textContent)},null,1));
+T.setCmp(false);
+sc("vol");tab("rep");T.setP({from:"2026-12-01",to:"2026-12-31",k:"x"});console.log(n($("#spark").textContent));
