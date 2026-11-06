@@ -514,7 +514,7 @@ export type LedgerVerdict =
 	| { ok: true }
 	| { ok: false; reason: "missing_event" | "event_changed" | "not_receipted" };
 
-/** One month's events as they stood at `sealed_at`, chained to the school's seal before it. */
+/** One month's events, named by id, as they stood in the folder when sealed, chained to the school's seal before it. */
 export type AtmSeal = {
 	v: 1;
 	school: string;

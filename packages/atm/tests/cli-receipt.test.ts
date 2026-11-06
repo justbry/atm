@@ -188,19 +188,23 @@ describe("signed receipts and sealed months from the CLI", () => {
 		const lock = join(ledger, "seals.jsonl.lock");
 		await mkdir(ledger, { recursive: true });
 		await writeFile(lock, "1\n");
-		const refused = atm([
-			"seal",
-			...schoolArgs(),
-			"--month",
-			"2026-03",
-			...signing(),
-		]);
-		expect(refused.exitCode).toBe(2);
-		expect(refused.stderr).toContain("seals.jsonl.lock");
-		expect(await stat(join(ledger, "seals.jsonl")).catch(() => null)).toBe(
-			null,
-		);
-		await rm(lock);
+		try {
+			const refused = atm([
+				"seal",
+				...schoolArgs(),
+				"--month",
+				"2026-03",
+				...signing(),
+			]);
+			expect(refused.exitCode).toBe(2);
+			expect(refused.stderr).toContain("seals.jsonl.lock");
+			expect(await stat(join(ledger, "seals.jsonl")).catch(() => null)).toBe(
+				null,
+			);
+		} finally {
+			// A lock left behind would refuse every later seal in this file.
+			await rm(lock, { force: true });
+		}
 	});
 
 	test("seal appends to ledger/seals.jsonl, verify seals passes, and an edit in the sealed month fails it", async () => {

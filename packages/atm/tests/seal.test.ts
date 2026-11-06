@@ -95,7 +95,7 @@ describe("sealOf", () => {
 		).toBe(canonicalize(chain()[0]));
 	});
 
-	test("covers every month event, whatever its ingest_time; throws on a bad month, instant or school", () => {
+	test("covers every month event, whatever its ingest_time; throws on a bad month, instant, school or a repeated id", () => {
 		const stampedLater = extraOctober("stamped-later", "2027-01-01T00:00:00Z");
 		const covered = seal("2026-10", OCTOBER_SEALED_AT, null, [
 			...events,
@@ -104,6 +104,13 @@ describe("sealOf", () => {
 		expect(covered.seal.event_ids).toContain(stampedLater.id);
 		expect(() => seal("2026-13", OCTOBER_SEALED_AT, null)).toThrow("YYYY-MM");
 		expect(() => seal("2026-10", "yesterday", null)).toThrow("ISO instant");
+		const sameId = {
+			...extraOctober("same-id", "2026-10-20T00:00:00Z"),
+			id: (october(events)[0] as AtmEvent).id,
+		};
+		expect(() =>
+			seal("2026-10", OCTOBER_SEALED_AT, null, [...events, sameId]),
+		).toThrow("share the id");
 		expect(() =>
 			sealOf({
 				school: "sch_other",

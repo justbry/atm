@@ -4,6 +4,7 @@ import {
 	appendFile,
 	mkdir,
 	readFile,
+	rename,
 	rm,
 	stat,
 	writeFile,
@@ -65,7 +66,7 @@ import {
 import { outboxStatus } from "./ledger/status.js";
 import { canonicalize, isoInstant } from "./ledger/util.js";
 import { addScenarioCommands, runScenarioSimulate } from "./scenario/cli.js";
-import { FolderStore } from "./store/folder-store.js";
+import { FolderStore, hasErrorCode } from "./store/folder-store.js";
 import { R2Store } from "./store/r2-store.js";
 import type {
 	AtmCatalogRow,
@@ -1055,9 +1056,6 @@ const schoolEvents = async (root: string, school: string) => {
 	return (await readEvents(root, school)).events;
 };
 
-const isMissingFile = (error: unknown): boolean =>
-	(error as NodeJS.ErrnoException | null)?.code === "ENOENT";
-
 /**
  * The chain in `seals.jsonl`, in the order made; null when there is no file. Any other read error is an error, not an
  * empty chain, so a file atm cannot read never starts a second chain. A line that is not JSON stays as its text, so
@@ -1065,7 +1063,7 @@ const isMissingFile = (error: unknown): boolean =>
  */
 const readSeals = async (path: string): Promise<unknown[] | null> => {
 	const text = await readFile(path, "utf8").catch((error: unknown) => {
-		if (isMissingFile(error)) return null;
+		if (hasErrorCode(error, "ENOENT")) return null;
 		throw new InputError(`${path} cannot be read: ${oneLine(error)}`);
 	});
 	if (text === null) return null;
@@ -1131,10 +1129,14 @@ const keysNewCommand = keysCommand
 				);
 			for (const [name, text, mode] of keyFiles)
 				await writeFile(join(opts.out, name), text, { flag: "wx", mode });
+			// Written beside and renamed over, so a crash mid-write never truncates the old keys out of keys.json.
+			const keysTemp = `${keysPath}.${process.pid}.tmp`;
 			await writeFile(
-				keysPath,
+				keysTemp,
 				`${JSON.stringify({ ...known, [keyId]: publicPem }, null, 2)}\n`,
+				{ flag: "wx", mode: 0o644 },
 			);
+			await rename(keysTemp, keysPath);
 			process.stdout.write(
 				`wrote ${[...keyFiles.map(([name]) => join(opts.out, name)), keysPath].join(", ")}\n`,
 			);
@@ -1216,7 +1218,7 @@ const sealCommand = program
 			await writeFile(lock, `${process.pid}\n`, { flag: "wx" }).catch(
 				(error: unknown) => {
 					throw new InputError(
-						(error as NodeJS.ErrnoException | null)?.code === "EEXIST"
+						hasErrorCode(error, "EEXIST")
 							? `${lock} exists: another atm seal is running, or one stopped without removing it`
 							: `${lock} cannot be written: ${oneLine(error)}`,
 					);
