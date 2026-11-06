@@ -301,6 +301,9 @@ describe("C3: every school's and audience's document equals the oracle, its prov
 					live: view?.live,
 					size: disclosure.schools[entry.school]?.size,
 				});
+				/** The strip follows the period control (the disclosure's periods), except that a period the control calls
+				 * "Not started yet" waits on the Dashboard for its close plus the delay (mockup dashFull's strip). */
+				const notStarted = /^Published after \d{1,2} [A-Z][a-z]{2} \d{4}$/;
 				if (committed && !committed.live)
 					expect({
 						key: entry.key,
@@ -309,7 +312,13 @@ describe("C3: every school's and audience's document equals the oracle, its prov
 								period,
 								label,
 								state,
-								title,
+								title:
+									state === "embargoed" &&
+									view?.periods.find((gate) => gate.period === period)
+										?.state === "future" &&
+									notStarted.test(title ?? "")
+										? "Not started yet"
+										: title,
 							}),
 						),
 					}).toEqual({
@@ -318,7 +327,7 @@ describe("C3: every school's and audience's document equals the oracle, its prov
 							({ period, label, state, title }) => ({
 								period,
 								label,
-								state,
+								state: state === "future" ? "embargoed" : state,
 								title,
 							}),
 						),

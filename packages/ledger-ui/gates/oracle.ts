@@ -1028,11 +1028,14 @@ export function kpiDocument(input: KpiDocumentInput): KpiDocument {
 			grossRule && !grossRule.live
 				? addAfter(closeOf(period.to), grossRule.after)
 				: null;
+		/** The Dashboard's strip (mockup dashAgg and dashFull's mstrip): below the live audiences a period not shown yet,
+		 * started or not, waits for its close plus the delay ("Published after 7 Jan 2027"); only the live audiences
+		 * see a month after the clock as "Not started yet". */
 		const state: DocumentPeriod["state"] =
-			period.from > today
-				? "future"
-				: published && published > today
-					? "embargoed"
+			published && published > today
+				? "embargoed"
+				: period.from > today
+					? "future"
 					: "shown";
 		return {
 			period: period.period,

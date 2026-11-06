@@ -427,11 +427,15 @@ const entries = [
 	{
 		id: "school-switch-drops-the-dashboard-query",
 		source:
-			"mockup setSchool: switching school resets View as, the view and the period; B4 Uni opens on its own Money view and Jun (S7 notes: switching school drops as=)",
+			"mockup setSchool: switching school resets View as, the view and the period, and a school not opened yet opens on Plans; then its Dashboard tab (smoke.mjs sc('b4u');tab('dash')) shows B4 Uni's own Money view and Jun (S7 notes: switching school drops as=)",
 		route: route("vol", null, "public", "risk", "2024-01-01..2024-12-31"),
 		steps: [
 			{ click: "[data-test=school-switcher]" },
-			{ click: "[data-test=school-option][data-school=b4u]" },
+			{
+				click: "[data-test=school-option][data-school=b4u]",
+				expect: { hash: "#/b4u/plans" },
+			},
+			{ click: "[data-test=tab][data-tab=dashboard]" },
 		],
 		expect: {
 			hash: "#/b4u/dashboard",

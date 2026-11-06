@@ -1,7 +1,7 @@
 {
 	"slice": "S0",
 	"notes": [
-		"fixtures.schools is exactly what the fixture Reader's schools() returns, in switcher order (src/data/types.ts School): the mockup's SC table at atm dev 742105b64, attention from attN, overdue from groups().out, expiring promos from expiring, stale when lag is over 15 minutes, booksLevel from the signed-in person (Harbor Arts Academy: Rosa T., an admin without the finance grant with a live Studio membership, so member; its disclosure viewer is the admin row with audience member). Harbor Arts Academy has no KPI documents of its own; like every school its Dashboard shows the Before University mart documents.",
+		"fixtures.schools is exactly what the fixture Reader's schools() returns, in switcher order (src/data/types.ts School): the mockup's SC table at atm dev 742105b64, attention from attN, overdue from groups().out, expiring promos from expiring, stale when lag is over 15 minutes, no books level: the signed-in person's audience comes from the school's disclosure viewer (Harbor Arts Academy: Rosa T., an admin without the finance grant with a live Studio membership, so the admin row with audience member).",
 		"Top bar (frozen mockup): brand, school switcher, ONE period control (#pb: an icon and the period's word Month, Quarter, Year or Custom; aria-label 'Period: <label>'; class pnd when not This month; its popover holds the label, period-prev and period-next, the presets, Custom range and compare) on every tab and on All schools, then View as (S7), then help and settings pinned on the first row. The static scope-note chip is gone. scope-note stays in hooks only so that no earlier file fails on it; shell-default requires that none is rendered."
 	],
 	"hooks": [
@@ -32,7 +32,6 @@
 					"other": "sessions"
 				},
 				"role": "owner",
-				"booksLevel": "owner",
 				"stale": false,
 				"lagMinutes": 2,
 				"attentionCount": 4,
@@ -52,7 +51,6 @@
 					"other": "credits"
 				},
 				"role": "admin",
-				"booksLevel": "finance_admin",
 				"dashboardOpensOn": "2026-06",
 				"stale": false,
 				"lagMinutes": 3,
@@ -73,7 +71,6 @@
 					"other": "classes"
 				},
 				"role": "owner",
-				"booksLevel": "owner",
 				"stale": true,
 				"lagMinutes": 26,
 				"attentionCount": 1,
@@ -93,7 +90,6 @@
 					"other": "classes"
 				},
 				"role": "owner",
-				"booksLevel": "owner",
 				"stale": false,
 				"lagMinutes": 1,
 				"attentionCount": 0,
@@ -113,7 +109,6 @@
 					"other": "credits"
 				},
 				"role": "admin",
-				"booksLevel": "member",
 				"stale": false,
 				"lagMinutes": 2,
 				"attentionCount": 0,
