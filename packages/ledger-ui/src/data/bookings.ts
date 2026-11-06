@@ -45,7 +45,19 @@ export type Booking = {
 	seriesId: string | null;
 	/** From brief D's `attendanceFor`: the outcome an admin recorded, or null when none is. */
 	attendance: Attendance | null;
+	/**
+	 * How the booking is paid, as the mockup's Billing column shows it. NOT in brief A today ("no billing fields exist
+	 * yet"): the fixtures fill it from the mockup, and the S8 adapter leaves it out until a route provides it (an S8 gap,
+	 * waiting on atm's booking payments). When it is absent the UI shows no billing text and offers Release hold.
+	 */
+	billing?: BookingBilling;
 };
+
+/** `free`: nothing held or paid. `held`: credits held for the booking. `paid`: paid in money (minor units). */
+export type BookingBilling =
+	| { kind: "free" }
+	| { kind: "held"; credits: number }
+	| { kind: "paid"; amountMinor: number; currency: string };
 
 /** Brief A's answer, with `attendance` joined onto each booking. */
 export type BookingsList = { bookings: Booking[] };
