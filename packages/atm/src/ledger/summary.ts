@@ -130,7 +130,12 @@ const catalogFromEvents = (
 			if (latest === null || byEventId(latest, event) < 0) latest = event;
 	const menu = (latest?.payload as { menu?: unknown } | undefined)?.menu;
 	if (latest === null || typeof menu !== "object" || menu === null) return null;
-	return menuCatalogRows({ menu: menu as Menu, school: latest.school });
+	try {
+		return menuCatalogRows({ menu: menu as Menu, school: latest.school });
+	} catch {
+		// a menu the commodity rules cannot turn into rows is no usable catalog; the caller answers no-catalog
+		return null;
+	}
 };
 
 const unitsUsed = (event: AtmEvent): number => {
@@ -209,7 +214,7 @@ export const membersOf = (
 			error: {
 				kind: "no-catalog",
 				message:
-					"no catalog rows given and the log has no catalog.published event with a menu",
+					"no catalog rows given and the log has no catalog.published event with a usable menu",
 			},
 		};
 	const asOfMs = asOf.getTime();
