@@ -3,6 +3,7 @@ import type { MembersFixture } from "../data/members.ts";
 import type { Reader } from "../data/reader.ts";
 import type { Clock, DashboardOptions, School } from "../data/types.ts";
 import { bookingsBySchool } from "./bookings.ts";
+import { createLedgerReader } from "./ledger.ts";
 import documentsFile from "./mart/documents.json";
 import { membersFixtures } from "./members.ts";
 import { plansBySchool } from "./plans.ts";
@@ -118,9 +119,11 @@ const membersOf = (schoolId: string): MembersFixture => {
 	return fixture;
 };
 
-/** The fixture Reader. The documents are fixed at the clock the gates use, so it only names the clock. */
-export function createFixtureReader(_options: { clock: Clock }): Reader {
+/** The fixture Reader. The documents are fixed at the clock the gates use; the Ledger, Reports and Promos read the
+ * clock for today. */
+export function createFixtureReader(options: { clock: Clock }): Reader {
 	return {
+		...createLedgerReader({ clock: options.clock, schools }),
 		schools: async () => schools,
 		dashboardOptions: async () => ({ presets }),
 		bookings: async ({ school, from, to }) => ({

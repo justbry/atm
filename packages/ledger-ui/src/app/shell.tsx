@@ -1,9 +1,10 @@
-import { Fragment, type JSX } from "preact";
+import { type ComponentType, Fragment, type JSX } from "preact";
 import { useCallback, useEffect, useId, useRef, useState } from "preact/hooks";
 import type { Reader } from "../data/reader.ts";
 import type { Clock, School } from "../data/types.ts";
 import type { Writer } from "../data/writer.ts";
 import type { Bookings } from "./bookings.tsx";
+import type { BooksPaneProps } from "./books-pane.ts";
 import type { Dashboard } from "./dashboard.tsx";
 import { Icon, type IconName } from "./icon.tsx";
 import type { Members } from "./members.tsx";
@@ -24,6 +25,13 @@ import { SchoolSwitcher } from "./school-switcher.tsx";
 import { SettingsDrawer } from "./settings-drawer.tsx";
 
 const toastMilliseconds = 4600;
+/** The books panes, each loaded the first time its tab opens. */
+const booksPanes: Record<string, () => Promise<ComponentType<BooksPaneProps>>> =
+	{
+		ledger: () => import("./ledger.tsx").then((module) => module.Ledger),
+		reports: () => import("./reports.tsx").then((module) => module.Reports),
+		promos: () => import("./promos.tsx").then((module) => module.Promos),
+	};
 const tabs: Record<SchoolTab, { label: string; icon: IconName }> = {
 	plans: { label: "Plans", icon: "layers" },
 	dashboard: { label: "Dashboard", icon: "chart" },
@@ -173,6 +181,17 @@ export function Shell({
 				setMembersPane(() => module.Members),
 			);
 	}, [membersOpen, MembersPane]);
+	/** The Ledger, Reports or Promos pane, once loaded for the open tab. */
+	const [booksPane, setBooksPane] = useState<{
+		tab: string;
+		Pane: ComponentType<BooksPaneProps>;
+	} | null>(null);
+	const loadBooksPane = booksPanes[route.tab];
+	useEffect(() => {
+		const tab = route.tab;
+		if (loadBooksPane && booksPane?.tab !== tab)
+			loadBooksPane().then((Pane) => setBooksPane({ tab, Pane }));
+	}, [loadBooksPane, route.tab, booksPane]);
 	const settingsButton = useRef<HTMLButtonElement>(null);
 	const drawerId = useId();
 	const closeSettings = useCallback(() => {
@@ -433,6 +452,19 @@ export function Shell({
 				{school && membersOpen && MembersPane && (
 					<MembersPane
 						key={school.id}
+						reader={reader}
+						writer={writer}
+						school={school}
+						clock={clock}
+						route={route}
+						navigate={navigate}
+						onRendered={onRendered}
+						onToast={(text) => setToast({ text })}
+					/>
+				)}
+				{school && booksPane && booksPane.tab === route.tab && (
+					<booksPane.Pane
+						key={`${school.id}-${booksPane.tab}`}
 						reader={reader}
 						writer={writer}
 						school={school}

@@ -1,8 +1,18 @@
+import type { PromoType } from "../data/ledger.ts";
 import type { MembersWriter } from "../data/members.ts";
 import type { Writer } from "../data/writer.ts";
+import { promosBySchool } from "./ledger-data.ts";
+
+/** The code the mockup makes for a new promo: its prefix and the lowest number of its random range. */
+const createdCodes: Record<PromoType, string> = {
+	member: "CODE1000",
+	dollar: "GIFT1000",
+	session: "SESS1000",
+};
 
 /** The fixture Writer: records every call in `calls`; in `hold` mode each call stays pending until `release()`. It
- * holds no balances, so a refund answers with the amount asked and nothing remaining. */
+ * shares no state with the fixture Reader: a promo write answers the promo it made, and it holds no balances, so a
+ * refund answers with the amount asked and nothing remaining. */
 export function createFixtureWriter(options: {
 	mode: "instant" | "hold";
 }): Writer &
@@ -15,14 +25,14 @@ export function createFixtureWriter(options: {
 	const record = async <Result>(
 		method: string,
 		args: unknown[],
-		result: Result,
+		result: () => Result,
 	): Promise<Result> => {
 		calls.push({ method, args });
 		if (options.mode === "hold")
 			await new Promise<void>((resolve) => held.push(resolve));
-		return result;
+		return result();
 	};
-	const accepted = { accepted: true } as const;
+	const accepted = () => ({ accepted: true }) as const;
 	return {
 		calls,
 		release: () => {
@@ -30,24 +40,27 @@ export function createFixtureWriter(options: {
 			held = [];
 		},
 		recordOutcome: (request) =>
-			record("recordOutcome", [request], { creditEffect: "not_wired" }),
-		saveMenu: (schoolId, menu) =>
-			record("saveMenu", [schoolId, menu], undefined),
-		publishMenu: (schoolId) => record("publishMenu", [schoolId], undefined),
+			record("recordOutcome", [request], () => ({
+				creditEffect: "not_wired" as const,
+			})),
 		cancelBooking: (request) => record("cancelBooking", [request], accepted),
+		saveMenu: (schoolId, menu) =>
+			record("saveMenu", [schoolId, menu], () => undefined),
+		publishMenu: (schoolId) =>
+			record("publishMenu", [schoolId], () => undefined),
 		refund: (request) =>
-			record("refund", [request], {
+			record("refund", [request], () => ({
 				refundId: `re_${calls.length}`,
-				status: "pending",
+				status: "pending" as const,
 				refundedCents: request.amountCents,
 				remainingCents: 0,
-			}),
+			})),
 		adjustCredits: (request) => record("adjustCredits", [request], accepted),
 		sendInvoice: (request) =>
-			record("sendInvoice", [request], {
+			record("sendInvoice", [request], () => ({
 				invoiceId: `in_${calls.length}`,
-				status: "open",
-			}),
+				status: "open" as const,
+			})),
 		grantFinance: (request) => record("grantFinance", [request], accepted),
 		revokeFinance: (request) => record("revokeFinance", [request], accepted),
 		changeRole: (request) => record("changeRole", [request], accepted),
@@ -56,5 +69,25 @@ export function createFixtureWriter(options: {
 			record("cancelMembership", [request], accepted),
 		resumeMembership: (request) =>
 			record("resumeMembership", [request], accepted),
+		download: (file) => record("download", [file], () => undefined),
+		createPromo: (request) =>
+			record("createPromo", [request], () => ({
+				id: "c_new",
+				code: createdCodes[request.type],
+				type: request.type,
+				value: request.value,
+				used: 0,
+				maxUses: request.type === "member" ? null : 1,
+				expiresOn: request.expiresOn,
+				status: "active" as const,
+			})),
+		disablePromo: (request) =>
+			record("disablePromo", [request], () => {
+				const promo = promosBySchool[request.school]?.find(
+					({ id }) => id === request.promoId,
+				);
+				if (!promo) throw new Error(`no promo ${request.promoId}`);
+				return { ...promo, status: "disabled" as const };
+			}),
 	};
 }

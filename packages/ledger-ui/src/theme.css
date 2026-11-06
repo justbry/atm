@@ -2355,6 +2355,8 @@ button.chip {
 		padding: 12px 10px;
 	}
 }
+/* The books panes' figures (mockup, disclosure v2): a hidden figure and its reason, a rounded count, a disabled
+ * drill-down. The audience rows give their value column room for "Published after 7 Jan 2027". */
 .khid {
 	display: inline-flex;
 	align-items: center;
@@ -2369,6 +2371,16 @@ button.chip {
 	width: 11px;
 	height: 11px;
 	flex: none;
+}
+.kcard .khid {
+	font-size: 11px;
+}
+.krow,
+.krow.kp {
+	grid-template-columns: minmax(70px, max-content) 1fr minmax(72px, max-content);
+}
+.krow .khid {
+	white-space: nowrap;
 }
 .link[disabled] {
 	opacity: 0.45;
@@ -2436,4 +2448,15 @@ button.chip {
 	overflow: hidden;
 	clip-path: inset(50%);
 	white-space: nowrap;
+}
+.kapprox {
+	border-bottom: 1px dotted var(--muted-foreground);
+	cursor: help;
+}
+.kddc {
+	width: 20px;
+}
+.kdd[disabled] {
+	opacity: 0.4;
+	cursor: not-allowed;
 }

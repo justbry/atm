@@ -18,6 +18,7 @@ import type {
 	School,
 } from "../data/types.ts";
 import { Icon, type IconName } from "./icon.tsx";
+import { PinLock } from "./pin-lock.tsx";
 import { type Route, withQuery } from "./route.ts";
 
 type DashboardView = "money" | "members" | "risk";
@@ -51,7 +52,6 @@ const refundRateWarn = 0.05;
 const refundRateSevere = 0.2;
 const disputesBad = 3;
 const disputesSevere = 5;
-const pinDigits = 4;
 const chartWidth = 600;
 const dayChartWidth = 1200;
 const dayChartHeight = 64;
@@ -1071,53 +1071,6 @@ function Unavailable({
 		<div class="kwhy" style={{ margin: "-4px 0 10px" }}>
 			<Icon name="info" />
 			<span>{content}</span>
-		</div>
-	);
-}
-
-/** The PIN prompt (mockup `bkLock`): Unlock opens once 4 digits are typed. The fixtures check no PIN. */
-function PinLock({
-	levelName,
-	onUnlock,
-}: {
-	levelName: string;
-	onUnlock: () => void;
-}): JSX.Element {
-	const [pin, setPin] = useState("");
-	return (
-		<div class="klock" data-test="pin-lock">
-			<Icon name="lock" />
-			<h4>Enter your PIN to see books</h4>
-			<div class="mut">
-				{levelName} opens the books with your family PIN. Nothing is shown until
-				you unlock.
-			</div>
-			<div class="fld">
-				<label>
-					Your family PIN
-					<input
-						class="bpin"
-						type="password"
-						inputMode="numeric"
-						maxLength={6}
-						autoComplete="off"
-						aria-label="Your family PIN"
-						data-test="pin-input"
-						value={pin}
-						onInput={(event) => setPin(event.currentTarget.value)}
-					/>
-				</label>
-			</div>
-			<button
-				type="button"
-				class="btn p"
-				data-test="pin-unlock"
-				disabled={pin.length < pinDigits}
-				onClick={onUnlock}
-			>
-				<Icon name="unlock" />
-				Unlock
-			</button>
 		</div>
 	);
 }
