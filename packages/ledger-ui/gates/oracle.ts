@@ -674,16 +674,17 @@ export function kpiDocument(input: KpiDocumentInput): KpiDocument {
 			const [numerator, denominator] = entry.inputs ?? [];
 			const top = numerator ? sumOf(numerator, period) : null;
 			const bottom = denominator ? sumOf(denominator, period) : null;
-			return top === null || bottom === null ? null : ratio(top, bottom);
+			// A rate over nothing is not a rate: not_computed, never 0 (GOAL.md: null is never shown as 0).
+			return top === null || bottom === null || bottom === 0
+				? null
+				: ratio(top, bottom);
 		}
 		if (id === "arpa") {
 			const gross = sumOf("gross_collected", period);
 			const payers = figureOf("paying_members", period);
-			return gross === null || payers === null
+			return gross === null || payers === null || payers === 0
 				? null
-				: payers === 0
-					? 0
-					: Math.round((gross / payers) * 100) / 100;
+				: Math.round((gross / payers) * 100) / 100;
 		}
 		return sumOf(id, period);
 	};
