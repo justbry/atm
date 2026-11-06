@@ -1,0 +1,42 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			409,
+			"unmatched_payment"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 26000,
+				"refunds": 5000,
+				"fees": 784,
+				"stripe": 20216,
+				"net": 20216,
+				"avail:family:fam_8k2:visit": 2
+			},
+			"reconcile": {
+				"2026-01": []
+			}
+		}
+	],
+	"notes": [
+		"Stripe sent the refund first: the handler cannot tell whose it is yet, claims nothing and answers 409",
+		"the retry (the same event) now finds its invoice",
+		"the same books as one partial refund: 260.00 - 50.00 - 7.84 = 202.16"
+	]
+}

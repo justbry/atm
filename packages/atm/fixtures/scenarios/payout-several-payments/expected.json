@@ -1,0 +1,42 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 52000,
+				"income:membership:sparkle-1": 13000,
+				"fees": 1975,
+				"clearing": 63025,
+				"net": 63025,
+				"avail:family:fam_8k2:visit": 2,
+				"avail:family:fam_b2:visit": 1,
+				"avail:family:fam_c3:visit": 2
+			},
+			"reconcile": {
+				"2026-01": []
+			}
+		}
+	],
+	"notes": [
+		"260.00 + 130.00 + 260.00 = 650.00; fees 7.84 + 4.07 + 7.84 = 19.75; paid out 650.00 - 19.75 = 630.25"
+	]
+}

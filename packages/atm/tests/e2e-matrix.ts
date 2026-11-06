@@ -4,37 +4,29 @@
  * numbers each layer shows. Nothing here knows what the right answer is: the hand numbers and the Stripe side live in
  * the case, written by hand, so a bug in the handler cannot move the oracle with it.
  */
-import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { menuCatalogRows } from "../src/billing/grants.js";
 import type { Menu } from "../src/billing/types.js";
-import { journalMonth, readEvents } from "../src/ledger/files.js";
-import { appendToOutbox } from "../src/ledger/outbox.js";
-import { ledgerEvent } from "../src/ledger/postings.js";
-import { reconcile } from "../src/ledger/reconcile.js";
-import { reconcileFolder } from "../src/ledger/reconcile-files.js";
+import { journalMonth } from "../src/ledger/files.js";
 import { replayEvents } from "../src/ledger/replay.js";
 import { reportMonth } from "../src/ledger/report.js";
-import { shipOutbox } from "../src/ledger/ship.js";
 import { decimalToUnits } from "../src/ledger/util.js";
-import { FolderStore } from "../src/store/folder-store.js";
+import { loadScenarioBundles } from "../src/scenario/bundle.js";
+import { runBundle } from "../src/scenario/bundle-run.js";
 import type {
 	AtmEvent,
+	BundleStep,
 	ReconcileResult,
 	ReconcileStripe,
+	ScenarioBundle,
 	StripeBalanceTransactionRecord,
 	StripeDisputeRecord,
 	StripeInvoiceRecord,
+	StripePaymentIntentRecord,
 	StripePayoutRecord,
 	StripeRefundRecord,
 } from "../src/types.js";
-import {
-	menu as baseMenu,
-	type FeeLookup,
-	harness,
-	SHIPPED_AT,
-} from "./handler-harness.js";
-import { readTree, tmp } from "./helpers.js";
+import { menu as baseMenu } from "./handler-harness.js";
 import type { RawEvent } from "./stripe-events.js";
 
 const MS_PER_SECOND = 1000;
@@ -64,7 +56,42 @@ export type Step =
 			at: number;
 			school?: string;
 			family: string;
+	  }
+	| {
+			/** The shipper runs; `late` puts the rows in `late-*` files beside a combined day. */
+			kind: "ship";
+			at: number;
+			school?: string;
+			late?: boolean;
+	  }
+	| {
+			/** A day's batches are combined into its `day.jsonl`. */
+			kind: "combine";
+			at: number;
+			school?: string;
+			date: string;
+	  }
+	| {
+			/** The cron books the expiry of every lot of `feature` that has lapsed by `at` for the family. */
+			kind: "lapse";
+			at: number;
+			school?: string;
+			family: string;
+			feature: string;
+	  }
+	| {
+			/** `atm journal` runs for `month` at this point in the story. */
+			kind: "journal";
+			at: number;
+			school?: string;
+			month: string;
 	  };
+
+/** The steps that deliver a Stripe event (the others are the family service's own). */
+export const isDelivery = (
+	step: Step,
+): step is Extract<Step, { event: RawEvent }> =>
+	step.kind === undefined || step.kind === "deliver";
 
 /**
  * Cents (USD) or credit units, by name:
@@ -111,7 +138,7 @@ export type Case = {
 	/** Which handler path it walks (the matrix doc's column). */
 	path: string;
 	menu?: Menu;
-	/** The caller's fee lookup: by invoice id; left out, the endpoint has no `paymentFee` at all. */
+	/** The caller's fee lookup: by invoice id (a booking's, by payment intent); left out, the endpoint has no `paymentFee` at all. */
 	fees?: Record<string, number | null>;
 	steps: Step[];
 	books: Book[];
@@ -124,6 +151,10 @@ export type Case = {
 	verdict: Verdict;
 	/** The ids of the matrix doc's discrepancies this case pins (empty for OK). */
 	discrepancies?: string[];
+	/** Where the case sits in the matrix doc's listing; a bundle without one is checked by `scenario-bundles.test.ts` only. */
+	order?: number;
+	/** How the hand numbers were worked out (prose, never compared). */
+	notes?: string[];
 };
 
 // ---- Stripe's side, by hand ----
@@ -163,6 +194,23 @@ export const stripeRefund = (
 	payment_intent: refs.intent,
 	created: seconds(at),
 	status: "succeeded",
+});
+
+/** A booking's payment intent, succeeded: `booking_id` in its metadata is what makes it a booking's (Stripe copies the session's). */
+export const stripePaymentIntent = (
+	id: string,
+	cents: number,
+	at: string,
+	bookingId: string,
+	currency = "usd",
+): StripePaymentIntentRecord => ({
+	id,
+	status: "succeeded",
+	amount: cents,
+	currency,
+	created: seconds(at),
+	livemode: true,
+	metadata: { booking_id: bookingId },
 });
 
 export const stripePayout = (
@@ -452,122 +500,161 @@ const journalAll = async (
 	return files;
 };
 
-const writeStripeFolder = async (
-	folder: string,
-	stripe: ReconcileStripe,
-): Promise<void> => {
-	await mkdir(folder, { recursive: true });
-	const names = {
-		invoices: "invoices.json",
-		refunds: "refunds.json",
-		disputes: "disputes.json",
-		payouts: "payouts.json",
-		balanceTransactions: "balance_transactions.json",
-	} as const;
-	for (const [list, file] of Object.entries(names))
-		await writeFile(
-			join(folder, file),
-			JSON.stringify(stripe[list as keyof ReconcileStripe] ?? []),
-		);
+/** The case as plain data: the bundle `atm scenario check` and a consumer's contract test replay. */
+export const bundleOfCase = (c: Case): ScenarioBundle => {
+	const schools = [...new Set(c.books.map((book) => book.school))];
+	return {
+		id: c.id,
+		dir: "",
+		scenario: {
+			id: c.id,
+			school: schools[0] as string,
+			schools,
+			menu: c.menu ?? baseMenu,
+			title: c.title,
+			path: c.path,
+			...(c.env ? { env: c.env } : {}),
+			...(c.fees ? { fees: c.fees } : {}),
+			...(c.priceIds ? { priceIds: c.priceIds } : {}),
+			...(c.personal ? { personal: c.personal } : {}),
+		},
+		steps: c.steps.map((step): BundleStep => {
+			const where = step.school ? { school: step.school } : {};
+			if (step.kind === "erase")
+				return { kind: "erase", atMs: step.at, ...where, family: step.family };
+			if (step.kind === "ship")
+				return {
+					kind: "ship",
+					atMs: step.at,
+					...where,
+					...(step.late ? { late: true } : {}),
+				};
+			if (step.kind === "combine")
+				return { kind: "combine", atMs: step.at, ...where, date: step.date };
+			if (step.kind === "journal")
+				return { kind: "journal", atMs: step.at, ...where, month: step.month };
+			if (step.kind === "lapse")
+				return {
+					kind: "lapse",
+					atMs: step.at,
+					...where,
+					family: step.family,
+					feature: step.feature,
+				};
+			return {
+				atMs: step.at,
+				...where,
+				...(step.feeFails ? { feeFails: true } : {}),
+				event: step.event,
+			};
+		}),
+		stripeSide: Object.fromEntries(
+			c.books.map((book) => [book.school, book.stripe]),
+		),
+		expected: {
+			verdict: c.verdict,
+			answers: c.steps.filter(isDelivery).map((step) => step.answer),
+			books: c.books.map((book) => ({
+				school: book.school,
+				hand: book.hand,
+				...(book.pinned ? { pinned: book.pinned } : {}),
+				reconcile: book.reconcile,
+				...(book.skipped ? { skipped: book.skipped } : {}),
+				...(book.monthly ? { monthly: true } : {}),
+				...(book.handMonthly ? { handMonthly: book.handMonthly } : {}),
+				...(book.foreign ? { foreign: book.foreign } : {}),
+			})),
+			...(c.discrepancies?.length ? { discrepancies: c.discrepancies } : {}),
+			...(c.notes?.length ? { notes: c.notes } : {}),
+		},
+		hashes: { version: 1 },
+	};
 };
 
-/** Runs the case end to end in a temporary folder; the folder is removed whatever happens. */
+/** Every committed bundle as a matrix case, in the matrix doc's order. */
+export const loadCases = async (): Promise<Case[]> => {
+	const bundles = await loadScenarioBundles();
+	const orderOf = (bundle: ScenarioBundle) =>
+		bundle.scenario.order ?? Number.MAX_SAFE_INTEGER;
+	bundles.sort((a, b) => orderOf(a) - orderOf(b) || (a.id < b.id ? -1 : 1));
+	return bundles.map((bundle): Case => {
+		const { scenario, expected } = bundle;
+		const answers = [...expected.answers];
+		return {
+			id: scenario.id,
+			title: scenario.title ?? scenario.id,
+			path: scenario.path ?? "",
+			menu: scenario.menu,
+			...(scenario.fees ? { fees: scenario.fees } : {}),
+			...(scenario.env ? { env: scenario.env } : {}),
+			...(scenario.priceIds ? { priceIds: scenario.priceIds } : {}),
+			...(scenario.personal ? { personal: scenario.personal } : {}),
+			steps: bundle.steps.map((step): Step => {
+				const where = step.school ? { school: step.school } : {};
+				if (step.kind === "erase")
+					return {
+						kind: "erase",
+						at: step.atMs,
+						...where,
+						family: step.family,
+					};
+				if (step.kind === "ship")
+					return {
+						kind: "ship",
+						at: step.atMs,
+						...where,
+						...(step.late ? { late: true } : {}),
+					};
+				if (step.kind === "combine")
+					return { kind: "combine", at: step.atMs, ...where, date: step.date };
+				if (step.kind === "journal")
+					return {
+						kind: "journal",
+						at: step.atMs,
+						...where,
+						month: step.month,
+					};
+				if (step.kind === "lapse")
+					return {
+						kind: "lapse",
+						at: step.atMs,
+						...where,
+						family: step.family,
+						feature: step.feature,
+					};
+				return {
+					at: step.atMs,
+					event: step.event as RawEvent,
+					...where,
+					...(step.feeFails ? { feeFails: true } : {}),
+					answer: answers.shift() as Answer,
+				};
+			}),
+			books: expected.books.map((book) => ({
+				...book,
+				stripe: bundle.stripeSide[book.school] as ReconcileStripe,
+			})),
+			verdict: expected.verdict,
+			...(expected.discrepancies
+				? { discrepancies: expected.discrepancies }
+				: {}),
+			...(scenario.order === undefined ? {} : { order: scenario.order }),
+			...(expected.notes ? { notes: expected.notes } : {}),
+		};
+	});
+};
+
+/** Runs the case end to end in a temporary folder (`runBundle`), then reads the reports hledger prints; the folder is removed whatever happens. */
 export const runCase = async (c: Case): Promise<CaseRun> => {
 	const menu = c.menu ?? baseMenu;
-	const failing = { fee: false };
-	const fees = c.fees;
-	const lookup: FeeLookup | undefined = fees
-		? (invoiceId) => {
-				if (failing.fee) throw new Error("the fee lookup failed");
-				return fees[invoiceId];
-			}
-		: undefined;
-	const schools = [...new Set(c.books.map((book) => book.school))];
-	const endpoints = new Map(
-		schools.map((school) => [
-			school,
-			harness(lookup, { school, menu, env: c.env, priceIds: c.priceIds }),
-		]),
-	);
-	const endpoint = (school: string | undefined) => {
-		const found = endpoints.get(school ?? (schools[0] as string));
-		if (!found) throw new Error(`the case has no endpoint for ${school}`);
-		return found;
-	};
-	const answers: Answer[] = [];
-	const warnings: string[] = [];
-	for (const served of endpoints.values())
-		served.deps.warn = (line) => warnings.push(line);
-	for (const step of c.steps) {
-		const served = endpoint(step.school);
-		if (step.kind === "erase") {
-			const own = served
-				.outbox()
-				.filter(
-					(event) =>
-						event.key === `family:${step.family}` &&
-						event.event_type.startsWith("payment."),
-				);
-			appendToOutbox(
-				served.db,
-				[
-					ledgerEvent({
-						type: "subject.erased",
-						school: step.school ?? (schools[0] as string),
-						tz: menu.timeZone,
-						eventTime: step.at,
-						key: `family:${step.family}`,
-						idem: `erase:${step.family}`,
-						payload: { objects: own.map((event) => `event:${event.id}`) },
-					}),
-				],
-				c.env ?? "live",
-			);
-			continue;
-		}
-		failing.fee = step.feeFails === true;
-		let answer: Answer;
-		try {
-			const { status, body } = served.deliver(step.event, step.at);
-			answer = body.reason
-				? [status, body.outcome, body.reason]
-				: [status, body.outcome];
-		} catch {
-			// the handler lets an error out: the caller answers 500 and Stripe retries
-			answer = [500, "threw"];
-		}
-		failing.fee = false;
-		answers.push(answer);
-	}
-
-	const root = await tmp("e2e-matrix");
+	const run = await runBundle(bundleOfCase(c), { channels: [] });
 	try {
-		const store = new FolderStore({ root });
-		for (const [school, served] of endpoints) {
-			const shipped = await shipOutbox({
-				db: served.db,
-				store,
-				school,
-				nowMs: () => SHIPPED_AT,
-			});
-			if (shipped.conflicts.length > 0)
-				throw new Error(`ship conflicts: ${JSON.stringify(shipped.conflicts)}`);
-		}
 		const books: BookRun[] = [];
 		for (const book of c.books) {
-			const { events } = await readEvents(root, book.school);
-			const folder = join(root, `stripe-${book.school}`);
-			await writeStripeFolder(folder, book.stripe);
-			const reconciled: Record<string, ReconcileResult> = {};
+			const found = run.schools.find((entry) => entry.school === book.school);
+			if (!found) throw new Error(`the run has no book for ${book.school}`);
+			const { events, reconciled } = found;
 			if (events.length === 0) {
-				// nothing was booked, so there is no folder to journal or read: the books are empty and Stripe's side is not
-				for (const month of Object.keys(book.reconcile))
-					reconciled[month] = reconcile({
-						events,
-						stripe: book.stripe,
-						period: { month },
-						timeZone: menu.timeZone,
-					});
 				books.push({
 					leaks: [],
 					school: book.school,
@@ -582,7 +669,7 @@ export const runCase = async (c: Case): Promise<CaseRun> => {
 				continue;
 			}
 			const files = await journalAll(
-				root,
+				run.root,
 				book.school,
 				events,
 				book.monthly === true,
@@ -593,15 +680,7 @@ export const runCase = async (c: Case): Promise<CaseRun> => {
 				for (const [commodity, units] of row)
 					sums[commodity] = (sums[commodity] ?? 0n) + units;
 			}
-			for (const month of Object.keys(book.reconcile))
-				reconciled[month] = await reconcileFolder({
-					root,
-					school: book.school,
-					period: { month },
-					stripeDirectory: folder,
-				});
-			const tree = await readTree(join(root, "schools", book.school));
-			const leaks = Object.entries(tree)
+			const leaks = Object.entries(found.tree)
 				.filter(([, text]) =>
 					(c.personal ?? []).some((needle) => text.includes(needle)),
 				)
@@ -620,9 +699,9 @@ export const runCase = async (c: Case): Promise<CaseRun> => {
 				reconciled,
 			});
 		}
-		return { answers, warnings, books };
+		return { answers: run.answers, warnings: run.warnings, books };
 	} finally {
-		await rm(root, { recursive: true, force: true });
+		await run.dispose();
 	}
 };
 

@@ -1,0 +1,53 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 52000,
+				"fees": 1568,
+				"stripe": 50432,
+				"net": 50432,
+				"avail:family:fam_8k2:visit": 4
+			},
+			"reconcile": {
+				"2026-01": [],
+				"2026-02": []
+			},
+			"monthly": true,
+			"handMonthly": {
+				"Jan": {
+					"income:membership:sparkle-2": 26000,
+					"fees": 784
+				},
+				"Feb": {
+					"income:membership:sparkle-2": 26000,
+					"fees": 784
+				}
+			}
+		}
+	],
+	"notes": [
+		"the renewal's own period is the cycle that ended; its tier line carries the new one",
+		"two payments of 260.00 and two fees of 7.84: 520.00 - 15.68 = 504.32",
+		"credits: 2 in January, 2 more in February, and the 2 unused ones carry over (the cap is 2): 4 available"
+	]
+}

@@ -1,0 +1,28 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 260000,
+				"fees": 7570,
+				"stripe": 252430,
+				"net": 252430,
+				"avail:family:fam_8k2:visit": 24
+			},
+			"reconcile": {
+				"2026-01": []
+			}
+		}
+	],
+	"notes": [
+		"cash basis, by design (docs/financial-reports.md#revenue-timing): 2,600.00 in January, fee 75.70 (260,000 x 2.9% =",
+		"7,540 + 30), 2,524.30 net; a yearly payment grants twelve monthly allowances at once (README), 12 x 2 visits"
+	]
+}

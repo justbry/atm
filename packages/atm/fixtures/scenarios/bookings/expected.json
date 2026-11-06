@@ -1,0 +1,58 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"duplicate"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			409,
+			"unmatched_booking"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:booking": 10000,
+				"refunds": 5500,
+				"fees": 380,
+				"stripe": 4120,
+				"net": 4120
+			},
+			"reconcile": {
+				"2026-03": []
+			}
+		}
+	],
+	"notes": [
+		"A booking's events are decided by the family service's own endpoint, not the reference handler; the runner plays that endpoint (stored-inputs-booking.test.ts) with its booking index, so a refund can be named by the payment intent.",
+		"bk_1 30.00 paid and kept; bk_2 expired unpaid, nothing booked; bk_3 50.00 paid then refunded in full; bk_4 20.00 paid then 5.00 refunded.",
+		"bk_3's refund event arrives before its payment event: 409 unmatched_booking (nothing stored), applied when Stripe delivers it again after the payment.",
+		"Totals by hand: income 10,000; refunds 5,000 + 500 = 5,500; fees 117 + 175 + 88 = 380; Stripe's balance and the net income 10,000 - 5,500 - 380 = 4,120. No credits."
+	]
+}

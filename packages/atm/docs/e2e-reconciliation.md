@@ -2,7 +2,7 @@
 
 Does the money the reference handler books agree with what hledger reports, with what Stripe says, and with arithmetic done by hand? This is the answer for every handler path that moves money, case by case, where it does not, and why. Written for someone who has not read the code. Related: `docs/financial-reports.md` (what exists and what is missing), `docs/log-and-r2.md` (the shipper), `docs/README.md`.
 
-The matrix is a test, not a report: `tests/e2e-reconcile.test.ts` runs it, `tests/e2e-cases.ts` and `tests/e2e-recorded-cases.ts` hold the cases, and `tests/golden/e2e/<case>/` holds what each case printed. `UPDATE_GOLDEN=1 bun test tests/e2e-reconcile.test.ts` rewrites the goldens after a deliberate change. It needs hledger (1.52.1 is what the goldens were made with) and skips without it.
+The matrix is a test, not a report: `tests/e2e-reconcile.test.ts` runs it, the cases are scenario bundles in `fixtures/scenarios/<id>/` (plain data, see `scenario-bundles.md`; the TypeScript literals they were converted from are gone, and the comments that worked the numbers out are in each `expected.json` as `notes`), and `tests/golden/e2e/<case>/` holds what each case printed. `UPDATE_GOLDEN=1 bun test tests/e2e-reconcile.test.ts` rewrites the goldens after a deliberate change. It needs hledger (1.52.1 is what the goldens were made with) and skips without it.
 
 ## What each case does
 
@@ -12,7 +12,7 @@ Each case delivers signed Stripe events to the real handler (`handleStripeWebhoo
 2. **`atm reconcile` against a Stripe side built by hand.** Stripe's invoices, refunds (with their own `re_` ids, charge and payment intent), payouts, disputes and balance transactions (amount, fee, net) are written out in the case, in Stripe's documented shapes, per month. They are never derived from the events. The shipped folder and the Stripe files go through `reconcileFolder`, the code behind `atm reconcile --root --school --month --stripe`. As a check on the oracle itself, the test also asserts that the case's Stripe balance transactions add up to the hand numbers (Stripe's balance, fees, refunds).
 3. **Hand numbers.** Every case lists, in its body, what the books must say: income by account, refunds, disputes, fees, dispute fees, `assets:stripe`, the payout clearing account, net income and credit balances, with the arithmetic in a comment (for example `260.00 - 50.00 - 7.84 = 202.16`, or for a lost dispute `260.00 - 260.00 - 7.84 - 15.00 = -22.84`). A case that crosses a month also has the hand numbers of each month's column of the monthly income statement. Goldens are the output of the code, so they are not trusted on their own: the hand numbers are asserted first.
 
-A case with a defect (`DISCREPANCY`) asserts today's behaviour: its `pinned` numbers must be exactly what the books say, and must differ from the hand numbers (so a fix makes the test fail, and the failure says which pin is stale); its `reconcile` list names the differences `atm reconcile` must print. The comment `// DISCREPANCY: <id>` marks each one in `tests/e2e-cases.ts`. (The harness also has a `KNOWN` verdict for a defect another branch is fixing; no case has it now, see K1 and K2.) A book whose log leaves out money on purpose, a non-USD invoice, says so with `skipped`: `reconcile`'s own `skipped` count must be exactly that, and the differences it lists are the ones the count explains, so the case is not a discrepancy. No case is skipped (the file as a whole skips only when hledger is not installed, like the other hledger tests). The matrix itself changed nothing in `src/`; the fix of D4 (below) is the first change a finding made.
+A case with a defect (`DISCREPANCY`) asserts today's behaviour: its `pinned` numbers must be exactly what the books say, and must differ from the hand numbers (so a fix makes the test fail, and the failure says which pin is stale); its `reconcile` list names the differences `atm reconcile` must print. The ids a bundle pins are in its `expected.json` (`discrepancies`, with `notes` saying where). (The harness also has a `KNOWN` verdict for a defect another branch is fixing; no case has it now, see K1 and K2.) A book whose log leaves out money on purpose, a non-USD invoice, says so with `skipped`: `reconcile`'s own `skipped` count must be exactly that, and the differences it lists are the ones the count explains, so the case is not a discrepancy. No case is skipped (the file as a whole skips only when hledger is not installed, like the other hledger tests). The matrix itself changed nothing in `src/`; the fix of D4 (below) is the first change a finding made.
 
 Each case directory holds: `events.csv` (the handler's decisions, one line each: date, type, idem, postings), `income-statement.csv`, `balance-sheet.csv`, `credits.csv`, `refunds-register.csv` and `disputes-register.csv` (only when not empty), `income-statement-monthly.csv` and `balance-sheet-monthly.csv` (cases that cross a month) and `reconcile.txt` (`atm reconcile`'s own text for each month). `tests/golden/e2e/matrix.csv` is the table below in cents-and-dollars, hand beside report, one row per book.
 
@@ -69,7 +69,7 @@ How to read the table: dollars; `-` is zero; **bold `a / b`** is where the books
 
 ## Discrepancies
 
-Product bugs are reported here, not fixed. `K1` and `K2` were found by the first version of this matrix and are fixed on `dev` since; their sections stay, as the record of what the matrix pinned and what replaced it. `D1` to `D6` are open.
+Product bugs are reported here, not fixed. `K1` and `K2` were found by the first version of this matrix and are fixed on `dev` since; their sections stay, as the record of what the matrix pinned and what replaced it. `D1` to `D3`, `D5`, `D6` and `D7` are open.
 
 ### K1 (KNOWN, resolved by #66): a dispute moved no money in the books, and its fee was never booked
 
@@ -135,6 +135,15 @@ Product bugs are reported here, not fixed. `K1` and `K2` were found by the first
 - **Why:** a `payment.succeeded` has one income posting, named after one product.
 - **Impact:** none on net income, cash or fees. Revenue by product is wrong: 50.00 of add-on revenue is booked as membership on that invoice and on every renewal that carries the add-on, so `income:billing:addon:*` is understated and `income:billing:membership:*` overstated by the same amount. The totals and reconcile agree (no difference), which is why only the per-account hand numbers show it.
 - **Fix:** one income posting per resolved invoice line group (the tier, each add-on), with an invoice-level discount shared in proportion.
+
+### D7: a renewal delivered before its create invoice takes the create invoice's place
+
+- **Case:** `renewal-before-create` (a bundle outside the matrix: `fixtures/scenarios/renewal-before-create/`).
+- **Where:** `src/billing/grants.ts` (the first invoice of a subscription names its anchor and cycle); `docs/stripe-findings.md` already lists it as not fixed.
+- **Why:** Stripe promises no order. The renewal arrives first, is answered 200 `applied` and becomes the holder's subscription; the create invoice then answers 422 `refused` `rejected` on every retry, and its `invoice_payment.paid` link answers 409 `unmatched_invoice` for good.
+- **Impact:** money is right (a refused paid invoice still books its payment: income 520.00, fees 15.68, net 504.32, reconcile clean), credits are wrong: the holder has 2 visits where the in-order story gives 4, because the create invoice's grant is never made.
+- **Related:** `tests/scenario-order.test.ts` shuffles every bundle whose deliveries are all applied and checks that H4 to H8 do not change; eight bundles (renewal, upgrade, quantity-raise, quantity-decrease, the three dispute cases and duplicate-delivery) do change with the order and are pinned there as `ORDER_SENSITIVE`: a later invoice delivered before its first, or a dispute closing before its opening, makes the credit events cite another delivery as their cause.
+- **Fix:** hold a cycle invoice for a subscription whose create invoice has not been applied (answer 409 until it is), and cite the invoice's own event as the cause of its credits.
 
 ### What is not a discrepancy but should be known
 

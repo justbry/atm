@@ -8,6 +8,7 @@ import { atmChannel } from "./channels/atm.js";
 import { duckdbChannel } from "./channels/duckdb.js";
 import { hledgerChannel } from "./channels/hledger.js";
 import {
+	type BaseValues,
 	diffKpis,
 	evaluateKpis,
 	type KpiChannel,
@@ -51,7 +52,14 @@ const CHANNELS: Record<
 };
 
 export type ChannelRun =
-	| { name: ChannelName; status: "ok"; rows: KpiRow[]; hash: string }
+	| {
+			name: ChannelName;
+			status: "ok";
+			/** What the channel computed before the shared derived-KPI math: the channel's report (H6). */
+			base: BaseValues;
+			rows: KpiRow[];
+			hash: string;
+	  }
 	| { name: ChannelName; status: "skipped"; reason: string };
 
 export type Parity = {
@@ -92,7 +100,7 @@ export const runParity = async ({
 		const seen = mutate?.[name]?.(events) ?? events;
 		const base = await entry.channel.base({ events: seen, spec, periods });
 		const rows = evaluateKpis({ spec, base, periods });
-		runs.push({ name, status: "ok", rows, hash: kpiHash(rows) });
+		runs.push({ name, status: "ok", base, rows, hash: kpiHash(rows) });
 	}
 	const ok = runs.filter(
 		(r): r is Extract<ChannelRun, { status: "ok" }> => r.status === "ok",

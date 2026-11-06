@@ -1,0 +1,50 @@
+{
+	"verdict": "DISCREPANCY",
+	"discrepancies": [
+		"D3"
+	],
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"ignored"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 26000,
+				"fees": 784,
+				"stripe": 25216,
+				"net": 25216,
+				"avail:family:fam_8k2:visit": 2
+			},
+			"pinned": {
+				"stripe": 0,
+				"clearing": 25216
+			},
+			"reconcile": {
+				"2026-01": [
+					"missing_in_stripe payout po_1"
+				]
+			}
+		}
+	],
+	"notes": [
+		"the bank refused the transfer: Stripe has the 252.16 back in its balance and nothing is in the clearing account",
+		"DISCREPANCY: D3 the failure is not mapped: the 252.16 stays in the clearing account as if it had reached the bank",
+		"DISCREPANCY: D3"
+	]
+}

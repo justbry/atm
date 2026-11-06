@@ -370,6 +370,22 @@
 					"pattern": "^(.+)$"
 				}
 			}
+		},
+		{
+			"id": "credits_outstanding",
+			"title": "Credits outstanding",
+			"unit": "count",
+			"precision": 0,
+			"definition": "Credit units the school owes at the end of the month: everything available or held, all features and all holders, every posting to date. One school-wide total, never split by holder or account.",
+			"compute": {
+				"op": "sum",
+				"commodity": "credits",
+				"sign": 1,
+				"where": {
+					"account": "^credits:(avail|held):"
+				},
+				"cumulative": true
+			}
 		}
 	]
 }

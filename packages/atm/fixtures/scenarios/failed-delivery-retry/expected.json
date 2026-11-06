@@ -1,0 +1,42 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			500,
+			"threw"
+		],
+		[
+			409,
+			"busy"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 26000,
+				"fees": 784,
+				"stripe": 25216,
+				"net": 25216,
+				"avail:family:fam_8k2:visit": 2
+			},
+			"reconcile": {
+				"2026-01": []
+			}
+		}
+	],
+	"notes": [
+		"the caller's fee lookup fails: it answers 500, the claim stays open",
+		"Stripe retries a minute later: the claim is still fresh",
+		"... and after the claim's five minutes, the retry takes it over and books",
+		"the same books as a delivery that never failed"
+	]
+}

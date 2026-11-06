@@ -1,0 +1,43 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 26000,
+				"disputes": 26000,
+				"fees": 784,
+				"disputeFees": 1500,
+				"stripe": -2284,
+				"net": -2284
+			},
+			"reconcile": {
+				"2026-01": []
+			}
+		}
+	],
+	"notes": [
+		"the closing event lists the same withdrawal again: it must not be booked a second time",
+		"lost: the opening stands (assets:stripe -275.00, disputes +260.00, dispute fees +15.00) and the close books",
+		"nothing: the 260.00 stays with the cardholder and the 15.00 with Stripe, the income stays, and the two visits",
+		"go back. Net 260.00 - 260.00 - 7.84 - 15.00 = -22.84; cash 252.16 - 275.00 = -22.84."
+	]
+}

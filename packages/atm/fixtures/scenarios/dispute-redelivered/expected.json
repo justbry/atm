@@ -1,0 +1,59 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"duplicate"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"duplicate"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 26000,
+				"disputes": 26000,
+				"fees": 784,
+				"disputeFees": 1500,
+				"stripe": -2284,
+				"net": -2284
+			},
+			"reconcile": {
+				"2026-01": []
+			}
+		}
+	],
+	"notes": [
+		"Stripe's retry: the same event id",
+		"the same dispute under a second event id: the fee is not booked twice",
+		"one dispute, however many times Stripe said so: the same books as a lost dispute delivered once.",
+		"Net 260.00 - 260.00 - 7.84 - 15.00 = -22.84; cash 252.16 - 275.00 = -22.84; the two visits are taken back once."
+	]
+}

@@ -1,0 +1,174 @@
+{
+	"id": "renewal",
+	"school": "sch_vol",
+	"title": "monthly cycle renewal",
+	"path": "invoice.paid (subscription_cycle)",
+	"order": 1,
+	"fees": {
+		"in_1": 784,
+		"in_2": 784
+	},
+	"menu": {
+		"currency": "usd",
+		"timeZone": "America/Denver",
+		"features": [
+			{
+				"id": "visit",
+				"name": "Visit",
+				"unit": {
+					"one": "visit",
+					"other": "visits"
+				}
+			},
+			{
+				"id": "retreat",
+				"name": "Retreat",
+				"unit": {
+					"one": "retreat",
+					"other": "retreats"
+				}
+			}
+		],
+		"tiers": [
+			{
+				"id": "sparkle-1",
+				"name": "Sparkle 1",
+				"blurb": "One visit a month",
+				"public": true,
+				"prices": [
+					{
+						"interval": "month",
+						"amount": 13000
+					}
+				],
+				"grants": [
+					{
+						"featureId": "visit",
+						"amount": 1,
+						"every": "month",
+						"rollover": {
+							"max": 1,
+							"months": 1
+						}
+					}
+				]
+			},
+			{
+				"id": "sparkle-2",
+				"name": "Sparkle 2",
+				"blurb": "Two visits a month",
+				"public": true,
+				"prices": [
+					{
+						"interval": "month",
+						"amount": 26000
+					},
+					{
+						"interval": "year",
+						"amount": 260000
+					}
+				],
+				"grants": [
+					{
+						"featureId": "visit",
+						"amount": 2,
+						"every": "month",
+						"rollover": {
+							"max": 2,
+							"months": 1
+						}
+					}
+				]
+			},
+			{
+				"id": "sparkle-4",
+				"name": "Sparkle 4",
+				"blurb": "Four visits a month and a yearly retreat",
+				"public": true,
+				"prices": [
+					{
+						"interval": "month",
+						"amount": 52000
+					}
+				],
+				"grants": [
+					{
+						"featureId": "visit",
+						"amount": 4,
+						"every": "month",
+						"rollover": {
+							"max": 4,
+							"months": 1
+						}
+					},
+					{
+						"featureId": "retreat",
+						"amount": 1,
+						"every": "year"
+					}
+				]
+			}
+		],
+		"addons": [
+			{
+				"id": "pack",
+				"name": "Pack",
+				"price": {
+					"amount": 9000,
+					"every": "once"
+				},
+				"grants": [
+					{
+						"featureId": "visit",
+						"amount": 1,
+						"every": "month",
+						"rollover": {
+							"months": 3
+						}
+					}
+				]
+			},
+			{
+				"id": "glow",
+				"name": "Glow",
+				"price": {
+					"amount": 5000,
+					"every": "month"
+				},
+				"grants": [
+					{
+						"featureId": "visit",
+						"amount": 1,
+						"every": "month"
+					}
+				]
+			},
+			{
+				"id": "gift-visit",
+				"name": "Gift visit",
+				"price": {
+					"amount": 13000,
+					"every": "once"
+				},
+				"grants": [
+					{
+						"featureId": "visit",
+						"amount": 1,
+						"every": "month"
+					}
+				],
+				"gift": "sessions"
+			},
+			{
+				"id": "gift-dollars",
+				"name": "Gift card",
+				"price": {
+					"amount": 5000,
+					"every": "once"
+				},
+				"grants": [],
+				"gift": "dollars"
+			}
+		]
+	}
+}

@@ -2,12 +2,13 @@
  * The family service in miniature, for tests: one subject's stored rows and revision, the event log, and one write per
  * Stripe event, exactly as the caller of `handleStripeEvent` does it.
  */
-import { menuCatalogRows } from "../billing/grants.js";
+import { EMPTY_GRANTS_STATE, menuCatalogRows } from "../billing/grants.js";
 import { handleStripeEvent } from "../billing/handle.js";
 import { DEFAULT_POLICY } from "../billing/policy.js";
 import {
 	applyRowChanges,
 	type BillingRow,
+	grantsRow,
 	rowChangesFromMutation,
 	stateFromRows,
 } from "../billing/rows.js";
@@ -51,6 +52,7 @@ export const createStore = ({
 	menu,
 	school,
 	family,
+	profile,
 	menuVersion = 1,
 	policyVersion = 1,
 	start,
@@ -59,6 +61,12 @@ export const createStore = ({
 	menu: Menu;
 	school: string;
 	family: string;
+	/**
+	 * A child's own profile id: the store's holder is `profile:<id>` instead of `family:<family>`. The invoices still name
+	 * the family (`family_id`, as checkout does); the holder is seeded in the stored grants row, which the handler obeys
+	 * before it reads the metadata.
+	 */
+	profile?: string;
 	menuVersion?: number;
 	policyVersion?: number;
 	/** The stored rows and revision to carry on from (a subject written earlier). */
@@ -66,7 +74,8 @@ export const createStore = ({
 	/** Called with each input and its result, before the rows move on: a test checks another path against `handleStripeEvent`. */
 	onHandled?: (input: StripeEventInput, result: StripeEventResult) => void;
 }) => {
-	const holder = `family:${family}`;
+	const holder =
+		profile === undefined ? `family:${family}` : `profile:${profile}`;
 	const identity = {
 		orgId: school,
 		env: "live",
@@ -79,7 +88,16 @@ export const createStore = ({
 		[...menuLineItems(school, menu).keys()].map((key) => [key, priceIdOf(key)]),
 	);
 	const invoiceIds: Record<string, string> = {};
-	let rows: BillingRow[] = start?.rows ?? [];
+	const seededRows: BillingRow[] =
+		profile === undefined
+			? []
+			: [
+					grantsRow({
+						...EMPTY_GRANTS_STATE,
+						holder: { orgId: school, customerId: holder },
+					}),
+				];
+	let rows: BillingRow[] = start?.rows ?? seededRows;
 	let revision = start?.revision ?? 0;
 	let spends = 0;
 	let bookings = 0;
@@ -154,8 +172,9 @@ export const createStore = ({
 				schemaVersion: 1,
 				type: "updateBalance",
 				org: { config: {} },
-				commandId: `spend_${spends}`,
-				requestId: `spend_${spends}`,
+				// `idem` is `engine:<commandId>:<kind>` and unique per school, so a command id names its subject too
+				commandId: `${holder}:spend_${spends}`,
+				requestId: `${holder}:spend_${spends}`,
 				identity,
 				occurredAt: at,
 				featureId: feature,
@@ -205,8 +224,8 @@ export const createStore = ({
 				schemaVersion: 1,
 				type,
 				org: { config: {} },
-				commandId: `${type}_${spends}`,
-				requestId: `${type}_${spends}`,
+				commandId: `${holder}:${type}_${spends}`,
+				requestId: `${holder}:${type}_${spends}`,
 				identity,
 				occurredAt: at,
 				...fields,

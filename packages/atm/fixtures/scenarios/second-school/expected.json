@@ -1,0 +1,59 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			422,
+			"school_mismatch"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 26000,
+				"fees": 784,
+				"clearing": 25216,
+				"net": 25216,
+				"avail:family:fam_8k2:visit": 2
+			},
+			"reconcile": {
+				"2026-01": []
+			}
+		},
+		{
+			"school": "sch_two",
+			"hand": {
+				"income:membership:sparkle-1": 13000,
+				"fees": 407,
+				"clearing": 12593,
+				"net": 12593,
+				"avail:family:fam_8k2:visit": 1
+			},
+			"reconcile": {
+				"2026-01": []
+			}
+		}
+	],
+	"notes": [
+		"the family also belongs to a second school, paid on that school's own Stripe account",
+		"the second school's invoice sent to the first school's endpoint is refused before any claim",
+		"only this school's 260.00: 252.16 paid out; the second school's 130.00 is nowhere in it",
+		"the second school's own: 130.00 less 4.07 fee = 125.93 paid out; the family has one visit there, two in the first"
+	]
+}

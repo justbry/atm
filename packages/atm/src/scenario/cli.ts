@@ -6,6 +6,12 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Command } from "commander";
+import {
+	loadScenarioBundle,
+	loadScenarioBundles,
+	resolveBundleDirectory,
+} from "./bundle.js";
+import { checkBundle, formatCheck } from "./bundle-check.js";
 import { duckdbAvailable, writeKpiParquet } from "./channels/duckdb.js";
 import { buildFixture } from "./fixture.js";
 import { type KpiRow, kpiHash } from "./kpis.js";
@@ -24,6 +30,7 @@ import {
 	runParity,
 } from "./parity.js";
 import { PROFILE_NAMES, PROFILES, profileByName } from "./profiles.js";
+import { roundTripEvents } from "./roundtrip.js";
 import { summaryOf } from "./summary.js";
 
 export type CliKit = {
@@ -149,8 +156,9 @@ export type ScenarioRun = Awaited<ReturnType<typeof runScenario>>;
 /** Generates the scenario and replays it through the channels. */
 export const runScenario = async (opts: ScenarioOptions) => {
 	const fixture = buildFixture(await inputFromOptions(opts));
+	// the channels see the events as atm's write path returns them (outbox, ship, read), not as the generator built them
 	const parity = await runParity({
-		events: fixture.events,
+		events: await roundTripEvents(fixture.events),
 		periods: fixture.periods,
 		channels: channelsFrom(opts),
 	});
@@ -322,6 +330,93 @@ export const addScenarioCommands = (program: Command, kit: CliKit): void => {
 			.command("schema")
 			.description("the JSON Schema of an ad-hoc scenario (--scenario file)")
 			.action(() => kit.writeJson(scenarioSchema(PROFILE_NAMES))),
+	);
+
+	kit.exitTwoOnUsageError(
+		scenarios
+			.command("check")
+			.argument(
+				"[target]",
+				"a bundle folder or an id under fixtures/scenarios; default every committed bundle",
+			)
+			.description(
+				"replay a scenario bundle (deliveries, Stripe side, hand numbers) through the handler, outbox, ship, journal, KPI channels and reconcile, and compare the H1 to H8 checkpoints with its hashes.json; exit 0 when all match, 1 with a diff of the first mismatching stage when not",
+			)
+			.option(
+				"--update",
+				"write hashes.json and the stage snapshots from this run (refused while the KPI channels disagree or the answers differ from expected.json)",
+			)
+			.option(
+				"--snapshots",
+				"write the readable stage text a later mismatch is diffed against (not committed); refused unless this run matches hashes.json",
+			)
+			.option(
+				"--channels <list>",
+				`comma list of ${CHANNEL_NAMES.join(", ")}; default all (a missing hledger or duckdb is skipped, not failed)`,
+			)
+			.option("--json", "print one JSON line instead of the table")
+			.action(
+				(
+					target: string | undefined,
+					opts: {
+						update?: boolean;
+						snapshots?: boolean;
+						channels?: string;
+						json?: boolean;
+					},
+				) =>
+					wrap(kit, "scenarios check", opts, async () => {
+						const channels = channelsFrom(opts);
+						let bundles: Awaited<ReturnType<typeof loadScenarioBundles>>;
+						try {
+							bundles = target
+								? [await loadScenarioBundle(resolveBundleDirectory(target))]
+								: await loadScenarioBundles();
+						} catch {
+							throw new ScenarioInputError([
+								`${target ?? "fixtures/scenarios"}: no bundle there; give a folder with scenario.json or an id from fixtures/scenarios`,
+							]);
+						}
+						const results = [];
+						for (const bundle of bundles)
+							results.push(
+								await checkBundle(bundle, {
+									...(opts.update ? { update: true } : {}),
+									...(opts.snapshots ? { snapshots: true } : {}),
+									channels,
+								}),
+							);
+						if (opts.json)
+							kit.writeJson({
+								ok: results.every((r) => r.ok),
+								bundles: results.map(
+									({ id, ok, rows, diff, answerProblems }) => ({
+										id,
+										ok,
+										stages: rows.map(({ label, expected, actual, status }) => ({
+											stage: label,
+											expected,
+											actual,
+											status,
+										})),
+										diff,
+										answerProblems,
+									}),
+								),
+							});
+						else
+							process.stdout.write(
+								results
+									.map((r) =>
+										opts.update || !r.ok || bundles.length === 1
+											? formatCheck(r)
+											: `bundle ${r.id}: ok\n`,
+									)
+									.join(""),
+							);
+						if (!results.every((r) => r.ok)) process.exitCode = 1;
+					}),
+			),
 	);
 
 	kit.exitTwoOnUsageError(

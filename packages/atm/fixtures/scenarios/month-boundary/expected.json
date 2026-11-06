@@ -1,0 +1,63 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 26000,
+				"income:membership:sparkle-1": 13000,
+				"refunds": 5000,
+				"fees": 1191,
+				"clearing": 32809,
+				"net": 32809,
+				"avail:family:fam_8k2:visit": 2,
+				"avail:family:fam_b2:visit": 1
+			},
+			"reconcile": {
+				"2026-01": [],
+				"2026-02": []
+			},
+			"monthly": true,
+			"handMonthly": {
+				"Jan": {
+					"income:membership:sparkle-2": 26000,
+					"income:membership:sparkle-1": 13000,
+					"fees": 1191
+				},
+				"Feb": {
+					"refunds": 5000
+				}
+			}
+		}
+	],
+	"notes": [
+		"23:30 UTC on 31 January: 16:30 in Denver, January in both",
+		"03:00 UTC on 1 February: 20:00 on 31 January in Denver, so January's book although UTC (and Stripe's dashboard) say February",
+		"08:00 UTC on 1 February: 01:00 in Denver, February in both",
+		"in_2 is paid at 03:00 UTC on 1 February, which is 20:00 on 31 January in Denver: January's",
+		"January: 260.00 + 130.00 income, fees 7.84 + 4.07. February: 50.00 refunded, 328.09 paid out",
+		"390.00 - 50.00 - 11.91 = 328.09 in all, and all of it paid out"
+	]
+}

@@ -1,0 +1,67 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"duplicate"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"duplicate"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"duplicate"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"duplicate"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 26000,
+				"refunds": 5000,
+				"fees": 784,
+				"clearing": 20216,
+				"net": 20216,
+				"avail:family:fam_8k2:visit": 2
+			},
+			"reconcile": {
+				"2026-01": []
+			}
+		}
+	],
+	"notes": [
+		"Stripe's retry: the same event id",
+		"the same invoice under a second event id: nothing more is granted or booked",
+		"the same payout under another event id is still one payout",
+		"one payment, one refund, one payout, however many times Stripe said so: 260.00 - 50.00 - 7.84 = 202.16, all paid out"
+	]
+}

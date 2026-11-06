@@ -1,0 +1,90 @@
+{
+	"sch_vol": {
+		"invoices": [
+			{
+				"id": "in_1",
+				"status": "paid",
+				"amount_paid": 26000,
+				"currency": "usd",
+				"created": 1768499940,
+				"livemode": true,
+				"status_transitions": {
+					"paid_at": 1768500000
+				}
+			},
+			{
+				"id": "in_late",
+				"status": "paid",
+				"amount_paid": 26000,
+				"currency": "usd",
+				"created": 1768514340,
+				"livemode": true,
+				"status_transitions": {
+					"paid_at": 1768514400
+				}
+			},
+			{
+				"id": "in_2",
+				"status": "paid",
+				"amount_paid": 13000,
+				"currency": "usd",
+				"created": 1768931940,
+				"livemode": true,
+				"status_transitions": {
+					"paid_at": 1768932000
+				}
+			}
+		],
+		"refunds": [
+			{
+				"id": "re_late",
+				"amount": 3000,
+				"currency": "usd",
+				"charge": "ch_in_2",
+				"payment_intent": "pi_in_2",
+				"created": 1768935600,
+				"status": "succeeded"
+			}
+		],
+		"disputes": [],
+		"payouts": [],
+		"balanceTransactions": [
+			{
+				"id": "txn_in_1",
+				"type": "charge",
+				"amount": 26000,
+				"fee": 784,
+				"net": 25216,
+				"currency": "usd",
+				"created": 1768500000
+			},
+			{
+				"id": "txn_in_late",
+				"type": "charge",
+				"amount": 26000,
+				"fee": 784,
+				"net": 25216,
+				"currency": "usd",
+				"created": 1768514400
+			},
+			{
+				"id": "txn_in_2",
+				"type": "charge",
+				"amount": 13000,
+				"fee": 407,
+				"net": 12593,
+				"currency": "usd",
+				"created": 1768932000
+			},
+			{
+				"id": "txn_re_late",
+				"type": "refund",
+				"amount": -3000,
+				"fee": 0,
+				"net": -3000,
+				"currency": "usd",
+				"created": 1768935600
+			}
+		]
+	}
+}

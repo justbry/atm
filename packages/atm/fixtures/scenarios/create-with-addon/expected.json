@@ -1,0 +1,41 @@
+{
+	"verdict": "DISCREPANCY",
+	"discrepancies": [
+		"D6"
+	],
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 26000,
+				"income:addon:glow": 5000,
+				"fees": 929,
+				"stripe": 30071,
+				"net": 30071,
+				"avail:family:fam_8k2:visit": 3
+			},
+			"pinned": {
+				"income:membership:sparkle-2": 31000,
+				"income:addon:glow": 0
+			},
+			"reconcile": {
+				"2026-01": []
+			}
+		}
+	],
+	"notes": [
+		"260.00 for the tier and 50.00 for glow; fee 9.29 (31,000 x 2.9% = 899 + 30); cash 310.00 - 9.29 = 300.71",
+		"credits: the tier's 2 visits and glow's 1",
+		"DISCREPANCY: D6 one payment, one income account: the whole 310.00 is booked as the tier's"
+	]
+}

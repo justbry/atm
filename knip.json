@@ -109,6 +109,9 @@
 			"entry": ["tests/**/*.test.ts"],
 			"project": ["src/**/*.ts", "tests/**/*.ts"]
 		},
+		"packages/atm": {
+			"entry": ["tests/gap/*.ts"]
+		},
 		"packages/ksuid": {
 			"project": ["src/**/*.ts"]
 		},

@@ -16,7 +16,8 @@
 	},
 	"files": [
 		"dist",
-		"src"
+		"src",
+		"fixtures/scenarios"
 	],
 	"scripts": {
 		"atm": "bun ./src/bin.ts",
@@ -27,7 +28,9 @@
 		"fixtures": "bun ./fixtures/generate.ts",
 		"schema": "bun ./schema/build.ts",
 		"stripe-spec": "bun ./schema/stripe/build.ts",
-		"scenarios": "bun ./src/bin.ts scenarios"
+		"scenarios": "bun ./src/bin.ts scenarios",
+		"bundles:gaps": "bun ./tests/author-gap-bundles.ts",
+		"suppression-report": "bun ./fixtures/suppression-report.ts"
 	},
 	"dependencies": {
 		"@autumn/balance-engine": "workspace:*",

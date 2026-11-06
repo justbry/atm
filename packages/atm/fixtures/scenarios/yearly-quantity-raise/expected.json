@@ -1,0 +1,58 @@
+{
+	"verdict": "OK",
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"duplicate"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			500,
+			"threw"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 968767,
+				"fees": 28184,
+				"stripe": 940583,
+				"net": 940583,
+				"avail:family:fam_8k2:visit": 52
+			},
+			"reconcile": {
+				"2026-01": [],
+				"2026-04": [],
+				"2027-01": []
+			}
+		}
+	],
+	"notes": [
+		"proration: 265 of 365 days left at the raise; credit 260,000 x 265/365 = 188,767.12, charge 520,000 x 265/365 = 377,534.25, paid 377,534 - 188,767 = 188,767",
+		"fees: 7,570 (260,000 x 2.9% = 7,540 + 30), 5,504 (188,767 x 2.9% = 5,474.24 + 30 = 5,504.24), 15,110 (520,000 x 2.9% = 15,080 + 30)",
+		"credits: 24 granted in Jan 2026; the raise adds 18 in Apr 2026 (24 x 265/365 = 17.42, rounded up), booked as credit.adjusted so it is not in credits_granted; 48 granted in Jan 2027 (2 seats x 24)",
+		"renewal: before it 42 visits are unused; the rollover cap is 2 per seat x 2 seats = 4, so 4 are kept and 38 expire at the reset (refill 48 less the 10 by which the balance rose): 4 + 48 = 52",
+		"KPI by month: credits_granted Jan 2026 24, Apr 2026 0 (the raise is an adjustment), Jan 2027 48; credits_expired Jan 2027 38; breakage_rate Jan 2027 38/48 = 0.7917",
+		"the duplicate raise books nothing; the 500 on the renewal books nothing until the retry"
+	]
+}

@@ -1,0 +1,111 @@
+{
+	"sch_vol": {
+		"invoices": [
+			{
+				"id": "in_1",
+				"status": "paid",
+				"amount_paid": 26000,
+				"currency": "usd",
+				"created": 1768499940,
+				"livemode": true,
+				"status_transitions": {
+					"paid_at": 1768500000
+				}
+			},
+			{
+				"id": "in_b1",
+				"status": "paid",
+				"amount_paid": 13000,
+				"currency": "usd",
+				"created": 1768507140,
+				"livemode": true,
+				"status_transitions": {
+					"paid_at": 1768507200
+				}
+			},
+			{
+				"id": "in_2",
+				"status": "paid",
+				"amount_paid": 26000,
+				"currency": "usd",
+				"created": 1771178340,
+				"livemode": true,
+				"status_transitions": {
+					"paid_at": 1771178400
+				}
+			},
+			{
+				"id": "in_b2",
+				"status": "paid",
+				"amount_paid": 13000,
+				"currency": "usd",
+				"created": 1771185540,
+				"livemode": true,
+				"status_transitions": {
+					"paid_at": 1771185600
+				}
+			},
+			{
+				"id": "in_3",
+				"status": "paid",
+				"amount_paid": 26000,
+				"currency": "usd",
+				"created": 1773597840,
+				"livemode": true,
+				"status_transitions": {
+					"paid_at": 1773597900
+				}
+			}
+		],
+		"refunds": [],
+		"disputes": [],
+		"payouts": [],
+		"balanceTransactions": [
+			{
+				"id": "txn_in_1",
+				"type": "charge",
+				"amount": 26000,
+				"fee": 784,
+				"net": 25216,
+				"currency": "usd",
+				"created": 1768500000
+			},
+			{
+				"id": "txn_in_b1",
+				"type": "charge",
+				"amount": 13000,
+				"fee": 407,
+				"net": 12593,
+				"currency": "usd",
+				"created": 1768507200
+			},
+			{
+				"id": "txn_in_2",
+				"type": "charge",
+				"amount": 26000,
+				"fee": 784,
+				"net": 25216,
+				"currency": "usd",
+				"created": 1771178400
+			},
+			{
+				"id": "txn_in_b2",
+				"type": "charge",
+				"amount": 13000,
+				"fee": 407,
+				"net": 12593,
+				"currency": "usd",
+				"created": 1771185600
+			},
+			{
+				"id": "txn_in_3",
+				"type": "charge",
+				"amount": 26000,
+				"fee": 784,
+				"net": 25216,
+				"currency": "usd",
+				"created": 1773597900
+			}
+		]
+	}
+}

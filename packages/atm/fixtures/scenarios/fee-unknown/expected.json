@@ -1,0 +1,47 @@
+{
+	"verdict": "DISCREPANCY",
+	"discrepancies": [
+		"D1"
+	],
+	"answers": [
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		],
+		[
+			200,
+			"applied"
+		]
+	],
+	"books": [
+		{
+			"school": "sch_vol",
+			"hand": {
+				"income:membership:sparkle-2": 26000,
+				"fees": 784,
+				"clearing": 25216,
+				"net": 25216,
+				"avail:family:fam_8k2:visit": 2
+			},
+			"pinned": {
+				"fees": 0,
+				"stripe": 784,
+				"net": 26000
+			},
+			"reconcile": {
+				"2026-01": [
+					"not_in_log fees -"
+				]
+			}
+		}
+	],
+	"notes": [
+		"Stripe kept 7.84 and paid out the other 252.16: nothing is left in Stripe's balance",
+		"DISCREPANCY: D1 no fee line, so the 7.84 stays in assets:stripe for ever and the net income is 7.84 too high",
+		"DISCREPANCY: D1"
+	]
+}
