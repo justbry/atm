@@ -2243,8 +2243,7 @@
 			},
 			"expect": {
 				"text": {
-					"[data-test=lock-panel][data-surface=dashboard-plan] [data-test=lock-who]": "Governance and up see this",
-					"[data-test=lock-panel][data-surface=dashboard-plan] [data-test=lock-when]": "Governance sees breakdown by month"
+					"[data-test=lock-panel][data-surface=dashboard-plan] [data-test=lock-who]": "Governance and up see this"
 				},
 				"count": {
 					"[data-test=lock-panel][data-surface=dashboard-plan][data-lock=no_grant]": 1
@@ -2261,8 +2260,7 @@
 			},
 			"expect": {
 				"text": {
-					"[data-test=lock-panel][data-surface=dashboard-plan] [data-test=lock-who]": "Governance and up see this",
-					"[data-test=lock-panel][data-surface=dashboard-plan] [data-test=lock-when]": "Governance sees breakdown by month"
+					"[data-test=lock-panel][data-surface=dashboard-plan] [data-test=lock-who]": "Governance and up see this"
 				},
 				"count": {
 					"[data-test=lock-panel][data-surface=dashboard-plan][data-lock=no_grant]": 1

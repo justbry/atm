@@ -62,7 +62,8 @@ export type KpiMeta = {
 export type KpiTable = {
 	periods: string[];
 	series: Record<string, Cell[]>;
-	/** Row order where the mockup sorts rows by value: per group (`donations_by_fund`), per period, the ids. */
+	/** Row order per group, per period, the ids: `donations_by_fund` where the mockup sorts rows by value,
+	 * `revenue_by_tier` in the school's plan order. */
 	order?: Record<string, string[][]>;
 	/** Month table only (mockup `dlt`): per money or count series, each cell's change against the month before, or
 	 * null when either is not a figure or the month is the first. The UI prints it ("Same as May", "▼ $6 vs May");

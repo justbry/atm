@@ -328,6 +328,14 @@ const fundsOf = (gifts: Gift[]): Dimension[] =>
 const monthsOfYear = (year: number): string[] =>
 	monthNames.map((_, index) => `${year}-${String(index + 1).padStart(2, "0")}`);
 
+/** The mart presets' plan order as the mockup shows it (its embedded `t:{Scholar,Fellow,Seminar,Audit}`, atm's
+ * scenario order before canonicalize sorted the bundle's keys). */
+const martTierOrder = ["scholar", "fellow", "seminar", "audit"];
+const martTierRank = (tier: string): number => {
+	const rank = martTierOrder.indexOf(tier);
+	return rank === -1 ? martTierOrder.length : rank;
+};
+
 /** B4 Uni's (or a scaled school's) figures from atm's export rows and the mart bundle. */
 export function martSource(
 	rows: readonly KpiRow[],
@@ -361,10 +369,16 @@ export function martSource(
 	return {
 		kind: "mart",
 		values,
-		tiers: Object.keys(bundle.tiers).map((tier) => ({
-			id: tier,
-			title: capitalized(tier),
-		})),
+		tiers: Object.keys(bundle.tiers)
+			.sort(
+				(first, second) =>
+					martTierRank(first) - martTierRank(second) ||
+					first.localeCompare(second),
+			)
+			.map((tier) => ({
+				id: tier,
+				title: capitalized(tier),
+			})),
 		kinds: ids
 			.filter((id) => id.startsWith("revenue_by_kind:"))
 			.map((id) => {
@@ -766,6 +780,11 @@ export function kpiDocument(input: KpiDocumentInput): KpiDocument {
 			series,
 		};
 		complementPlans(table, periods);
+		const tierIds = plainKpis
+			.filter(({ id }) => id.startsWith("revenue_by_tier:"))
+			.map(({ id }) => id);
+		if (tierIds.length > 0)
+			table.order = { revenue_by_tier: periods.map(() => tierIds) };
 		if (grain === "month" && governanceUp) addDonors(table, periods);
 		tables[grain] = table;
 	}
@@ -975,7 +994,7 @@ export function kpiDocument(input: KpiDocumentInput): KpiDocument {
 				);
 		}
 		Object.assign(table.series, series);
-		table.order = { donations_by_fund: order };
+		table.order = { ...table.order, donations_by_fund: order };
 	}
 
 	// ---- Days (live audiences): the month's gross by day, as the mockup draws it

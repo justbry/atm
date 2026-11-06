@@ -58,7 +58,7 @@
 				"refund_rate",
 				"refunds",
 				"disputes_opened",
-				"disputes_lost",
+				"dispute_cost",
 				"net_income"
 			]
 		},
@@ -83,7 +83,7 @@
 				"refund_rate",
 				"refunds",
 				"disputes_opened",
-				"disputes_lost",
+				"dispute_cost",
 				"net_income"
 			]
 		},
@@ -113,6 +113,7 @@
 				"refund_rate",
 				"refunds",
 				"disputes_opened",
+				"dispute_cost",
 				"disputes_lost",
 				"dispute_fees",
 				"net_income"
@@ -144,6 +145,7 @@
 				"refund_rate",
 				"refunds",
 				"disputes_opened",
+				"dispute_cost",
 				"disputes_lost",
 				"dispute_fees",
 				"net_income"
@@ -175,6 +177,7 @@
 				"refund_rate",
 				"refunds",
 				"disputes_opened",
+				"dispute_cost",
 				"disputes_lost",
 				"dispute_fees",
 				"net_income"
