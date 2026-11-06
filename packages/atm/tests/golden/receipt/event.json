@@ -1,0 +1,31 @@
+{
+	"v": 1,
+	"id": "01M57W11S000001VXEECV0TTCM",
+	"school": "sch_vol",
+	"source": "stripe",
+	"event_type": "payment.refunded",
+	"event_time": "2026-10-18T16:03:00Z",
+	"ingest_time": "2026-10-18T16:03:01.713Z",
+	"date": "2026-10-18",
+	"tz": "America/Denver",
+	"key": "family:fam_th6z",
+	"labels": {},
+	"idem": "stripe:re_9",
+	"cause": "01M559MAS0000017WHA59KPRAK",
+	"text": "refunded Zoë's October payment 130 USD",
+	"postings": [
+		{ "account": "assets:stripe", "amount": "-130.00", "commodity": "USD" },
+		{
+			"account": "income:billing:refunds",
+			"amount": "130.00",
+			"commodity": "USD"
+		}
+	],
+	"payload": {
+		"id": "re_9",
+		"currency": "usd",
+		"amount": 13000,
+		"billing_email": "member@example.test"
+	},
+	"redacted": { "amount": 13000, "currency": "usd", "id": "re_9" }
+}
