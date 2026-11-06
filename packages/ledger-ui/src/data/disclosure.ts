@@ -145,11 +145,19 @@ export type PeriodGate = {
 	state: "shown" | "embargoed" | "future";
 	title: string | null;
 };
-/** The period selector's presets (S0 `periodPresets`, by label) for an audience: hidden with the reason and title
+/** The period control's eight presets (mockup `PRE`, by label; S0's golden lists them) for an audience: hidden with the reason and title
  * the mockup gives ("Governance and up see this: Public sees years"), or embargoed with its publish line. A hidden
  * preset's second line is "—", an embargoed one's its title. */
 export type PresetGate = {
-	label: "This month" | "Last month" | "Last 3 months" | "Year to date";
+	label:
+		| "This month"
+		| "Last month"
+		| "This quarter"
+		| "Last quarter"
+		| "Last 3 months"
+		| "This year"
+		| "Last year"
+		| "Year to date";
 	state: "shown" | "hidden" | "embargoed";
 	reason: HiddenReason | null;
 	title: string | null;

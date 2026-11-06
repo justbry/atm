@@ -5,11 +5,11 @@
 		"Data: src/data/disclosure.ts (Disclosure, Audience, ViewAs, the spec's rules) with src/fixtures/disclosure.json, and src/data/settings.ts (SchoolSettings, SettingsWriter) with src/fixtures/settings.json. The Reader gives disclosure(school) and settings(school); the Writer gives saveAccountingBasis, createKey, revokeKey, saveStripeKey, removeStripeKey, saveZeffyKey, removeZeffyKey, saveDisclosure and confirmDisclosureStepUp. The fixture saveDisclosure answers { status: 'step_up', expiresInMinutes: 15 } when checkOverride(file, saved, draft).change is public_open and { status: 'saved' } otherwise; confirmDisclosureStepUp answers saved. The fixture createKey returns the key with used 'never'.",
 		"Route (the shared hash grammar of S2's notes): as=owner|finance|admin|governance|member|public (mockup SUBS); absent, the signed-in person's own row (Vibes of Light, Maple Pilates, Lotus Lane Yoga: the owner; B4 Uni: Jo A., finance; Harbor Arts Academy: Rosa T., admin); a value the person may not preview (ViewAsOption.held false, mockup vaAllowed) is ignored (resolveViewAs); preview when it is not their own. admin maps onto the audiences as the mockup's VW does (ViewAsOption.audience). The money period is S0's month= (YYYY-MM or YYYY-MM-DD..YYYY-MM-DD); on Bookings the control writes range= and offset= instead (S2). Switching school drops as=. A tab change keeps it. When the route's period is not one the viewed audience may pick, the shown period is the last pickable one that ends on or before it, else the first (mockup snapP); picking an option of View as also navigates to that period (month=<from>..<to>) and toasts 'Period changed to <label>: <views[audience].sees>'.",
 		"Top bar: view-as is the mockup's #kview button (eye icon, 'View as <name>', aria-haspopup listbox, title 'View as <name>. You are <own name> in <school>. Owners and admins own the dashboard and see everyone's data. Members see only themselves and their family.'). Its popover holds view-as-note data-note=top, six view-as-option rows (data-as, aria-selected, view-as-name with ' (you)' on the viewer's own row, view-as-summary; a row not held is disabled with title 'You do not hold this audience'), the disabled view-as-later row (title 'Custom audiences are not accepted in the first release') and view-as-note data-note=portal. Choosing a row closes the popover. preview-banner is the mockup's #vab ('Preview: this is what <name> sees. You are <own name>.[ Their books follow their own membership: shown as <audience name>.] Writes are off.') with preview-exit ('Exit preview', removes as=). While previewing every write control is disabled with title 'Exit preview to act'.",
-		"Period control: period-button shows the period's word only (Month, Quarter, Year or Custom) with aria-label 'Period: <label>'; its popover has period-label (the period's label), period-note (views[audience].periodNote, after 'Previewing ' in a preview), the presets as period-option (S0's four; a hidden or embargoed preset is disabled with its PresetGate title), period-chip per PeriodGate (data-period, disabled with its title unless shown, class 'on' when chosen), and the custom range (also period-option) with views[audience].customRangeNote instead of the dates when it is set. period-prev and period-next are disabled with the neighbouring period's title when it is not pickable.",
+		"Period control: period-button shows the period's word only (Month, Quarter, Year or Custom) with aria-label 'Period: <label>'; its popover has period-label (the period's label), period-note (views[audience].periodNote, after 'Previewing ' in a preview), the presets as period-option (the mockup's eight, PresetGate by label; a hidden or embargoed preset is disabled with its PresetGate title), period-chip per PeriodGate (data-period, disabled with its title unless shown, class 'on' when chosen), and the custom range (also period-option) with views[audience].customRangeNote instead of the dates when it is set. period-prev and period-next are disabled with the neighbouring period's title when it is not pickable.",
 		"Lock panels: lock-panel carries data-surface (a GatedSurface) and data-lock (the reason); lock-who is its heading, lock-when the line under it, from the viewed option's locks. dashboard-plan replaces the Dashboard's 'By plan or fund' row, plans-revenue the Plans tab's per-plan members and monthly revenue (and its strip), settings-books the drawer's School books section below the heading.",
 		"Settings drawer: settings-section is each h5 heading (data-section appearance, basis, books, keys, connections; its text includes the muted part); settings-readonly is the owners-only line; books-readonly 'Owners change the disclosure. You can read it.'. disclosure-row per class (data-class), disclosure-kpis and disclosure-cell (data-class, data-audience public|member|governance|finance; finance is the Finance · Owner column) inside it, texts from disclosureCell. override-field are the editor's eight selects (data-field kpi, class, rule-class, rule-audience, detail, every, after, round) reacting to input, each edit applied with editOverride and checked with checkOverride; override-label their labels; override-message the validator line (each error as '400 <code>: <text>', else disclosureMessages). disclosure-reset and disclosure-save ('Check and save') are disabled until the draft differs (save also while it has errors or no change); admins get neither. key-row per key (data-key) with key-label and key-detail ('<prefix>… · used <used>') and key-revoke (data-key); key-create opens key-create-option (data-kind). connection-row (data-connection stripe|zeffy|bucket) with connection-detail; stripe-connect is Connect or Replace, zeffy-connect likewise.",
 		"Dialogs: dialog is the modal (mockup #md) with dialog-title, dialog-confirm (the primary button), dialog-cancel, dialog-field (data-field label, key, pin, apiKey), dialog-message (the restricted-key line, restrictedKeyMessage) and permission-item (data-permission, data-ok). A write's dialog stays open while the write is pending: dialog-confirm (or basis-save) carries aria-busy='true' and is disabled, and no toast shows until the Writer answers. toast is the shell's toast.",
-		"Not mapped: removeZeffyKey has no entry (no fixture school pairs a connected Zeffy with an owner viewer; its disabled button is checked for the admin); the mockup's 'Owners only. You are an admin here' line while an owner previews a lower audience is a mockup quirk and is not checked; the bar's layout at 390/360/320 px (help and gear pinned on row one) is checked by the shots, not here. S0's scope-note entries and its period-button 'Nov 2026' text describe the pre-v2 top bar and conflict with this file's view-as and period-closed entries: they need the S0b G commit."
+		"Not mapped: removeZeffyKey has no entry (no fixture school pairs a connected Zeffy with an owner viewer; its disabled button is checked for the admin); the mockup's 'Owners only. You are an admin here' line while an owner previews a lower audience is a mockup quirk and is not checked; the bar's layout at 390/360/320 px (help and gear pinned on row one) is checked by the shots, not here. S0.json follows the frozen top bar since G7b (no scope-note; the period button shows its word; Harbor Arts Academy in the switcher)."
 	],
 	"hooks": [
 		"settings-subtitle",
@@ -2616,6 +2616,17 @@
 			}
 		},
 		{
+			"id": "view-as-all-schools",
+			"source": "mockup renderVA(): View as is hidden on All schools (cur==='all')",
+			"route": "#/all/all?theme=light",
+			"expect": {
+				"count": {
+					"[data-test=view-as]": 0,
+					"[data-test=preview-banner]": 0
+				}
+			}
+		},
+		{
 			"id": "preview-exit",
 			"source": "mockup #vax 'Exit preview': back to yourself, the banner goes; smoke 'view as: Exit returns to yourself and hides the banner'",
 			"route": "#/vol/dashboard?as=governance&theme=light",
@@ -2719,8 +2730,11 @@
 					"[data-test=period-chip][data-period=\"2024\"]:not([disabled])": 1,
 					"[data-test=period-chip][data-period=\"2025\"][disabled][title=\"Published after 7 Jan 2027\"]": 1,
 					"[data-test=period-chip][data-period=\"2026\"][disabled][title=\"Published after 7 Jan 2028\"]": 1,
-					"[data-test=period-option][disabled]": 4,
+					"[data-test=period-option][disabled]": 8,
 					"[data-test=period-option][disabled][title=\"Governance and up see this: Public sees years\"]": 3,
+					"[data-test=period-option][disabled][title=\"Members see this: Public sees years\"]": 2,
+					"[data-test=period-option][disabled][title=\"Published after 7 Jan 2028\"]": 1,
+					"[data-test=period-option][disabled][title=\"Published after 7 Jan 2027\"]": 1,
 					"[data-test=period-option][disabled][title=\"Finance admins and the owner see this: Public sees years\"]": 1,
 					"[data-test=period-next][disabled][title=\"Published after 7 Jan 2027\"]": 1
 				},
@@ -2752,7 +2766,9 @@
 					"[data-test=period-chip][data-period=\"2026-Q2\"]:not([disabled])": 1,
 					"[data-test=period-chip][data-period=\"2026-Q3\"][disabled][title=\"Published after 18 Nov 2026\"]": 1,
 					"[data-test=period-chip][data-period=\"2026-Q4\"][disabled][title=\"Published after 18 Feb 2027\"]": 1,
-					"[data-test=period-option][disabled]": 4
+					"[data-test=period-option][disabled]": 7,
+					"[data-test=period-option][disabled][title=\"Published after 18 Feb 2027\"]": 2,
+					"[data-test=period-option][disabled][title=\"Published after 18 Nov 2026\"]": 1
 				},
 				"contains": {
 					"[data-test=period-option]": [
@@ -2781,8 +2797,10 @@
 					"[data-test=period-chip][data-period=\"2026-10\"][disabled][title=\"Published after 7 Nov 2026\"]": 1,
 					"[data-test=period-chip][data-period=\"2026-11\"][disabled][title=\"Published after 7 Dec 2026\"]": 1,
 					"[data-test=period-chip][data-period=\"2026-12\"][disabled][title=\"Not started yet\"]": 1,
+					"[data-test=period-option][disabled]": 6,
 					"[data-test=period-option][disabled][title=\"Published after 7 Dec 2026\"]": 2,
 					"[data-test=period-option][disabled][title=\"Published after 7 Nov 2026\"]": 1,
+					"[data-test=period-option][disabled][title=\"Published after 7 Jan 2027\"]": 2,
 					"[data-test=period-option][disabled][title=\"Finance admins and the owner see this: Governance sees months\"]": 1
 				}
 			}

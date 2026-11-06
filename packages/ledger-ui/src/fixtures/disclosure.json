@@ -170,10 +170,34 @@
 							"title": "Governance and up see this: Public sees years"
 						},
 						{
+							"label": "This quarter",
+							"state": "hidden",
+							"reason": "members_only",
+							"title": "Members see this: Public sees years"
+						},
+						{
+							"label": "Last quarter",
+							"state": "hidden",
+							"reason": "members_only",
+							"title": "Members see this: Public sees years"
+						},
+						{
 							"label": "Last 3 months",
 							"state": "hidden",
 							"reason": "no_grant",
 							"title": "Governance and up see this: Public sees years"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2028"
+						},
+						{
+							"label": "Last year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
 						},
 						{
 							"label": "Year to date",
@@ -242,10 +266,34 @@
 							"title": "Governance and up see this: Members see quarters"
 						},
 						{
+							"label": "This quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Feb 2027"
+						},
+						{
+							"label": "Last quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Nov 2026"
+						},
+						{
 							"label": "Last 3 months",
 							"state": "hidden",
 							"reason": "no_grant",
 							"title": "Governance and up see this: Members see quarters"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Feb 2027"
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
 						},
 						{
 							"label": "Year to date",
@@ -354,10 +402,34 @@
 							"title": "Published after 7 Nov 2026"
 						},
 						{
+							"label": "This quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
 							"label": "Last 3 months",
 							"state": "embargoed",
 							"reason": "embargoed",
 							"title": "Published after 7 Dec 2026"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
 						},
 						{
 							"label": "Year to date",
@@ -494,7 +566,31 @@
 							"title": null
 						},
 						{
+							"label": "This quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
 							"label": "Last 3 months",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last year",
 							"state": "shown",
 							"reason": null,
 							"title": null
@@ -537,7 +633,31 @@
 							"title": null
 						},
 						{
+							"label": "This quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
 							"label": "Last 3 months",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last year",
 							"state": "shown",
 							"reason": null,
 							"title": null
@@ -707,10 +827,34 @@
 							"title": "Governance and up see this: Public sees years"
 						},
 						{
+							"label": "This quarter",
+							"state": "hidden",
+							"reason": "members_only",
+							"title": "Members see this: Public sees years"
+						},
+						{
+							"label": "Last quarter",
+							"state": "hidden",
+							"reason": "members_only",
+							"title": "Members see this: Public sees years"
+						},
+						{
 							"label": "Last 3 months",
 							"state": "hidden",
 							"reason": "no_grant",
 							"title": "Governance and up see this: Public sees years"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2028"
+						},
+						{
+							"label": "Last year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
 						},
 						{
 							"label": "Year to date",
@@ -779,10 +923,34 @@
 							"title": "Governance and up see this: Members see quarters"
 						},
 						{
+							"label": "This quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Feb 2027"
+						},
+						{
+							"label": "Last quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Nov 2026"
+						},
+						{
 							"label": "Last 3 months",
 							"state": "hidden",
 							"reason": "no_grant",
 							"title": "Governance and up see this: Members see quarters"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Feb 2027"
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
 						},
 						{
 							"label": "Year to date",
@@ -891,10 +1059,34 @@
 							"title": "Published after 7 Nov 2026"
 						},
 						{
+							"label": "This quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
 							"label": "Last 3 months",
 							"state": "embargoed",
 							"reason": "embargoed",
 							"title": "Published after 7 Dec 2026"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
 						},
 						{
 							"label": "Year to date",
@@ -1031,7 +1223,31 @@
 							"title": null
 						},
 						{
+							"label": "This quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
 							"label": "Last 3 months",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last year",
 							"state": "shown",
 							"reason": null,
 							"title": null
@@ -1074,7 +1290,31 @@
 							"title": null
 						},
 						{
+							"label": "This quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
 							"label": "Last 3 months",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last year",
 							"state": "shown",
 							"reason": null,
 							"title": null
@@ -1244,10 +1484,34 @@
 							"title": "Governance and up see this: Public sees years"
 						},
 						{
+							"label": "This quarter",
+							"state": "hidden",
+							"reason": "members_only",
+							"title": "Members see this: Public sees years"
+						},
+						{
+							"label": "Last quarter",
+							"state": "hidden",
+							"reason": "members_only",
+							"title": "Members see this: Public sees years"
+						},
+						{
 							"label": "Last 3 months",
 							"state": "hidden",
 							"reason": "no_grant",
 							"title": "Governance and up see this: Public sees years"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2028"
+						},
+						{
+							"label": "Last year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
 						},
 						{
 							"label": "Year to date",
@@ -1316,10 +1580,34 @@
 							"title": "Governance and up see this: Members see quarters"
 						},
 						{
+							"label": "This quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Feb 2027"
+						},
+						{
+							"label": "Last quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Nov 2026"
+						},
+						{
 							"label": "Last 3 months",
 							"state": "hidden",
 							"reason": "no_grant",
 							"title": "Governance and up see this: Members see quarters"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Feb 2027"
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
 						},
 						{
 							"label": "Year to date",
@@ -1428,10 +1716,34 @@
 							"title": "Published after 7 Nov 2026"
 						},
 						{
+							"label": "This quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
 							"label": "Last 3 months",
 							"state": "embargoed",
 							"reason": "embargoed",
 							"title": "Published after 7 Dec 2026"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
 						},
 						{
 							"label": "Year to date",
@@ -1568,7 +1880,31 @@
 							"title": null
 						},
 						{
+							"label": "This quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
 							"label": "Last 3 months",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last year",
 							"state": "shown",
 							"reason": null,
 							"title": null
@@ -1611,7 +1947,31 @@
 							"title": null
 						},
 						{
+							"label": "This quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
 							"label": "Last 3 months",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last year",
 							"state": "shown",
 							"reason": null,
 							"title": null
@@ -1781,10 +2141,34 @@
 							"title": "Governance and up see this: Public sees years"
 						},
 						{
+							"label": "This quarter",
+							"state": "hidden",
+							"reason": "members_only",
+							"title": "Members see this: Public sees years"
+						},
+						{
+							"label": "Last quarter",
+							"state": "hidden",
+							"reason": "members_only",
+							"title": "Members see this: Public sees years"
+						},
+						{
 							"label": "Last 3 months",
 							"state": "hidden",
 							"reason": "no_grant",
 							"title": "Governance and up see this: Public sees years"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2028"
+						},
+						{
+							"label": "Last year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
 						},
 						{
 							"label": "Year to date",
@@ -1853,10 +2237,34 @@
 							"title": "Governance and up see this: Members see quarters"
 						},
 						{
+							"label": "This quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Feb 2027"
+						},
+						{
+							"label": "Last quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Nov 2026"
+						},
+						{
 							"label": "Last 3 months",
 							"state": "hidden",
 							"reason": "no_grant",
 							"title": "Governance and up see this: Members see quarters"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Feb 2027"
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
 						},
 						{
 							"label": "Year to date",
@@ -1965,10 +2373,34 @@
 							"title": "Published after 7 Nov 2026"
 						},
 						{
+							"label": "This quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
 							"label": "Last 3 months",
 							"state": "embargoed",
 							"reason": "embargoed",
 							"title": "Published after 7 Dec 2026"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
 						},
 						{
 							"label": "Year to date",
@@ -2105,7 +2537,31 @@
 							"title": null
 						},
 						{
+							"label": "This quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
 							"label": "Last 3 months",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last year",
 							"state": "shown",
 							"reason": null,
 							"title": null
@@ -2148,7 +2604,31 @@
 							"title": null
 						},
 						{
+							"label": "This quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
 							"label": "Last 3 months",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last year",
 							"state": "shown",
 							"reason": null,
 							"title": null
@@ -2318,10 +2798,34 @@
 							"title": "Governance and up see this: Public sees years"
 						},
 						{
+							"label": "This quarter",
+							"state": "hidden",
+							"reason": "members_only",
+							"title": "Members see this: Public sees years"
+						},
+						{
+							"label": "Last quarter",
+							"state": "hidden",
+							"reason": "members_only",
+							"title": "Members see this: Public sees years"
+						},
+						{
 							"label": "Last 3 months",
 							"state": "hidden",
 							"reason": "no_grant",
 							"title": "Governance and up see this: Public sees years"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2028"
+						},
+						{
+							"label": "Last year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
 						},
 						{
 							"label": "Year to date",
@@ -2390,10 +2894,34 @@
 							"title": "Governance and up see this: Members see quarters"
 						},
 						{
+							"label": "This quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Feb 2027"
+						},
+						{
+							"label": "Last quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Nov 2026"
+						},
+						{
 							"label": "Last 3 months",
 							"state": "hidden",
 							"reason": "no_grant",
 							"title": "Governance and up see this: Members see quarters"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 18 Feb 2027"
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
 						},
 						{
 							"label": "Year to date",
@@ -2502,10 +3030,34 @@
 							"title": "Published after 7 Nov 2026"
 						},
 						{
+							"label": "This quarter",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
 							"label": "Last 3 months",
 							"state": "embargoed",
 							"reason": "embargoed",
 							"title": "Published after 7 Dec 2026"
+						},
+						{
+							"label": "This year",
+							"state": "embargoed",
+							"reason": "embargoed",
+							"title": "Published after 7 Jan 2027"
+						},
+						{
+							"label": "Last year",
+							"state": "shown",
+							"reason": null,
+							"title": null
 						},
 						{
 							"label": "Year to date",
@@ -2642,7 +3194,31 @@
 							"title": null
 						},
 						{
+							"label": "This quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
 							"label": "Last 3 months",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last year",
 							"state": "shown",
 							"reason": null,
 							"title": null
@@ -2685,7 +3261,31 @@
 							"title": null
 						},
 						{
+							"label": "This quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last quarter",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
 							"label": "Last 3 months",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "This year",
+							"state": "shown",
+							"reason": null,
+							"title": null
+						},
+						{
+							"label": "Last year",
 							"state": "shown",
 							"reason": null,
 							"title": null
