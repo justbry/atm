@@ -1,0 +1,25 @@
+{
+	"scores": {
+		"testability": 7,
+		"convergence": 8,
+		"antiGaming": 7,
+		"simplicity": 9,
+		"cost": 8
+	},
+	"overall": 7,
+	"blockers": [
+		"completeness is union, not views x viewers x grains product; cellsComplete on every mart dashboard entry",
+		"size: 0.10 x (4 x S0) is not GOAL's 10% of previous; use previous x 1.10",
+		"holdout file readable before gate; draw inside gate export after commit; no absolute W in builder prompt/protocol"
+	],
+	"mustFix": [
+		"builder timeout, ff-only failure, hash mismatch not in exit lattice; dispute round still n+=1",
+		"shared writable review pack",
+		"preview caps 86 vs 70; gate-fix and shooting not checked vs builder/wall caps"
+	],
+	"wouldChange": [
+		"S0 gate T scope (probes from S1)",
+		"cell-rules waivers win in rubric; stale banner + verified badge",
+		"integer axes; define spread and same-thing"
+	]
+}

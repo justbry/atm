@@ -1,0 +1,1024 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box}
+:root{color-scheme:dark light}
+body{margin:0;font-family:var(--font-sans);font-size:12px;line-height:1.4}
+.app{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;position:relative;min-height:780px}
+.app.light{color-scheme:light;--background:#ffffff;--foreground:#16161a;--card:#f5f5f7;--popover:#ffffff;--secondary:#ececf0;--muted-foreground:#6b6b78;--border:#dadae0;--ring:#8f9bb3;--primary:#2563eb;--primary-foreground:#ffffff;--destructive:#d92d20;--warning:#b45309;--success:#047857;--info:#2563eb;--code-background:#eeeef2;--chart-1:#2563eb;--chart-2:#0d9488;--chart-3:#d97706;--chart-4:#9333ea;--chart-5:#db2777;background:var(--background);color:var(--foreground)}
+.app.dark{color-scheme:dark;--background:#0b0b0d;--foreground:#ededf0;--card:#141418;--popover:#17171c;--secondary:#1d1d23;--muted-foreground:#9a9aa6;--border:#2a2a32;--ring:#555a70;--primary:#4c7dff;--primary-foreground:#ffffff;--destructive:#f0524a;--warning:#f0a020;--success:#2fbf8a;--info:#5b9dff;--code-background:#1a1a20;--chart-1:#4c7dff;--chart-2:#2dd4bf;--chart-3:#fbbf24;--chart-4:#c084fc;--chart-5:#f472b6;background:var(--background);color:var(--foreground)}
+.top{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border)}
+.logo{font-family:var(--font-mono);font-weight:700}
+select,input,textarea{font:inherit;color:var(--foreground);background:var(--card);border:1px solid var(--border);border-radius:6px;padding:4px 8px}
+input[type=checkbox],input[type=radio]{padding:0}
+textarea{width:100%;resize:vertical;min-height:44px}
+.sp{flex:1}
+.i{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px;flex:none}
+.i.f{fill:currentColor;stroke:none}
+.btn .i,.tab .i,.link .i{margin-right:4px}
+.badge .i{width:11px;height:11px;margin-right:3px;vertical-align:-1px}
+.btn.ico .i,.ib .i{margin:0}
+.pw{position:relative}
+.pgrp{display:flex;gap:4px;align-items:center}
+.ib{width:32px;height:32px;display:grid;place-items:center;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--muted-foreground);cursor:pointer;padding:0}
+.ib:hover{color:var(--foreground);border-color:var(--ring)}.ib .i{width:17px;height:17px}
+.pop{display:none;position:absolute;top:36px;left:0;min-width:260px;background:var(--popover,var(--card));border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 10px 30px rgba(0,0,0,.25);padding:4px;z-index:70}
+.pop.r{left:auto;right:0}.pop.on{display:block}
+.pop .it{display:flex;align-items:center;gap:8px;width:100%;text-align:left;font:inherit;color:var(--foreground);background:none;border:0;padding:6px 8px;border-radius:5px;cursor:pointer}
+.pop .it .sp2{flex:1}
+.pop .it:hover{background:var(--secondary)}.pop .it.on{color:var(--primary)}.pop .it[hidden]{display:none}
+.pop hr{border:0;border-top:1px solid var(--border);margin:4px 0}
+.cus{padding:4px 8px}.cus label,.chk{color:var(--muted-foreground);font-size:10.5px;display:block;margin-bottom:4px}
+.chk{padding:2px 8px;color:var(--foreground);font-size:11px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px}
+.cnote{min-height:14px;font-size:10.5px;color:var(--destructive);margin-bottom:4px}
+.tzn{padding:2px 8px 6px;font-size:10.5px}
+.tabs{display:flex;gap:2px;padding:0 10px;border-bottom:1px solid var(--border)}
+.tab{background:none;border:0;border-bottom:2px solid transparent;color:var(--muted-foreground);font:inherit;padding:8px 10px;cursor:pointer;display:flex;gap:2px;align-items:center}
+.tab[aria-selected=true]{color:var(--foreground);border-color:var(--primary)}
+.banner{padding:7px 14px;background:var(--secondary);border-bottom:1px solid var(--warning);color:var(--warning)}
+.note{padding:7px 10px;margin-bottom:8px;border:1px solid var(--warning);border-radius:var(--radius);color:var(--warning);display:flex;gap:8px;align-items:center}
+.note .sp{flex:1}
+.pane{display:none;padding:14px}.pane.on{display:block}
+.strip{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.strip.s4{grid-template-columns:repeat(4,1fr)}
+.stat{font:inherit;text-align:left;color:var(--foreground);background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:9px 11px}
+button.stat{cursor:pointer}button.stat:hover{border-color:var(--ring)}
+.stat b{font-size:17px;font-variant-numeric:tabular-nums;display:block}
+.stat small,.stat i.s{color:var(--muted-foreground);font-style:normal;display:block;font-size:10.5px}
+.neg{color:var(--destructive)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:10px}
+h3{margin:0 0 2px;font-size:14px}
+h5{margin:14px 0 8px;font-size:11px;font-weight:600;color:var(--muted-foreground);text-transform:uppercase;letter-spacing:.05em;display:flex;gap:6px;align-items:center}
+.badge{font-size:10px;padding:1px 6px;border-radius:9px;border:1px solid var(--border);color:var(--muted-foreground);white-space:nowrap;display:inline-flex;align-items:center}
+.b-warn{color:var(--warning);border-color:var(--warning)}.b-bad{color:var(--destructive);border-color:var(--destructive)}.b-ok{color:var(--success);border-color:var(--success)}
+.chip{display:inline-flex;gap:4px;font-size:11px;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;align-items:center;font-family:inherit;color:var(--foreground)}
+.chip.on{border-color:var(--primary);color:var(--primary)}
+.btn{font:inherit;cursor:pointer;color:var(--foreground);background:var(--card);border:1px solid var(--border);border-radius:6px;padding:4px 9px;display:inline-flex;align-items:center}
+.btn:hover{border-color:var(--ring)}
+.btn.p{background:var(--primary);color:var(--primary-foreground,#fff);border-color:var(--primary)}
+.btn.d{color:var(--destructive);border-color:var(--destructive)}
+.btn.s{padding:3px 7px;font-size:11px}
+.btn.ico{padding:4px 6px}
+.btn[disabled]{opacity:.4;cursor:not-allowed}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-weight:500;color:var(--muted-foreground);font-size:10.5px;padding:6px 8px;border-bottom:1px solid var(--border)}
+td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr.row{cursor:pointer}tr.row:hover td{background:var(--secondary)}
+tr.nc{cursor:default}tr.nc:hover td{background:none}
+tr.pend td{background:var(--secondary)}
+tr.chg td:first-child{box-shadow:inset 2px 0 0 var(--warning)}
+tr.day td{background:var(--card);font-size:10.5px;font-weight:600;color:var(--muted-foreground);padding:6px 8px;border-bottom:1px solid var(--border)}
+tr.day.wait td{color:var(--warning)}
+tr.dt td{background:var(--code-background,var(--secondary));font-size:10.5px}
+tr.tot td{font-weight:600;border-bottom:0}
+#stmt tr[data-dd]{cursor:pointer}#stmt tr[data-dd]:hover td{background:var(--secondary)}
+#stmt tr[data-dd] td:last-child:after{content:" ›";color:var(--muted-foreground)}
+.r{text-align:right;font-variant-numeric:tabular-nums}
+.mono{font-family:var(--font-mono);font-size:10.5px}
+.mut{color:var(--muted-foreground)}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;background:var(--success)}.dot.w{background:var(--warning)}
+.bar3{display:flex;height:7px;border-radius:4px;overflow:hidden;background:var(--secondary);min-width:90px}
+.bar3 i{display:block;height:100%}
+.bar3 .u{background:var(--muted-foreground);opacity:.55}
+.bar3 .h{background:repeating-linear-gradient(135deg,var(--warning) 0 3px,transparent 3px 6px)}
+.bar3 .a{background:var(--primary)}
+.bar3.low .a{background:var(--warning)}
+.legend{display:flex;gap:14px;color:var(--muted-foreground);font-size:10.5px;margin-top:8px}
+.legend i{display:inline-block;width:10px;height:7px;border-radius:2px;margin-right:4px;vertical-align:0}
+.tools{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center}
+.sbox{position:relative;display:inline-block}.sbox .i{position:absolute;left:8px;top:7px;color:var(--muted-foreground)}.sbox input{padding-left:26px;width:190px}
+.drawer{position:absolute;top:53px;right:0;bottom:0;width:68%;background:var(--card);border-left:1px solid var(--border);border-top:1px solid var(--border);box-shadow:-12px 0 30px rgba(0,0,0,.25);transform:translateX(102%);transition:transform .18s;overflow:auto;padding:14px;z-index:5}
+.drawer.on{transform:none}
+#set,#pe{z-index:8}
+.x{float:right;cursor:pointer;background:none;border:0;color:var(--muted-foreground);font-size:18px}
+.acts{display:flex;gap:6px;margin:12px 0 10px;align-items:flex-start;flex-wrap:wrap}
+.menu{display:none;position:absolute;left:0;top:30px;min-width:200px;background:var(--popover,var(--card));border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 10px 30px rgba(0,0,0,.25);padding:4px;z-index:80}
+.menu.on{display:block}
+.menu button{display:flex;gap:6px;align-items:center;width:100%;text-align:left;font:inherit;color:var(--foreground);background:none;border:0;padding:6px 8px;border-radius:5px;cursor:pointer}
+.menu button:hover{background:var(--secondary)}
+.menu hr{border:0;border-top:1px solid var(--border);margin:4px 0}
+.line{padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);margin:4px 0 12px}
+.line .bar3{margin-top:6px}
+.bk{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:7px 0;border-top:1px solid var(--border)}
+.bk:first-of-type{border-top:0}
+.a{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.tl{margin:8px 0 0;padding:0;list-style:none;border-left:2px solid var(--border)}
+.tl li{position:relative;padding:0 0 10px 12px}
+.tl li:before{content:"";position:absolute;left:-5px;top:4px;width:8px;height:8px;border-radius:50%;background:var(--c,var(--muted-foreground))}
+.tl li.pd:before{background:var(--card);border:2px dashed var(--warning)}
+.tl .t{color:var(--muted-foreground);font-size:10px}
+.link{color:var(--primary);cursor:pointer;font-size:11px;background:none;border:0;padding:0;font-family:inherit;display:inline-flex;align-items:center}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:10px}
+.okline{margin:0 0 10px}
+.two2{display:grid;grid-template-columns:1.5fr 1fr;gap:8px;align-items:start}
+#spark svg.sp{width:100%;height:56px;display:block}
+.sphead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.spax{display:flex;justify-content:space-between;color:var(--muted-foreground);font-size:10px;margin-top:2px}
+.prog{height:6px;background:var(--secondary);border-radius:3px;overflow:hidden;margin:6px 0 10px}
+.prog i{display:block;height:100%;background:var(--success)}
+.steps2{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+.st{display:flex;gap:8px;align-items:center;text-align:left;font:inherit;color:var(--foreground);background:var(--background);border:1px solid var(--border);border-radius:var(--radius);padding:8px;cursor:pointer}
+.st small{display:block;color:var(--muted-foreground);font-size:10.5px}
+.st.done{opacity:.55;cursor:default}.st.done .i{color:var(--success)}
+.st.next{border-color:var(--primary)}.st.next .i{color:var(--primary)}
+.bg{position:absolute;inset:0;background:rgba(0,0,0,.5);display:none;align-items:flex-start;justify-content:center;padding-top:40px;z-index:90}
+.bg.on{display:flex}
+.modal{width:460px;max-height:700px;overflow:auto;background:var(--popover,var(--card));border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+.fld{margin:10px 0 0}.fld label{display:block;margin-bottom:3px;color:var(--muted-foreground);font-size:10.5px}
+.fld select,.fld input[type=text],.fld input[type=number],.fld input[type=date],.fld input[type=email],.fld input[type=password]{width:100%}
+.fld.c label{display:flex;gap:6px;align-items:center;color:var(--foreground);font-size:11.5px}
+.prev{margin-top:12px;padding:9px;border:1px dashed var(--border);border-radius:var(--radius);background:var(--secondary)}
+.prev b.err,.err{color:var(--destructive)}
+.mf{display:flex;gap:6px;justify-content:flex-end;margin-top:14px}
+.codebig{font-size:16px;letter-spacing:.05em;text-align:center;padding:14px;margin:12px 0 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--secondary);user-select:all;word-break:break-all}
+.pre{background:var(--code-background,var(--secondary));border:1px solid var(--border);border-radius:6px;padding:8px;font-family:var(--font-mono);font-size:10.5px;white-space:pre-wrap;word-break:break-all;margin:6px 0}
+.row2{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.steps{list-style:none;margin:10px 0 0;padding:0}
+.steps li{padding:7px 0;border-top:1px solid var(--border);display:flex;gap:8px}
+.steps li:first-child{border-top:0}
+.ok{color:var(--success)}.no{color:var(--destructive)}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.seg button{background:var(--card);color:var(--muted-foreground);border:0;padding:5px 12px;cursor:pointer;font:inherit;display:inline-flex;gap:5px;align-items:center}
+.seg button.on{background:var(--primary);color:var(--primary-foreground,#fff)}
+.seg button[disabled]{opacity:.5;cursor:not-allowed}
+.crow{display:flex;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--border)}
+.crow:first-of-type{border-top:0}
+.cic{width:30px;height:30px;display:grid;place-items:center;border:1px solid var(--border);border-radius:8px;color:var(--primary);flex:none}
+.cic .i{width:16px;height:16px}
+.cm{flex:1;min-width:0}.ca{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.lock{padding:7px 10px;margin:8px 0;border:1px solid var(--warning);border-radius:var(--radius);color:var(--warning);display:flex;gap:6px;align-items:center}
+.permg{display:grid;grid-template-columns:1fr 1fr;gap:2px 14px;margin-top:8px}
+.permg div{display:flex;gap:6px;align-items:center}
+.gr{display:grid;grid-template-columns:70px 1fr 90px 90px 28px;gap:6px;align-items:end;margin-top:6px}
+.gr input,.gr select{width:100%}
+.sechead{display:flex;gap:6px;align-items:center;margin:20px 0 2px;padding-top:12px;border-top:1px solid var(--border);font-weight:600}
+.toast{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:var(--foreground);color:var(--background);padding:8px 12px;border-radius:8px;z-index:95;display:none;max-width:80%;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.toast.on{display:block}
+.toast .undo{font:inherit;font-weight:600;margin-left:10px;cursor:pointer;background:none;border:0;color:var(--primary);text-decoration:underline}
+.pvbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.pvbar .msg{font-size:10.5px}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-bottom:6px}
+.pcard{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;cursor:pointer;display:flex;flex-direction:column;gap:7px;position:relative}
+.pcard:hover,.pcard:focus-visible{border-color:var(--ring);outline:0}
+.pcard.chg{border-color:var(--warning)}
+.pcard.ghost{opacity:.55;border-style:dashed}
+.pcard .ed{position:absolute;top:10px;right:10px;color:var(--muted-foreground)}
+.pcard .pn{font-weight:600;font-size:13px;padding-right:20px}
+.pcard .pr{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.pcard .pr s{font-size:12px;font-weight:400;color:var(--muted-foreground);margin-right:4px}
+.pcard .pr small{font-size:11px;font-weight:400;color:var(--muted-foreground);margin-left:3px}
+.pcard ul{margin:0;padding:0;list-style:none;display:grid;gap:3px}
+.pcard li{display:flex;gap:6px;align-items:center}
+.pcard li .i{color:var(--success)}
+.pcard .go{margin-top:auto;justify-content:center}
+.szs{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.pvh{display:flex;gap:6px;align-items:center;flex-wrap:wrap;min-height:18px}
+.vm{position:absolute;inset:0;background:var(--background);z-index:85;overflow:auto}
+.vm[hidden]{display:none}
+.vmbar{position:sticky;top:0;z-index:2;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 14px;background:var(--card);border-bottom:1px solid var(--border)}
+.vmbar .chk2{display:flex;gap:5px;align-items:center;color:var(--foreground);font-size:11px}
+.vmnote{padding:8px 14px;color:var(--muted-foreground);font-size:10.5px}
+.vmwrap{padding:0 14px 20px}
+.mpf{background:var(--mp-bg);color:var(--mp-fg);font-family:var(--mp-font);font-size:13px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.mph{display:flex;gap:16px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--mp-border);background:var(--mp-card)}
+.mph b{font-size:14px;margin-right:6px}.mph span{color:var(--mp-muted)}
+.mpb{padding:16px;max-width:640px;margin:0 auto}
+.mp-tabs{display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--mp-border)}
+.mp-tabs button{font:inherit;background:none;border:0;border-bottom:2px solid transparent;padding:8px 10px;cursor:pointer;color:var(--mp-muted);display:inline-flex;gap:5px;align-items:center}
+.mp-tabs button.on{color:var(--mp-fg);border-color:var(--mp-pri)}
+.mp-card{background:var(--mp-card);border:1px solid var(--mp-border);border-radius:var(--mp-rad);padding:14px;margin-bottom:12px}
+.mp-card h4{margin:0 0 2px;font-size:16px;font-weight:600}
+.mp-row{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.mp-muted{color:var(--mp-muted)}
+.mp-big{font-size:30px;font-weight:700;line-height:1.1}
+.mp-btn{font:inherit;cursor:pointer;color:var(--mp-fg);background:var(--mp-bg);border:1px solid var(--mp-border);border-radius:var(--mp-rad);padding:6px 12px;display:inline-flex;align-items:center;gap:6px}
+.mp-btn:hover{border-color:var(--mp-muted)}
+.mp-btn.p{background:var(--mp-pri);color:var(--mp-prifg);border-color:var(--mp-pri)}
+.mp-btn.d{color:var(--mp-warn);border-color:var(--mp-warn)}
+.mp-btn[disabled]{opacity:.45;cursor:not-allowed}
+.mp-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.mp-pill{font-size:11px;padding:1px 9px;border-radius:999px;background:var(--mp-pri);color:var(--mp-prifg);white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+.mp-pill.n{background:transparent;border:1px solid var(--mp-border);color:var(--mp-muted)}
+.mp-pill.w{background:transparent;border:1px solid var(--mp-warn);color:var(--mp-warn)}
+.mp-tag{font-size:9.5px;padding:0 6px;border:1px dashed var(--mp-warn);color:var(--mp-warn);border-radius:999px;font-weight:600}
+.mp-note{display:flex;gap:6px;align-items:center;padding:7px 10px;border:1px solid var(--mp-warn);color:var(--mp-warn);border-radius:var(--mp-rad);margin-top:8px}
+.mp-bar{display:flex;height:10px;border-radius:999px;overflow:hidden;background:var(--mp-border);margin-top:10px}
+.mp-bar i{display:block;height:100%}
+.mp-bar .u{background:var(--mp-muted);opacity:.5}
+.mp-bar .h{background:repeating-linear-gradient(135deg,var(--mp-warn) 0 3px,transparent 3px 6px)}
+.mp-bar .a{background:var(--mp-pri)}
+.mpt{width:100%;border-collapse:collapse}
+.mpt th{color:var(--mp-muted);font-weight:500;font-size:11px;text-align:left;padding:6px 4px;border-bottom:1px solid var(--mp-border)}
+.mpt td{padding:8px 4px;border-bottom:1px solid var(--mp-border);vertical-align:middle}
+.mpt .r{text-align:right}
+.mp-list{display:grid;gap:0}
+.mp-item{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--mp-border)}
+.mp-item:first-child{border-top:0;padding-top:0}
+.mp-admin{border-style:dashed;border-color:var(--mp-warn)}
+.kt{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.kmonths{display:flex;gap:3px;flex-wrap:wrap;margin:0 0 12px;align-items:center}
+.kmonths button{font:inherit;font-size:11px;background:transparent;color:var(--muted-foreground);border:1px solid var(--border);border-radius:6px;padding:2px 7px;cursor:pointer}
+.kmonths button.on{border-color:var(--primary);color:var(--foreground)}
+.kcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(122px,1fr));gap:8px;margin-bottom:10px}
+.kcard{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:9px 11px}
+.kcard small{display:block;color:var(--muted-foreground);font-size:10.5px}
+.kcard b{display:block;font-size:19px;font-variant-numeric:tabular-nums;margin:1px 0}
+.kcard i{font-style:normal;font-size:10.5px;color:var(--muted-foreground)}
+.kcard.bad b{color:var(--destructive)}.kcard.warn b{color:var(--warning)}.kcard.ok b{color:var(--success)}
+.kgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}
+.kbox{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px}
+.kbox h6{margin:0 0 6px;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted-foreground);font-weight:600;display:flex;justify-content:space-between;gap:8px}
+.kleg{display:flex;gap:10px;flex-wrap:wrap;color:var(--muted-foreground);font-size:10.5px;text-transform:none;letter-spacing:0;font-weight:400}
+.kleg i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px}
+svg.kc{width:100%;height:auto;display:block;overflow:visible}
+svg.kc text{fill:var(--muted-foreground);font-size:10px}
+svg.kc .col{fill:transparent;cursor:pointer}svg.kc .col:hover{fill:var(--border);opacity:.4}svg.kc .col.on{fill:var(--border);opacity:.55}
+.krow{display:grid;grid-template-columns:70px 1fr 72px;gap:8px;align-items:center;margin:7px 0}
+.krow .t{height:8px;border-radius:4px;background:var(--border);overflow:hidden}.krow .t i{display:block;height:100%;border-radius:4px}
+.krow b{text-align:right;font-variant-numeric:tabular-nums;font-weight:500}
+.kflag{display:flex;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--border);cursor:pointer}
+.kflag:first-of-type{border-top:0}.kflag span:last-child{margin-left:auto}
+.kdot{width:7px;height:7px;border-radius:50%;flex:none}
+.kd-bad{background:var(--destructive)}.kd-warn{background:var(--warning)}
+.kempty{height:126px;display:grid;place-items:center;color:var(--muted-foreground)}
+</style></head><body>
+<div class="app" id="app">
+ <div class="top">
+  <span class="logo">atm</span>
+  <div class="pw"><button class="btn" id="sw" aria-haspopup="listbox"></button><div class="pop" id="sp" role="listbox"></div></div>
+  <span class="sp"></span>
+  <div class="pgrp" id="per"><button class="btn ico" id="pprev" aria-label="Previous period" data-ic="cl"></button><div class="pw"><button class="btn" id="pb" aria-haspopup="dialog"></button><div class="pop r" id="pp"></div></div><button class="btn ico" id="pnext" aria-label="Next period" data-ic="cr"></button></div>
+  <div class="pw"><button class="ib" id="hb" data-ic="help" title="Help and SDK" aria-label="Help and SDK"></button><div class="pop r" id="hp"></div></div>
+  <button class="ib" id="gb" data-ic="gear" title="Settings" aria-label="Settings"></button>
+ </div>
+ <div class="tabs" id="tabs" role="tablist">
+  <button class="tab" role="tab" aria-selected="true" data-p="pl" data-ic="layers">Plans <span class="badge b-warn" id="plbadge" hidden style="margin-left:6px">draft</span></button>
+  <button class="tab" role="tab" aria-selected="false" data-p="dash" data-ic="chart">Dashboard</button>
+  <button class="tab" role="tab" aria-selected="false" data-p="mem" data-ic="users">Members</button>
+  <button class="tab" role="tab" aria-selected="false" data-p="bk" data-ic="calendar">Bookings <span class="badge b-bad" id="bkbadge" hidden style="margin-left:6px"></span></button>
+  <button class="tab" role="tab" aria-selected="false" data-p="cod" data-ic="tag">Promos <span class="badge b-warn" id="pbadge" hidden style="margin-left:6px"></span></button>
+  <button class="tab" role="tab" aria-selected="false" data-p="led" data-ic="list">Ledger</button>
+  <button class="tab" role="tab" aria-selected="false" data-p="rep" data-ic="chart">Reports</button>
+ </div>
+ <div class="banner" id="bnr" hidden></div>
+
+ <section class="pane on" id="pl"></section>
+
+ <section class="pane" id="dash"></section>
+
+ <section class="pane" id="mem">
+  <div class="strip" id="strip"></div>
+  <div class="note" id="expnote" hidden></div>
+  <div class="tools"><span class="sbox" data-ic="search"><input type="search" id="q" placeholder="Search name or id" aria-label="Search members"></span><span class="chip f on" data-s="">All</span><span class="chip f" data-s="att" id="attchip">Needs attention</span><span class="chip f" data-s="canceled">Canceled</span><span id="pfchip"></span><span class="sp"></span><span class="mut">Needs attention first</span></div>
+  <table><thead><tr><th>Member</th><th>Plan</th><th id="mh">Available</th><th></th><th>Expires</th><th></th></tr></thead><tbody id="mb"></tbody></table>
+  <div class="legend"><span><i style="background:var(--muted-foreground);opacity:.55"></i>used</span><span><i style="background:repeating-linear-gradient(135deg,var(--warning) 0 3px,transparent 3px 6px)"></i>held for bookings</span><span><i style="background:var(--primary)"></i>available</span></div>
+ </section>
+
+ <section class="pane" id="bk">
+  <div class="tools" id="bchips"></div>
+  <table><thead><tr><th style="width:92px">When</th><th>Booking</th><th>Member</th><th>Billing</th><th>Status</th><th></th></tr></thead><tbody id="bb"></tbody></table>
+  <p class="mut" id="bnote" style="margin-top:10px"></p>
+ </section>
+
+ <section class="pane" id="cod">
+  <div class="tools"><span class="mut" id="codnote"></span><span class="sp"></span><button class="btn p" id="newcode" data-ic="plus">Create promo</button></div>
+  <table><thead><tr><th>Code</th><th>Type</th><th>Value</th><th class="r">Used</th><th>Expires</th><th>Status</th><th></th></tr></thead><tbody id="cb"></tbody></table>
+  <p class="mut" id="cempty" hidden style="text-align:center;padding:24px 0">No promos yet.</p>
+ </section>
+
+ <section class="pane" id="led">
+  <div class="tools" id="lchips"><span class="chip f on" data-t="">All</span><span class="chip f" data-t="payment" data-ic="coin">Payments</span><span class="chip f" data-t="credit" id="lcredit" data-ic="ticket">Credits</span><span class="chip f" data-t="booking" data-ic="clock">Bookings</span><span class="chip f" data-t="code" data-ic="tag">Promos</span><span class="chip f" data-t="payout" data-ic="bank">Payouts</span><span class="chip f" data-t="admin" data-ic="user">Admin actions</span><span id="cfchip"></span><span class="sp"></span><span class="mut" id="lcnt"></span><button class="link" id="lcsv" data-ic="download">Export CSV</button></div>
+  <table><thead><tr><th style="width:70px">Time</th><th>Event</th><th>Member</th><th>What happened</th><th class="r" id="lh">Credits</th><th class="r">Amount</th></tr></thead><tbody id="lb"></tbody></table>
+  <p class="mut" id="lempty" hidden style="text-align:center;padding:24px 0">No events in this period.</p>
+ </section>
+
+ <section class="pane" id="rep">
+  <div class="tools"><span class="sp"></span><button class="btn" id="rdl" data-ic="download">Download</button></div>
+  <p class="okline" id="rstat"></p>
+  <div class="card" id="spark" style="margin-bottom:10px"></div>
+  <div class="kpis" id="kpis"></div>
+  <div class="two2"><div class="card"><table id="stmt"></table></div><div class="card" id="rules"></div></div>
+ </section>
+
+ <section class="pane" id="all">
+  <table><thead><tr><th>School</th><th class="r">Outstanding</th><th class="r" id="allinc">Income</th><th class="r">Needs attention</th><th>Data</th></tr></thead><tbody id="ab"></tbody></table>
+  <p class="mut" style="margin-top:10px">Totals are never summed across currencies or units. Open a school to act on it: actions always run inside one school.</p>
+ </section>
+
+ <aside class="drawer" id="dr" aria-label="Member detail"></aside>
+ <aside class="drawer" id="set" aria-label="Settings"></aside>
+ <aside class="drawer" id="pe" aria-label="Plan editor"></aside>
+ <div class="vm" id="vm" hidden aria-label="Member portal view"></div>
+ <div class="bg" id="bg"><div class="modal" id="md" role="dialog" aria-modal="true" aria-labelledby="mt"></div></div>
+ <div class="toast" id="ts" role="status"></div>
+</div>
+<script>
+const IC={dot:'<circle cx="12" cy="12" r="2"/>',users:'<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.4"/><path d="M16 14.2c2.9.3 5 2.6 5 5.8"/>',user:'<circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.9 3.1-7 7-7s7 3.1 7 7"/>',list:'<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',chart:'<path d="M4 20V11M10 20V5M16 20v-6M2 20h20"/>',tag:'<path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.3"/>',layers:'<path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 12.5l9 5 9-5"/><path d="M3 17l9 5 9-5"/>',search:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',building:'<path d="M4 21V7l8-4 8 4v14M9 21v-6h6v6M8 10h.01M12 10h.01M16 10h.01"/>',mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',sliders:'<path d="M4 6h8M16 6h4M4 12h2M10 12h10M4 18h10M18 18h2"/><circle cx="14" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="18" r="2"/>',undo:'<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/>',more:'<circle cx="5" cy="12" r="1.6" class="f"/><circle cx="12" cy="12" r="1.6" class="f"/><circle cx="19" cy="12" r="1.6" class="f"/>',check:'<path d="M4 12l5 5L20 6"/>',xc:'<circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/>',unlock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 017.5-2"/>',lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/>',plus:'<path d="M12 5v14M5 12h14"/>',copy:'<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h8"/>',ban:'<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>',eye:'<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',download:'<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',upload:'<path d="M12 16V4M7 9l5-5 5 5M5 20h14"/>',alert:'<path d="M12 4l9 16H3L12 4zM12 10v4M12 17h.01"/>',key:'<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3"/>',db:'<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',scale:'<path d="M12 3v18M5 21h14M5 7h14M5 7l-3 7a3 3 0 006 0L5 7zM19 7l-3 7a3 3 0 006 0l-3-7z"/>',help:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 114 2c-.9.6-1.5 1-1.5 2M12 17h.01"/>',gear:'<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',moon:'<path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/>',monitor:'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',plug:'<path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 01-12 0V8zM12 17v4"/>',card:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h3"/>',heart:'<path d="M12 20s-8-5-8-11a4.5 4.5 0 018-2.8A4.5 4.5 0 0120 9c0 6-8 11-8 11z"/>',cloud:'<path d="M7 18a4 4 0 01-.5-7.9A5.5 5.5 0 0117 9a4.5 4.5 0 01.5 9H7z"/>',trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',edit:'<path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/>',coin:'<circle cx="12" cy="12" r="9"/><path d="M14.5 9.2c-.5-.8-1.4-1.2-2.5-1.2-1.5 0-2.5.8-2.5 1.8 0 2.6 5 1.4 5 4 0 1-1 1.9-2.5 1.9-1.2 0-2.2-.5-2.7-1.4M12 6v2M12 16v2"/>',ticket:'<path d="M3 9a2 2 0 002-2V6h14v1a2 2 0 002 2v6a2 2 0 00-2 2v1H5v-1a2 2 0 00-2-2V9z"/>',gift:'<rect x="3" y="8" width="18" height="4"/><path d="M12 8v13M5 12v9h14v-9M12 8c-2-4-6-3-5 0M12 8c2-4 6-3 5 0"/>',bank:'<path d="M3 10l9-6 9 6M5 10v8M9 10v8M15 10v8M19 10v8M3 20h18"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',receipt:'<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2V3zM9 8h6M9 12h6"/>',box:'<path d="M21 8l-9-5-9 5v8l9 5 9-5V8zM3 8l9 5 9-5M12 13v8"/>',ext:'<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5"/>',info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',cl:'<path d="M15 6l-6 6 6 6"/>',cr:'<path d="M9 6l6 6-6 6"/>',cd:'<path d="M6 9l6 6 6-6"/>'};
+const ic=(n,c="")=>`<svg class="i ${c}" viewBox="0 0 24 24" aria-hidden="true">${IC[n]||IC.dot}</svg>`;
+const ev=(d,ty,m,tx,cr,usd,src,x={})=>({d,ty,m,tx,cr,usd,src,...x});
+const clone=o=>JSON.parse(JSON.stringify(o));
+const mkPlans=(tiers,addons)=>({version:3,pub:{tiers,addons},draft:clone({tiers,addons})});
+const PERMS_W=["Products","Prices","Coupons","Promotion codes","Customers","Checkout Sessions","Customer portal","Subscriptions","Subscription schedules","Webhook endpoints"],PERMS_R=["Invoices","Charges","Disputes","Events","Account"],PERMS_N=["Invoices (write)","Refunds (write)"];
+const SC={
+ vol:{name:"Vibes of Light",tz:"America/Denver",cur:"$",role:"owner",lag:2,unit:{one:"session",other:"sessions"},rules:{cut:24,noShow:"spend",late:"spend"},basis:"cash",basisSel:"cash",basisFrom:"2026-12-01",last:"pl",setup:{link:true},
+  stripe:{connected:true,account:"Vibes of Light LLC",mode:"live",last4:"k3Qm",missing:[]},zeffy:{connected:false},
+  keys:[{id:"k1",kind:"pk",label:"Website",prefix:"b4u_pk_live_Xk3",used:"2 min ago"},{id:"k2",kind:"sk",label:"Booking server",prefix:"b4u_sk_live_Qm8",used:"yesterday"},{id:"k3",kind:"rd",label:"Bookkeeper, expires Dec 5",prefix:"ro_41",used:"Nov 3"}],
+  pl:mkPlans([{id:"sparkle",name:"Sparkle",blurb:"A little time, every month",pub:true,month:32.5,year:350,qty:[1,2,4],grants:[{n:8,every:"month",roll:1}]},{id:"shine",name:"Shine",blurb:"Regular sessions",pub:true,month:30,year:324,qty:[2,4],grants:[{n:6,every:"month",roll:1}]},{id:"glow",name:"Glow",blurb:"One big plan",pub:true,month:65,year:702,qty:null,grants:[{n:24,every:"month",roll:0}]}],[{id:"pack8",name:"Top-up pack",pub:true,price:40,every:"once",grants:[{n:8,every:"once",roll:0}]},{id:"pack16",name:"Big top-up pack",pub:true,price:72,every:"once",grants:[{n:16,every:"once",roll:0}]}]),
+  M:[["m_204","Mia R.","Sparkle ×2","active",0,16,"—"],["m_117","Jon K.","Shine ×4","active",2,24,"Dec 1"],["m_093","Ana P.","Glow ×1","active",18,24,"Dec 1"],["m_088","Lee T.","Sparkle ×1","active",7,8,"Dec 1"],["m_051","Sam O.","Shine ×2","canceled",9,12,"Nov 11"],["m_012","Ivy N.","Sparkle ×4","active",20,32,"Dec 1"]],
+  B:[{id:"bk_8zz",m:"m_204",svc:"Massage 90",when:"2026-11-04T17:00",n:1,state:"held",bs:"confirmed",hosts:["Kim"],cut:1440},{id:"bk_6qq",m:"m_093",svc:"Consult 30",when:"2026-11-04T10:00",n:0,state:"free",bs:"confirmed",hosts:["Ravi"],cut:720},{id:"bk_5kd",m:"m_012",svc:"Facial",when:"2026-11-05T18:00",n:2,state:"held",bs:"confirmed",hosts:["Kim"],cut:720},{id:"bk_rq1",m:"m_088",svc:"Facial",when:"2026-11-07T11:00",n:1,state:"held",bs:"requested",hosts:["Kim"],cut:720},{id:"bk_7hq",m:"m_117",svc:"Massage 90",when:"2026-11-08T10:00",n:2,state:"held",bs:"confirmed",hosts:["Kim"],cut:1440,ser:"weekly · 3 left"},{id:"bk_9ab",m:"m_093",svc:"Massage 90",when:"2026-11-10T14:00",n:1,state:"held",bs:"confirmed",hosts:["Kim"],cut:1440},{id:"bk_3cd",m:"m_088",svc:"Group event",when:"2026-11-12T18:00",paid:40,state:"paid",bs:"confirmed",hosts:["Kim","Ravi"],cut:720}],
+  K:[{id:"c_01",code:"SPRING10",type:"member",val:10,used:3,max:0,exp:"2026-12-31",status:"active"},{id:"c_02",code:"GIFT50-7QX2",type:"dollar",val:50,used:0,max:1,exp:"2027-03-01",status:"active"},{id:"c_03",code:"WELCOME4",type:"session",val:4,used:1,max:1,exp:"2027-04-20",status:"redeemed"},{id:"c_04",code:"THANKYOU2",type:"session",val:2,used:0,max:1,exp:"2026-11-30",status:"active"}],
+  E:[ev("2026-11-04T16:20","credit.held","m_093","Held for Massage 90","−1","","family",{bk:"bk_9ab"}),ev("2026-11-04T09:12","credit.granted","m_093","Plan allowance, Glow","+24","","stripe"),ev("2026-11-04T09:12","payment.succeeded","m_093","Invoice paid, Glow monthly","","+65.00","stripe",{k:"membership"}),ev("2026-11-04T07:30","credit.held","m_204","Held for Massage 90","−1","","family",{bk:"bk_8zz"}),ev("2026-11-03T18:40","credit.spent","m_204","Massage 90 attended","−2","","family",{bk:"bk_7aa"}),ev("2026-11-03T11:30","payment.succeeded","—","Gift certificate sold, GIFT50","","+50.00","stripe",{k:"gift",code:"c_02"}),ev("2026-11-03T11:05","credit.depleted","m_204","Balance reached 0","","","family"),ev("2026-11-03T07:00","payout.paid","—","Payout to bank","","202.16","stripe"),ev("2026-11-02T15:22","payment.refunded","m_051","Partial refund","","−50.00","stripe",{k:"membership",pid:"pay_51"}),ev("2026-11-02T15:22","credit.refunded","m_051","Taken back after refund","−4","","stripe"),ev("2026-11-02T10:00","payment.succeeded","m_088","Group event paid","","+40.00","stripe",{k:"booking",bk:"bk_3cd"}),ev("2026-11-01T10:00","payment.succeeded","m_012","Invoice paid, Sparkle ×4 (10% off)","","+117.00","stripe",{k:"membership",disc:13,code:"c_01"}),ev("2026-11-01T10:00","payment.succeeded","m_204","Invoice paid, Sparkle ×2","","+65.00","stripe",{k:"membership"}),ev("2026-11-01T08:00","credit.forfeited","m_117","Late cancel, Massage 90","−2","","family",{bk:"bk_2xy"}),ev("2026-11-01T00:00","credit.expired","m_117","Rollover over cap","−6","","cron"),ev("2026-10-30T12:10","credit.adjusted","m_088","Goodwill · late cancel · by admin@vibes","+2","","admin"),ev("2026-10-20T09:00","credit.granted","m_088","Gift redeemed","+4","","family",{k:"gift_redeemed",code:"c_03"}),ev("2026-10-15T10:00","payment.succeeded","m_012","Invoice paid, Sparkle ×4","","+130.00","stripe",{k:"membership"}),ev("2026-10-15T10:00","credit.granted","m_012","Plan allowance","+32","","stripe"),ev("2026-10-14T10:00","payment.succeeded","m_051","Invoice paid, Shine ×2","","+60.00","stripe",{k:"membership",pid:"pay_51"}),ev("2026-10-12T09:00","payment.succeeded","m_117","Invoice paid, Shine ×4","","+120.00","stripe",{k:"membership"}),ev("2026-10-03T07:00","payout.paid","—","Payout to bank","","190.00","stripe"),ev("2026-09-20T10:00","payment.succeeded","m_088","Invoice paid, Sparkle","","+65.00","stripe",{k:"membership"})]},
+ b4u:{name:"B4 Uni",tz:"America/Chicago",cur:"$",role:"admin",lag:3,unit:{one:"credit",other:"credits"},rules:{cut:48,noShow:"release",late:"release"},basis:"cash",basisSel:"cash",basisFrom:"2026-12-01",last:"bk",setup:{link:true},
+  stripe:{connected:true,account:"B4 Uni",mode:"live",last4:"9aTx",missing:[]},zeffy:{connected:true,last4:"7Hq2"},
+  keys:[{id:"k9",kind:"pk",label:"Website",prefix:"b4u_pk_live_Zr2",used:"today"}],
+  pl:mkPlans([{id:"sparkle",name:"Sparkle",blurb:"Starter",pub:true,month:20,year:null,qty:null,grants:[{n:8,every:"month",roll:1}]},{id:"shine",name:"Shine",blurb:"Regular",pub:true,month:45,year:null,qty:[1,2],grants:[{n:12,every:"month",roll:1}]}],[]),
+  M:[["s_21","Dana W.","Shine ×2","active",10,12,"Dec 1"],["s_22","Omar F.","Sparkle ×1","active",1,8,"Dec 1"],["s_23","Pia L.","Shine ×1","active",22,24,"Dec 1"],["s_24","Raj S.","Sparkle ×1","active",14,16,"Dec 1"]],
+  B:[{id:"bk_b11",m:"s_22",svc:"Tutoring",when:"2026-11-09T16:00",n:1,state:"held",bs:"confirmed",hosts:["Dr. Lee"],cut:2880},{id:"bk_b12",m:"s_21",svc:"Tutoring",when:"2026-11-04T15:00",n:2,state:"held",bs:"confirmed",hosts:["Dr. Lee"],cut:2880}],
+  K:[{id:"c_11",code:"UNI15",type:"member",val:15,used:2,max:0,exp:"2026-12-31",status:"active"}],
+  E:[ev("2026-11-03T10:00","payment.succeeded","s_21","Invoice paid, Shine ×2","","+90.00","stripe",{k:"membership"}),ev("2026-11-03T10:00","credit.granted","s_21","Plan allowance","+12","","stripe"),ev("2026-11-02T14:10","credit.held","s_22","Held for Tutoring","−1","","family",{bk:"bk_b11"}),ev("2026-10-20T09:00","payment.succeeded","s_23","Invoice paid, Shine","","+45.00","stripe",{k:"membership"}),ev("2026-10-04T07:00","payout.paid","—","Payout to bank","","150.00","stripe")]},
+ map:{name:"Maple Pilates",tz:"America/Toronto",cur:"C$",role:"owner",lag:26,unit:{one:"class",other:"classes"},rules:{cut:24,noShow:"spend",late:"release"},basis:"cash",basisSel:"cash",basisFrom:"2026-12-01",last:"mem",setup:{link:false},
+  stripe:{connected:true,account:"Maple Pilates Inc.",mode:"live",last4:"p2Lw",missing:["Invoices (write)","Refunds (write)"]},zeffy:{connected:false},keys:[],
+  pl:mkPlans([{id:"glow",name:"Glow",blurb:"Unlimited feel",pub:true,month:85,year:null,qty:null,grants:[{n:24,every:"month",roll:0}]}],[]),
+  M:[["p_07","Chloe B.","Glow ×1","active",0,24,"—"],["p_08","Eli M.","Glow ×1","canceled",5,16,"Nov 14"],["p_09","Noor A.","Glow ×1","active",20,24,"Dec 1"]],B:[],K:[],
+  E:[ev("2026-11-04T11:30","payment.succeeded","p_09","Invoice paid, Glow","","+85.00","stripe",{k:"membership"}),ev("2026-11-04T11:30","credit.granted","p_09","Plan allowance","+24","","stripe"),ev("2026-11-02T16:00","credit.depleted","p_07","Balance reached 0","","","family"),ev("2026-11-01T00:00","credit.expired","p_07","Rollover over cap","−4","","cron"),ev("2026-10-18T10:00","payment.succeeded","p_07","Invoice paid, Glow","","+210.00","stripe",{k:"membership"})]},
+ nw:{name:"Lotus Lane Yoga",tz:"America/Los_Angeles",cur:"$",role:"owner",lag:1,unit:{one:"class",other:"classes"},rules:{cut:24,noShow:"spend",late:"release"},basis:"cash",basisSel:"cash",basisFrom:"2026-12-01",setup:{link:false},
+  stripe:{connected:false,missing:[]},zeffy:{connected:false},keys:[],pl:mkPlans([],[]),M:[],B:[],K:[],E:[]}
+};
+SC.nw.pl.version=0;
+Object.values(SC).forEach(s=>s.E.forEach((e,i)=>{if(e.ty==="payment.succeeded"&&!e.pid)e.pid="pay_"+i+s.name.length}));
+const L={"payment.succeeded":"Payment","credit.granted":"{U} granted","credit.spent":"{U} used","credit.held":"{U} held","credit.released":"Hold released","credit.forfeited":"{U} forfeited","credit.depleted":"Out of {u}","payout.paid":"Payout","payment.refunded":"Refund","credit.refunded":"{U} returned","credit.expired":"{U} expired","credit.adjusted":"Adjustment","catalog.published":"Plans published","booking.outcome":"Attendance recorded","membership.changed":"Plan change"};
+const C={"credit.granted":"var(--success)","credit.spent":"var(--chart-1)","credit.held":"var(--chart-3,var(--warning))","credit.released":"var(--muted-foreground)","credit.forfeited":"var(--destructive)","credit.depleted":"var(--destructive)","credit.refunded":"var(--warning)","credit.adjusted":"var(--chart-5,var(--primary))","payment.succeeded":"var(--info)","payment.refunded":"var(--warning)","membership.changed":"var(--chart-4,var(--primary))"};
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const cap=s=>s[0].toUpperCase()+s.slice(1);
+const U=s=>cap(s.unit.other),un=(s,n)=>`${n} ${n===1?s.unit.one:s.unit.other}`;
+const fillU=(t,s)=>t.replace("{U}",U(s)).replace("{u}",s.unit.other);
+const lab=(e,s)=>e.ty==="payment.succeeded"?(e.k==="booking"?"Booking payment":e.k==="gift"?"Gift sold":"Payment"):e.ty==="payment.refunded"?(e.k==="booking"?"Booking refund":"Refund"):e.ty==="credit.granted"&&e.k==="gift_redeemed"?"Gift redeemed":fillU(L[e.ty]||e.ty,s);
+const evIcon=e=>e.ty==="payment.succeeded"?(e.k==="booking"?"ticket":e.k==="gift"?"gift":"coin"):({"payment.refunded":"undo","payout.paid":"bank","credit.granted":"plus","credit.spent":"check","credit.held":"clock","credit.released":"unlock","credit.forfeited":"ban","credit.depleted":"alert","credit.refunded":"undo","credit.expired":"clock","credit.adjusted":"sliders","catalog.published":"layers","booking.outcome":"check","membership.changed":"sliders"})[e.ty]||"dot";
+const MN=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],WD=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const TODAY="2026-11-05",NOW="2026-11-05T12:00",CYCLE={days:30,left:26};
+const D=s=>new Date(s+"T00:00:00Z"),S=d=>d.toISOString().slice(0,10);
+const addDays=(s,n)=>S(new Date(D(s).getTime()+n*864e5));
+const addMonths=(s,n)=>{const d=D(s);d.setUTCMonth(d.getUTCMonth()+n);return S(d)};
+const eom=s=>{const d=D(s);d.setUTCMonth(d.getUTCMonth()+1,0);return S(d)};
+const aligned=(f,t)=>f.endsWith("-01")&&eom(t)===t;
+const span=(f,t)=>(+t.slice(0,4)-+f.slice(0,4))*12+(+t.slice(5,7)-+f.slice(5,7))+1;
+const mon=s=>MN[+s.slice(5,7)-1],nice=s=>`${mon(s)} ${+s.slice(8)}`;
+function plabel(f,t){if(aligned(f,t)){const a=`${mon(f)} ${f.slice(0,4)}`,b=`${mon(t)} ${t.slice(0,4)}`;return span(f,t)===1?a:f.slice(0,4)===t.slice(0,4)?`${mon(f)} – ${b}`:`${a} – ${b}`}return`${nice(f)} – ${nice(t)}, ${t.slice(0,4)}`}
+const PRE=[["this","This month","2026-11-01","2026-11-30"],["last","Last month","2026-10-01","2026-10-31"],["q","Last 3 months","2026-09-01","2026-11-30"],["ytd","Year to date","2026-01-01",TODAY]];
+let cur="vol",tab="pl",P={from:"2026-11-01",to:"2026-11-30",k:"this"},cmp=false,toastT,xf=null,undoFn=null,ed=null,theme="system",bF="",planF=null,pv={yr:false,size:{},code:""},vm=null,dv="money",dm=10,dsc="monthly-members",bPer={k:"wk",off:0};
+const revealed=new Set();
+const B62="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+const rand=(n,cs)=>Array.from({length:n},()=>cs[Math.floor(Math.random()*cs.length)]).join("");
+function applyTheme(){const a=$("#app");a.classList.remove("light","dark");if(theme!=="system")a.classList.add(theme)}
+const shifted=(p,d)=>{let{from:f,to:t}=p;if(aligned(f,t)){const n=span(f,t);f=addMonths(f,d*n);t=eom(addMonths(f,n-1))}else{const n=Math.round((D(t)-D(f))/864e5)+1;f=addDays(f,d*n);t=addDays(t,d*n)}return{from:f,to:t,k:"cus"}};
+const num=s=>s?parseFloat(String(s).replace("−","-").replace("+","")):0;
+const money=(n,c)=>`${n<0?"−":""}${c}${Math.abs(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+const sgn=n=>n>0?"+"+n:n<0?"−"+Math.abs(n):"";
+const inP=(e,f,t)=>e.d.slice(0,10)>=f&&e.d.slice(0,10)<=t&&!e.pend;
+function calc(E,f,t){const r=E.filter(e=>inP(e,f,t));const pays=r.filter(e=>e.ty==="payment.succeeded");
+ const gross=k=>pays.filter(e=>(e.k||"membership")===k).reduce((a,e)=>a+num(e.usd)+(e.disc||0),0);
+ const memb=gross("membership"),book=gross("booking"),gift=pays.filter(e=>e.k==="gift").reduce((a,e)=>a+num(e.usd),0),disc=pays.reduce((a,e)=>a+(e.disc||0),0);
+ const cash=pays.reduce((a,e)=>a+num(e.usd),0),ref=r.filter(e=>e.ty==="payment.refunded").reduce((a,e)=>a+num(e.usd),0);
+ const inc=memb+book-disc;
+ return{memb,book,gift,disc,inc,ref,fee:-cash*.03,out:r.filter(e=>e.ty==="payout.paid").reduce((a,e)=>a+num(e.usd),0),n:pays.length,nr:r.filter(e=>e.ty==="payment.refunded").length,np:r.filter(e=>e.ty==="payout.paid").length}}
+const heldOf=(s,id)=>s.B.filter(b=>b.m===id&&b.n&&(b.state==="held"||b.state==="pending")).reduce((a,b)=>a+b.n,0);
+const hrsTo=w=>(Date.parse(w+":00Z")-Date.parse(NOW+":00Z"))/36e5;
+const cutMin=(s,b)=>b.cut||s.rules.cut*60;
+const isWithin=(s,b)=>b.when>=NOW&&hrsTo(b.when)<cutMin(s,b)/60;
+const isPend=b=>b.state==="pending";
+const needsOut=b=>b.bs==="confirmed"&&b.when<NOW;
+const fmtCut=(s,b)=>{const h=cutMin(s,b)/60;return Number.isInteger(h)?h+"h":h.toFixed(1)+"h"};
+function groups(s){const A=s.B.filter(b=>b.state!=="done");return{out:A.filter(needsOut),apr:A.filter(b=>b.bs==="requested"),cut:A.filter(b=>b.bs==="confirmed"&&b.when>=NOW&&isWithin(s,b)),up:A.filter(b=>b.bs==="confirmed"&&b.when>=NOW&&!isWithin(s,b))}}
+function reasons(s,m){if(m[3]==="canceled")return[];const r=[];
+ if(m[4]===0)r.push([`Out of ${s.unit.other}`,"bad"]);else if(m[4]/m[5]<.2)r.push(["Low","warn"]);
+ const mine=s.B.filter(b=>b.m===m[0]);
+ if(mine.some(b=>needsOut(b)&&!isPend(b)))r.push(["Needs outcome","bad"]);else if(mine.some(b=>b.bs==="confirmed"&&b.n&&b.state==="held"&&isWithin(s,b)))r.push(["Inside cutoff","warn"]);
+ return r}
+const attN=s=>s.M.filter(m=>reasons(s,m).length).length;
+const score=(s,m)=>reasons(s,m).reduce((a,r)=>a+(r[1]==="bad"?2:1),0);
+function proj(s,m){const h0=heldOf(s,m[0]);let a=m[4],h=h0,u=Math.max(0,m[5]-m[4]-h0),any=false;
+ s.E.filter(e=>e.pend&&e.m===m[0]).forEach(e=>{const n=Math.abs(num(e.cr));if(!n)return;any=true;
+  if(e.ty==="credit.released"){h-=n;a+=n}else if(e.ty==="credit.spent"||e.ty==="credit.forfeited"){h-=n;u+=n}else if(e.ty==="credit.adjusted"||e.ty==="credit.granted"){a+=num(e.cr)}});
+ return{a0:m[4],h0,a,h:Math.max(0,h),u,any}}
+function bar3(s,m){const p=proj(s,m),tot=Math.max(m[5],p.u+p.h+p.a,1),w=v=>(v/tot*100).toFixed(1)+"%",cls=p.a===0?"low":m[4]/m[5]<.2?"low":"";
+ return`<div class="bar3 ${cls}" title="used ${p.u} · held ${p.h} · available ${p.a}"><i class="u" style="width:${w(p.u)}"></i><i class="h" style="width:${w(p.h)}"></i><i class="a" style="width:${w(p.a)}"></i></div>`}
+const mask=c=>c.length>6?c.slice(0,3)+"•••"+c.slice(-2):c;
+const ktype=(s,t)=>({member:"Member % off",dollar:"Dollar gift",session:`${cap(s.unit.one)} gift`})[t];
+const kval=(k,s)=>k.type==="member"?`${k.val}% off tiers`:k.type==="dollar"?money(k.val,s.cur):un(s,k.val);
+const giftOut=s=>({d:s.K.filter(k=>k.type==="dollar"&&k.status==="active").reduce((a,k)=>a+k.val,0),n:s.K.filter(k=>k.type==="session"&&k.status==="active").reduce((a,k)=>a+k.val,0),c:s.K.filter(k=>k.type!=="member"&&k.status==="active").length});
+const expiring=s=>s.K.filter(k=>k.type!=="member"&&k.status==="active"&&(D(k.exp)-D(TODAY))/864e5<=30);
+const toast=(t,o={})=>{const e=$("#ts");e.textContent=t;undoFn=o.undo||null;if(o.undo){const b=document.createElement("button");b.className="undo";b.textContent="Undo";e.append(" ",b)}e.classList.add("on");clearTimeout(toastT);toastT=setTimeout(()=>{e.classList.remove("on");undoFn=null},o.undo?8000:4600)};
+const opt=a=>a.map(x=>`<option>${x}</option>`).join("");
+const sch=()=>SC[cur];
+const cname=(s,id)=>{const k=s.K.find(x=>x.id===id);return k?mask(k.code):id};
+const badges=rs=>rs.map(r=>`<span class="badge b-${r[1]}">${r[0]}</span>`).join(" ");
+const permMissing=(s,p)=>s.stripe.missing.some(m=>m.startsWith(p));
+
+const find=(a,id)=>a.find(x=>x.id===id);
+const slug=n=>n.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40);
+const planStats=(s,t)=>{const ms=s.M.filter(m=>m[2].startsWith(t.name)),q=m=>+(m[2].split("×")[1]||1),act=ms.filter(m=>m[3]==="active");return{act:act.length,can:ms.filter(m=>m[3]==="canceled").length,mrr:act.reduce((a,m)=>a+q(m)*t.month,0)}};
+const grantTxt=(g,s,t)=>`${g.n} ${g.n===1?s.unit.one:s.unit.other}${t&&t.qty?" per unit":""} ${g.every==="once"?"once":"each "+g.every}${g.roll?`, rolls over ${g.roll} mo`:""}`;
+const priceTxt=(t,s)=>t.month!==undefined?`${money(t.month,s.cur)}${t.qty?" per "+s.unit.one:""} / month${t.year?` · ${money(t.year,s.cur)} / year`:""}`:`${money(t.price,s.cur)} ${t.every==="once"?"one time":"/ "+t.every}`;
+function diff(s){const Pp=s.pl.pub,Dd=s.pl.draft,out=[];
+ for(const kind of["tiers","addons"])for(const d of Dd[kind]){const p=find(Pp[kind],d.id),L2=[];
+  if(!p){out.push({id:d.id,name:d.name,kind,lines:[{t:"New plan",s:"Create a Stripe product and its prices"}]});continue}
+  if(d.name!==p.name)L2.push({t:`Name "${p.name}" → "${d.name}"`,s:"Update the Stripe product name"});
+  if(d.blurb!==p.blurb)L2.push({t:"Description changed",s:"No Stripe change"});
+  if(kind==="tiers"){if(d.month!==p.month)L2.push({t:`Monthly price ${money(p.month,s.cur)} → ${money(d.month,s.cur)}`,s:`Create a ${money(d.month,s.cur)}/month price and archive the ${money(p.month,s.cur)} one`});
+   if((d.year||0)!==(p.year||0))L2.push({t:`Yearly price ${p.year?money(p.year,s.cur):"none"} → ${d.year?money(d.year,s.cur):"none"}`,s:d.year?`Create a ${money(d.year,s.cur)}/year price${p.year?" and archive the old one":""}`:"Archive the yearly price"});
+   if(JSON.stringify(d.qty)!==JSON.stringify(p.qty))L2.push({t:`Sold in ${d.qty?d.qty.join(", "):"one size"} (was ${p.qty?p.qty.join(", "):"one size"})`,s:"No price change. The billing portal setup is updated"})}
+  else if(d.price!==p.price||d.every!==p.every)L2.push({t:`Price ${priceTxt(p,s)} → ${priceTxt(d,s)}`,s:`Create a new price and archive the old one`});
+  if(JSON.stringify(d.grants)!==JSON.stringify(p.grants))L2.push({t:"What members get changed",s:"No Stripe change. New amounts apply from the next invoice"});
+  if(d.pub!==p.pub)L2.push({t:d.pub?"Now on sale":"Now hidden",s:d.pub?"No Stripe change":"No Stripe change. Not sold, current members keep it"});
+  if(L2.length)out.push({id:d.id,name:d.name,kind,lines:L2})}
+ return out}
+function problems(s,d=s.pl.draft){const p=[];
+ if(d.tiers.length>4)p.push("At most 4 memberships.");if(d.addons.length>6)p.push("At most 6 packs and add-ons.");
+ const ids=new Set();
+ for(const t of[...d.tiers,...d.addons]){const w=t.name||"A plan";if(!t.name.trim())p.push("A plan needs a name.");if(ids.has(t.id))p.push(`${w}: another plan has the same id.`);ids.add(t.id);
+  if(t.month!==undefined){if(!(t.month>0))p.push(`${w}: monthly price must be above 0.`);if(t.year!==null&&t.year!==undefined&&!(t.year>0))p.push(`${w}: yearly price must be above 0.`);
+   if(t.qty){if(t.qty.length>6||t.qty.some(q=>!Number.isInteger(q)||q<1||q>50)||new Set(t.qty).size!==t.qty.length)p.push(`${w}: sizes must be 1 to 6 different whole numbers from 1 to 50.`)}}
+  else if(!(t.price>0))p.push(`${w}: price must be above 0.`);
+  for(const g of t.grants)if(!Number.isInteger(g.n)||g.n<1)p.push(`${w}: each grant needs a whole number above 0.`)}
+ return[...new Set(p)]}
+function setupSteps(s){const pubN=s.pl.pub.tiers.length+s.pl.pub.addons.length;
+ return[{k:"stripe",t:"Connect Stripe",d:"Take payments through your own account",done:s.stripe.connected},{k:"plan",t:"Add a membership",d:"Name it, price it, say what members get",done:s.pl.draft.tiers.length>0},{k:"publish",t:"Publish your plans",d:"Makes them available to buy",done:pubN>0},{k:"link",t:"Share your purchase link",d:"Copy it into your website or email",done:!!s.setup.link}]}
+function doSetup(k){const s=sch();
+ if(k==="stripe"){closeDrawers();settings();$("#set").classList.add("on");setTimeout(()=>{const c=$("#conn");if(c)c.scrollIntoView({block:"start"})},0);return}
+ if(k==="plan"){editPlan("tiers:",true);return}
+ if(k==="publish"){if(!s.stripe.connected){toast("Connect Stripe first.");return doSetup("stripe")}if(!diff(s).length){toast("Add a membership first.");return doSetup("plan")}if(problems(s).length){toast("Fix the problems in the plan first.");return}reviewModal();return}
+ if(k==="link"){s.setup.link=true;render();toast(`Purchase link copied: https://b4uni.com/join/${slug(s.name)}`)}}
+
+function renderSP(){const ids=Object.keys(SC);
+ $("#sp").innerHTML=`<div style="padding:4px"><span class="sbox"><input id="sq" type="search" placeholder="Find a school" aria-label="Find a school" style="padding-left:8px;width:100%"></span></div><button role="option" class="it ${cur==="all"?"on":""}" data-sc="all" data-n="all schools">${ic("building")}<span class="sp2">All schools</span><span class="mut">${ids.length}</span></button><hr>`+
+ ids.map(id=>{const s=SC[id],a=attN(s);return`<button role="option" class="it ${id===cur?"on":""}" data-sc="${id}" data-n="${s.name.toLowerCase()}">${ic("building")}<span class="sp2">${s.name}</span>${s.lag>15?'<span class="badge b-warn">stale</span>':""}${a?`<span class="badge b-warn">${a}</span>`:""}</button>`}).join("")}
+function renderPP(){
+ $("#pp").innerHTML=PRE.map(([k,l])=>`<button class="it ${P.k===k?"on":""}" data-pk="${k}"><span class="sp2">${l}</span><span class="mut">${plabel(...PRE.find(p=>p[0]===k).slice(2))}</span></button>`).join("")+
+ `<hr><div class="cus"><label>Custom range</label><div class="two"><input type="date" id="cf" value="${P.from}" aria-label="From"><input type="date" id="ct" value="${P.to}" aria-label="To"></div><div class="cnote" id="cnote"></div><button class="btn p s" id="capply">Apply</button></div><hr>
+ <label class="chk"><input type="checkbox" id="cmpc" ${cmp?"checked":""}> Compare with previous period</label><div class="mut tzn">${cur==="all"?"Each school's own time zone":"Times in "+sch().tz}</div>`}
+function renderHP(){$("#hp").innerHTML=`<button class="it" data-toast="Opening the School SDK readme…">${ic("box")}<span class="sp2">School SDK</span><span class="mut">@b4uni/school</span></button><button class="it" data-toast="Opening the event reference…">${ic("list")}<span class="sp2">Ledger event reference</span></button><button class="it" data-toast="Opening the recipes…">${ic("chart")}<span class="sp2">Reports with hledger and DuckDB</span></button><hr><button class="it" data-toast="Prompt copied. It gives an assistant read-only context.">${ic("copy")}<span class="sp2">Copy a prompt for an AI assistant</span></button>`}
+function renderHead(){
+ const all=cur==="all",s=all?null:sch();
+ if(!all)s.last=tab;
+ $("#sw").innerHTML=`${ic("building")}<span style="margin:0 4px">${all?"All schools":s.name}</span>${ic("cd")}`;
+ $("#per").style.display=(all||tab==="led"||tab==="rep")?"":"none";
+ $("#pb").innerHTML=`${ic("calendar")}<span style="margin:0 4px">${plabel(P.from,P.to)}</span>${ic("cd")}`;
+ $("#pnext").disabled=shifted(P,1).from>TODAY;
+ $("#tabs").style.display=all?"none":"";
+ $$(".tab").forEach(x=>x.setAttribute("aria-selected",x.dataset.p===tab));
+ $$(".pane").forEach(p=>p.classList.toggle("on",p.id===(all?"all":tab)));
+ const b=$("#bnr");if(!all&&s.lag>15){b.hidden=false;b.innerHTML=`${ic("alert")} Data is ${s.lag} min behind: the shipper may be stuck. Recent events can be missing.`}else b.hidden=true;
+ if(!all){const n=expiring(s).length;$("#pbadge").hidden=!n;$("#pbadge").textContent=n;$("#plbadge").hidden=!diff(s).length;const o=groups(s).out.filter(x=>!isPend(x)).length;$("#bkbadge").hidden=!o;$("#bkbadge").textContent=o}
+ renderSP();renderPP();renderHP()}
+
+function members(){const s=sch(),q=$("#q").value.toLowerCase(),f=$(".f.on[data-s]")?.dataset.s||"";
+ const nA=attN(s);$("#attchip").innerHTML=`${ic("alert")}Needs attention (${nA})`;$("#mh").textContent=`${U(s)} available`;
+ const cm=calc(s.E,"2026-11-01","2026-11-30"),out=s.M.reduce((a,m)=>a+m[4]+heldOf(s,m[0]),0);
+ $("#strip").innerHTML=`<div class="stat"><small>${ic("ticket")} ${s.unit.other} outstanding (incl. held)</small><b>${out}</b></div><div class="stat"><small>${ic("coin")} income this month</small><b>${money(cm.inc,s.cur)}</b></div><button class="stat" id="attbtn"><small>${ic("alert")} need attention</small><b class="neg">${nA}</b></button>`;
+ $("#attbtn").onclick=()=>$(".f[data-s=att]").click();
+ const ex=expiring(s),en=$("#expnote");en.hidden=!ex.length;
+ if(ex.length)en.innerHTML=`${ic("alert")}<span>${ex.length} unredeemed gift${ex.length===1?"":"s"} expire${ex.length===1?"s":""} within 30 days (${ex.map(k=>`${mask(k.code)} · ${nice(k.exp)}`).join(", ")})</span><span class="sp"></span><button class="link" data-go="cod">View promos</button>`;
+ $("#pfchip").innerHTML=planF?`<span class="chip on" id="pfx">Plan: ${planF} ×</span>`:"";
+ const list=s.M.filter(m=>(!q||m.join(" ").toLowerCase().includes(q))&&(!f||(f==="att"?reasons(s,m).length:m[3]===f))&&(!planF||m[2].startsWith(planF))).sort((a,b)=>score(s,b)-score(s,a)||a[1].localeCompare(b[1]));
+ $("#mb").innerHTML=list.length?list.map(m=>{const p=proj(s,m),rs=reasons(s,m);
+ return`<tr class="row" data-id="${m[0]}"><td><b>${m[1]}</b><div class="mono mut">${m[0]}</div></td><td>${m[2]} ${rs.length?badges(rs):m[3]==="canceled"?'<span class="badge">Canceled</span>':""}${m.cx?' <span class="badge">Cancels Dec 1</span>':""}</td><td style="width:22%">${bar3(s,m)}</td><td class="r">${p.a0}${p.a!==p.a0?` <span class="badge b-warn" title="Shows after the pending change ships">${ic("clock")}→ ${p.a}</span>`:""}/${m[5]}${p.h?` <span class="badge" title="Held for upcoming bookings">+${p.h} held</span>`:""}</td><td>${m[6]}</td><td class="r"><button class="btn ico s" data-vm="${m[0]}" aria-label="View ${m[1]} as member" title="View as member">${ic("eye")}</button></td></tr>`}).join(""):`<tr><td colspan="6" class="mut" style="text-align:center;padding:22px">${s.M.length?"No members match.":"No members yet. They appear here when someone buys a plan."}</td></tr>`}
+
+function bkBill(s,b){return b.paid?`<span class="badge">${ic("coin")}Paid ${money(b.paid,s.cur)}</span>`:b.n?`<span class="badge">${ic("clock")}${un(s,b.n)} held</span>`:`<span class="badge">Free</span>`}
+function bkStatus(s,b){const o=[];if(isPend(b))o.push(["pending","warn"]);if(b.bs==="requested")o.push(["Waiting for approval","warn"]);
+ if(needsOut(b)&&!isPend(b))o.push(["Needs outcome","bad"]);else if(b.bs==="confirmed"&&b.when>=NOW&&isWithin(s,b))o.push([`Inside ${fmtCut(s,b)} cutoff`,"warn"]);
+ if(b.ser)o.push([b.ser,""]);return badges(o)}
+function bkActions(s,b,own){const m=s.M.find(x=>x[0]===b.m),refOk=own&&!permMissing(s,"Refunds");
+ if(isPend(b))return`<span class="badge b-warn">${ic("clock")}waiting to ship</span>`;
+ if(b.bs==="requested")return`<button class="btn s" data-toast="Reminder sent to ${b.hosts.join(", ")}.">${ic("mail")}Remind host</button>`;
+ if(needsOut(b))return`<button class="btn s" data-act="confirm" data-id="${b.id}">${ic("check")}Confirm attended</button><button class="btn s" data-act="noshow" data-id="${b.id}">${ic("xc")}No-show</button>`;
+ if(b.paid)return`<button class="btn s" data-act="refund" data-id="${m[0]}" data-pay="${b.id}" ${refOk?"":'disabled title="Refunds need the owner role and a Stripe key with refund permission"'}>${ic("undo")}Cancel and refund</button>`;
+ if(b.n)return`<button class="btn s" data-act="release" data-id="${b.id}">${ic("unlock")}Release hold</button>`;
+ return""}
+const mondayOf=d=>addDays(d,-((D(d).getUTCDay()+6)%7));
+function bRange(){const{k,off}=bPer;if(k==="day"){const d=addDays(TODAY,off);return{from:d,to:d}}const f=addDays(mondayOf(TODAY),off*7);return{from:f,to:addDays(f,6)}}
+function bLabel(){const{k,off}=bPer,{from}=bRange();if(k==="day")return off===0?"Today":off===1?"Tomorrow":off===-1?"Yesterday":`${WD[D(from).getUTCDay()]} ${nice(from)}`;return off===0?"This week":off===1?"Next week":off===-1?"Last week":"Week of "+nice(from)}
+function bulkConfirm(key){const s=sch(),{from}=bRange(),ids=s.B.filter(b=>b.state!=="done"&&needsOut(b)&&!isPend(b)&&(key==="over"?b.when.slice(0,10)<from:b.when.slice(0,10)===key));
+ ids.forEach(b=>{const m=s.M.find(x=>x[0]===b.m);s.E.unshift(b.n?ev(NOW,"credit.spent",m[0],`${b.svc} attended`,"−"+b.n,"","admin",{pend:1,bk:b.id}):ev(NOW,"booking.outcome",m[0],`${b.svc} attended`,"","","admin",{pend:1,bk:b.id}));b.state="pending"});
+ render();toast(`Attendance confirmed for ${ids.length} bookings.`)}
+function bookings(){const s=sch(),own=s.role==="owner",{from,to}=bRange(),dayOf=b=>b.when.slice(0,10),live=s.B.filter(b=>b.state!=="done");
+ const over=live.filter(b=>needsOut(b)&&dayOf(b)<from),inR=live.filter(b=>dayOf(b)>=from&&dayOf(b)<=to),pool=[...over,...inR];
+ const test={out:b=>needsOut(b)&&!isPend(b),apr:b=>b.bs==="requested",cut:b=>b.bs==="confirmed"&&b.when>=NOW&&isWithin(s,b)},cnt=k=>pool.filter(test[k]).length,keep=b=>!bF||test[bF](b);
+ const periods=[["day",0,"Today"],["day",1,"Tomorrow"],["wk",0,"This week"],["wk",1,"Next week"]];
+ $("#bchips").innerHTML=`<div class="seg" role="group" aria-label="Period">${periods.map(([k,o,l])=>`<button class="${bPer.k===k&&bPer.off===o?"on":""}" data-bp="${k}:${o}">${l}</button>`).join("")}</div><button class="btn ico s" data-bstep="-1" aria-label="Previous">${ic("cl")}</button><b>${bLabel()}</b><span class="mut">${nice(from)}${from===to?"":" – "+nice(to)}</span><button class="btn ico s" data-bstep="1" aria-label="Next">${ic("cr")}</button><span class="sp"></span>`+[["","All"],["out",`Needs outcome (${cnt("out")})`],["apr",`Waiting for approval (${cnt("apr")})`],["cut",`Inside cutoff (${cnt("cut")})`]].map(([k,l])=>`<span class="chip ${k===bF?"on":""}" data-b="${k}">${l}</span>`).join("");
+ const asc=(a,b)=>a.when<b.when?-1:1,row=(b,withDate)=>{const m=s.M.find(x=>x[0]===b.m);return`<tr class="row" data-bm="${b.m}"><td class="mono">${withDate?nice(dayOf(b))+" ":""}${b.when.slice(11)}</td><td><b>${b.svc}</b><div class="mono mut">${b.id} · ${b.hosts.join(", ")}</div></td><td>${m?m[1]:"Guest"}<div class="mono mut">${b.m}</div></td><td>${bkBill(s,b)}</td><td>${bkStatus(s,b)}</td><td class="r"><div class="a">${bkActions(s,b,own)}</div></td></tr>`};
+ const head=(label,icon,list,key)=>{const n=list.filter(test.out).length;return`<tr class="day"><td colspan="6">${ic(icon)} ${label}${n>1?`<button class="btn s" style="float:right" data-bulk="${key}">${ic("check")}Confirm all attended (${n})</button>`:""}</td></tr>`};
+ let h="";const ov=over.filter(keep).sort(asc);
+ if(ov.length)h+=head(`Overdue: needs an outcome (${ov.length})`,"alert",ov,"over")+ov.map(b=>row(b,true)).join("");
+ for(let d=from;d<=to;d=addDays(d,1)){const L2=inR.filter(b=>dayOf(b)===d&&keep(b)).sort(asc);
+  if(!L2.length){if(from===to)h+=`<tr><td colspan="6" class="mut" style="text-align:center;padding:18px">Nothing booked on ${nice(d)}.</td></tr>`;continue}
+  h+=head(`${WD[D(d).getUTCDay()]} ${nice(d)}${d===TODAY?" · Today":d===addDays(TODAY,1)?" · Tomorrow":""} · ${L2.length} booking${L2.length===1?"":"s"}`,"calendar",L2,d)+L2.map(b=>row(b,false)).join("")}
+ $("#bb").innerHTML=h||`<tr><td colspan="6" class="mut" style="text-align:center;padding:24px">${ic("check")} No bookings ${bF?"match":"in this period"}.${bPer.k==="wk"&&bPer.off===0?"":" Try This week."}</td></tr>`;
+ $("#bnote").innerHTML=`${ic("info")} Credits are reserved when a booking is made, spent when it's attended, and released when it's cancelled before the item's cutoff. Cutoffs come from each item, not one school-wide number.`}
+
+const okT=(e,t)=>!t||(t==="admin"?e.src==="admin":t==="booking"?!!e.bk:t==="code"?!!e.code:e.ty.startsWith(t));
+function rowHtml(s,e){return`<tr class="row ${e.pend?"pend":""}"><td class="mono">${e.pend?"just now":e.d.slice(11)}</td><td><span class="badge" style="border-color:${C[e.ty]||"var(--border)"}">${ic(evIcon(e))}${lab(e,s)}</span>${e.pend?' <span class="badge b-warn">pending</span>':""}</td><td class="mono">${e.m}</td><td>${e.tx} ${e.bk?`<span class="mono mut">· ${e.bk}</span>`:""}${e.code?` <span class="mono mut">· promo ${cname(s,e.code)}</span>`:""} <span class="mono mut">· ${e.src}</span> <span class="link">Details</span></td><td class="r">${e.cr}</td><td class="r ${e.usd.startsWith("−")?"neg":""}">${e.usd}</td></tr><tr class="dt" hidden><td colspan="6"><span class="mono">${e.ty}</span> · <span class="mono">source ${e.src}</span><br><span class="mono">{"id":"01JC…","event_type":"${e.ty}","key":"${e.m}","labels":{${[e.bk&&`"booking":"${e.bk}"`,e.code&&`"code":"${e.code}"`,e.k&&`"kind":"${e.k}"`].filter(Boolean).join(",")}},"cause":"01JC…","postings":[…]}</span></td></tr>`}
+function ledger(){const s=sch(),t=$(".f.on[data-t]")?.dataset.t||"";
+ $("#lh").textContent=U(s);$("#lcredit").innerHTML=`${ic("ticket")}${U(s)}`;
+ const rows=s.E.filter(e=>(e.pend||(e.d.slice(0,10)>=P.from&&e.d.slice(0,10)<=P.to))&&okT(e,t)&&(!xf||xf.fn(e)));
+ $("#cfchip").innerHTML=xf?`<span class="chip on" id="cfx">${xf.label} ×</span>`:"";
+ $("#lcnt").textContent=`${rows.length} events · ${s.tz}`;$("#lempty").hidden=rows.length>0;
+ const pend=rows.filter(e=>e.pend),rest=rows.filter(e=>!e.pend).sort((a,b)=>a.d<b.d?1:-1);
+ let h=pend.length?`<tr class="day wait"><td colspan="6">${ic("clock")} Waiting to ship (${pend.length}) · each ships within 5 min</td></tr>`+pend.map(e=>rowHtml(s,e)).join(""):"";
+ for(const d of[...new Set(rest.map(e=>e.d.slice(0,10)))]){const g=rest.filter(e=>e.d.slice(0,10)===d),cr=g.reduce((a,e)=>a+num(e.cr),0),am=g.filter(e=>e.ty!=="payout.paid").reduce((a,e)=>a+num(e.usd),0);
+  h+=`<tr class="day"><td colspan="4">${WD[D(d).getUTCDay()]} ${nice(d)} · ${g.length} event${g.length===1?"":"s"}</td><td class="r">${cr?sgn(cr):""}</td><td class="r">${am?money(am,s.cur):""}</td></tr>`+g.map(e=>rowHtml(s,e)).join("")}
+ $("#lb").innerHTML=h}
+const DD={income:["Income",e=>e.ty==="payment.succeeded"&&e.k!=="gift"],memb:["Memberships",e=>e.ty==="payment.succeeded"&&(e.k||"membership")==="membership"],book:["Bookings and events",e=>e.ty==="payment.succeeded"&&e.k==="booking"],disc:["Discounts given",e=>e.ty==="payment.succeeded"&&e.disc>0],refund:["Refunds",e=>e.ty==="payment.refunded"],fees:["Payments (fees apply)",e=>e.ty==="payment.succeeded"],payout:["Payouts",e=>e.ty==="payout.paid"],gift:["Gift certificates sold",e=>e.k==="gift"]};
+function drill(k){xf={label:"Filter: "+DD[k][0],fn:DD[k][1]};tab="led";$$(".f[data-t]").forEach(x=>x.classList.toggle("on",x.dataset.t===""));render()}
+function series(s,f,t){const tt=t>TODAY?TODAY:t;if(f>tt)return{a:[],w:1,tt};const n=Math.round((D(tt)-D(f))/864e5)+1,w=n>62?7:1,a=Array(Math.ceil(n/w)).fill(0);
+ s.E.forEach(e=>{if(e.pend||e.ty!=="payment.succeeded"||e.k==="gift")return;const d=e.d.slice(0,10);if(d<f||d>tt)return;a[Math.floor((D(d)-D(f))/864e5/w)]+=num(e.usd)});return{a,w,tt}}
+function spark(s,pp){const{a,w,tt}=series(s,P.from,P.to);
+ if(!a.length)return`<div class="sphead"><h5 style="margin:0">Daily income</h5></div><p class="mut" style="margin:0">No data yet for this period.</p>`;
+ const b=pp?series(s,pp.from,pp.to).a.slice(0,a.length):null,max=Math.max(1,...a,...(b||[0])),W=600,H=56,x=i=>a.length>1?i*W/(a.length-1):W/2,y=v=>H-4-v/max*(H-10);
+ const ln=arr=>arr.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" "),pk=a.indexOf(Math.max(...a)),lbl=i=>w===1?nice(addDays(P.from,i)):`week of ${nice(addDays(P.from,i*w))}`;
+ const tot=a.reduce((p,v)=>p+v,0);
+ return`<div class="sphead"><h5 style="margin:0">${w===1?"Daily":"Weekly"} income</h5><span class="mut">${money(tot,s.cur)} · peak ${money(a[pk],s.cur)} (${lbl(pk)})</span></div>
+ <svg class="sp" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${w===1?"Daily":"Weekly"} income for the period"><polygon points="0,${H} ${ln(a)} ${W},${H}" fill="var(--primary)" opacity=".15"/>${b?`<polyline points="${ln(b)}" fill="none" stroke="var(--muted-foreground)" stroke-width="1.5" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/>`:""}<polyline points="${ln(a)}" fill="none" stroke="var(--primary)" stroke-width="2" vector-effect="non-scaling-stroke"/>${a.map((v,i)=>`<rect x="${x(i)-W/a.length/2}" y="0" width="${W/a.length}" height="${H}" fill="transparent"><title>${lbl(i)}: ${money(v,s.cur)}</title></rect>`).join("")}</svg>
+ <div class="spax"><span>${nice(P.from)}</span>${b?`<span>dashed: previous period</span>`:""}<span>${nice(tt)}</span></div>`}
+function reports(){const s=sch(),c=calc(s.E,P.from,P.to),al=aligned(P.from,P.to),pp=shifted(P,-1),pc=cmp?calc(s.E,pp.from,pp.to):null,g=giftOut(s),cu=s.cur;
+ const net=c.inc+c.ref+c.fee,basisB=`<span class="badge">${ic("scale")}${s.basis==="cash"?"Cash basis":"Deferred from "+nice(s.basisFrom)}</span>`;
+ $("#rstat").innerHTML=(al?`<span class="ok">${ic("check")} Matches Stripe</span> · ${c.n} payments, ${c.nr} refund${c.nr===1?"":"s"}, ${c.np} payout${c.np===1?"":"s"}`:`<span class="mut">Partial month: summed from daily totals. The hledger report and the Stripe match run on whole months.</span>`)+" "+basisB;
+ $("#spark").innerHTML=spark(s,cmp?pp:null);
+ const T=[["Income",c.inc,pc&&pc.inc,"income","coin"],["Refunds",c.ref,pc&&pc.ref,"refund","undo"],["Stripe fees",c.fee,pc&&pc.fee,"fees","receipt"],["Paid out",c.out,pc&&pc.out,"payout","bank"]];
+ $("#kpis").innerHTML=T.map(([l,v,p,k,i])=>`<button class="stat" data-dd="${k}" title="Show these events in the ledger"><small>${ic(i)} ${l}</small><b class="${v<0?"neg":""}">${money(v,cu)}</b>${p===null?"":`<i class="s">${v-p>=0?"▲":"▼"} ${money(Math.abs(v-p),cu)} vs ${plabel(pp.from,pp.to)}</i>`}</button>`).join("")+
+  `<button class="stat" data-go="cod" title="Open promos"><small>${ic("gift")} Gift certificates outstanding</small><b>${money(g.d,cu)}${g.n?` + ${un(s,g.n)}`:""}</b><i class="s">${g.c} unredeemed gift${g.c===1?"":"s"} (a liability)</i></button>`;
+ const row=(l,v,ind,cls,k)=>`<tr ${k?`data-dd="${k}" title="Show these events in the ledger"`:""}><td class="${ind?"mut":""}" style="${ind?"padding-left:20px":""}">${l}</td><td class="r ${cls||""}">${money(v,cu)}</td></tr>`;
+ $("#stmt").innerHTML=`<tr><th colspan="2">Income statement · ${plabel(P.from,P.to)}</th></tr>`+row("Memberships",c.memb,1,"","memb")+row("Bookings and events",c.book,1,"","book")+row("Discounts given",-c.disc,1,"neg","disc")+row("<b>Income</b>",c.inc,0,"","income")+row("Refunds",c.ref,0,"neg","refund")+row("Stripe fees",c.fee,0,"neg","fees")+`<tr><td><b>Net</b></td><td class="r"><b>${money(net,cu)}</b></td></tr><tr data-dd="gift" title="Show these events in the ledger"><td class="mut" colspan="2" style="padding-top:10px">Not income: gift certificates sold ${money(c.gift,cu)} (held as a liability until redeemed) ›</td></tr>`;
+ const r=s.rules;
+ $("#rules").innerHTML=`<h5>${ic("clock")} Rules in force</h5><table><tr><td>Cancel cutoff (default)</td><td class="r">${r.cut} hours before</td></tr><tr><td>No-show</td><td class="r">${r.noShow==="spend"?`${s.unit.other} are spent`:`${s.unit.other} are released`}</td></tr><tr><td>Late cancel</td><td class="r">${r.late==="spend"?`${s.unit.other} are forfeited`:`${s.unit.other} are released`}</td></tr></table><p class="mut" style="margin:8px 0 0">An item can set its own cutoff.</p><button class="link" style="margin-top:6px" data-toast="Opening school settings in buzz-school…">${ic("ext")}Edit in school settings</button>`}
+function codes(){const s=sch(),own=s.role==="owner";
+ $("#codnote").textContent=own?"Owners create promos. Admins can view and disable.":"You are an admin here: you can view and disable promos. Owners create them.";
+ $("#newcode").disabled=!own;$("#newcode").title=own?"":"Creating promos needs the owner role in this school";
+ $("#cempty").hidden=s.K.length>0;
+ $("#cb").innerHTML=s.K.map(k=>{const soon=k.type!=="member"&&k.status==="active"&&(D(k.exp)-D(TODAY))/864e5<=30;return`<tr class="nc"><td><span class="mono">${revealed.has(k.id)?k.code:mask(k.code)}</span> <button class="btn ico s" data-rev="${k.id}" aria-label="${revealed.has(k.id)?"Hide":"Show"} code" title="${revealed.has(k.id)?"Hide":"Show"} code">${ic(revealed.has(k.id)?"lock":"eye")}</button> <button class="btn ico s" data-toast="Code copied." aria-label="Copy code" title="Copy code">${ic("copy")}</button></td><td>${ktype(s,k.type)}</td><td>${kval(k,s)}</td><td class="r">${k.used}${k.max?`/${k.max}`:""}</td><td>${k.exp}${soon?' <span class="badge b-warn">soon</span>':""}</td><td><span class="badge ${k.status==="active"?"b-ok":k.status==="disabled"?"b-bad":""}">${k.status}</span></td><td class="r"><button class="btn s" data-red="${k.id}">${ic("list")}Redemptions</button> ${k.status==="active"?`<button class="btn s" data-dis="${k.id}">${ic("ban")}Disable</button>`:""}</td></tr>`}).join("")}
+function portfolio(){const ids=Object.keys(SC),tot={};let at=0;
+ $("#allinc").textContent=`Income · ${plabel(P.from,P.to)}`;
+ $("#ab").innerHTML=ids.map(id=>{const s=SC[id],c=calc(s.E,P.from,P.to),a=attN(s),o=s.M.reduce((x,m)=>x+m[4]+heldOf(s,m[0]),0);at+=a;tot[s.cur]=(tot[s.cur]||0)+c.inc;
+  return`<tr class="row prow" data-sc="${id}"><td>${ic("building")} <b>${s.name}</b><div class="mono mut">${s.tz}</div></td><td class="r">${o} ${s.unit.other}</td><td class="r">${money(c.inc,s.cur)}</td><td class="r">${a?`<span class="badge b-warn">${ic("alert")}${a}</span>`:"0"}</td><td><span class="dot ${s.lag>15?"w":""}"></span>${s.lag} min${s.lag>15?" · stale":""}</td></tr>`}).join("")+
+  `<tr class="tot"><td>Total</td><td class="r"></td><td class="r">${Object.entries(tot).map(([c,v])=>money(v,c)).join(" + ")}</td><td class="r">${at}</td><td></td></tr>`}
+
+function planPreview(s,view,ch){
+ const live=view==="live",src=live?s.pl.pub:s.pl.draft,chg=new Set(ch.map(c=>c.id)),cu=s.cur,yr=pv.yr;
+ const code=pv.code?s.K.find(k=>k.type==="member"&&k.status==="active"&&k.code===pv.code):null;
+ const vis=a=>a.filter(t=>!live||t.pub),tiers=vis(src.tiers),addons=vis(src.addons),anyYear=tiers.some(t=>t.year);
+ const card=(t,isTier)=>{
+  const kind=isTier?"tiers":"addons",p=find(s.pl.pub[kind],t.id),size=isTier&&t.qty?(pv.size[t.id]||t.qty[0]):1;
+  const useYr=isTier&&yr&&!!t.year,unit=isTier?(useYr?t.year:t.month):t.price,per=isTier?(useYr?"year":"month"):(t.every==="once"?"":t.every);
+  const base=unit*size,final=isTier&&code?base*(1-code.val/100):base;
+  const pUnit=p?(isTier?(useYr?p.year:p.month):p.price):null,pBase=pUnit?pUnit*size:null;
+  const changed=!live&&chg.has(t.id),old=changed&&pBase&&pBase!==base?`<s>${money(pBase,cu)}</s>`:"";
+  const flags=[changed?`<span class="badge b-warn">${p?"Draft change":"New"}</span>`:"",!t.pub&&!live?'<span class="badge">Hidden</span>':""].join(" ");
+  const sizes=isTier&&t.qty?`<div class="szs"><small class="mut">How many</small>${t.qty.map(q=>`<button class="chip ${q===size?"on":""}" data-psz="${t.id}:${q}" aria-label="${q}">${q}</button>`).join("")}</div>`:"";
+  return`<div class="pcard ${changed?"chg":""} ${!t.pub&&!live?"ghost":""}" data-pe="${kind}:${t.id}" role="button" tabindex="0" aria-label="Edit ${t.name}"><span class="ed">${ic("edit")}</span><div class="pn">${t.name}</div><div class="pvh">${flags}</div>${isTier&&t.blurb?`<div class="mut">${t.blurb}</div>`:""}
+   <div class="pr">${old}${isTier&&code?`<s>${money(base,cu)}</s>`:""}${money(final,cu)}<small>${per?"/ "+per:"one time"}</small></div>${sizes}
+   <ul>${t.grants.map(g=>`<li>${ic("check")}${grantTxt({...g,n:g.n*size},s,null)}</li>`).join("")}</ul><button class="btn p go" data-pvx tabindex="-1">Choose ${t.name}</button></div>`};
+ const msg=pv.code?(code?`<span class="msg ok">${ic("check")} ${pv.code}: ${code.val}% off memberships</span>`:`<span class="msg no">${ic("xc")} Not a valid code here</span>`):"";
+ const bar=`<div class="pvbar"><div class="seg" role="group" aria-label="Live or draft"><button class="${live?"on":""}" data-plv="live">Live${s.pl.version?` v${s.pl.version}`:""}</button><button class="${!live?"on":""}" data-plv="draft">Draft${ch.length?` · ${ch.length}`:""}</button></div>
+  <div class="seg" role="group" aria-label="Billing period"><button class="${!yr?"on":""}" data-pyr="0">Monthly</button><button class="${yr?"on":""}" data-pyr="1" ${anyYear?"":"disabled"}>Yearly</button></div>
+  <input id="pcode" type="text" placeholder="Promo code" value="${pv.code}" style="width:120px" aria-label="Promo code"><button class="btn s" id="papply">Apply</button>${msg}</div>`;
+ const note=!live&&ch.length?`<div class="note">${ic("info")}<span>Showing the draft. Members see the live version until an owner publishes.</span></div>`:"";
+ const body=tiers.length||addons.length?(tiers.length?`<h5>${ic("layers")} Memberships</h5><div class="pgrid">${tiers.map(t=>card(t,true)).join("")}</div>`:"")+(addons.length?`<h5>${ic("gift")} Packs and add-ons</h5><div class="pgrid">${addons.map(a=>card(a,false)).join("")}</div>`:""):`<div class="card mut" style="text-align:center;padding:24px">${live?"Nothing is published yet. Switch to Draft to see what you've set up, or add a plan in Edit.":"No plans yet. Switch to Edit to add a membership."}</div>`;
+ return`<div class="mut" style="margin:2px 0 10px">${ic("eye")} How the purchase page looks at b4uni.com/join/${slug(s.name)}. Click a plan to edit it.</div>${bar}${note}${body}`}
+function plans(){const s=sch(),own=s.role==="owner",ch=diff(s),pr=problems(s),pl=s.pl,chg=new Set(ch.map(c=>c.id)),steps=setupSteps(s),done=steps.filter(x=>x.done).length,next=steps.find(x=>!x.done),mode=s.plMode||"edit",view=s.plView||(ch.length?"draft":"live");
+ const stats=pl.pub.tiers.reduce((a,t)=>{const st=planStats(s,t);a.act+=st.act;a.mrr+=st.mrr;a.can+=st.can;return a},{act:0,mrr:0,can:0});
+ const setupHtml=done<steps.length?`<div class="card" style="margin-bottom:12px"><div class="sphead"><b>${ic("check")} Get started</b><span class="mut">${done} of ${steps.length} done</span></div><div class="prog"><i style="width:${done/steps.length*100}%"></i></div><div class="steps2">${steps.map(x=>`<button class="st ${x.done?"done":x===next?"next":""}" ${x.done?"disabled":""} data-setup="${x.k}">${ic(x.done?"check":x===next?"cr":"dot")}<span><b>${x.t}</b><small>${x.d}</small></span></button>`).join("")}</div><div class="row2" style="margin-top:10px"><button class="btn p" data-setup="${next.k}">Next: ${next.t}${ic("cr")}</button></div></div>`:"";
+ const strip=pl.pub.tiers.length?`<div class="strip s4"><button class="stat" data-gom=""><small>${ic("users")} Active members</small><b>${stats.act}</b></button><button class="stat" data-go="dash"><small>${ic("coin")} Collected in ${MN[dm]}</small><b>${kusd(kpiSeries(s).g[dm],s)}</b></button><button class="stat" data-gom="canceled"><small>${ic("clock")} Ending soon</small><b>${stats.can}</b></button><button class="stat" data-gom="att"><small>${ic("alert")} Need attention</small><b class="neg">${attN(s)}</b></button></div>`:"";
+ const tr=t=>{const st=planStats(s,t);return`<tr class="row ${chg.has(t.id)?"chg":""}" data-pe="tiers:${t.id}"><td><b>${t.name}</b> ${t.pub?"":'<span class="badge">Hidden</span>'}${chg.has(t.id)?' <span class="badge b-warn">draft</span>':""}<div class="mut">${t.blurb||""}</div></td><td>${priceTxt(t,s)}${t.qty?`<div class="mut">Sold in ${t.qty.join(", ")}</div>`:""}</td><td>${t.grants.map(g=>grantTxt(g,s,t)).join("<br>")}</td><td class="r"><button class="link" data-pm="${t.name}" title="Show these members">${st.act}</button>${st.can?` <span class="mut">+${st.can} ending</span>`:""}</td><td class="r">${money(st.mrr,s.cur)}</td><td class="r"><button class="btn ico s" data-pe="tiers:${t.id}" aria-label="Edit ${t.name}" title="Edit">${ic("edit")}</button></td></tr>`};
+ const ar=a=>`<tr class="row ${chg.has(a.id)?"chg":""}" data-pe="addons:${a.id}"><td><b>${a.name}</b> ${a.pub?"":'<span class="badge">Hidden</span>'}${chg.has(a.id)?' <span class="badge b-warn">draft</span>':""}</td><td>${priceTxt(a,s)}</td><td>${a.grants.map(g=>grantTxt(g,s,null)).join("<br>")}</td><td class="r"></td><td class="r"></td><td class="r"><button class="btn ico s" data-pe="addons:${a.id}" aria-label="Edit ${a.name}" title="Edit">${ic("edit")}</button></td></tr>`;
+ const canPub=ch.length&&!pr.length&&s.stripe.connected;
+ const modeSeg=`<div class="seg" role="group" aria-label="Plans view"><button class="${mode==="edit"?"on":""}" data-pmode="edit">${ic("edit")}Edit</button><button class="${mode==="preview"?"on":""}" data-pmode="preview">${ic("eye")}Preview</button></div>`;
+ const editBody=`<h5>${ic("layers")} Memberships <span class="mut" style="text-transform:none;font-weight:400">${pl.draft.tiers.length} of 4</span></h5>
+  <table><thead><tr><th>Plan</th><th>Price</th><th>Members get</th><th class="r">Members</th><th class="r">Monthly</th><th></th></tr></thead><tbody>${pl.draft.tiers.map(tr).join("")||'<tr><td colspan="6" class="mut" style="padding:16px">No memberships yet.</td></tr>'}</tbody></table>
+  <div style="margin:8px 0 4px"><button class="btn s" data-pnew="tiers" ${pl.draft.tiers.length>=4?'disabled title="Up to 4 memberships"':""}>${ic("plus")}Add membership</button></div>
+  <h5>${ic("gift")} Packs and add-ons <span class="mut" style="text-transform:none;font-weight:400">${pl.draft.addons.length} of 6</span></h5>
+  <table><thead><tr><th>Name</th><th>Price</th><th>Gives</th><th></th><th></th><th></th></tr></thead><tbody>${pl.draft.addons.map(ar).join("")||'<tr><td colspan="6" class="mut" style="padding:16px">None yet.</td></tr>'}</tbody></table>
+  <div style="margin:8px 0 4px"><button class="btn s" data-pnew="addons" ${pl.draft.addons.length>=6?'disabled title="Up to 6"':""}>${ic("plus")}Add pack</button></div>
+  <p class="mut" style="margin-top:12px">${ic("info")} A change starts a new version for new purchases. Members keep the version they bought. ${own?"":"Admins edit the draft; owners publish."}</p>`;
+ $("#pl").innerHTML=setupHtml+(mode==="edit"?strip:"")+`<div class="tools"><b>Plans</b><span class="badge">${pl.version?`v${pl.version} published`:"Not published yet"}</span>${ch.length?`<span class="badge b-warn">${ic("edit")}Draft · ${ch.length} change${ch.length===1?"":"s"}</span>`:""}<span class="sp"></span>${modeSeg}
+  ${ch.length?`<button class="btn" id="pdisc">${ic("undo")}Discard draft</button>`:""}<button class="btn p" id="prev" ${canPub?"":"disabled"} title="${pr.length?"Fix the problems first":!s.stripe.connected?"Connect Stripe first":ch.length?"":"Nothing to publish"}">${ic("upload")}Review and publish</button></div>
+  ${pr.length?`<div class="note">${ic("alert")}<span>${pr.length} problem${pr.length===1?"":"s"}: ${pr[0]}${pr.length>1?` (+${pr.length-1} more)`:""}</span></div>`:""}`+(mode==="edit"?editBody:planPreview(s,view,ch))}
+function editPlan(spec,isNew){const s=sch(),[kind,id]=spec.split(":");let t;
+ if(isNew){t=kind==="tiers"?{id:"new-plan",name:"",blurb:"",pub:true,month:0,year:null,qty:null,grants:[{n:8,every:"month",roll:0}]}:{id:"new-pack",name:"",pub:true,price:0,every:"once",grants:[{n:8,every:"once",roll:0}]}}
+ else t=clone(find(s.pl.draft[kind],id));
+ ed={kind,isNew,t};closeDrawers();drawPE();$("#pe").classList.add("on")}
+function drawPE(){const s=sch(),{kind,isNew,t}=ed,tier=kind==="tiers";
+ const d2=clone(s.pl.draft);if(isNew)d2[kind].push(t);else d2[kind][d2[kind].findIndex(x=>x.id===t.id)]=t;
+ const pr=problems(s,d2),st=!isNew&&tier?planStats(s,t):null;
+ $("#pe").innerHTML=`<button class="x" id="pex" aria-label="Close">×</button><h3>${ic(tier?"layers":"gift")} ${isNew?"New "+(tier?"membership":"pack"):t.name}</h3><div class="mut">${s.name} · editing the draft${st?` · ${st.act} active member${st.act===1?"":"s"}`:""}</div>
+ <div class="fld"><label for="pn">Name</label><input id="pn" type="text" value="${t.name}"></div>
+ ${tier?`<div class="fld"><label for="pb2">Description</label><input id="pb2" type="text" value="${t.blurb||""}"></div>`:""}
+ <div class="fld c"><label><input id="ppub" type="checkbox" ${t.pub?"checked":""}> On sale (public). Hidden plans can't be bought; current members keep them.</label></div>
+ ${tier?`<div class="two"><div class="fld"><label for="pm">Monthly price (${s.cur}${t.qty?`, per ${s.unit.one}`:""})</label><input id="pm" type="number" step="0.01" value="${t.month||""}"></div><div class="fld"><label for="py">Yearly price (optional)</label><input id="py" type="number" step="0.01" value="${t.year||""}"></div></div>
+ <div class="fld"><label for="pq">Sold in sizes (optional, for example 1, 2, 4). Prices and amounts are then per ${s.unit.one}.</label><input id="pq" type="text" value="${t.qty?t.qty.join(", "):""}" placeholder="One size"></div>`
+ :`<div class="two"><div class="fld"><label for="pp2">Price (${s.cur})</label><input id="pp2" type="number" step="0.01" value="${t.price||""}"></div><div class="fld"><label for="pe2">Charged</label><select id="pe2"><option value="once" ${t.every==="once"?"selected":""}>One time</option><option value="month" ${t.every==="month"?"selected":""}>Monthly</option><option value="year" ${t.every==="year"?"selected":""}>Yearly</option></select></div></div>`}
+ <h5>${ic("ticket")} What members get</h5>
+ ${t.grants.map((g,i)=>`<div class="gr"><div><label class="mut" style="font-size:10px">Amount</label><input data-g="n:${i}" type="number" value="${g.n}"></div><div><label class="mut" style="font-size:10px">${U(s)}</label><input type="text" value="${s.unit.other}" disabled></div><div><label class="mut" style="font-size:10px">How often</label><select data-g="every:${i}">${(tier?["month","year"]:["once","month","year"]).map(v=>`<option value="${v}" ${g.every===v?"selected":""}>${v==="once"?"Once":"Each "+v}</option>`).join("")}</select></div><div><label class="mut" style="font-size:10px">Rolls over (mo)</label><input data-g="roll:${i}" type="number" min="0" value="${g.roll||0}"></div><button class="btn ico s" data-gdel="${i}" ${t.grants.length<2?"disabled":""} aria-label="Remove grant" title="Remove">${ic("trash")}</button></div>`).join("")}
+ <div style="margin-top:6px"><button class="btn s" id="gadd" ${t.grants.length>=3?"disabled":""}>${ic("plus")}Add another</button> <span class="mut">A cap on rollover isn't enforced yet, so it isn't offered.</span></div>
+ ${pr.length?`<div class="prev" style="margin-top:12px">${pr.map(x=>`<div class="err">${ic("alert")} ${x}</div>`).join("")}</div>`:""}
+ <div class="mf"><button class="btn" id="pcancel">Cancel</button><button class="btn p" id="psave" ${pr.length?"disabled":""}>${ic("check")}Save to draft</button></div>`;
+ $$("#pe input,#pe select").forEach(e=>{e.oninput=e.onchange=readPE})}
+function readPE(){const{kind,t}=ed,tier=kind==="tiers";t.name=$("#pn").value;t.pub=$("#ppub").checked;
+ if(tier){t.blurb=$("#pb2").value;t.month=parseFloat($("#pm").value)||0;const y=parseFloat($("#py").value);t.year=y>0?y:null;const q=$("#pq").value.trim();t.qty=q?q.split(",").map(x=>parseInt(x.trim(),10)):null;if(q&&t.qty.some(Number.isNaN))t.qty=[0]}
+ else{t.price=parseFloat($("#pp2").value)||0;t.every=$("#pe2").value}
+ if(ed.isNew)t.id=slug(t.name)||"new";
+ $$("#pe [data-g]").forEach(e=>{const[k,i]=e.dataset.g.split(":");t.grants[+i][k]=k==="every"?e.value:parseInt(e.value,10)||0});
+ const s=sch(),d2=clone(s.pl.draft);if(ed.isNew)d2[kind].push(t);else d2[kind][d2[kind].findIndex(x=>x.id===t.id)]=t;
+ const pr=problems(s,d2),box=$("#pe .prev"),html=pr.map(x=>`<div class="err">${ic("alert")} ${x}</div>`).join("");
+ if(box)box.innerHTML=html;else if(pr.length)$("#pe .mf").insertAdjacentHTML("beforebegin",`<div class="prev" style="margin-top:12px">${html}</div>`);
+ if(!pr.length&&box)box.remove();$("#psave").disabled=!!pr.length}
+function savePE(){const s=sch(),{kind,isNew,t}=ed,arr=s.pl.draft[kind];if(isNew)arr.push(clone(t));else arr[arr.findIndex(x=>x.id===t.id)]=clone(t);ed=null;closeDrawers();render();toast("Saved to the draft. Nothing is live until you publish.")}
+function reviewModal(){const s=sch(),own=s.role==="owner",ch=diff(s),aff=ch.reduce((a,c)=>{const t=find(s.pl.pub.tiers,c.id);return a+(t?planStats(s,t).act:0)},0);
+ modal(`<h3>${ic("upload")} Review and publish</h3><div class="mut">${s.name} · v${s.pl.version} → v${s.pl.version+1}</div>
+ ${ch.map(c=>`<h5 style="margin-top:12px">${ic(c.kind==="tiers"?"layers":"gift")} ${c.name}</h5>${c.lines.map(l=>`<div>${l.t}<div class="mut" style="margin-left:2px">${ic("plug")} ${l.s}</div></div>`).join("")}`).join("")}
+ <div class="prev">${aff?`New purchases get the new terms. <b>${aff} current member${aff===1?"":"s"}</b> keep the version they bought.`:"No current members are affected."} The change applies at once (it doesn't wait for the next local month).</div>
+ ${own?`<div class="fld"><label for="ppin">Your family PIN</label><input id="ppin" type="password" inputmode="numeric" maxlength="6" autocomplete="off"></div>`:`<div class="lock">${ic("lock")} Owners publish. You are an admin here, so your draft waits for an owner.</div>`}
+ <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn p" id="pgo" ${own?"disabled":'disabled title="Owners publish"'}>${ic("upload")}Publish v${s.pl.version+1}</button></div>`);
+ if(own)$("#ppin").oninput=e=>$("#pgo").disabled=e.target.value.length<4;
+ $("#pgo").onclick=()=>{s.pl.version++;s.pl.pub=clone(s.pl.draft);s.plView=null;s.E.unshift(ev(NOW,"catalog.published","—",`Plans v${s.pl.version} published · ${ch.map(c=>c.name).join(", ")}`,"","","admin",{pend:1}));closeM();render();toast(`Published v${s.pl.version}. The Stripe prices are being updated.`)}}
+
+function permCheck(s){const m=s.stripe.missing;return{W:PERMS_W.map(p=>[p+" (write)",1]),R:PERMS_R.map(p=>[p+" (read)",1]),N:PERMS_N.map(p=>[p,!m.includes(p)])}}
+function permModal(s){const c=permCheck(s),mk=a=>a.map(([n,ok])=>`<div class="${ok?"ok":"no"}">${ic(ok?"check":"xc")}<span style="color:var(--foreground)">${n}</span></div>`).join("");
+ modal(`<h3>${ic("card")} Stripe permissions</h3><div class="mut">${s.stripe.account} · key ending ${s.stripe.last4}</div><h5>Needed to sell plans</h5><div class="permg">${mk(c.W)}${mk(c.R)}</div><h5>Needed for Send invoice and Refund</h5><div class="permg">${mk(c.N)}</div>${s.stripe.missing.length?`<div class="prev"><b class="err">${s.stripe.missing.length} missing.</b> ${s.stripe.missing.join(" and ")} stay disabled until you add ${s.stripe.missing.length===1?"it":"them"} to the key in Stripe (Developers, API keys).</div>`:`<div class="prev ok">${ic("check")} All permissions are present.</div>`}<div class="mf"><button class="btn" data-toast="Opening Stripe…">${ic("ext")}Open Stripe</button><button class="btn p" data-close>Done</button></div>`)}
+function stripeModal(s){modal(`<h3>${ic("card")} ${s.stripe.connected?"Replace":"Connect"} Stripe</h3><p class="mut">Paste a <b>restricted</b> key from your own Stripe account. It is stored encrypted and only its last four characters are shown afterwards.</p><div class="fld"><label for="sk">Restricted key</label><input id="sk" type="password" placeholder="rk_live_…" autocomplete="off"></div><div class="fld"><label for="sp2">Your family PIN</label><input id="sp2" type="password" inputmode="numeric" maxlength="6" autocomplete="off"></div><div class="prev" id="skm">Paste a key that starts with rk_live_.</div><div class="mf"><button class="btn" data-close>Cancel</button><button class="btn p" id="sgo" disabled>${ic("check")}Save key</button></div>`);
+ const chk=()=>{const v=$("#sk").value.trim(),m=$("#skm");let msg="",ok=false;
+  if(!v)msg="Paste a key that starts with rk_live_.";else if(v.startsWith("sk_"))msg='<b class="err">That is a full secret key.</b> Create a restricted key instead.';else if(v.startsWith("rk_test_"))msg='<b class="err">A test key can\'t be used in production.</b>';else if(!v.startsWith("rk_live_"))msg='<b class="err">The key must start with rk_live_.</b>';else if(v.length<20)msg="Keep typing…";else{msg=`${ic("check")} Looks right. Permissions are checked when you save.`;ok=true}
+  m.innerHTML=msg;$("#sgo").disabled=!(ok&&$("#sp2").value.length>=4)};
+ $("#sk").oninput=chk;$("#sp2").oninput=chk;
+ $("#sgo").onclick=()=>{const v=$("#sk").value.trim();s.stripe={connected:true,account:s.name,mode:"live",last4:v.slice(-4),missing:s.stripe.missing||[]};closeM();render();settings();toast("Stripe key saved. Run Check to confirm permissions.")}}
+function zeffyModal(s){modal(`<h3>${ic("heart")} ${s.zeffy.connected?"Replace":"Connect"} Zeffy</h3><p class="mut">Paste the API key a Zeffy admin created. It is stored encrypted, used only to read payments, and never shown again.</p><div class="fld"><label for="zk">Zeffy API key</label><input id="zk" type="password" autocomplete="off"></div><div class="prev">${ic("info")} Zeffy doesn't document webhook signing, so every payment is verified by looking it up in Zeffy before it is recorded.</div><div class="mf"><button class="btn" data-close>Cancel</button><button class="btn p" id="zgo" disabled>${ic("check")}Save key</button></div>`);
+ $("#zk").oninput=e=>$("#zgo").disabled=e.target.value.trim().length<10;
+ $("#zgo").onclick=()=>{s.zeffy={connected:true,last4:$("#zk").value.trim().slice(-4)};closeM();settings();toast("Zeffy connected.")}}
+function removeModal(what,fn){modal(`<h3>Remove ${what}?</h3><p class="mut">${what==="the Stripe key"?"Plans stop being sold and new payments can't be taken until you connect again.":"Fundraising payments stop being recorded."}</p><div class="fld"><label for="rp">Your family PIN</label><input id="rp" type="password" inputmode="numeric" maxlength="6" autocomplete="off"></div><div class="mf"><button class="btn" data-close>Cancel</button><button class="btn d" id="rgo" disabled>${ic("trash")}Remove</button></div>`);$("#rp").oninput=e=>$("#rgo").disabled=e.target.value.length<4;$("#rgo").onclick=()=>{fn();closeM();settings();render()}}
+function newItem(kind){const s=sch();if(s.role!=="owner")return;
+ if(kind!=="rd"&&s.keys.filter(k=>k.kind===kind).length>=2){toast("Two live keys of this kind already. Revoke one first.");return}
+ const nm={pk:"publishable key",sk:"secret key",rd:"ledger read credential"},hp={pk:"For browsers, from your allowed origins. Reads public school data.",sk:"For servers only. A browser request with it is refused.",rd:"Read-only, limited to your school's folder."};
+ modal(`<h3>${ic("key")} Create ${nm[kind]}</h3><p class="mut">${hp[kind]}</p><div class="fld"><label for="kl">Label</label><input id="kl" type="text" placeholder="For example: Website"></div><div class="mf"><button class="btn" data-close>Cancel</button><button class="btn p" id="kgo">Create</button></div>`);
+ $("#kgo").onclick=()=>{const label=$("#kl").value||"No label",full=kind==="rd"?null:`b4u_${kind}_live_${rand(32,B62)}`;s.keys.push({id:"k"+Date.now(),kind,label,prefix:kind==="rd"?"ro_"+rand(2,"0123456789"):full.slice(0,15),used:"never"});
+  modal(kind==="rd"?`<h3>Credential created</h3><div class="mut">The secret is shown once.</div><div class="pre">endpoint  https://&lt;account&gt;.r2.cloudflarestorage.com\nbucket    b4uni-prod-ledger\nprefix    schools/${s.name.toLowerCase().replace(/\W+/g,"_")}/\nkey id    ${rand(20,"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")}\nsecret    ${rand(40,B62)}</div><div class="row2"><button class="btn p" data-toast="Credential copied.">${ic("copy")}Copy all</button></div><div class="mf"><button class="btn p" data-close>I stored it</button></div>`:`<h3>Key created</h3><div class="mut">Shown once. Copy it now.</div><div class="codebig mono">${full}</div><div class="row2"><button class="btn p" data-toast="Key copied.">${ic("copy")}Copy key</button></div><p class="mut">Only the SHA-256 and the first 15 characters are stored.</p><div class="mf"><button class="btn p" data-close>I stored it</button></div>`);settings()}}
+function settings(){const all=cur==="all",s=all?null:sch(),own=!all&&s.role==="owner",dis=own?"":"disabled";
+ const you=`<h5>${ic("sun")} Appearance <span class="mut" style="text-transform:none;font-weight:400">just for you</span></h5><div class="seg" role="group" aria-label="Appearance"><button class="${theme==="light"?"on":""}" data-theme="light">${ic("sun")}Light</button><button class="${theme==="dark"?"on":""}" data-theme="dark">${ic("moon")}Dark</button><button class="${theme==="system"?"on":""}" data-theme="system">${ic("monitor")}System</button></div>`;
+ if(all){$("#set").innerHTML=`<button class="x" id="setx" aria-label="Close">×</button><h3>${ic("gear")} Settings</h3><div class="mut">All schools</div>${you}<div class="prev" style="margin-top:16px">${ic("info")} Accounting, keys and connections are set per school. Open a school to change them.</div>`;return}
+ const z=s.zeffy,st=s.stripe,kicon={pk:"key",sk:"key",rd:"db"},kname={pk:"Publishable",sk:"Secret",rd:"Ledger read"};
+ const row=(i,n,b,sub,a)=>`<div class="crow"><span class="cic">${ic(i)}</span><div class="cm"><b>${n}</b> ${b}<div class="mut">${sub}</div></div><div class="ca">${a}</div></div>`;
+ $("#set").innerHTML=`<button class="x" id="setx" aria-label="Close">×</button><h3>${ic("gear")} Settings</h3><div class="mut">You and ${s.name}</div>${you}
+ <div class="sechead">${ic("building")} ${s.name} <span class="mut" style="font-weight:400">school settings</span></div>
+ ${own?"":`<div class="lock">${ic("lock")} Owners only. You are an admin here: you can look, not change.</div>`}
+ <h5>${ic("scale")} Accounting basis</h5>
+ <div class="seg" role="group" aria-label="Accounting basis"><button class="${s.basisSel==="cash"?"on":""}" data-basis="cash" ${dis}>Cash</button><button class="${s.basisSel==="deferred"?"on":""}" data-basis="deferred" ${dis}>Deferred</button></div>
+ <p class="mut" style="margin:8px 0">${s.basisSel==="cash"?"Income counts when the money arrives.":"Income counts as the service is given. Gifts are a liability until redeemed."} A ${s.cur}780 yearly plan counts <b>${s.basisSel==="cash"?s.cur+"780 at once":s.cur+"65 a month"}</b>.</p>
+ <div class="row2"><label class="mut" for="bfrom">From</label><input id="bfrom" type="date" value="${s.basisFrom}" ${dis}><button class="btn p" id="bsave" ${dis}>Save</button></div>
+ <h5>${ic("key")} Keys and access <span class="mut" style="text-transform:none;font-weight:400">we give you</span></h5>
+ ${s.keys.map(k=>row(kicon[k.kind],k.label,`<span class="badge">${kname[k.kind]}</span>`,`<span class="mono">${k.prefix}…</span> · used ${k.used}`,`<button class="btn ico s d" data-rev2="${k.id}" ${dis} aria-label="Revoke ${k.label}" title="Revoke">${ic("trash")}</button>`)).join("")||`<div class="mut">No keys yet.</div>`}
+ <div class="pw" style="margin-top:8px;display:inline-block"><button class="btn" id="cmk" ${dis}>${ic("plus")}Create${ic("cd")}</button><div class="menu" id="cmm"><button data-new="pk">${ic("key")}Publishable key</button><button data-new="sk">${ic("key")}Secret key</button><button data-new="rd">${ic("db")}Ledger read credential</button></div></div>
+ <h5 id="conn">${ic("plug")} Connections <span class="mut" style="text-transform:none;font-weight:400">you give us</span></h5>
+ ${row("card","Stripe",st.connected?`<span class="badge b-ok">${ic("check")}Connected</span> <span class="badge">${st.mode}</span>${st.missing.length?` <span class="badge b-warn">${ic("alert")}${st.missing.length} permission${st.missing.length===1?"":"s"} missing</span>`:""}`:'<span class="badge">Not connected</span>',st.connected?`${st.account} · key ending ${st.last4}`:"Sell plans and take payments through your own Stripe account.",st.connected?`<button class="btn s" data-chk>${ic("check")}Check</button><button class="btn s" data-skey ${dis}>Replace</button><button class="btn s d" data-srm ${dis}>${ic("trash")}</button>`:`<button class="btn p s" data-skey ${dis}>Connect</button>`)}
+ ${row("heart","Zeffy",z.connected?`<span class="badge b-ok">${ic("check")}Connected</span>`:'<span class="badge">Not connected</span>',z.connected?`Reads fundraising payments · key ending ${z.last4}`:"Record donations from your Zeffy campaigns in your ledger.",z.connected?`<button class="btn s" data-zkey ${dis}>Replace</button><button class="btn s d" data-zrm ${dis}>${ic("trash")}</button>`:`<button class="btn p s" data-zkey ${dis}>Connect</button>`)}
+ ${row("cloud","Your own bucket (S3 or R2)",'<span class="badge">Later</span>',"Send a copy of your ledger to a bucket you own. Not available yet.",`<button class="btn s" disabled>Set up</button>`)}`}
+function modal(h){$("#md").innerHTML=h;$("#bg").classList.add("on")}
+function closeDrawers(){["#dr","#set","#pe"].forEach(i=>$(i).classList.remove("on"))}
+function render(){renderHead();if(cur==="all")portfolio();else{members();bookings();ledger();reports();plans();codes();dashboard()}if($("#set").classList.contains("on"))settings();drawVM()}
+function setSchool(id){cur=id;tab=(id!=="all"&&SC[id].last)||"pl";xf=null;ed=null;planF=null;bF="";bPer={k:"wk",off:0};pv={yr:false,size:{},code:""};vm=null;dv="money";dsc="monthly-members";dm=SC[id]&&SC[id].kpi?5:10;closeDrawers();$("#q").value="";$$(".f[data-s]").forEach(x=>x.classList.toggle("on",x.dataset.s===""));closeP();render()}
+function closeP(){$$(".pop,.menu").forEach(p=>p.classList.remove("on"))}
+
+const KFIX=(()=>{const z=Array(12).fill(0),rep=(v,n)=>Array(n).fill(v);return{
+ "monthly-members":{label:"Monthly members",g:[71200,65200,65200,62300,62300,62300,59400,59400,59400,51700,51700,51700],r:[7400,7700,600,1200,0,600,0,0,0,0,0,5900],f:[2785,2610,2610,2496,2496,2496,2382,2382,2382,2099,2099,2099],n:[61015,54890,61990,58604,59804,59204,57018,57018,57018,49601,49601,43701],po:[0,67139,54890,61990,58604,59804,59204,57018,57018,55300,49601,49601],pm:[24,24,24,23,23,23,22,22,22,20,20,20],np:[24,...rep(0,11)],cg:[105,0,9,0,0,21,0,0,112,0,0,45],cc:[18,21,26,32,25,19,22,25,17,16,23,18],ce:[0,0,0,2,4,0,3,4,45,6,8,8],dn:z,dl:z,df:z,rr:[.1039,.1181,.0092,.0193,0,.0096,0,0,0,0,0,.1141],ar:[2966.67,2716.67,2716.67,2708.7,2708.7,2708.7,2700,2700,2700,2585,2585,2585],t:{Scholar:[32500,29500,29500,26600,26600,26600,23700,23700,23700,23700,23700,23700],Fellow:[19200,17700,17700,17700,17700,17700,17700,17700,17700,11800,11800,11800],Seminar:[10800,10800,10800,10800,10800,10800,10800,10800,10800,9000,9000,9000],Audit:[8700,...rep(7200,11)]}},
+ "annual-prepay":{label:"Annual prepay",g:[573500,...rep(0,11)],r:[6000,...rep(0,11)],f:[17352,...rep(0,11)],n:[550148,...rep(0,11)],po:[0,550148,...rep(0,10)],pm:[24,...rep(0,11)],np:[24,...rep(0,11)],cg:[888,...rep(0,11)],cc:[11,16,20,16,22,21,20,17,33,22,28,19],ce:z,dn:z,dl:z,df:z,rr:[.0105,...rep(0,11)],ar:[23895.83,...rep(0,11)],t:{Scholar:[382500,...rep(0,11)],Fellow:[59000,...rep(0,11)],Seminar:z,Audit:[132000,...rep(0,11)]}},
+ "disputes":{label:"Disputes",g:[75000,56000,56000,56000,56000,50100,45500,45500,45500,45500,45500,41900],r:[0,0,0,2900,0,1200,0,0,3800,0,0,0],f:[2895,2344,2344,2344,2344,2143,1949,1949,1949,1949,1949,1815],n:[72105,51256,42356,40056,42456,35657,49651,35251,29151,40351,43251,34985],po:[0,79006,51256,42356,40056,35056,41486,47951,35251,29151,40351,43251],pm:[24,24,24,24,24,23,21,21,21,21,21,20],np:[24,...rep(0,11)],cg:[90,0,0,0,40,31,0,0,0,0,80,0],cc:[17,21,24,23,25,14,23,14,26,21,18,17],ce:[0,0,0,0,18,11,13,12,8,1,69,6],dn:[0,1,3,3,5,3,1,2,4,1,1,1],dl:[0,900,6800,6200,3700,6600,-7600,5300,4600,1700,-1200,3600],df:[0,1500,4500,4500,7500,4500,1500,3000,6000,1500,1500,1500],rr:[0,0,0,.0518,0,.024,0,0,.0835,0,0,0],ar:[3125,2333.33,2333.33,2333.33,2333.33,2178.26,2166.67,2166.67,2166.67,2166.67,2166.67,2095],t:{Scholar:[31100,27100,27100,27100,27100,27100,23700,23700,23700,23700,23700,23700],Fellow:[5900,5900,5900,5900,5900,0,0,0,0,0,0,0],Seminar:[17200,11700,11700,11700,11700,11700,11700,11700,11700,11700,11700,8100],Audit:[20800,11300,11300,11300,11300,11300,10100,10100,10100,10100,10100,10100]}},
+ "heavy-refunds":{label:"Heavy refunds",g:[63700,53000,50600,50600,50600,47700,47700,47700,46500,45300,45300,45300],r:[4250,5300,6750,2400,16300,0,8200,9500,10600,12400,5850,5900],f:[2567,2226,2096,2096,2096,1982,1982,1982,1917,1852,1852,1852],n:[56883,45474,41754,46104,32204,45718,37518,36218,33983,31048,34898,37548],po:[0,65921,45474,41754,46104,29418,45718,37518,36218,33983,31048,34898],pm:[24,23,21,21,21,20,20,20,19,18,18,18],np:[24,...rep(0,11)],cg:[84,2,0,0,17,0,0,7,8,0,0,0],cc:[20,17,25,15,18,15,19,19,19,13,17,14],ce:[0,0,4,1,2,16,4,5,4,5,0,4],dn:[0,0,0,0,0,0,0,0,0,0,1,0],dl:[0,0,0,0,0,0,0,0,0,0,1200,0],df:[0,0,0,0,0,0,0,0,0,0,1500,0],rr:[.0667,.1,.1334,.0474,.3221,0,.1719,.1992,.228,.2737,.1291,.1302],ar:[2654.17,2304.35,2409.52,2409.52,2409.52,2385,2385,2385,2447.37,2516.67,2516.67,2516.67],t:{Scholar:[28700,23200,23200,23200,23200,...rep(20300,7)],Fellow:rep(5900,12),Seminar:rep(12600,12),Audit:[16500,11300,8900,8900,8900,8900,8900,8900,7700,6500,6500,6500]}}
+}})();
+SC.b4u.kpi={scenarios:KFIX};
+const kusd=(c,s)=>(c<0?"−":"")+s.cur+(Math.abs(c)/100).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}),kusd0=(c,s)=>(c<0?"−":"")+s.cur+Math.round(Math.abs(c)/100).toLocaleString("en-US"),kpct=v=>(v*100).toFixed(1)+"%";
+function kpiSeries(s){if(s.kpi)return s.kpi.scenarios[dsc];
+ const A=()=>Array(12).fill(0),k={g:A(),r:A(),f:A(),n:A(),po:A(),pm:A(),np:A(),cg:A(),cc:A(),ce:A(),dn:A(),dl:A(),df:A(),rr:A(),ar:A(),t:{}},seen=new Set(),paid=Array.from({length:12},()=>new Set()),names=s.pl.pub.tiers.map(t=>t.name),cents=v=>Math.round(Math.abs(num(v))*100);
+ names.forEach(n=>{k.t[n]=A()});
+ for(const e of s.E.filter(e=>!e.pend&&e.d.startsWith("2026")).sort((a,b)=>a.d<b.d?-1:1)){const i=+e.d.slice(5,7)-1;
+  if(e.ty==="payment.succeeded"&&e.k!=="gift"){k.g[i]+=cents(e.usd);if((e.k||"membership")==="membership"){paid[i].add(e.m);if(!seen.has(e.m)){seen.add(e.m);k.np[i]++}const t=names.find(n=>e.tx.includes(n));if(t)k.t[t][i]+=cents(e.usd)}}
+  else if(e.ty==="payment.refunded")k.r[i]+=cents(e.usd);
+  else if(e.ty==="payout.paid")k.po[i]+=cents(e.usd);
+  else if(e.ty==="credit.granted")k.cg[i]+=Math.abs(num(e.cr));
+  else if(e.ty==="credit.spent")k.cc[i]+=Math.abs(num(e.cr));
+  else if(e.ty==="credit.expired")k.ce[i]+=Math.abs(num(e.cr))}
+ for(let i=0;i<12;i++){k.pm[i]=paid[i].size;k.f[i]=Math.round(k.g[i]*.03);k.n[i]=k.g[i]-k.r[i]-k.f[i];k.rr[i]=k.g[i]?k.r[i]/k.g[i]:0;k.ar[i]=k.pm[i]?k.g[i]/k.pm[i]:0}
+ return k}
+const KCOL=["var(--chart-1)","var(--chart-2)","var(--chart-3)","var(--chart-4)","var(--chart-5)"],KGROSS="rgba(138,138,150,.5)";
+function kbars(g,{h=110,fmt,cols,names,max,tip}){const W=600,bw=W/12,mx=max||Math.max(1,...g.flat()),n=g.length,w=bw*.72/n;let o=`<svg class="kc" viewBox="0 0 ${W} ${h+16}" role="img">`;
+ for(let i=0;i<12;i++){const x=i*bw;o+=`<rect class="col ${i===dm?"on":""}" x="${x}" y="0" width="${bw}" height="${h+16}" data-dm="${i}"><title>${tip?tip(i):MN[i]+": "+g.map((a,j)=>names[j]+" "+fmt(a[i])).join(" · ")}</title></rect>`;
+  g.forEach((a,j)=>{const bh=Math.max(0,a[i])/mx*h;o+=`<rect x="${x+bw*.14+j*w}" y="${h-bh}" width="${Math.max(1,w-1)}" height="${bh}" rx="2" fill="${cols[j]}" pointer-events="none"/>`});
+  o+=`<text x="${x+bw/2}" y="${h+12}" text-anchor="middle" ${i===dm?'style="fill:var(--foreground)"':""}>${MN[i]}</text>`}
+ return o+"</svg>"}
+function kline(a,{h=100,fmt,color="var(--chart-1)",thr,max}){const W=600,bw=W/12,mx=max||Math.max(1e-9,...a,thr||0),y=v=>h-v/mx*(h-10)-2,x=i=>i*bw+bw/2;let o=`<svg class="kc" viewBox="0 0 ${W} ${h+16}" role="img">`;
+ for(let i=0;i<12;i++)o+=`<rect class="col ${i===dm?"on":""}" x="${i*bw}" y="0" width="${bw}" height="${h+16}" data-dm="${i}"><title>${MN[i]}: ${fmt(a[i])}</title></rect>`;
+ if(thr!=null)o+=`<line x1="0" x2="${W}" y1="${y(thr)}" y2="${y(thr)}" stroke="var(--warning)" stroke-dasharray="4 3"/><text x="${W-2}" y="${y(thr)-3}" text-anchor="end" style="fill:var(--warning)">${fmt(thr)}</text>`;
+ o+=`<polyline fill="none" stroke="${color}" stroke-width="2" points="${a.map((v,i)=>`${x(i)},${y(v)}`).join(" ")}" pointer-events="none"/>`;
+ a.forEach((v,i)=>{o+=`<circle cx="${x(i)}" cy="${y(v)}" r="${i===dm?4.5:2.5}" fill="${i===dm?"var(--foreground)":color}" pointer-events="none"/>`});
+ for(let i=0;i<12;i++)o+=`<text x="${x(i)}" y="${h+12}" text-anchor="middle" ${i===dm?'style="fill:var(--foreground)"':""}>${MN[i]}</text>`;
+ return o+"</svg>"}
+const kleg=(a,c)=>`<span class="kleg">${a.map((n,i)=>`<span><i style="background:${c[i]}"></i>${n}</span>`).join("")}</span>`;
+function dashboard(){const el=$("#dash");if(!el||cur==="all")return;const s=sch(),d=kpiSeries(s),fix=!!s.kpi,m=MN[dm],u=U(s),US=c=>kusd(c,s),US0=c=>kusd0(c,s),dis=d.dl[dm]+d.df[dm],anyDis=d.dn.some(v=>v>0),empty=!d.g.some(v=>v)&&!d.pm.some(v=>v);
+ const dlt=(a,f)=>dm===0?"First month":a[dm]===a[dm-1]?`Same as ${MN[dm-1]}`:`${a[dm]>a[dm-1]?"▲":"▼"} ${f(Math.abs(a[dm]-a[dm-1]))} vs ${MN[dm-1]}`;
+ const kc=(l,v,sub,t="")=>`<div class="kcard ${t}"><small>${l}</small><b>${v}</b><i>${sub}</i></div>`;
+ const tc=Object.keys(d.t),tmax=Math.max(1,...tc.map(k=>d.t[k][dm]));
+ let body="";
+ if(empty)body=`<div class="kbox kempty">No payments yet. This dashboard fills in after the first payment.</div>`;
+ else if(dv==="money")body=`<div class="kcards">${kc("Gross collected",US(d.g[dm]),dlt(d.g,US0))}${kc("Refunds",US(d.r[dm]),kpct(d.rr[dm])+" of gross",d.rr[dm]>.1?"bad":d.rr[dm]>.05?"warn":"")}${kc("Payment fees",US(d.f[dm]),dlt(d.f,US0))}${kc("Net income",US(d.n[dm]),dlt(d.n,US0),"ok")}${kc("Paid out",US(d.po[dm]),"Lands the month after")}</div>
+  <div class="kgrid"><div class="kbox"><h6>Gross vs net, 2026 ${kleg(["Gross","Net"],[KGROSS,"var(--chart-1)"])}</h6>${kbars([d.g,d.n],{fmt:US0,cols:[KGROSS,"var(--chart-1)"],names:["Gross","Net"]})}</div>
+  <div class="kbox"><h6>Gross by plan, ${m}</h6>${tc.map((k,i)=>`<div class="krow"><span>${k}</span><div class="t"><i style="width:${d.t[k][dm]/tmax*100}%;background:${KCOL[i%5]}"></i></div><b>${US0(d.t[k][dm])}</b></div>`).join("")||`<div class="mut">No plans yet.</div>`}<div class="mut" style="margin-top:8px">Memberships only. Add-ons and bookings appear here when the school sells them.</div></div></div>`;
+ else if(dv==="members")body=`<div class="kcards">${kc("Paying members",d.pm[dm],dlt(d.pm,x=>x))}${kc("New paying",d.np[dm],"first payment this month")}${kc("Avg per paying member",US(d.ar[dm]),"in "+m)}${kc(u+" used",d.cc[dm],d.cg[dm]+" granted · "+d.ce[dm]+" expired")}</div>
+  <div class="kgrid"><div class="kbox"><h6>Paying members ${kleg(["Members who paid in the month"],["var(--chart-2)"])}</h6>${kline(d.pm,{fmt:x=>x,color:"var(--chart-2)",max:Math.max(5,...d.pm)})}</div>
+  <div class="kbox"><h6>${u} ${kleg(["Granted","Used","Expired"],["var(--chart-1)","var(--chart-2)","var(--chart-3)"])}</h6>${kbars([d.cg,d.cc,d.ce],{fmt:x=>x,cols:["var(--chart-1)","var(--chart-2)","var(--chart-3)"],names:["Granted","Used","Expired"]})}</div></div>`;
+ else{const flags=MN.map((x,i)=>({i,rr:d.rr[i]>.1,dn:d.dn[i]>=3})).filter(f=>f.rr||f.dn);
+  body=`<div class="kcards">${kc("Refund rate",kpct(d.rr[dm]),US(d.r[dm])+" refunded",d.rr[dm]>.1?"bad":d.rr[dm]>.05?"warn":"ok")}${kc("Disputes opened",d.dn[dm],"in "+m,d.dn[dm]>=3?"bad":d.dn[dm]>=1?"warn":"ok")}${kc("Dispute cost",US(dis),"lost "+US(d.dl[dm])+" + fees "+US(d.df[dm]),dis>5000?"bad":dis>0?"warn":"ok")}${kc("Net income",US(d.n[dm]),dlt(d.n,US0))}</div>
+  <div class="kgrid"><div class="kbox"><h6>Refund rate ${kleg(["Share of gross refunded"],["var(--chart-5)"])}</h6>${kline(d.rr,{fmt:kpct,color:"var(--chart-5)",thr:.1,max:Math.max(.12,...d.rr)})}</div>
+  <div class="kbox"><h6>Dispute cost ${kleg(["Lost + fees"],["var(--chart-5)"])}</h6>${anyDis?kbars([d.dl.map((v,i)=>v+d.df[i])],{fmt:US0,cols:["var(--chart-5)"],names:["Cost"],tip:i=>`${MN[i]}: ${d.dn[i]} opened · cost ${US(d.dl[i]+d.df[i])}`}):`<div class="kempty">No disputes in 2026</div>`}</div>
+  <div class="kbox" style="grid-column:1/-1"><h6>Needs a look</h6>${flags.length?flags.map(f=>`<div class="kflag" data-dm="${f.i}"><span class="kdot ${(f.rr&&d.rr[f.i]>.2)||(f.dn&&d.dn[f.i]>=5)?"kd-bad":"kd-warn"}"></span><span>${MN[f.i]}</span><span class="mut">${f.rr?"Refund rate "+kpct(d.rr[f.i]):""}${f.rr&&f.dn?" · ":""}${f.dn?d.dn[f.i]+" disputes":""}</span><span class="mut">Show ›</span></div>`).join(""):`<div class="mut">Nothing unusual in 2026.</div>`}</div></div>`}
+ el.innerHTML=`<div class="kt"><div class="seg" role="group" aria-label="Dashboard view">${[["money","Money","coin"],["members","Members","users"],["risk","Risk","alert"]].map(([k,l,i])=>`<button class="${k===dv?"on":""}" data-dv="${k}">${ic(i)}${l}</button>`).join("")}</div><span class="badge">${ic("scale")}Cash basis · ${s.cur}</span><span class="badge ${fix?"b-warn":""}">${fix?"Fixture data: invented":"From this school's events"}</span>${fix?`<span class="sp"></span><div class="seg" role="group" aria-label="Fixture scenario">${Object.entries(s.kpi.scenarios).map(([k,v])=>`<button class="${k===dsc?"on":""}" data-dsc="${k}">${v.label}</button>`).join("")}</div>`:""}</div>
+ <div class="kmonths" role="group" aria-label="Month"><button data-dstep="-1" aria-label="Previous month">‹</button>${MN.map((x,i)=>`<button class="${i===dm?"on":""}" data-dm="${i}">${x}</button>`).join("")}<button data-dstep="1" aria-label="Next month">›</button><span class="mut" style="margin-left:6px">2026</span></div>
+ ${fix&&dsc==="annual-prepay"?`<div class="note">${ic("alert")}<span>Cash basis: a yearly payer counts in the month paid, so every month after January looks empty. MRR and churn are not computed.</span></div>`:""}${body}`}
+const THEMES={
+ b4u:{n:"B4 Uni (buzz-school look)",bg:"#fbf7f0",fg:"#2a2530",card:"#ffffff",muted:"#7a7385",border:"#e8dfd0",pri:"#3f8068",prifg:"#ffffff",warn:"#b45309",rad:"14px",font:"'Bricolage Grotesque',Figtree,system-ui,sans-serif"},
+ host:{n:"Host site: warm serif",bg:"#ffffff",fg:"#1c1917",card:"#f7f5f2",muted:"#6d6560",border:"#e4dfd9",pri:"#c2410c",prifg:"#ffffff",warn:"#a16207",rad:"3px",font:"Georgia,'Times New Roman',serif"},
+ dark:{n:"Host site: dark",bg:"#101014",fg:"#ececf0",card:"#18181d",muted:"#9a9aa6",border:"#2a2a32",pri:"#7aa2ff",prifg:"#0b0b0d",warn:"#f0a020",rad:"10px",font:"var(--font-sans)"}
+};
+const themeVars=t=>`--mp-bg:${t.bg};--mp-fg:${t.fg};--mp-card:${t.card};--mp-muted:${t.muted};--mp-border:${t.border};--mp-pri:${t.pri};--mp-prifg:${t.prifg};--mp-warn:${t.warn};--mp-rad:${t.rad};--mp-font:${t.font}`;
+const parsePlan=m=>{const[n,q]=m[2].split(" ×");return{name:n,qty:+(q||1)}};
+const mpTag='<span class="mp-tag">Admin</span>';
+function mpBar(p,m){const tot=Math.max(m[5],p.u+p.h+p.a,1),w=v=>(v/tot*100).toFixed(1)+"%";return`<div class="mp-bar" role="img" aria-label="used ${p.u}, held ${p.h}, available ${p.a}"><i class="u" style="width:${w(p.u)}"></i><i class="h" style="width:${w(p.h)}"></i><i class="a" style="width:${w(p.a)}"></i></div>`}
+function mpHome(c){const{s,m,p,tier,cx,ends,waiting,price,adm,invOk}=c,cu=s.cur,packs=s.pl.pub.addons.filter(a=>a.pub);
+ const why=!tier||!tier.qty?"This plan is sold in one size":cx?"Resume your membership first":waiting?"A change is already on its way":"";
+ return`<div class="mp-card"><div class="mp-row"><div><h4>${m[2]}</h4><div class="mp-muted">${money(price,cu)} / month</div></div><span class="mp-pill ${cx?"w":""}">${cx?`Ends ${ends}`:"Active"}</span></div>
+  <div class="mp-muted" style="margin-top:8px">${cx?`Your membership ends on ${ends}. You can keep using your ${s.unit.other} until then.`:`Renews Dec 1 · next invoice ${money(price,cu)}`}</div>
+  ${m.sched?`<div class="mp-note">${ic("clock")} Switches to ${m.sched} on Dec 1.</div>`:""}${waiting?`<div class="mp-note">${ic("clock")} A change is on its way. It can take a few minutes.</div>`:""}
+  <div class="mp-acts"><button class="mp-btn" data-vact="qty" ${why?`disabled title="${why}"`:""}>${ic("sliders")}Change amount</button>${adm?`<button class="mp-btn" data-vact="switch" ${waiting||cx?"disabled":""}>${ic("layers")}Switch plan ${mpTag}</button>`:""}${cx?`<button class="mp-btn p" data-vact="resume" ${waiting?"disabled":""}>${ic("undo")}Resume membership</button>`:`<button class="mp-btn d" data-vact="cancel" ${waiting?"disabled":""}>${ic("ban")}Cancel membership</button>`}</div></div>
+ <div class="mp-card"><div class="mp-row"><div><div class="mp-big">${p.a}${p.a!==p.a0?` <span class="mp-pill w" style="font-size:11px;vertical-align:middle">${ic("clock")}was ${p.a0}</span>`:""}</div><div class="mp-muted">${s.unit.other} available</div></div><div class="mp-muted" style="text-align:right">${p.h?`${p.h} held for bookings<br>`:""}${p.u} used this cycle</div></div>${mpBar(p,m)}<div class="mp-muted" style="margin-top:8px">Your allowance refreshes on Dec 1.</div></div>
+ ${packs.length?`<div class="mp-card"><h4 style="margin-bottom:8px">Need more ${s.unit.other}?</h4><div class="mp-list">${packs.map(a=>`<div class="mp-item"><div><b>${a.name}</b><div class="mp-muted">${un(s,a.grants[0].n)} · ${money(a.price,cu)}</div></div><button class="mp-btn" data-vact="buy" data-pk="${a.id}">Buy</button></div>`).join("")}</div></div>`:""}
+ ${adm?`<div class="mp-card mp-admin"><div class="mp-row"><h4>Admin tools ${mpTag}</h4></div><div class="mp-acts"><button class="mp-btn" data-act="invoice" data-id="${m[0]}" ${invOk?"":'disabled title="The Stripe key lacks Invoices (write)"'}>${ic("mail")}Send invoice</button><button class="mp-btn" data-act="adjust" data-id="${m[0]}">${ic("sliders")}Adjust ${s.unit.other}</button><button class="mp-btn" data-vled>${ic("list")}View in ledger</button></div></div>`:""}`}
+function mpBk(c){const{s,m,adm,refOk}=c,bks=s.B.filter(b=>b.m===m[0]&&b.state!=="done").sort((a,b)=>a.when<b.when?-1:1);
+ if(!bks.length)return`<div class="mp-card mp-muted">No upcoming bookings.</div>`;
+ return`<div class="mp-card"><div class="mp-list">${bks.map(b=>{let act="";
+  if(isPend(b))act=`<span class="mp-pill w">${ic("clock")}waiting to ship</span>`;
+  else if(b.bs==="requested")act='<span class="mp-pill n">Waiting for approval</span>';
+  else if(needsOut(b))act=adm?`<button class="mp-btn" data-act="confirm" data-id="${b.id}">${ic("check")}Attended ${mpTag}</button><button class="mp-btn" data-act="noshow" data-id="${b.id}">${ic("xc")}No-show ${mpTag}</button>`:'<span class="mp-pill n">Awaiting confirmation</span>';
+  else if(b.paid)act=adm?`<button class="mp-btn" data-act="refund" data-id="${m[0]}" data-pay="${b.id}" ${refOk?"":"disabled"}>${ic("undo")}Cancel and refund ${mpTag}</button>`:'<span class="mp-muted">Contact the school to cancel</span>';
+  else act=`<button class="mp-btn" data-act="release" data-id="${b.id}">Cancel booking</button>`;
+  const past=needsOut(b),inside=isWithin(s,b);
+  return`<div class="mp-item mp-bk"><div><b>${b.svc}</b><div class="mp-muted">${nice(b.when.slice(0,10))} ${b.when.slice(11)} · ${b.hosts.join(", ")}</div><div class="mp-muted">${b.paid?`Paid ${money(b.paid,s.cur)}`:b.n?`${un(s,b.n)} held`:"Free"}${past||b.bs==="requested"?"":inside?` · inside the ${fmtCut(s,b)} cutoff`:` · free to cancel until ${fmtCut(s,b)} before`}</div></div><div class="mp-acts" style="margin:0">${act}</div></div>`}).join("")}</div></div>`}
+function mpBill(c){const{s,m,cx,ends,price,adm,refOk}=c,cu=s.cur;
+ const pays=s.E.filter(e=>e.m===m[0]&&e.ty==="payment.succeeded").sort((a,b)=>a.pend?-1:b.pend?1:a.d<b.d?1:-1);
+ const refd=e=>s.E.filter(r=>r.ty==="payment.refunded"&&r.pid&&r.pid===e.pid).reduce((a,r)=>a+Math.abs(num(r.usd)),0);
+ const rows=pays.map(e=>{const net=num(e.usd),rf=refd(e),left=Math.max(0,net-rf),pendRef=s.E.some(r=>r.pend&&r.ty==="payment.refunded"&&r.pid===e.pid);
+  const status=e.pend?'<span class="mp-pill w">Processing</span>':rf>=net-.004?'<span class="mp-pill n">Refunded</span>':rf>0?`<span class="mp-pill n">Refunded ${money(rf,cu)}</span>`:'<span class="mp-pill">Paid</span>';
+  const act=adm&&!e.pend?`<button class="mp-btn" data-act="refund" data-id="${m[0]}" data-pay="${e.pid}" ${refOk&&left>.004?"":"disabled"} title="${left>.004?(refOk?"":"Refunds need the owner role and a Stripe key with refund permission"):"Nothing left to refund"}">${ic("undo")}Refund ${mpTag}</button>`:"";
+  return`<tr><td>${nice(e.d.slice(0,10))}</td><td>${e.tx}${pendRef?' <span class="mp-pill w">refund pending</span>':""}</td><td class="r">${money(net,cu)}</td><td>${status}</td><td class="r">${act}</td></tr>`}).join("");
+ return`<div class="mp-card"><div class="mp-row"><div><h4>Next invoice</h4><div class="mp-muted">${cx?`None. Your membership ends ${ends}.`:`Dec 1 · ${money(price,cu)}`}</div></div></div></div>
+ <div class="mp-card"><div class="mp-row"><div><h4>Payment method</h4><div class="mp-muted">Card details stay with Stripe.</div></div><button class="mp-btn" data-vact="card">${ic("card")}Update</button></div></div>
+ <div class="mp-card"><h4 style="margin-bottom:8px">Invoices</h4>${rows?`<table class="mpt"><thead><tr><th>Date</th><th>Description</th><th class="r">Amount</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table>`:`<div class="mp-muted">No invoices yet.</div>`}</div>`}
+function drawVM(){const el=$("#vm");if(!vm){el.hidden=true;el.innerHTML="";return}
+ const s=sch(),m=s.M.find(x=>x[0]===vm.id);if(!m){vm=null;el.hidden=true;return}
+ const st=el.scrollTop,th=THEMES[vm.theme],adm=vm.admin,own=s.role==="owner",{name,qty}=parsePlan(m),tier=s.pl.pub.tiers.find(t=>t.name===name);
+ const cx=m[3]==="canceled"||!!m.cx,c={s,m,p:proj(s,m),tier,name,qty,cx,ends:m[3]==="canceled"?m[6]:"Dec 1",waiting:s.E.some(e=>e.pend&&e.m===m[0]&&(e.ty==="membership.changed"||e.ty==="payment.succeeded")),price:tier?tier.month*qty:0,adm,own,refOk:own&&!permMissing(s,"Refunds"),invOk:!permMissing(s,"Invoices")};
+ const nb=s.B.filter(b=>b.m===m[0]&&b.state!=="done").length,tabs=[["home","Overview","user"],["bk",`Bookings${nb?` (${nb})`:""}`,"calendar"],["bill","Billing","card"]];
+ el.hidden=false;
+ el.innerHTML=`<div class="vmbar"><span class="badge b-warn">${ic("eye")}Viewing as ${m[1]}</span><span class="mono mut">${m[0]} · ${s.name}</span><span class="sp"></span><label class="mut" for="vth">Site theme</label><select id="vth" aria-label="Site theme">${Object.entries(THEMES).map(([k,t])=>`<option value="${k}" ${k===vm.theme?"selected":""}>${t.n}</option>`).join("")}</select><label class="chk2"><input type="checkbox" id="vad" ${adm?"checked":""}> Admin tools</label><button class="btn s" id="vemb">${ic("plug")}Embed…</button><button class="btn s" id="vmx">${ic("xc")}Exit</button></div>
+ <div class="vmnote">${ic("info")} This is the member portal as ${m[1]} sees it. Anything you do here is taken by you as admin and logged as an admin action. It never uses their session or PIN. Turn off Admin tools to see exactly what they see.</div>
+ <div class="vmwrap"><div class="mpf" style="${themeVars(th)}"><div class="mph"><b>${s.name}</b><span>Classes</span><span>Schedule</span><span>Shop</span><span style="margin-left:auto">${m[1]}</span></div><div class="mpb"><div class="mp-tabs" role="tablist">${tabs.map(([k,l,i])=>`<button role="tab" class="${vm.tab===k?"on":""}" aria-selected="${vm.tab===k}" data-vtab="${k}">${ic(i)}${l}</button>`).join("")}</div>${vm.tab==="home"?mpHome(c):vm.tab==="bk"?mpBk(c):mpBill(c)}</div></div></div>`;
+ el.scrollTop=st}
+function embedModal(){const s=sch(),th=THEMES[vm.theme],css=`:root {\n  --b4-bg: ${th.bg};\n  --b4-fg: ${th.fg};\n  --b4-card: ${th.card};\n  --b4-muted: ${th.muted};\n  --b4-border: ${th.border};\n  --b4-primary: ${th.pri};\n  --b4-on-primary: ${th.prifg};\n  --b4-radius: ${th.rad};\n  --b4-font: ${th.font.replace(/'/g,"\\'")};\n}`;
+ modal(`<h3>${ic("plug")} Embed the member portal <span class="badge b-warn">Proposed</span></h3><div class="mut">${s.name} · the portal you are viewing, on your own site</div>
+ <h5>1. Add it to your page</h5><div class="pre">&lt;div id="b4-portal"&gt;&lt;/div&gt;\n&lt;script src="https://portal.b4uni.com/embed.js"\n  data-school="${slug(s.name)}"\n  data-session-url="/api/b4-portal-session"\n  data-theme="inherit"&gt;&lt;/script&gt;</div>
+ <h5>2. Mint a session on your server</h5><div class="pre">// server only. Uses your b4u_sk_ key, never the browser.\nconst { token } = await school.portalSession({\n  member: user.memberId,\n  returnUrl: "https://yoursite.com/account",\n});\nreturn Response.json({ token });</div>
+ <h5>3. Match your site</h5><div class="mut" style="margin-bottom:4px">With <span class="mono">data-theme="inherit"</span> the portal reads these from your page. This is the theme you picked:</div><div class="pre">${css.replace(/&/g,"&amp;").replace(/</g,"&lt;")}</div>
+ <div class="fld"><label for="vor">Allowed sites (sets frame-ancestors)</label><input id="vor" type="text" value="https://vibes.example.com"></div>
+ <div class="prev">${ic("info")} Sign-in is yours: your server proves who the member is with a secret key and gets a short-lived token. Changes run in the family service, the same as here. Card changes hand off to Stripe. Tier switches stay admin-only until atm and the Stripe portal support them.</div>
+ <div class="mf"><button class="btn" data-toast="Snippet copied.">${ic("copy")}Copy snippet</button><button class="btn p" data-close>Done</button></div>`)}
+function vAct(kind,arg){const s=sch(),m=s.M.find(x=>x[0]===vm.id),{name,qty}=parsePlan(m),tier=s.pl.pub.tiers.find(t=>t.name===name),cu=s.cur,p=proj(s,m),adm=vm.admin,share=CYCLE.left/CYCLE.days;
+ const push=(ty,tx,cr,usd,xs)=>s.E.unshift(ev(NOW,ty,m[0],tx,cr,usd,"admin",{pend:1,...(xs||{})}));
+ const fin=msg=>{closeM();render();toast(msg)};
+ if(kind==="card"){toast("Opens Stripe's billing portal. Card details stay with Stripe.");return}
+ if(kind==="buy"){const a=find(s.pl.pub.addons,arg);toast(`Member would continue to Stripe Checkout for ${a.name}.`);return}
+ if(kind==="qty"){
+  modal(`<h3 id="mt">${ic("sliders")} Change amount · ${m[1]}</h3><div class="mut">${name} · now ×${qty}</div><div class="fld"><label for="vq">New amount</label><select id="vq">${tier.qty.map(q=>`<option value="${q}" ${q===qty?"selected":""}>${q}${q===qty?" (current)":""}</option>`).join("")}</select></div><div class="prev" id="vpv"></div><div class="mf"><button class="btn" data-close>Cancel</button><button class="btn p" id="vok">Confirm</button></div>`);
+  const upd=()=>{const n=+$("#vq").value;let h;
+   if(n===qty)h="No change.";
+   else if(n>qty)h=`Charged now: <b>${money((n-qty)*tier.month*share,cu)}</b> (${CYCLE.left} of ${CYCLE.days} days left in this cycle). Adds <b>${un(s,Math.ceil((n-qty)*tier.grants[0].n*share))}</b> now. From Dec 1: <b>${money(n*tier.month,cu)}</b> / month.`;
+   else h=`From Dec 1: <b>${money(n*tier.month,cu)}</b> / month with fewer ${s.unit.other} each month. <b>No refund</b>, and ${s.unit.other} now are unchanged until then.`;
+   $("#vpv").innerHTML=h;$("#vok").disabled=n===qty};
+  $("#vq").oninput=$("#vq").onchange=upd;upd();
+  $("#vok").onclick=()=>{const n=+$("#vq").value;
+   if(n>qty){const charge=(n-qty)*tier.month*share,grant=Math.ceil((n-qty)*tier.grants[0].n*share);
+    push("credit.granted",`Upgrade, ${name} ×${qty} → ×${n}`,"+"+grant,"");
+    push("payment.succeeded",`Upgrade, ${name} ×${qty} → ×${n} (prorated)`,"","+"+charge.toFixed(2),{k:"membership",pid:"pay_up"+Date.now()});
+    m[2]=`${name} ×${n}`;fin(`Upgraded to ×${n}. Charged ${money(charge,cu)} and ${un(s,grant)} added once it ships.`)}
+   else{push("membership.changed",`Scheduled: ${name} ×${qty} → ×${n} at renewal (Dec 1)`,"","");m.sched=`${name} ×${n}`;fin(`Change to ×${n} scheduled for Dec 1.`)}};return}
+ if(kind==="switch"){const others=s.pl.pub.tiers.filter(t=>t.name!==name);
+  modal(`<h3 id="mt">${ic("layers")} Switch plan · ${m[1]} <span class="badge">Admin</span></h3><div class="mut">${name} ×${qty} now</div><div class="fld"><label for="vt">New plan</label><select id="vt">${others.map(t=>`<option value="${t.id}">${t.name} · ${money(t.month,cu)}${t.qty?" per "+s.unit.one:""} / month</option>`).join("")}</select></div><div id="vqw"></div><div class="prev" id="vpv"></div><div class="mf"><button class="btn" data-close>Cancel</button><button class="btn p" id="vok">Schedule switch</button></div>`);
+  const sel=()=>find(others,$("#vt").value),upd=()=>{const t=sel(),n=t.qty?+($("#vq2")?$("#vq2").value:t.qty[0]):1;
+   $("#vpv").innerHTML=`From Dec 1: <b>${t.name}${t.qty?" ×"+n:""}</b> at <b>${money(t.month*n,cu)}</b> / month. It takes effect at the renewal and grants nothing until then.<div class="mut" style="margin-top:6px">${ic("alert")} Stripe's member portal doesn't offer plan switches today, so members can't do this themselves.</div>`};
+  const fillQ=()=>{const t=sel();$("#vqw").innerHTML=t.qty?`<div class="fld"><label for="vq2">Amount</label><select id="vq2">${t.qty.map(q=>`<option value="${q}">${q}</option>`).join("")}</select></div>`:"";const q2=$("#vq2");if(q2)q2.onchange=q2.oninput=upd;upd()};
+  $("#vt").onchange=$("#vt").oninput=fillQ;fillQ();
+  $("#vok").onclick=()=>{const t=sel(),n=t.qty?+($("#vq2")?$("#vq2").value:t.qty[0]):1,label=`${t.name} ×${n}`;push("membership.changed",`Scheduled: ${name} ×${qty} → ${label} at renewal (Dec 1)`,"","");m.sched=label;fin(`Switch to ${label} scheduled for Dec 1.`)};return}
+ if(kind==="cancel"){
+  modal(`<h3 id="mt">${ic("ban")} Cancel membership · ${m[1]}</h3><div class="mut">${m[2]}</div><div class="fld c"><label><input type="radio" name="vc" value="end" checked> At the end of this period (Dec 1)</label></div>${adm?`<div class="fld c"><label><input type="radio" name="vc" value="now"> Right now <span class="badge">Admin</span></label></div>`:""}<div class="fld"><label for="vr">Reason (optional; required to cancel right now)</label><textarea id="vr"></textarea></div><div class="prev" id="vpv"></div><div class="mf"><button class="btn" data-close>Keep membership</button><button class="btn d" id="vok">Cancel membership</button></div>`);
+  const upd=()=>{const now=$$("input[name=vc]").find(r=>r.checked).value==="now";
+   $("#vpv").innerHTML=now?`Ends today. <b>${un(s,p.a)}</b> unused are forfeited. No refund is issued automatically: use Refund on an invoice if one is owed.`:`Stays active until Dec 1. ${un(s,p.a)} can still be used until then. No further charges.`;
+   $("#vok").disabled=now&&$("#vr").value.trim().length<3};
+  $$("#md input,#md textarea").forEach(e=>{e.oninput=e.onchange=upd});upd();
+  $("#vok").onclick=()=>{const now=$$("input[name=vc]").find(r=>r.checked).value==="now",why=$("#vr").value.trim();
+   if(now){push("membership.changed",`Canceled now${why?" · "+why:""} · ${un(s,p.a)} forfeited`,"","");m[3]="canceled";m[6]="Today";fin("Membership canceled.")}
+   else{push("membership.changed",`Cancels at period end (Dec 1)${why?" · "+why:""}`,"","");m.cx=true;fin("Membership will end on Dec 1.")}};return}
+ if(kind==="resume"){
+  modal(`<h3 id="mt">${ic("undo")} Resume membership · ${m[1]}</h3><div class="mut">${m[2]}</div><div class="prev">Billing continues on Dec 1 as normal. Nothing is charged today.</div><div class="mf"><button class="btn" data-close>Not now</button><button class="btn p" id="vok">Resume</button></div>`);
+  $("#vok").onclick=()=>{push("membership.changed","Resumed. Billing continues Dec 1","","");m.cx=false;if(m[3]==="canceled"){m[3]="active";m[6]="Dec 1"}fin("Membership resumed.")}}}
+
+function bkRow(s,b,own){
+ return`<div class="bk"><div><b>${b.svc}</b> <span class="mut">· ${nice(b.when.slice(0,10))} ${b.when.slice(11)}</span><div class="mono mut">${b.id} · ${b.hosts.join(", ")}</div><div>${bkBill(s,b)} ${bkStatus(s,b)}</div></div><div class="a">${bkActions(s,b,own)}</div></div>`}
+function hist(s,m,all){const evs=s.E.filter(e=>e.m===m[0]).sort((a,b)=>(b.pend?1:0)-(a.pend?1:0)||(a.d<b.d?1:-1));
+ const show=all?evs:evs.slice(0,5);
+ return show.map(e=>`<li class="${e.pend?"pd":""}" style="--c:${C[e.ty]||"var(--muted-foreground)"}"><b>${lab(e,s)}</b> ${e.cr||e.usd||""} ${e.tx}${e.bk?` <span class="mono mut">${e.bk}</span>`:""}${e.code?` <span class="mono mut">promo ${cname(s,e.code)}</span>`:""}<div class="t">${e.pend?"just now · you · ships within 5 min":`${nice(e.d.slice(0,10))} · ${e.src}`}</div></li>`).join("")+(!all&&evs.length>5?`<li style="--c:transparent"><button class="link" id="sa">Show all (${evs.length})</button></li>`:"")}
+function open(id,all){const s=sch(),m=s.M.find(x=>x[0]===id),rs=reasons(s,m),own=s.role==="owner",p=proj(s,m),bks=s.B.filter(b=>b.m===id&&b.state!=="done"),invOk=!permMissing(s,"Invoices"),refOk=own&&!permMissing(s,"Refunds");
+ closeDrawers();
+ $("#dr").innerHTML=`<button class="x" aria-label="Close" id="drx">×</button><div class="mono mut">${m[0]} · ${s.name}</div><h3 style="margin:2px 0 6px">${m[1]}</h3><span class="badge">${m[2]}</span> ${badges(rs)} <span class="badge">renews Dec 1</span>
+ <div class="acts"><button class="btn p" data-vm="${id}">${ic("eye")}View as member</button><button class="btn" data-act="invoice" data-id="${id}" ${invOk?"":'disabled title="The Stripe key lacks Invoices (write). Fix it in Settings."'}>${ic("mail")}Send invoice</button><button class="btn" data-act="adjust" data-id="${id}">${ic("sliders")}Adjust ${s.unit.other}</button><button class="btn" data-act="refund" data-id="${id}" ${refOk?"":`disabled title="${own?"The Stripe key lacks Refunds (write). Fix it in Settings.":"Refunds need the owner role in this school"}"`}>${ic("undo")}Refund</button>
+  <div class="pw"><button class="btn ico" id="mb2" aria-label="More actions" aria-haspopup="menu">${ic("more")}</button><div class="menu" id="mm" role="menu">
+   <button role="menuitem" data-act="audit" data-id="${id}">${ic("check")}Audit member</button><hr>
+   <button role="menuitem" data-toast="Opening Stripe dashboard…">${ic("ext")}Cancel subscription</button>
+   <button role="menuitem" data-toast="Opening Stripe dashboard…">${ic("ext")}Resend receipt</button>
+   <button role="menuitem" data-toast="Opening Stripe dashboard…">${ic("ext")}View in Stripe</button></div></div></div>
+ ${own?"":`<div class="mut" style="font-size:10.5px;margin:-4px 0 8px">Refunds need the owner role in ${s.name}.</div>`}
+ <div class="line"><b>${p.a0}</b> available${p.a!==p.a0?` <span class="badge b-warn">${ic("clock")}→ ${p.a} after pending</span>`:""} of ${m[5]}${p.h?` · <b>${p.h}</b> held for bookings`:""}${m[6]!=="—"?` · expire ${m[6]}`:""} · rollover 0${bar3(s,m)}</div>
+ ${bks.length?`<h5>${ic("clock")} Upcoming bookings</h5><div style="margin-bottom:12px">${bks.map(b=>bkRow(s,b,own)).join("")}</div>`:""}
+ <h5>${ic("list")} History</h5><ul class="tl">${hist(s,m,all)}</ul>`;
+ $("#dr").classList.add("on");$("#dr").dataset.id=id;
+ $("#mb2").onclick=e=>{e.stopPropagation();$("#mm").classList.toggle("on")};
+ const sa=$("#sa");if(sa)sa.onclick=()=>open(id,true)}
+function quick(kind,id){const s=sch(),b=s.B.find(x=>x.id===id),m=s.M.find(x=>x[0]===b.m),prev=b.state;let e;
+ if(kind==="release")e=ev(NOW,"credit.released",m[0],`${b.svc} · released`,"+"+b.n,"","admin",{pend:1,bk:b.id});
+ else if(b.n)e=ev(NOW,"credit.spent",m[0],`${b.svc} attended`,"−"+b.n,"","admin",{pend:1,bk:b.id});
+ else e=ev(NOW,"booking.outcome",m[0],`${b.svc} attended`,"","","admin",{pend:1,bk:b.id});
+ s.E.unshift(e);b.state="pending";render();if($("#dr").classList.contains("on"))open(m[0]);
+ toast(kind==="release"?`Hold released for ${m[1]}.`:`Attendance confirmed for ${m[1]}.`,{undo:()=>{s.E.splice(s.E.indexOf(e),1);b.state=prev;render();if($("#dr").classList.contains("on"))open(m[0]);toast("Undone.")}})}
+const ACT={
+ invoice:{t:"Send invoice",b:"Send invoice",prev:(v,m)=>`Stripe emails ${m[1]} an invoice for <b>${v.item}</b>. Credits are granted <b>only when it is paid</b>.`,done:m=>`Invoice sent to ${m[1]} via Stripe. It appears in the ledger when paid.`},
+ adjust:{t:"Adjust",b:"Apply",note:1,prev:(v,m,x)=>{const d=+v.delta;if(!d||!Number.isInteger(d))return"<b class=err>Enter a whole number other than 0.</b>";if(v.type==="Gift"&&d<0)return"<b class=err>A gift must be positive.</b>";if(m[4]+d<0)return`<b class=err>Would go below zero (${m[4]} available).</b>`;return`${m[1]}: <b>${m[4]} → ${m[4]+d}</b> available.${v.type==="Gift"?" Gift "+x.s.unit.other+" expire after 6 months.":""}`},ev:(v)=>["credit.adjusted",`${v.type} · ${v.note}`,(+v.delta>0?"+":"−")+Math.abs(+v.delta),""]},
+ refund:{t:"Refund a payment",b:"Refund in Stripe",note:1,
+  ok:(v,x)=>{const e=x.pays[v.pay];if(!e)return false;const a=parseFloat(v.amt)||0,l=x.left(e);return a>0&&a<=l+.004&&num(v.typed).toFixed(2)===a.toFixed(2)},
+  prev:(v,m,x)=>{const e=x.pays[v.pay];if(!e)return"<b class=err>This member has no payments to refund.</b>";const a=parseFloat(v.amt)||0,net=num(e.usd),refd=x.refd(e),rem=x.left(e),cu=x.s.cur;
+   if(rem<=.004)return`<b class=err>Nothing left to refund: ${money(refd,cu)} of ${money(net,cu)} was already refunded.</b>`;
+   if(!(a>0))return"<b class=err>Enter an amount above 0.</b>";
+   if(a>rem+.004)return`<b class=err>Only ${money(rem,cu)} is left to refund on this payment (${money(refd,cu)} already refunded, pending refunds included).</b>`;
+   const done=Math.abs(a-rem)<.005,tail=`<div class="mut">${money(refd,cu)} already refunded · ${money(rem-a,cu)} would remain.</div>`;
+   if(e.k==="booking")return(done?`Stripe refunds <b>${money(a,cu)}</b>. Booking <span class=mono>${e.bk}</span> is cancelled and the place is freed.`:`Stripe refunds <b>${money(a,cu)}</b>. The booking stays.`)+tail;
+   if(e.k==="gift")return`Stripe refunds <b>${money(a,cu)}</b>. ${done?"The gift code is disabled if it has not been redeemed.":"The gift code stays valid."}`+tail;
+   return(done?`Stripe refunds <b>${money(a,cu)}</b>. ${U(x.s)} from that invoice are taken back when Stripe confirms, never below zero.`:`Stripe refunds <b>${money(a,cu)}</b>. A <b>partial refund changes no ${x.s.unit.other}</b>.`)+tail},
+  ev:(v,m,x)=>{const e=x.pays[v.pay],a=parseFloat(v.amt)||0,done=Math.abs(a-x.left(e))<.005;return["payment.refunded",`${done?"Final":"Partial"} refund · ${v.note}`,"","−"+a.toFixed(2),{k:e.k==="booking"?"booking":"membership",bk:e.bk,pid:e.pid}]}},
+ release:{t:"Release hold",b:"Release hold",prev:(v,m,x)=>{const late=x.within&&x.s.rules.late==="spend"&&!v.waive;return late?`Inside the ${fmtCut(x.s,x.b)} cutoff, the school's rule <b>forfeits ${un(x.s,x.b.n)}</b>. Tick "Waive" to return them.`:`<b>${un(x.s,x.b.n)}</b> return to ${m[1]}'s available balance.`},ev:(v,m,x)=>{const late=x.within&&x.s.rules.late==="spend"&&!v.waive;return[late?"credit.forfeited":"credit.released",`${x.b.svc}${late?" · late cancel":" · released"}`,(late?"−":"+")+x.b.n,"",{bk:x.b.id}]}},
+ noshow:{t:"Mark no-show",b:"Mark no-show",prev:(v,m,x)=>!x.b.n?"No credits are involved. The no-show is recorded.":x.s.rules.noShow==="spend"?`Rule: a no-show spends the ${x.s.unit.other}. <b>${un(x.s,x.b.n)}</b> are spent.`:`Rule: a no-show releases the ${x.s.unit.other}. <b>${un(x.s,x.b.n)}</b> return to available.`,ev:(v,m,x)=>!x.b.n?["booking.outcome",`No-show, ${x.b.svc}`,"","",{bk:x.b.id}]:x.s.rules.noShow==="spend"?["credit.spent",`No-show, ${x.b.svc}`,"−"+x.b.n,"",{bk:x.b.id}]:["credit.released",`No-show released, ${x.b.svc}`,"+"+x.b.n,"",{bk:x.b.id}]},
+ code:{t:"Create promo",b:"Create promo",note:1,prev:(v,m,x)=>{const n=+v.val,ti=x.types.indexOf(v.type);if(!(n>0))return"<b class=err>Enter a value above 0.</b>";if(ti===0&&n>100)return"<b class=err>A percentage can't exceed 100.</b>";return ti===0?`Members get <b>${n}% off</b> membership tiers at checkout until ${v.exp}. ${U(x.s)} granted stay full. One code per checkout.`:ti===1?`A one-use Stripe promotion code worth <b>${money(n,x.s.cur)}</b>, expiring ${v.exp}. Nothing is booked until it is sold or redeemed.`:`Redeeming grants <b>${un(x.s,n)}</b> once, expiring ${v.exp}. No money moves in Stripe.`}}
+};
+function openAct(kind,id,pay){
+ const s=sch();let b=null,m=null;
+ if(["release","confirm","noshow"].includes(kind)){b=s.B.find(x=>x.id===id);m=s.M.find(x=>x[0]===b.m)}else if(kind!=="code")m=s.M.find(x=>x[0]===id);
+ if(kind==="audit")return audit(m);
+ const c=ACT[kind],x={s,b,within:b?isWithin(s,b):false,pays:{},types:["Member % off","Dollar gift certificate",`${cap(s.unit.one)} gift certificate`]};
+ let f=[],first=null;
+ if(kind==="invoice")f=[["item","Item","sel",[`Top-up pack · ${un(s,8)} · ${money(40,s.cur)}`,`Top-up pack · ${un(s,16)} · ${money(72,s.cur)}`,`Gift of ${un(s,4)} · ${money(60,s.cur)}`]],["memo","Memo (optional)","txt"]];
+ if(kind==="adjust")f=[["type","Type","sel",["Goodwill","Gift","Correction"]],["delta",`${U(s)} (negative to remove)`,"num","2"]];
+ if(kind==="code")f=[["type","Type","sel",x.types],["val",`Value (% off, dollars or ${s.unit.other})`,"num","10"],["exp","Expires","date","2026-12-31"]];
+ if(kind==="refund"){const ps=s.E.filter(e=>e.m===m[0]&&e.ty==="payment.succeeded"&&!e.pend);
+  x.refd=e=>s.E.filter(r=>r.ty==="payment.refunded"&&r.pid&&r.pid===e.pid).reduce((a,r)=>a+Math.abs(num(r.usd)),0);
+  x.left=e=>Math.max(0,num(e.usd)-x.refd(e));
+  ps.forEach(e=>{x.pays[`${e.tx} · ${money(num(e.usd),s.cur)} · ${x.refd(e)?`refunded ${money(x.refd(e),s.cur)}, ${money(x.left(e),s.cur)} left`:"not refunded"}`]=e});
+  const keys=Object.keys(x.pays);first=keys.find(k=>x.left(x.pays[k])>0)||keys[0];
+  if(pay){const k2=keys.find(k=>x.pays[k].bk===pay||x.pays[k].pid===pay);if(k2)first=k2}
+  f=[["pay","Payment","sel",keys],["amt",`Amount (${s.cur}, up to what is left)`,"num",first?x.left(x.pays[first]).toFixed(2):"0"],["typed","Type the refund amount to confirm","txt"]]}
+ if(kind==="release"&&x.within&&s.rules.late==="spend")f=[["waive","Waive the late-cancel forfeit (return the "+s.unit.other+")","chk"]];
+ const fld=f.map(([k,l,ty,d])=>ty==="chk"?`<div class="fld c"><label><input id="f_${k}" type="checkbox"> ${l}</label></div>`:`<div class="fld"><label for="f_${k}">${l}</label>${ty==="sel"?`<select id="f_${k}">${opt(d)}</select>`:ty==="num"?`<input id="f_${k}" type="number" step="0.01" value="${d}">`:ty==="date"?`<input id="f_${k}" type="date" value="${d}">`:`<input id="f_${k}" type="text" autocomplete="off">`}</div>`).join("");
+ const note=c.note?`<div class="fld"><label for="f_note">Note (required)</label><textarea id="f_note" placeholder="Why, and who asked"></textarea></div>`:"";
+ modal(`<h3 id="mt">${kind==="adjust"?"Adjust "+s.unit.other:c.t} · ${s.name}</h3><div class="mut">${b?`${b.svc} · ${b.id} · `:""}${m?`${m[1]} · ${m[0]}`:"New promo"}</div>${fld}${note}<div class="prev" id="pv"></div><div class="mf"><button class="btn" id="mc">Cancel</button><button class="btn p" id="mo">${c.b}</button></div>`);
+ if(kind==="refund"&&first)$("#f_pay").value=first;
+ const val=()=>{const v={};f.forEach(([k,,ty])=>v[k]=ty==="chk"?$("#f_"+k).checked:$("#f_"+k).value);if(c.note)v.note=$("#f_note").value.trim();return v};
+ const upd=()=>{const v=val(),p=c.prev(v,m,x);$("#pv").innerHTML=p;$("#mo").disabled=p.includes("class=err")||(c.note&&v.note.length<3)||(c.ok&&!c.ok(v,x))};
+ $$("#md input,#md select,#md textarea").forEach(e=>{e.oninput=upd;e.onchange=upd});
+ if(kind==="refund"){$("label[for=f_amt]").insertAdjacentHTML("beforeend",' <button type="button" class="link" id="fillrest" style="margin-left:6px">Refund the rest</button>');
+  $("#fillrest").onclick=()=>{$("#f_amt").value=x.left(x.pays[$("#f_pay").value]).toFixed(2);upd()};
+  $("#f_pay").onchange=()=>{$("#f_amt").value=x.left(x.pays[$("#f_pay").value]).toFixed(2);upd()}}
+ upd();
+ $("#mc").onclick=closeM;
+ $("#mo").onclick=()=>{const v=val();closeM();
+  if(kind==="code"){const n=+v.val,ti=x.types.indexOf(v.type),t=["member","dollar","session"][ti],txt=["CODE","GIFT","SESS"][ti]+Math.floor(Math.random()*9000+1000);
+   const k={id:"c_"+Date.now(),code:txt,type:t,val:n,used:0,max:t==="member"?0:1,exp:v.exp,status:"active"};s.K.unshift(k);codes();promoDone(k,s);return}
+  if(c.ev){const[type,text,cr,usd,xs]=c.ev(v,m,x);s.E.unshift(ev(NOW,type,m?m[0]:"—",text,cr,usd,"admin",{pend:1,...(xs||{})}));if(b)b.state="pending"}
+  toast(c.done?c.done(m):"Sent. It shows as pending, then in the ledger after the next ship (≤5 min).");
+  render();if($("#dr").classList.contains("on")&&m)open(m[0])};
+}
+function promoDone(k,s){const gift=k.type!=="member";
+ modal(`<h3 id="mt">${ic("tag")} Promo created · ${s.name}</h3><div class="mut">${ktype(s,k.type)} · ${kval(k,s)} · expires ${k.exp}</div><div class="codebig mono" id="cd">${k.code}</div>
+ <div class="row2"><button class="btn p" data-toast="Code ${k.code} copied.">${ic("copy")}Copy code</button><button class="btn" data-toast="Checkout link copied.">${ic("ext")}Copy checkout link</button></div>
+ <p class="mut" style="margin:10px 0 0">The full code is shown only now. Later it appears masked (${mask(k.code)}); an owner can still reveal it.</p>
+ ${gift?`<div class="fld"><label for="f_em">Email it to the recipient (optional)</label><div class="row2"><input id="f_em" type="email" placeholder="name@example.com" style="flex:1"><button class="btn" id="sendem" disabled>${ic("mail")}Send</button></div></div>`:""}
+ <div class="mf"><button class="btn p" id="pdone">Done</button></div>`);
+ $("#pdone").onclick=closeM;const em=$("#f_em");if(em){em.oninput=()=>$("#sendem").disabled=!/.+@.+\..+/.test(em.value);$("#sendem").onclick=()=>{toast(`Sent to ${em.value}.`);em.value="";$("#sendem").disabled=true}}}
+function closeM(){$("#bg").classList.remove("on")}
+function audit(m){const s=sch(),bad=m[0]==="m_117";
+ const S2=[[1,"Read 14 events from 3 batches; 2 repeats dropped"],[1,"Every batch file matches the hash in its name"],[1,"Replay through the engine reproduces each recorded change"],bad?[0,"Replayed balance <b>4</b> ≠ live balance <b>2</b>. A command is missing from the log (revision gap at r17)."]:[1,`Replayed balance <b>${m[4]}</b> equals live balance`],[1,`Held ${s.unit.other} match open bookings`],[1,"Stripe reconcile: all payments and refunds matched"]];
+ modal(`<h3 id="mt">${ic("check")} Audit ${m[1]}</h3><div class="mut">Replays the event log and compares it with the live balance and Stripe</div><ul class="steps" id="st"></ul><div class="prev" id="av" style="display:none"></div><div class="mf"><button class="btn" id="ac">Close</button><button class="btn" data-toast="audit-${m[0]}.json downloaded.">${ic("download")}Export report</button></div>`);
+ $("#ac").onclick=closeM;
+ S2.forEach(([ok,t],i)=>{setTimeout(()=>{if(!$("#st"))return;$("#st").insertAdjacentHTML("beforeend",`<li><span class="${ok?"ok":"no"}">${ic(ok?"check":"xc")}</span><span>${t}</span></li>`);
+  if(i===S2.length-1){const a=$("#av");a.style.display="block";a.innerHTML=bad?"<b class=err>1 problem.</b> Don't adjust the balance by hand yet: restore the missing command, then re-run.":"<b class=ok>Clean.</b> Log, balance and Stripe agree."}},300*(i+1))})}
+
+function checkCustom(){const f=$("#cf").value,t=$("#ct").value,bad=!f||!t||f>t;$("#capply").disabled=bad;$("#cnote").textContent=!f||!t?"Pick both dates.":f>t?"Start is after the end.":""}
+document.addEventListener("click",e=>{
+ const tg=e.target;
+ if(!tg.closest(".pw"))closeP();
+ if(tg.closest(".undo")){const f=undoFn;undoFn=null;if(f)f();return}
+ if(tg.closest("[data-close]")||tg.id==="bg"){closeM();return}
+ if(tg.closest("#sw")){const o=$("#sp").classList.contains("on");closeP();if(!o){$("#sp").classList.add("on");$("#sq").focus()}return}
+ if(tg.closest("#pb")){const o=$("#pp").classList.contains("on");closeP();if(!o){$("#pp").classList.add("on");checkCustom()}return}
+ if(tg.closest("#hb")){const o=$("#hp").classList.contains("on");closeP();if(!o)$("#hp").classList.add("on");return}
+ if(tg.closest("#gb")){closeP();const on=$("#set").classList.contains("on");closeDrawers();if(!on){settings();$("#set").classList.add("on")}return}
+ const th=tg.closest("[data-theme]");if(th){theme=th.dataset.theme;applyTheme();settings();return}
+ if(tg.closest("#setx")){$("#set").classList.remove("on");return}
+ if(tg.closest("#drx")){$("#dr").classList.remove("on");return}
+ if(tg.closest("#pex")||tg.closest("#pcancel")){ed=null;$("#pe").classList.remove("on");return}
+ if(tg.closest("#psave")){savePE();return}
+ const vmo=tg.closest("[data-vm]");if(vmo){const id=vmo.dataset.vm;vm={id,theme:vm?vm.theme:"b4u",tab:"home",admin:vm?vm.admin:true};closeDrawers();render();return}
+ if(tg.closest("#vmx")){vm=null;render();return}
+ const vtb=tg.closest("[data-vtab]");if(vtb){vm.tab=vtb.dataset.vtab;drawVM();return}
+ if(tg.closest("#vemb")){embedModal();return}
+ const vac=tg.closest("[data-vact]");if(vac&&!vac.disabled){vAct(vac.dataset.vact,vac.dataset.pk);return}
+ if(tg.closest("[data-vled]")){const s=sch(),id=vm.id,m=s.M.find(x=>x[0]===id);xf={label:`Member ${m[1]}`,fn:e=>e.m===id};P={from:"2026-01-01",to:TODAY,k:"ytd"};tab="led";vm=null;$$(".f[data-t]").forEach(x=>x.classList.toggle("on",x.dataset.t===""));render();return}
+ const dvb=tg.closest("[data-dv]");if(dvb){dv=dvb.dataset.dv;dashboard();return}
+ const dmb=tg.closest("[data-dm]");if(dmb){dm=+dmb.dataset.dm;dashboard();plans();return}
+ const dst=tg.closest("[data-dstep]");if(dst){dm=Math.min(11,Math.max(0,dm+ +dst.dataset.dstep));dashboard();plans();return}
+ const dsb=tg.closest("[data-dsc]");if(dsb){dsc=dsb.dataset.dsc;dashboard();plans();return}
+ const su=tg.closest("[data-setup]");if(su&&!su.disabled){doSetup(su.dataset.setup);return}
+ const pmd=tg.closest("[data-pmode]");if(pmd){sch().plMode=pmd.dataset.pmode;plans();return}
+ const plv=tg.closest("[data-plv]");if(plv){sch().plView=plv.dataset.plv;plans();return}
+ const pyr=tg.closest("[data-pyr]");if(pyr&&!pyr.disabled){pv.yr=pyr.dataset.pyr==="1";plans();return}
+ const psz=tg.closest("[data-psz]");if(psz){const[id,q]=psz.dataset.psz.split(":");pv.size[id]=+q;plans();return}
+ if(tg.closest("#papply")){pv.code=$("#pcode").value.trim().toUpperCase();plans();return}
+ if(tg.closest("#pcode"))return;
+ if(tg.closest("[data-pvx]")){toast("Preview only. Members would continue to Stripe Checkout.");return}
+ const pm=tg.closest("[data-pm]");if(pm){planF=pm.dataset.pm;tab="mem";closeDrawers();$$(".f[data-s]").forEach(x=>x.classList.toggle("on",x.dataset.s===""));render();return}
+ const gm=tg.closest("[data-gom]");if(gm){planF=null;tab="mem";closeDrawers();$$(".f[data-s]").forEach(x=>x.classList.toggle("on",x.dataset.s===gm.dataset.gom));render();return}
+ if(tg.closest("#pfx")){planF=null;members();return}
+ const bc=tg.closest("[data-b]");if(bc){bF=bc.dataset.b;bookings();return}
+ const bpr=tg.closest("[data-bp]");if(bpr){const[k,o]=bpr.dataset.bp.split(":");bPer={k,off:+o};bookings();return}
+ const bsp=tg.closest("[data-bstep]");if(bsp){bPer={k:bPer.k,off:bPer.off+ +bsp.dataset.bstep};bookings();return}
+ const bkl=tg.closest("[data-bulk]");if(bkl){bulkConfirm(bkl.dataset.bulk);return}
+ const sc=tg.closest("[data-sc]");if(sc){setSchool(sc.dataset.sc);return}
+ const pk=tg.closest("[data-pk]");if(pk){const p=PRE.find(x=>x[0]===pk.dataset.pk);P={from:p[2],to:p[3],k:p[0]};closeP();render();return}
+ if(tg.closest("#capply")){P={from:$("#cf").value,to:$("#ct").value,k:"cus"};closeP();render();return}
+ const dd=tg.closest("[data-dd]");if(dd){drill(dd.dataset.dd);return}
+ const pe=tg.closest("[data-pe]");if(pe){editPlan(pe.dataset.pe,false);return}
+ const pn=tg.closest("[data-pnew]");if(pn&&!pn.disabled){editPlan(pn.dataset.pnew+":",true);return}
+ if(tg.closest("#gadd")){const g=ed.t.grants;g.push({n:1,every:ed.kind==="tiers"?"month":"once",roll:0});drawPE();return}
+ const gd=tg.closest("[data-gdel]");if(gd&&!gd.disabled){ed.t.grants.splice(+gd.dataset.gdel,1);drawPE();return}
+ if(tg.closest("#pdisc")){const s=sch();s.pl.draft=clone(s.pl.pub);render();toast("Draft discarded.");return}
+ if(tg.closest("#prev")&&!tg.closest("#prev").disabled){reviewModal();return}
+ const st=tg.closest("[data-set]");if(st){closeDrawers();settings();$("#set").classList.add("on");return}
+ if(tg.closest("#cmk")){const o=$("#cmm").classList.contains("on");closeP();if(!o)$("#cmm").classList.add("on");return}
+ const nw=tg.closest("[data-new]");if(nw){closeP();newItem(nw.dataset.new);return}
+ const bs=tg.closest("[data-basis]");if(bs&&!bs.disabled){sch().basisSel=bs.dataset.basis;settings();return}
+ if(tg.closest("#bsave")&&!tg.closest("#bsave").disabled){const s=sch();s.basis=s.basisSel;s.basisFrom=$("#bfrom").value;settings();reports();toast(`Accounting basis saved: ${s.basis==="cash"?"cash":"deferred"} from ${nice(s.basisFrom)}. Logged as a policy change.`);return}
+ const r2=tg.closest("[data-rev2]");if(r2&&!r2.disabled){const s=sch(),k=s.keys.find(x=>x.id===r2.dataset.rev2);modal(`<h3>Revoke this ${k.kind==="rd"?"credential":"key"}?</h3><p class="mut"><span class="mono">${k.prefix}…</span> (${k.label}). Anything using it stops working at once. This can't be undone.</p><div class="mf"><button class="btn" data-close>Cancel</button><button class="btn d" id="rgo">${ic("trash")}Revoke</button></div>`);$("#rgo").onclick=()=>{s.keys.splice(s.keys.indexOf(k),1);closeM();settings();toast("Revoked.")};return}
+ if(tg.closest("[data-chk]")){permModal(sch());return}
+ if(tg.closest("[data-skey]")){stripeModal(sch());return}
+ if(tg.closest("[data-srm]")){const s=sch();removeModal("the Stripe key",()=>{s.stripe={connected:false,missing:[]}});return}
+ if(tg.closest("[data-zkey]")){zeffyModal(sch());return}
+ if(tg.closest("[data-zrm]")){const s=sch();removeModal("the Zeffy key",()=>{s.zeffy={connected:false}});return}
+ const a=tg.closest("[data-act]");if(a&&!a.disabled){closeP();const k=a.dataset.act,s=sch();
+  if(k==="confirm"||(k==="release"&&!(isWithin(s,s.B.find(b=>b.id===a.dataset.id))&&s.rules.late==="spend")))quick(k,a.dataset.id);else openAct(k,a.dataset.id,a.dataset.pay);return}
+ const rv=tg.closest("[data-rev]");if(rv){const i=rv.dataset.rev;revealed.has(i)?revealed.delete(i):revealed.add(i);codes();return}
+ const ds=tg.closest("[data-dis]");if(ds){const k=sch().K.find(x=>x.id===ds.dataset.dis);k.status="disabled";render();toast(`Promo ${mask(k.code)} disabled. It stops working at checkout now.`);return}
+ const rd=tg.closest("[data-red]");if(rd){const id=rd.dataset.red,s=sch();xf={label:`Promo ${cname(s,id)}`,fn:e=>e.code===id};P={from:"2026-01-01",to:TODAY,k:"ytd"};tab="led";$$(".f[data-t]").forEach(x=>x.classList.toggle("on",x.dataset.t===""));render();return}
+ if(tg.closest("#cfx")){xf=null;ledger();return}
+ const g=tg.closest("[data-go]");if(g){tab=g.dataset.go;closeDrawers();render();return}
+ const t=tg.closest("[data-toast]");if(t){closeP();toast(t.dataset.toast)}
+});
+document.addEventListener("input",e=>{
+ if(e.target.id==="sq"){const q=e.target.value.toLowerCase();$$("#sp .it").forEach(b=>b.hidden=!b.dataset.n.includes(q))}
+ if(e.target.id==="cf"||e.target.id==="ct")checkCustom()});
+document.addEventListener("change",e=>{if(e.target.id==="cmpc"){cmp=e.target.checked;render();$("#pp").classList.add("on")}
+ if(e.target.id==="vth"&&vm){vm.theme=e.target.value;drawVM()}
+ if(e.target.id==="vad"&&vm){vm.admin=e.target.checked;drawVM()}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){const mo=$("#bg").classList.contains("on");closeM();closeP();if(ed){ed=null;$("#pe").classList.remove("on")}else if(!mo&&vm){vm=null;drawVM()}}
+ if(e.key==="Enter"&&e.target.classList&&e.target.classList.contains("pcard"))e.target.click();
+ if(e.key==="Enter"&&e.target.id==="pcode")$("#papply").click()});
+$("#pprev").onclick=()=>{P=shifted(P,-1);render()};
+$("#pnext").onclick=()=>{P=shifted(P,1);render()};
+$$(".tab").forEach(b=>b.onclick=()=>{tab=b.dataset.p;closeDrawers();render()});
+$("#q").oninput=members;
+$("#newcode").onclick=()=>openAct("code");
+$$(".f[data-s]").forEach(f=>f.onclick=()=>{$$(".f[data-s]").forEach(x=>x.classList.toggle("on",x===f));members()});
+$$(".f[data-t]").forEach(f=>f.onclick=()=>{$$(".f[data-t]").forEach(x=>x.classList.toggle("on",x===f));ledger()});
+$("#mb").onclick=e=>{if(e.target.closest("[data-vm]"))return;const r=e.target.closest("tr.row");if(r)open(r.dataset.id)};
+$("#bb").onclick=e=>{if(e.target.closest("button"))return;const r=e.target.closest("tr.row");if(r)open(r.dataset.bm)};
+$("#lb").onclick=e=>{const r=e.target.closest("tr.row");if(r){const d=r.nextElementSibling;d.hidden=!d.hidden}};
+$("#lcsv").onclick=()=>toast(`ledger-${P.from}_${P.to}.csv downloaded (this period only).`);
+$("#rdl").onclick=()=>toast(`Income statement, ${plabel(P.from,P.to)}, downloaded.`);
+$$("[data-ic]").forEach(el=>el.insertAdjacentHTML("afterbegin",ic(el.dataset.ic)));
+render();
+</script></body></html>

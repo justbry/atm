@@ -3,17 +3,27 @@
  * must match the committed goldens in tests/golden/scenarios/. `UPDATE_GOLDEN=1` rewrites the goldens (review the diff).
  * A channel whose binary is missing is skipped by `runParity`, so this suite passes without hledger or DuckDB and proves
  * parity wherever they are installed.
+ *
+ * The channels read the events back from a folder after the real write path (outbox, ship, readEvents), not the
+ * generator's in-memory list: a fixture whose events the outbox drops (two commands under one id) fails here.
  */
+import { Database } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { bunSqlite } from "../src/handler/bun-sqlite.js";
+import { HANDLER_DDL } from "../src/handler/schema.js";
+import { readEvents } from "../src/ledger/files.js";
+import { appendToOutbox } from "../src/ledger/outbox.js";
+import { shipOutbox } from "../src/ledger/ship.js";
 import { buildFixture } from "../src/scenario/fixture.js";
 import { type KpiRow, kpiHash } from "../src/scenario/kpis.js";
 import { runParity } from "../src/scenario/parity.js";
 import { PROFILE_NAMES } from "../src/scenario/profiles.js";
 import { summaryOf } from "../src/scenario/summary.js";
+import { FolderStore } from "../src/store/folder-store.js";
 import type { AtmEvent } from "../src/types.js";
-import { hasDuckdb, hasHledger } from "./helpers.js";
+import { hasDuckdb, hasHledger, tmp } from "./helpers.js";
 
 const GOLDEN = join(import.meta.dir, "golden/scenarios");
 
@@ -47,12 +57,37 @@ const goldenOf = (
 	skippedNonUsd: fixture.stats.skipped.non_usd ?? 0,
 });
 
+const SHIPPED_AT = 1_700_000_000_000;
+
+/** The events as the books will read them: appended to an outbox, shipped to a folder, read back. */
+const readBack = async (events: readonly AtmEvent[]): Promise<AtmEvent[]> => {
+	const school = events[0]?.school;
+	if (school === undefined) return [];
+	const db = bunSqlite(new Database(":memory:"));
+	db.exec(HANDLER_DDL);
+	appendToOutbox(db, events, "live");
+	const root = await tmp("scenario-read-back");
+	try {
+		const shipped = await shipOutbox({
+			db,
+			store: new FolderStore({ root }),
+			school,
+			nowMs: () => SHIPPED_AT,
+		});
+		expect(shipped.conflicts).toEqual([]);
+		return (await readEvents(root, school)).events;
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+};
+
 const check = async (input: unknown) => {
 	const fixture = buildFixture(input);
-	const parity = await runParity({
-		events: fixture.events,
-		periods: fixture.periods,
-	});
+	const events = await readBack(fixture.events);
+	expect(events.map((e) => e.idem).sort()).toEqual(
+		fixture.events.map((e) => e.idem).sort(),
+	);
+	const parity = await runParity({ events, periods: fixture.periods });
 	const ran = parity.runs.filter((r) => r.status === "ok");
 	expect(ran.length).toBeGreaterThanOrEqual(1);
 	if (parity.mismatches.length > 0)
