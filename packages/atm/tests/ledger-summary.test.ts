@@ -256,6 +256,25 @@ describe("the catalog from the log itself", () => {
 		).toBeGreaterThan(0);
 		expect(derived.members[SCHOOL]).toBeUndefined();
 	});
+
+	test("a catalog.published menu the commodity rules cannot read is no-catalog, not a throw", () => {
+		for (const badMenu of [{}, { features: [] }]) {
+			const published = ledgerEvent({
+				type: "catalog.published",
+				school: SCHOOL,
+				tz: menu.timeZone,
+				eventTime: Date.UTC(2026, 0, 1),
+				key: SCHOOL,
+				idem: "settings:catalog:bad",
+				payload: { menu: badMenu, version: 1 },
+			});
+			const result = membersOf([published], new Date(T0));
+			expect(result).toMatchObject({
+				ok: false,
+				error: { kind: "no-catalog" },
+			});
+		}
+	});
 });
 
 describe("membersOf on a hand-built log", () => {
