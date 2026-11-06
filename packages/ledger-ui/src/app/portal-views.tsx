@@ -753,10 +753,12 @@ function HistoryCard({
 					<table class="mpt k">
 						<thead>
 							<tr>
-								<th>Date</th>
-								<th>Description</th>
-								<th class="r">Amount</th>
-								<th>Status</th>
+								<th scope="col">Date</th>
+								<th scope="col">Description</th>
+								<th scope="col" class="r">
+									Amount
+								</th>
+								<th scope="col">Status</th>
 							</tr>
 						</thead>
 						<tbody>{body}</tbody>

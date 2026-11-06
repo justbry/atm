@@ -63,7 +63,8 @@ export function QuantityDialog({
 	const selectId = useId();
 	const options = viewed.quantityOptions ?? [];
 	const price = formatMoney(
-		options.find((option) => option.quantity === chosen)?.priceCents ?? 0,
+		options.find((option) => option.quantity === chosen)?.priceCents ??
+			plan.priceCents,
 		school.currency,
 	);
 	const unit = school.creditUnit.other;

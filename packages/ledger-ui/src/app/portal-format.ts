@@ -1,4 +1,11 @@
-import type { PortalMember, PortalUnit } from "../data/portal.ts";
+import type { CsvColumn } from "../data/ledger.ts";
+import {
+	historyCsvColumns,
+	type PortalHistoryRow,
+	type PortalMember,
+	type PortalUnit,
+	paymentStatusLabels,
+} from "../data/portal.ts";
 import type { School } from "../data/types.ts";
 import { monthAndDay } from "./period.ts";
 
@@ -65,3 +72,28 @@ export function planOf(
 		waiting: member.pendingChange || change?.waiting === true,
 	};
 }
+
+const historyCsvCells: Record<
+	string,
+	Pick<CsvColumn<PortalHistoryRow>, "kind" | "value">
+> = {
+	date: { kind: "text", value: (row) => row.date },
+	member: { kind: "text", value: (row) => row.profileId },
+	description: { kind: "text", value: (row) => row.description },
+	amount: { kind: "money", value: (row) => row.amountCents },
+	currency: { kind: "text", value: (row) => row.currency },
+	status: { kind: "text", value: (row) => paymentStatusLabels[row.status] },
+	invoice_id: { kind: "text", value: (row) => row.invoiceId },
+	payment_id: { kind: "text", value: (row) => row.paymentId },
+};
+
+/** The history download's columns for the shared CSV helper: the contract's `historyCsvColumns` names them and their
+ * order, this gives each its kind and the row's value. */
+export const historyCsvColumnsOf = (
+	family: boolean,
+): Array<CsvColumn<PortalHistoryRow>> =>
+	historyCsvColumns(family).map((header) => {
+		const cell = historyCsvCells[header];
+		if (!cell) throw new Error(`No value for the history CSV column ${header}`);
+		return { header, ...cell };
+	});

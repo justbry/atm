@@ -3,6 +3,7 @@ import type { ComponentType, JSX } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import type { BooksPaneProps } from "./books-pane.ts";
 import type { AudienceMove, PlansSession } from "./plans-menu.ts";
+import type { Change } from "./portal-format.ts";
 import type { SchoolTab } from "./route.ts";
 
 /** Everything a pane may be given; each takes the props it names. */
@@ -17,6 +18,14 @@ export type PaneProps = BooksPaneProps & {
 	onPendingBookings: (
 		schoolId: string,
 		update: (before: ReadonlySet<string>) => ReadonlySet<string>,
+	) => void;
+	/** The member portal's membership changes (Change amount, Cancel membership, Resume) that are on their way or made, by
+	 * profile id: the shell keeps them so that leaving the portal and opening it again does not give back a button whose
+	 * write was already sent. */
+	membershipChanges: Record<string, Change>;
+	onMembershipChanges: (
+		schoolId: string,
+		update: (before: Record<string, Change>) => Record<string, Change>,
 	) => void;
 	/** The tiers of this school a publish gave another audience, by tier id: the shell keeps them so that the member
 	 * portal reads the new audience, with a notice, until the Reader says it. */

@@ -16,6 +16,7 @@ import { CoreIcon, type CoreIconName } from "./core-icon.tsx";
 import type { PaneName } from "./panes.tsx";
 import { parsePeriod, snapPeriod } from "./period.ts";
 import type { AudienceMove, PlansSession } from "./plans-menu.ts";
+import type { Change } from "./portal-format.ts";
 import {
 	allSchools,
 	type Route,
@@ -82,6 +83,7 @@ function useLazy<Loaded>(
 }
 const noAudienceMoves: Record<string, AudienceMove> = {};
 const noPendingBookings: ReadonlySet<string> = new Set();
+const noMembershipChanges: Record<string, Change> = {};
 const loadPanes = () => import("./panes.tsx");
 const loadMenus = () => import("./menus.tsx");
 const loadSettings = () => import("./settings.tsx");
@@ -148,6 +150,21 @@ export function Shell({
 			setPendingBookings((kept) => ({
 				...kept,
 				[schoolId]: update(kept[schoolId] ?? noPendingBookings),
+			})),
+		[],
+	);
+	/** Each school's membership changes the member portal sent, by profile id, kept for the life of the mount. */
+	const [membershipChanges, setMembershipChanges] = useState<
+		Record<string, Record<string, Change>>
+	>({});
+	const keepMembershipChanges = useCallback(
+		(
+			schoolId: string,
+			update: (before: Record<string, Change>) => Record<string, Change>,
+		) =>
+			setMembershipChanges((kept) => ({
+				...kept,
+				[schoolId]: update(kept[schoolId] ?? noMembershipChanges),
 			})),
 		[],
 	);
@@ -370,6 +387,10 @@ export function Shell({
 							onSession={keepPlanSession}
 							pendingBookings={pendingBookings[school.id] ?? noPendingBookings}
 							onPendingBookings={keepPendingBookings}
+							membershipChanges={
+								membershipChanges[school.id] ?? noMembershipChanges
+							}
+							onMembershipChanges={keepMembershipChanges}
 							audienceMoves={audienceMoves[school.id] ?? noAudienceMoves}
 							onAudienceMoves={keepAudienceMoves}
 							onOpenSettings={() => setSettingsOpen(true)}

@@ -1206,7 +1206,7 @@ tr.tot td {
 	min-height: 18px;
 }
 .vm {
-	position: absolute;
+	position: fixed;
 	inset: 0;
 	background: var(--background);
 	z-index: 85;
@@ -1485,7 +1485,12 @@ tr.tot td {
 		display: block;
 	}
 	.mpt.k thead {
-		display: none;
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
+		white-space: nowrap;
 	}
 	.mpt.k tr.k-r {
 		display: grid;

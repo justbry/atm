@@ -4,10 +4,10 @@ import {
 	useEffect,
 	useId,
 	useLayoutEffect,
+	useRef,
 	useState,
 } from "preact/hooks";
 import type { KpiDocument } from "../data/kpi-document.ts";
-import { type HistoryCsvRow, historyColumns } from "../data/ledger.ts";
 import {
 	type HistoryPeriod,
 	historyCsvFileName,
@@ -16,15 +16,11 @@ import {
 	type PortalBooking,
 	type PortalHistoryRow,
 	type PortalMember,
-	paymentStatusLabels,
 	portalFrameVariables,
 	type SiteThemeId,
 	siteThemeIds,
 	siteThemes,
 } from "../data/portal.ts";
-import type { Reader } from "../data/reader.ts";
-import type { Clock, School } from "../data/types.ts";
-import type { Writer } from "../data/writer.ts";
 import { endSentence, failedToast } from "./booking-text.ts";
 import { saveFile } from "./download.ts";
 import { saveCsv } from "./download-button.tsx";
@@ -32,14 +28,19 @@ import { Icon, type IconName } from "./icon.tsx";
 import { LockPanel } from "./lock-panel.tsx";
 import { rosterLock, viewerOf } from "./members-model.ts";
 import { formatMoney } from "./money.ts";
-import type { AudienceMove } from "./plans-menu.ts";
+import { Pane, type PaneProps } from "./panes.tsx";
 import {
 	CancelDialog,
 	EmbedDialog,
 	QuantityDialog,
 	ResumeDialog,
 } from "./portal-dialogs.tsx";
-import { type Change, count, planOf } from "./portal-format.ts";
+import {
+	type Change,
+	count,
+	historyCsvColumnsOf,
+	planOf,
+} from "./portal-format.ts";
 import {
 	BillingTab,
 	BookingsTab,
@@ -51,7 +52,7 @@ import {
 	type PortalTab,
 	publishedPeriod,
 } from "./portal-views.tsx";
-import { type Route, withQuery } from "./route.ts";
+import { withQuery } from "./route.ts";
 import { keepLoading } from "./use-loaded.ts";
 import { useViewing } from "./viewing.ts";
 
@@ -72,6 +73,28 @@ const portalParameters = [
 	"history",
 	"historyAll",
 ];
+
+const focusReturnMilliseconds = 3000;
+
+/** Exit hands the page back to the Members tab, whose roster loads again. Once the person's row is there, focus goes to
+ * its ⋯ button (else its name button), as a dialog returns it to the control that opened it; if focus has gone
+ * somewhere else meanwhile, it stays there. */
+function returnFocusToRow(profileId: string): void {
+	const row = `[data-test=member-row][data-id="${profileId.replaceAll('"', '\\"')}"]`;
+	const opener = (): HTMLElement | null =>
+		document.querySelector<HTMLElement>(
+			`${row} [data-test=member-menu-button]`,
+		) ?? document.querySelector<HTMLElement>(`${row} .member-open`);
+	const watcher = new MutationObserver(() => {
+		const found = opener();
+		if (!found) return;
+		watcher.disconnect();
+		const focused = document.activeElement;
+		if (!focused || focused === document.body) found.focus();
+	});
+	watcher.observe(document.body, { childList: true, subtree: true });
+	setTimeout(() => watcher.disconnect(), focusReturnMilliseconds);
+}
 
 /** `portalTab=overview|bookings|billing|family` (absent: overview). */
 const readTab = (query: URLSearchParams): PortalTab =>
@@ -95,22 +118,6 @@ type Loaded = {
 
 type Dialog = "quantity" | "cancel" | "resume" | "embed";
 
-type PaneProps = {
-	reader: Reader;
-	writer: Writer;
-	school: School;
-	clock: Clock;
-	route: Route;
-	navigate: (route: Route) => void;
-	/** Called after each render that shows what the route asks for. */
-	onRendered: () => void;
-	onToast: (text: string) => void;
-	/** The tiers of this school a publish gave another audience, by tier id (kept by the shell). */
-	audienceMoves: Record<string, AudienceMove>;
-	/** Says whether the portal covers the page, so the shell can put what it covers out of reach. */
-	onShownChange: (shown: boolean) => void;
-};
-
 /** What takes the Members pane while `portal=` is in the route (mockup `#vm`): the member portal for the audiences that
  * see the roster, else the lock panel that stands in for it. */
 export function PortalPane(props: PaneProps): JSX.Element {
@@ -130,20 +137,27 @@ export function PortalPane(props: PaneProps): JSX.Element {
 /** The member portal (mockup `drawVM`): one person's view as the server scopes it, in the school's site theme.
  * The preview bar, the scope banner and the note are the admin's; inside the frame is exactly what the member sees.
  * Changes the member asks for are sent through the Writer and shown as "on its way" until the Reader says them. */
-function Portal({
-	reader,
-	writer,
-	school,
-	clock,
-	route,
-	navigate,
-	onRendered,
-	onToast,
-	onShownChange,
-	preview,
-	finance,
-	audienceMoves,
-}: PaneProps & { preview: boolean; finance: boolean }): JSX.Element | null {
+function Portal(
+	props: PaneProps & { preview: boolean; finance: boolean },
+): JSX.Element | null {
+	const {
+		reader,
+		writer,
+		school,
+		clock,
+		route,
+		navigate,
+		onRendered,
+		onToast,
+		onShownChange,
+		preview,
+		finance,
+		audienceMoves,
+		membershipChanges: changes,
+		onMembershipChanges,
+		pendingBookings,
+		onPendingBookings,
+	} = props;
 	const profileId = route.query.get("portal") ?? "";
 	const tab = readTab(route.query);
 	const themeId = readTheme(route.query);
@@ -151,12 +165,9 @@ function Portal({
 	const expanded = route.query.get("historyAll") === "1";
 	const key = `${school.id}/${profileId}`;
 	const [loaded, setLoaded] = useState<Loaded | null>(null);
-	const [changes, setChanges] = useState<Record<string, Change>>({});
-	const [pendingBookings, setPendingBookings] = useState<ReadonlySet<string>>(
-		new Set(),
-	);
 	const [dialog, setDialog] = useState<Dialog | null>(null);
 	const themeSelectId = useId();
+	const tabsId = useId();
 	useEffect(() => {
 		let current = true;
 		const load = async (): Promise<void> => {
@@ -166,9 +177,10 @@ function Portal({
 			});
 			let figures: KpiDocument | null = null;
 			let publicYear = "";
-			if (portal) {
-				const options = await reader.dashboardOptions();
-				const preset = options.presets[0].id;
+			const preset = portal
+				? (await reader.dashboardOptions()).presets[0]?.id
+				: undefined;
+			if (portal && preset !== undefined) {
 				const read = (audience: "public" | "member") =>
 					reader.kpiDocument({
 						school: school.id,
@@ -211,23 +223,31 @@ function Portal({
 				}
 			: loadedPortal;
 	const visible = Boolean(portal && viewed);
+	/** A portal= with no such person shows the Members tab without a portal (mockup `drawVM`): that pane reports its own
+	 * render. */
+	const missing = Boolean(shown) && !visible;
 	useLayoutEffect(() => {
-		if (shown) onRendered();
+		if (shown && visible) onRendered();
 	});
+	const viewingBar = useRef<HTMLSpanElement>(null);
+	const profileShown = visible ? profileId : null;
+	useEffect(() => {
+		if (profileShown !== null)
+			viewingBar.current?.focus({ preventScroll: true });
+	}, [profileShown]);
 	useEffect(() => {
 		onShownChange(visible);
 		return () => onShownChange(false);
 	}, [visible, onShownChange]);
-	const exit = useCallback(
-		() =>
-			navigate(
-				portalParameters.reduce(
-					(next, name) => withQuery(next, name, null),
-					route,
-				),
+	const exit = useCallback(() => {
+		returnFocusToRow(profileId);
+		navigate(
+			portalParameters.reduce(
+				(next, name) => withQuery(next, name, null),
+				route,
 			),
-		[navigate, route],
-	);
+		);
+	}, [navigate, route, profileId]);
 	useEffect(() => {
 		if (!visible) return;
 		const onKeyDown = (event: KeyboardEvent): void => {
@@ -236,14 +256,36 @@ function Portal({
 		document.addEventListener("keydown", onKeyDown);
 		return () => document.removeEventListener("keydown", onKeyDown);
 	}, [visible, dialog, exit]);
+	if (missing) return <Pane name="members" {...props} />;
 	if (!(shown && portal && viewed)) return null;
 
 	const plan = planOf(viewed, changes[viewed.profileId], school);
 	const theme = siteThemes[themeId];
 	const setParameter = (name: string, value: string | null): void =>
 		navigate(withQuery(route, name, value));
+	const chooseTab = (id: PortalTab): void =>
+		setParameter("portalTab", id === defaultTab ? null : id);
+	/** The tabs pattern, as the shell's tab strip: arrows, Home and End move to a tab and open it. */
+	const onTabKeyDown = (
+		event: JSX.TargetedKeyboardEvent<HTMLDivElement>,
+	): void => {
+		const index = tabs.findIndex(({ id }) => id === tab);
+		const targets: Record<string, number> = {
+			ArrowLeft: (index + tabs.length - 1) % tabs.length,
+			ArrowRight: (index + 1) % tabs.length,
+			Home: 0,
+			End: tabs.length - 1,
+		};
+		const target = tabs[targets[event.key] ?? -1];
+		if (!target) return;
+		event.preventDefault();
+		event.currentTarget
+			.querySelector<HTMLElement>(`[data-portal-tab=${target.id}]`)
+			?.focus();
+		chooseTab(target.id);
+	};
 	const mergeChange = (changedId: string, change: Partial<Change>): void =>
-		setChanges((before) => ({
+		onMembershipChanges(school.id, (before) => ({
 			...before,
 			[changedId]: { waiting: true, ...before[changedId], ...change },
 		}));
@@ -310,7 +352,7 @@ function Portal({
 		}
 	};
 	const cancelBooking = async (booking: PortalBooking): Promise<void> => {
-		setPendingBookings((before) => new Set([...before, booking.id]));
+		onPendingBookings(school.id, (before) => new Set([...before, booking.id]));
 		try {
 			await writer.portalCancelBooking({
 				school: school.id,
@@ -319,7 +361,8 @@ function Portal({
 			});
 			onToast(`Hold released for ${endSentence(viewed.name)}`);
 		} catch {
-			setPendingBookings(
+			onPendingBookings(
+				school.id,
 				(before) => new Set([...before].filter((id) => id !== booking.id)),
 			);
 			onToast(failedToast);
@@ -336,14 +379,8 @@ function Portal({
 	const downloadHistory = (rows: PortalHistoryRow[]): void => {
 		saveCsv(saveFile, onToast, {
 			name: historyCsvFileName(viewed.profileId, rows),
-			columns: historyColumns(portal.scope === "family"),
-			rows: rows.map(
-				(row): HistoryCsvRow => ({
-					...row,
-					member: row.profileId,
-					status: paymentStatusLabels[row.status],
-				}),
-			),
+			columns: historyCsvColumnsOf(portal.scope === "family"),
+			rows,
 		});
 	};
 
@@ -401,7 +438,12 @@ function Portal({
 		<>
 			<section class="vm" aria-label="Member portal view" data-test="portal">
 				<div class="vmbar">
-					<span class="badge b-warn" data-test="portal-viewing">
+					<span
+						ref={viewingBar}
+						class="badge b-warn"
+						tabIndex={-1}
+						data-test="portal-viewing"
+					>
 						<Icon name="eye" />
 						Viewing as {viewed.name}
 					</span>
@@ -500,19 +542,25 @@ function Portal({
 							<span style="margin-left:auto">{viewed.name}</span>
 						</div>
 						<div class="mpb">
-							<div class="mp-tabs" role="tablist">
+							<div
+								class="mp-tabs"
+								role="tablist"
+								aria-label="Member portal"
+								onKeyDown={onTabKeyDown}
+							>
 								{tabs.map(({ id, label, icon }) => (
 									<button
 										type="button"
 										key={id}
 										role="tab"
+										id={`${tabsId}-${id}`}
 										class={id === tab ? "on" : undefined}
 										aria-selected={id === tab}
+										aria-controls={id === tab ? `${tabsId}-panel` : undefined}
+										tabIndex={id === tab ? 0 : -1}
 										data-test="portal-tab"
 										data-portal-tab={id}
-										onClick={() =>
-											setParameter("portalTab", id === defaultTab ? null : id)
-										}
+										onClick={() => chooseTab(id)}
 									>
 										<Icon name={icon} />
 										{id === "bookings" && bookingCount > 0
@@ -521,22 +569,28 @@ function Portal({
 									</button>
 								))}
 							</div>
-							{tab === "overview" && (
-								<Overview
-									{...view}
-									figures={
-										portal.books.audience === loadedPortal?.books.audience
-											? shown.figures
-											: null
-									}
-									audienceChangedOn={move?.on ?? null}
-								/>
-							)}
-							{tab === "bookings" && <BookingsTab {...view} />}
-							{tab === "billing" && (
-								<BillingTab {...view} controls={controls} />
-							)}
-							{tab === "family" && <FamilyTab {...view} />}
+							<div
+								role="tabpanel"
+								id={`${tabsId}-panel`}
+								aria-labelledby={`${tabsId}-${tab}`}
+							>
+								{tab === "overview" && (
+									<Overview
+										{...view}
+										figures={
+											portal.books.audience === loadedPortal?.books.audience
+												? shown.figures
+												: null
+										}
+										audienceChangedOn={move?.on ?? null}
+									/>
+								)}
+								{tab === "bookings" && <BookingsTab {...view} />}
+								{tab === "billing" && (
+									<BillingTab {...view} controls={controls} />
+								)}
+								{tab === "family" && <FamilyTab {...view} />}
+							</div>
 						</div>
 					</div>
 				</div>
