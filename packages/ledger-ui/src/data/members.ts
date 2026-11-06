@@ -168,7 +168,9 @@ export type CapabilityAction =
 	| "changeQuantity"
 	| "switchTier"
 	| "publishMenu"
-	| "createPromo";
+	| "createPromo"
+	| "audit"
+	| "resendReceipt";
 
 /** Why an action is not allowed: `owner_only` (shown "Owner role needed" in the menu, "Refunds need the owner role
  * in this school" on the drawer button), `stripe_permission_missing` with the permission (shown "The Stripe key lacks
@@ -284,6 +286,24 @@ export type MemberDetail = {
 	payments: PaymentRow[];
 	refundable: RefundablePayment[];
 	history: HistoryEvent[];
+	/** "View in Stripe": the person's customer page in the school's Stripe dashboard, or null when they have none (the
+	 * item is then disabled, "Not on Stripe"). NOT in the briefs: an S8 gap until a route provides it. */
+	stripeDashboardUrl: string | null;
+};
+
+/**
+ * "Audit member" (mockup `audit`): the server replays the person's event log and compares it with the live balance
+ * and Stripe. NOT in the briefs: the fixtures answer with the mockup's steps; S8 reports capability `audit` as
+ * `not_built` until a route exists, and the UI then disables the item ("Not available yet"). Step texts are plain
+ * text; the UI shows the steps in order, then the verdict. The UI never claims a result the server did not return.
+ */
+export type MemberAudit = {
+	steps: Array<{ ok: boolean; text: string }>;
+	clean: boolean;
+	/** "Log, balance and Stripe agree." or what to do about the problem. */
+	verdict: string;
+	/** "Export report" saves the audit as JSON under this name ("audit-m_012.json"). */
+	reportFileName: string;
 };
 
 /** What "Send invoice…" offers (brief C3: one published add-on), with the label the select shows. */
@@ -326,6 +346,11 @@ export type MembersReader = {
 	}): Promise<MemberDetail>;
 	invoiceItems(query: { schoolId: string }): Promise<InvoiceItem[]>;
 	switchTiers(query: { schoolId: string }): Promise<SwitchTier[]>;
+	/** "Audit member" (capability `audit`). */
+	auditMember(query: {
+		schoolId: string;
+		personId: string;
+	}): Promise<MemberAudit>;
 };
 
 // ---- Writer calls. Every call names its school; the S8 adapter adds the CSRF token and the Idempotency-Key, so
@@ -423,6 +448,13 @@ export type ResumeMembershipRequest = {
 /** The answer of a write that has no answer in the briefs. */
 export type Accepted = { accepted: true };
 
+/** "Resend receipt" (capability `resendReceipt`): mail the person's latest receipt again. NOT in the briefs: an S8 gap.
+ * The UI toasts "Receipt resent to <name>." only after the server accepts. */
+export type ResendReceiptRequest = {
+	schoolId: string;
+	personId: string;
+};
+
 export type MembersWriter = {
 	refund(request: RefundRequest): Promise<RefundResult>;
 	adjustCredits(request: AdjustCreditsRequest): Promise<Accepted>;
@@ -435,6 +467,7 @@ export type MembersWriter = {
 	switchTier(request: SwitchTierRequest): Promise<Accepted>;
 	cancelMembership(request: CancelMembershipRequest): Promise<Accepted>;
 	resumeMembership(request: ResumeMembershipRequest): Promise<Accepted>;
+	resendReceipt(request: ResendReceiptRequest): Promise<Accepted>;
 };
 
 /** The fixture of one school (`src/fixtures/members.ts`): what each `MembersReader` call returns for it. */
@@ -446,7 +479,8 @@ export type MembersFixture = {
 	financeGrants: FinanceGrant[];
 	/** Income by calendar month of 2026 (`YYYY-MM`); the fixture Reader sums the months a period covers. */
 	incomeByMonth: Record<string, number>;
-	details: Record<string, MemberDetail>;
+	/** The drawer lists; the fixture Reader adds `stripeDashboardUrl` (a person with payments has a Stripe customer). */
+	details: Record<string, Omit<MemberDetail, "stripeDashboardUrl">>;
 	invoiceItems: InvoiceItem[];
 	switchTiers: SwitchTier[];
 };

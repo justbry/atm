@@ -146,6 +146,7 @@ export function createFixtureWriter(options: {
 			record("cancelMembership", [request], accepted),
 		resumeMembership: (request) =>
 			record("resumeMembership", [request], accepted),
+		resendReceipt: (request) => record("resendReceipt", [request], accepted),
 		download: (file) => record("download", [file], nothing),
 		createPromo: (request) =>
 			record("createPromo", [request], () => ({

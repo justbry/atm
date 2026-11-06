@@ -378,6 +378,12 @@ export const membersFixtures: Record<string, MembersFixture> = {
 				createPromo: {
 					allowed: true,
 				},
+				audit: {
+					allowed: true,
+				},
+				resendReceipt: {
+					allowed: true,
+				},
 			},
 		},
 		financeGrants: [
@@ -2711,6 +2717,12 @@ export const membersFixtures: Record<string, MembersFixture> = {
 				createPromo: {
 					allowed: true,
 				},
+				audit: {
+					allowed: true,
+				},
+				resendReceipt: {
+					allowed: true,
+				},
 			},
 		},
 		financeGrants: [
@@ -4885,6 +4897,12 @@ export const membersFixtures: Record<string, MembersFixture> = {
 				createPromo: {
 					allowed: true,
 				},
+				audit: {
+					allowed: true,
+				},
+				resendReceipt: {
+					allowed: true,
+				},
 			},
 		},
 		financeGrants: [
@@ -5833,6 +5851,12 @@ export const membersFixtures: Record<string, MembersFixture> = {
 				createPromo: {
 					allowed: true,
 				},
+				audit: {
+					allowed: true,
+				},
+				resendReceipt: {
+					allowed: true,
+				},
 			},
 		},
 		financeGrants: [
@@ -6149,6 +6173,12 @@ export const membersFixtures: Record<string, MembersFixture> = {
 					reason: "owner_only",
 				},
 				createPromo: {
+					allowed: true,
+				},
+				audit: {
+					allowed: true,
+				},
+				resendReceipt: {
 					allowed: true,
 				},
 			},

@@ -183,7 +183,55 @@ export function createFixtureReader(options: { clock: Clock }): Reader {
 			const detail = membersOf(schoolId).details[personId];
 			if (!detail)
 				throw new Error(`no member ${personId} in school ${schoolId}`);
-			return detail;
+			return {
+				...detail,
+				stripeDashboardUrl:
+					detail.payments.length > 0
+						? `https://dashboard.stripe.com/customers/${schoolId}-${personId}`
+						: null,
+			};
+		},
+		auditMember: async ({ schoolId, personId }) => {
+			const school = membersOf(schoolId);
+			const balance = school.page.members.find(
+				({ profileId }) => profileId === personId,
+			)?.balances[0];
+			const unit = balance?.unit.other ?? school.summary.unit.other;
+			// The mockup's audit: m_117's log misses a command (mockup.html audit, `bad`).
+			const broken = personId === "m_117";
+			const live = balance?.available ?? 0;
+			return {
+				steps: [
+					{
+						ok: true,
+						text: "Read 14 events from 3 batches; 2 repeats dropped",
+					},
+					{ ok: true, text: "Every batch file matches the hash in its name" },
+					{
+						ok: true,
+						text: "Replay through the engine reproduces each recorded change",
+					},
+					broken
+						? {
+								ok: false,
+								text: `Replayed balance 4 ≠ live balance ${live}. A command is missing from the log (revision gap at r17).`,
+							}
+						: {
+								ok: true,
+								text: `Replayed balance ${live} equals live balance`,
+							},
+					{ ok: true, text: `Held ${unit} match open bookings` },
+					{
+						ok: true,
+						text: "Stripe reconcile: all payments and refunds matched",
+					},
+				],
+				clean: !broken,
+				verdict: broken
+					? "1 problem. Don't adjust the balance by hand yet: restore the missing command, then re-run."
+					: "Clean. Log, balance and Stripe agree.",
+				reportFileName: `audit-${personId}.json`,
+			};
 		},
 		invoiceItems: async ({ schoolId }) => membersOf(schoolId).invoiceItems,
 		switchTiers: async ({ schoolId }) => membersOf(schoolId).switchTiers,

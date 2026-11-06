@@ -116,6 +116,7 @@ const noDetail: MemberDetail = {
 	payments: [],
 	refundable: [],
 	history: [],
+	stripeDashboardUrl: null,
 };
 
 /** Everything the tab reads before it can show anything. */

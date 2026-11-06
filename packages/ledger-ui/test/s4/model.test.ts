@@ -239,7 +239,8 @@ test("role guards and capability reasons", () => {
 });
 
 test("a refund on its way is the first payment row and turns its payment to Refunded or Partly refunded", () => {
-	const detail = vol.details.m_012;
+	const lists = vol.details.m_012;
+	const detail = lists && { ...lists, stripeDashboardUrl: null };
 	if (!detail) throw new Error("no detail");
 	const refund = (cents: number): Change =>
 		ledger(
