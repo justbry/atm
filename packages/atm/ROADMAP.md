@@ -99,7 +99,15 @@ The critical path. Simulation, corrections, the Parquet export, decoupling and t
 
 - [ ] **KPIs the cash-basis books cannot carry (found by the scenario parity work, not built):** MRR (new, expansion, contraction, churned), ARR and logo churn need a payment's interval and period, which `payment.succeeded` does not carry; a `money.skipped` event has no postings, so a hledger journal cannot count it. Proposed: an `interval` and `period_end` label on `payment.succeeded`. (detail: docs/scenarios.md#dropped-and-why)
 - [ ] `atm billing simulate --menu <file> --policy <file> --events <dir>`: replay the log against a candidate menu or policy and diff journals and per-holder balances against the current ones. No writes. A replay re-decides credits only; it cannot change what Stripe already charged. Orb runs up to five scenarios against historical events.
-- [ ] Stored Stripe inputs and `atm simulate --inputs`: keep each handled input, ship them like events, and replay them through the grant rules with a candidate menu or policy. Design in `docs/simulate-from-inputs.md` (PR #65), decided by the owner on 2026-11-05; planned for 0.9.0; the build is in progress as phase 2, in four PRs: A1, A2, C, B. A2 built. C built (`atm inputs ship`, the folder and store readers; R2 not run).
+- [x] Stored Stripe inputs and `atm simulate --inputs`: keep each handled input, ship them like events, and replay them through the grant rules with a candidate menu or policy. Design in `docs/simulate-from-inputs.md` (PR #65), decided by the owner on 2026-11-05; built on `dev` in four PRs, all merged (A1 #85, A2 #95, C #96, B #97; the booking addendum is #88); not released, the release number is not chosen. Real-world checks are outstanding (the follow-ups below).
+  - [ ] Keep the refusal's context in the stored inputs (a column or a second row), so `simulate --inputs` can drop its carried-payment workaround (`baseline.carriedPayments`).
+  - [ ] `candidate.priceIds` is library-only: the CLI cannot publish a price the menu adds, so a candidate menu with a new price has no Stripe price id from the command line.
+  - [ ] `atm inputs prune --before <date>`: opt-in retention for the stored inputs.
+  - [ ] `startsAt` is not stored, so a `cancelCutoffHours` what-if is `notSimulated`.
+  - [ ] The R2 path of `atm inputs ship` has never run against R2 or SeaweedFS, and the FolderStore `.atm-tmp-*` sweep (leftover temporary files of a crashed write) is not built.
+  - [ ] A real-data check: run `atm inputs ship` and `atm simulate --inputs` on a copy of a real school's database.
+  - [ ] The `booking_writes` rule is conservative: it does not look at whether the hold had settled before the refund.
+  - [ ] `replayEvents` rejects some out-of-order handler logs, so the recorded side can exit 2 (about 1 in 135 seeded histories).
 
 ### Bitemporal, small
 - [ ] A `correction` event that names the event it supersedes (`supersedes: <id>`); never delete.
