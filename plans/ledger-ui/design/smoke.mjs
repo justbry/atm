@@ -5,7 +5,7 @@ const errs=[];
 const win=new Window({url:"https://localhost/",console:{log(){},warn(){},info(){},debug(){},error:(...a)=>errs.push(a.map(String).join(" "))}});
 win.addEventListener("error",e=>errs.push("window error: "+e.message));
 const __h=readFileSync(file,"utf8"),__m=__h.match(/<script>([\s\S]*)<\/script>/);win.document.write(__h.replace(__m[0],""));
-await win.happyDOM.waitUntilComplete();try{win.eval(__m[1]+"\n;window.__t={SC,people,roleGuard}")}catch(e){errs.push("eval error: "+e.message+" "+(e.stack||"").split("\n").slice(0,3).join(" / "))}
+await win.happyDOM.waitUntilComplete();try{win.eval(__m[1]+"\n;window.__t={SC,people,roleGuard,kEmit,kParse}")}catch(e){errs.push("eval error: "+e.message+" "+(e.stack||"").split("\n").slice(0,3).join(" / "))}
 const d=win.document,$=s=>d.querySelector(s),$$=s=>[...d.querySelectorAll(s)],txt=s=>(($(s)||{}).textContent||"").replace(/\s+/g," ").trim();
 const fails=[];const ok=(name,cond,info="")=>{console.log(cond?"ok  ":"FAIL",name,cond?"":info);if(!cond)fails.push(name)};
 const tab=p=>$(`.tab[data-p=${p}]`).click(),sc=id=>{$("#sw").click();$(`[data-sc=${id}]`).click()};
@@ -234,5 +234,110 @@ ok("books: tiny school hides cells under the 5-contributor rule at Public",(sc("
  sc("vol");tab("mem");
  ok("chips: role and finance chips carry their styled classes",$$("#mb .krole").length>=1&&/\.krole\{[^}]*border:1px solid/.test(css)&&/\.kfin\{[^}]*border:1px dashed/.test(css));
  ok("balance bar: three segments on every row with a plan",$$("#mb .bar3").length>=1&&$$("#mb .bar3").every(b=>b.querySelectorAll("i.u,i.h,i.a").length===3),$$("#mb .bar3").length+"")}
+// Plans as YAML: Code is the third mode of the Plans tab and edits the same draft as Edit and Preview
+{const {SC,kEmit,kParse}=win.__t,wait=ms=>new Promise(r=>setTimeout(r,ms)),clone=o=>JSON.parse(JSON.stringify(o)),
+ same=(a,b)=>JSON.stringify(a,(k,v)=>v&&typeof v==="object"&&!Array.isArray(v)?Object.fromEntries(Object.keys(v).sort().map(x=>[x,v[x]])):v)===JSON.stringify(b,(k,v)=>v&&typeof v==="object"&&!Array.isArray(v)?Object.fromEntries(Object.keys(v).sort().map(x=>[x,v[x]])):v),
+ setText=async v=>{const ta=$("#kta");ta.value=v;ta.dispatchEvent(new win.Event("input",{bubbles:true}));await wait(400)},
+ mode=m=>$(`#pl [data-pmode=${m}]`).click(),code=()=>$("#kta").value,pill=()=>txt("#pl .kpill"),
+ reset=id=>{sc(id);tab("pl");SC[id].pl.draft=clone(SC[id].pl.pub);delete SC[id].kYaml;SC[id].plMode="edit";$(`.tab[data-p=pl]`).click();mode("edit")};
+ // the segment
+ sc("vol");tab("pl");
+ ok("yaml: the Plans mode segment is Edit | Preview | Code",$$("#pl [data-pmode]").map(b=>b.dataset.pmode).join(",")==="edit,preview,code"&&/Code/.test($("#pl [data-pmode=code]").textContent),$$("#pl [data-pmode]").map(b=>b.dataset.pmode).join(","));
+ // round trip, every school fixture, plus a hostile draft
+ const board=SC.b4u.pl.pub.tiers.find(t=>t.id==="board");
+ ok("yaml: fixtures include a non-public tier and the Board tier",!!board&&board.pub===false&&SC.b4u.pl.pub.tiers.some(t=>t.books==="governance"));
+ for(const id of Object.keys(SC)){const s=SC[id],r=kParse(kEmit(s),s);
+  ok(`yaml: round trip parse(emit(draft)) equals the draft, ${id}`,r.ok&&same(r.draft,s.pl.draft),r.ok?"":`line ${r.line}: ${r.msg}`)}
+ {const s=SC.vol,odd=clone(s.pl.draft);odd.tiers[0].name='Say "hi": it\'s #1, café';odd.tiers[0].blurb="";odd.tiers[1].blurb="yes";odd.tiers[1].name="007";odd.tiers[2].books="governance";odd.tiers[2].year=null;odd.addons[0].name="- not a list";odd.addons[1].name="*star";odd.tiers[0].qty=[3,1];
+  const r=kParse(kEmit(s,odd),s);ok("yaml: round trip keeps quotes, colons, # signs, accents, words like yes, numbers as names",r.ok&&same(r.draft,odd),r.ok?JSON.stringify(r.draft.tiers[0]):`line ${r.line}: ${r.msg}`)}
+ ok("yaml: Stripe ids are read-only comments on published plans and absent plans say so",(()=>{const s=SC.vol,d=clone(s.pl.draft);d.tiers.push({id:"fresh",name:"Fresh",blurb:"",pub:true,month:9,year:null,qty:null,grants:[{n:1,every:"month",roll:0}]});const t=kEmit(s,d);return(t.match(/# stripe: prod_\w{14} · month price_\w{14}/g)||[]).length===3&&/# stripe: created when you publish\n  - id: fresh/.test(t)&&kParse(t,s).ok})());
+ // the view: gutter, toolbar, status, help line, changes list
+ reset("vol");mode("code");
+ ok("yaml: Code shows a monospace textarea with a line-number gutter that matches the text",!!$("#kta")&&$$("#kgut i").length===code().split("\n").length&&/^1$/.test($("#kgut i").textContent),$$("#kgut i").length+" vs "+code().split("\n").length);
+ ok("yaml: toolbar has Format, Copy, Reset to published and a Valid pill",["#kfmt","#kcopy","#kreset"].every(x=>!!$(x))&&/Valid/.test(pill()),pill());
+ ok("yaml: the honest-limits line is shown under the toolbar",/Comments are not saved: plans are stored as JSON\. Anchors, aliases and tags are not accepted\./.test(txt("#khelp")));
+ ok("yaml: Code has the plans, ids as keys, the read-only header, and Review stays disabled with no changes",/^memberships:$/m.test(code())&&/- id: sparkle/.test(code())&&/^packs:$/m.test(code())&&/^timeZone: America\/Denver$/m.test(code())&&/No changes yet/.test(txt(".kchg"))&&$("#prev").disabled);
+ // edits flow through: Code -> Edit -> review
+ const ta0=$("#kta");
+ await setText(code().replace(/(- id: shine[\s\S]*?month: )30\b/,"$131"));
+ ok("yaml: the debounced re-render keeps the same textarea node (caret, undo history and scroll survive)",$("#kta")===ta0);
+ ok("yaml: a price typed in Code updates the draft after the debounce",SC.vol.pl.draft.tiers.find(t=>t.id==="shine").month===31,String(SC.vol.pl.draft.tiers.find(t=>t.id==="shine")?.month));
+ ok("yaml: the change shows under Changes vs published and Review and publish enables",/Shine/.test(txt(".kchg"))&&/Monthly price \$30\.00 → \$31\.00/.test(txt(".kchg"))&&!$("#prev").disabled&&/Draft · 1 change/.test(txt("#pl .tools")),txt(".kchg"));
+ mode("edit");
+ ok("yaml: Edit shows the price typed in Code",/\$31\.00/.test(txt("#pl tr[data-pe='tiers:shine']"))&&$("#pl tr.chg[data-pe='tiers:shine']")!==null,txt("#pl tr[data-pe='tiers:shine']"));
+ mode("preview");mode("code");
+ ok("yaml: switching modes keeps the edit (Code -> Edit -> Preview -> Code)",/month: 31\b/.test(code()));
+ $("#prev").click();
+ ok("yaml: Review and publish lists the changed tier with the old and new price and the member count",/Shine/.test(txt("#md"))&&/Monthly price \$30\.00 → \$31\.00/.test(txt("#md"))&&/1 current member/.test(txt("#md"))&&!/Sparkle|Glow/.test(txt("#md h5")),txt("#md").slice(0,200));
+ $("#md [data-close]").click();
+ // edits flow through: Edit (draft) -> Code
+ SC.vol.pl.draft.tiers.find(t=>t.id==="glow").blurb="Edited elsewhere";mode("edit");mode("code");
+ ok("yaml: an edit made in Edit shows up in Code",/blurb: Edited elsewhere/.test(code()));
+ // invalid documents leave the draft alone
+ const before=JSON.stringify(SC.vol.pl.draft);
+ await setText(code().replace(/month: 31\b/,'month: "oops'));
+ ok("yaml: an invalid document shows Parse error at line N and leaves the draft unchanged",/Parse error at line \d+/.test(pill())&&JSON.stringify(SC.vol.pl.draft)===before&&/draft is unchanged/i.test(txt("#kmsg")),pill()+" | "+txt("#kmsg"));
+ ok("yaml: the error line is marked in the gutter and has a jump link",$$("#kgut i.bad").length===1&&!!$("#kmsg [data-kline]"),$$("#kgut i.bad").length+"");
+ mode("edit");mode("code");
+ ok("yaml: the invalid text survives a mode switch",/month: "oops/.test(code())&&/Parse error/.test(pill()));
+ // anchors, aliases, tags and friends
+ const s0=SC.vol,base=kEmit(s0),bad=(label,from,to,re)=>{const r=kParse(base.replace(from,to),s0);ok(`yaml: ${label} is rejected with a clear error`,!r.ok&&re.test(r.msg),r.ok?"parsed":r.msg)};
+ bad("an anchor","name: Sparkle","name: &a Sparkle",/Anchors/);
+ bad("an alias","blurb: Regular sessions","blurb: *a",/Aliases/);
+ bad("a tag","name: Shine","name: !!str Shine",/Tags/);
+ bad("a merge key","    public: true\n    prices:","    <<: *base\n    prices:",/Merge keys/);
+ bad("block text","blurb: Regular sessions","blurb: |",/Block text/);
+ bad("an inline map","      month: 65","      month: {a: 1}",/Inline/);
+ bad("a tab indent","    name: Glow","\tname: Glow",/Tabs/);
+ bad("an unknown key","    public: true\n    prices:","    colour: red\n    public: true\n    prices:",/Unknown key "colour"/);
+ bad("a second document","timeZone: America/Denver","timeZone: America/Denver\n---\nmemberships: []",/one document/);
+ bad("a changed time zone","timeZone: America/Denver","timeZone: Asia/Tokyo",/Settings/);
+ bad("a wrong price type","      month: 65","      month: free",/month must be a number/);
+ reset("vol");mode("code");
+ await setText(code().replace("name: Sparkle","name: &a Sparkle"));
+ ok("yaml: an anchor typed in the editor shows the error in the status pill",/Parse error at line \d+/.test(pill())&&/Anchors/.test(txt("#kmsg")),txt("#kmsg"));
+ // problems reuse problems(s), with the offending tier's line marked
+ reset("vol");mode("code");
+ await setText(code().replace(/(- id: glow[\s\S]*?month: )65\b/,"$10"));
+ ok("yaml: problems(s) are listed under the editor and the status pill counts them",/1 problem/.test(pill())&&/Glow: monthly price must be above 0\./.test(txt("#kmsg")),pill()+" | "+txt("#kmsg"));
+ ok("yaml: the offending tier's line is highlighted in the gutter and Review is disabled",$$("#kgut i.bad").length===1&&+$("#kgut i.bad").textContent===code().split("\n").findIndex(l=>/- id: glow/.test(l))+1&&$("#prev").disabled,$$("#kgut i.bad").map(x=>x.textContent).join(","));
+ // removed tiers are not dropped silently
+ reset("vol");mode("code");
+ await setText(code().replace(/ {2}# stripe:[^\n]*\n {2}- id: glow[\s\S]*?(?=\n\npacks:)/,"").replace(/\n\n\n/,"\n\n"));
+ ok("yaml: a published tier missing from the draft shows as Removed in the changes list",SC.vol.pl.draft.tiers.length===2&&/Glow/.test(txt(".kchg"))&&/Removed/.test(txt(".kchg")),txt(".kchg").slice(0,120));
+ $("#prev").click();
+ ok("yaml: the publish review lists the removed tier and its 1 current member",!$("#prev").disabled&&/Glow/.test(txt("#md"))&&/Removed/.test(txt("#md"))&&/1 current member/.test(txt("#md")),txt("#md").slice(0,200));
+ $("#md [data-close]").click();mode("edit");
+ ok("yaml: Edit mode says what was removed and keeps the Discard draft button",/Removed in the draft: Glow/.test(txt("#pl .note"))&&!!$("#pdisc"),txt("#pl .note"));
+ // Format
+ reset("vol");mode("code");
+ await setText(code().replace("name: Shine","name:   Shine   # my note").replace(/# stripe:[^\n]*/,"# stripe: tampered")+"\n\n# a trailing comment\n");
+ $("#kfmt").click();const once=code();
+ ok("yaml: Format re-emits the canonical YAML, drops comments, regenerates the Stripe comments",!/my note|tampered|trailing comment/.test(once)&&once===kEmit(SC.vol)&&/name: Shine\n/.test(once),once.slice(0,160));
+ $("#kfmt").click();
+ ok("yaml: Format is idempotent",code()===once&&kEmit(SC.vol,kParse(once,SC.vol).draft)===once);
+ await setText('name: "broken');const broken=code();$("#kfmt").click();
+ ok("yaml: Format on an invalid document changes nothing and says why",code()===broken&&/Fix line/.test(txt("#ts")),txt("#ts"));
+ // Reset to published
+ reset("vol");mode("code");await setText(code().replace(/(- id: shine[\s\S]*?month: )30\b/,"$140"));
+ ok("yaml: Reset to published is enabled with changes",!$("#kreset").disabled);
+ $("#kreset").click();
+ ok("yaml: Reset to published restores the draft and the text",same(SC.vol.pl.draft,SC.vol.pl.pub)&&/month: 30\b/.test(code())&&$("#kreset").disabled);
+ // permissions: owners edit, admins read
+ sc("vol");tab("pl");mode("code");
+ ok("yaml: owner gets an editable textarea and enabled Format",!$("#kta").hasAttribute("readonly")&&!$("#kfmt").disabled&&!/Owners edit plans/.test(txt("#pl")));
+ sc("b4u");tab("pl");mode("code");
+ ok("yaml: admin reads Code but the textarea is read-only, Format and Reset are disabled, with the owners note",$("#kta").hasAttribute("readonly")&&$("#kfmt").disabled&&$("#kreset").disabled&&/Owners edit plans/.test(txt("#pl"))&&!$("#kcopy").disabled&&/Board/.test(code())&&/public: false/.test(code())&&/books: governance/.test(code()),txt("#pl .lock"));
+ mode("edit");sc("vol");tab("pl");
+ // publish through the review: version bumps and the Code text follows
+ sc("map");tab("pl");mode("code");
+ await setText(code().replace(/(- id: glow[\s\S]*?month: )85\b/,"$190"));
+ $("#prev").click();$("#ppin").value="1234";$("#ppin").dispatchEvent(new win.Event("input",{bubbles:true}));$("#pgo").click();
+ ok("yaml: publishing from a Code edit publishes it and the text follows the new version, no stale error",SC.map.pl.version===4&&SC.map.pl.pub.tiers[0].month===90&&/^version: 4$/m.test(code())&&/Valid/.test(pill()),pill()+" "+SC.map.pl.version);
+ // layout, css and hygiene
+ {const css=d.querySelector("style").textContent;
+  ok("yaml: editor css (gutter, monospace, no wrap) and a 600px rule that stacks the panes",/\.kta\{[^}]*white-space:pre/.test(css)&&/\.kgut\{[^}]*font:12px\/18px var\(--font-mono\)/.test(css)&&/@media \(max-width:600px\)\{\.kmain,\.kchg\{flex:1 1 100%/.test(css)&&/\.ktool\{[^}]*flex-wrap:wrap/.test(css));
+  ok("yaml: no console.log in the page",!/console\.log/.test(__m[1]))}
+}
 ok("no runtime errors",errs.length===0,errs.join(" | "));
 console.log(fails.length?`\n${fails.length} FAILED`:"\nall passed");process.exit(fails.length?1:0);

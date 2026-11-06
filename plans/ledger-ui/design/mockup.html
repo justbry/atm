@@ -310,6 +310,27 @@ svg.kc .col{fill:transparent;cursor:pointer}svg.kc .col:hover{fill:var(--border)
 .mp-tabs{overflow-x:auto}.mp-tabs button{white-space:nowrap}
 .gr{grid-template-columns:70px 1fr 104px 90px 28px}
 .kbp select,.kbp input{height:28px}
+.kcode{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+.kmain{flex:1 1 440px;min-width:0}
+.kchg{flex:0 1 310px;min-width:240px}
+.kchg .kc{padding:7px 0;border-top:1px solid var(--border)}
+.ktool{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px}
+.ktool .sp{flex:1}
+.kpill{display:inline-flex;gap:4px;align-items:center;font-size:11px;padding:2px 9px;border-radius:9px;border:1px solid var(--border);white-space:nowrap}
+.kpill .i{width:12px;height:12px}
+.kpill.ok{color:var(--success);border-color:var(--success)}.kpill.warn{color:var(--warning);border-color:var(--warning)}.kpill.bad{color:var(--destructive);border-color:var(--destructive)}
+.kmut{margin:0 0 8px;font-size:11px;color:var(--muted-foreground)}
+.kmut .i{width:12px;height:12px;vertical-align:-2px;margin-right:3px}
+.ked{display:flex;height:clamp(280px,56vh,560px);border:1px solid var(--border);border-radius:var(--radius);background:var(--card);overflow:hidden}
+.ked:focus-within{border-color:var(--ring)}
+.kgut{flex:none;box-sizing:border-box;width:46px;overflow:hidden;padding:8px 0 28px;background:var(--secondary);color:var(--muted-foreground);font:12px/18px var(--font-mono);text-align:right;user-select:none}
+.kgut i{display:block;height:18px;padding-right:8px;font-style:normal}
+.kgut i.bad{color:var(--destructive);font-weight:700;box-shadow:inset 3px 0 var(--destructive)}
+.kta{flex:1;width:auto;min-width:0;min-height:0;box-sizing:border-box;padding:8px 10px;border:0;border-radius:0;background:transparent;resize:none;font:12px/18px var(--font-mono);white-space:pre;overflow:auto;tab-size:2;outline:0}
+.kta[readonly]{color:var(--muted-foreground)}
+.kmsg{margin-top:8px;display:grid;gap:3px}
+.kmsg .i{width:13px;height:13px;vertical-align:-2px}
+@media (max-width:600px){.kmain,.kchg{flex:1 1 100%;min-width:0}.ked{height:clamp(240px,50vh,420px)}}
 @media (max-width:600px){.drawer{width:94%}.two2{grid-template-columns:1fr}.kview{font-size:0;gap:0;padding:2px 6px}}
 .kbhint{margin:3px 0 0;font-size:10.5px;color:var(--muted-foreground)}
 </style></head><body>
@@ -517,6 +538,7 @@ function diff(s){const Pp=s.pl.pub,Dd=s.pl.draft,out=[];
   if(JSON.stringify(d.grants)!==JSON.stringify(p.grants))L2.push({t:"What members get changed",s:"No Stripe change. New amounts apply from the next invoice"});
   if(d.pub!==p.pub)L2.push({t:d.pub?"Now on sale":"Now hidden",s:d.pub?"No Stripe change":"No Stripe change. Not sold, current members keep it"});
   if(L2.length)out.push({id:d.id,name:d.name,kind,lines:L2})}
+ for(const kind of["tiers","addons"])for(const p of Pp[kind])if(!find(Dd[kind],p.id))out.push({id:p.id,name:p.name,kind,gone:true,lines:[{t:"Removed",s:"Archive the Stripe product and its prices. Current members keep what they bought"}]});
  return out}
 function problems(s,d=s.pl.draft){const p=[];
  if(d.tiers.length>4)p.push("At most 4 memberships.");if(d.addons.length>6)p.push("At most 6 packs and add-ons.");
@@ -712,15 +734,15 @@ function planPreview(s,view,ch){
  const note=!live&&ch.length?`<div class="note">${ic("info")}<span>Showing the draft. Members see the live version until an owner publishes.</span></div>`:"";
  const body=tiers.length||addons.length?(tiers.length?`<h5>${ic("layers")} Memberships</h5><div class="pgrid">${tiers.map(t=>card(t,true)).join("")}</div>`:"")+(addons.length?`<h5>${ic("gift")} Packs and add-ons</h5><div class="pgrid">${addons.map(a=>card(a,false)).join("")}</div>`:""):`<div class="card mut" style="text-align:center;padding:24px">${live?"Nothing is published yet. Switch to Draft to see what you've set up, or add a plan in Edit.":"No plans yet. Switch to Edit to add a membership."}</div>`;
  return`<div class="mut" style="margin:2px 0 10px">${ic("eye")} How the purchase page looks at b4uni.com/join/${slug(s.name)}. Click a plan to edit it.</div>${bar}${note}${body}`}
-function plans(){const s=sch(),own=s.role==="owner",ch=diff(s),pr=problems(s),pl=s.pl,chg=new Set(ch.map(c=>c.id)),steps=setupSteps(s),done=steps.filter(x=>x.done).length,next=steps.find(x=>!x.done),mode=s.plMode||"edit",view=s.plView||(ch.length?"draft":"live");
+function plans(){kFlush();const s=sch(),own=s.role==="owner",ch=diff(s),pr=problems(s),pl=s.pl,chg=new Set(ch.map(c=>c.id)),steps=setupSteps(s),done=steps.filter(x=>x.done).length,next=steps.find(x=>!x.done),mode=s.plMode||"edit",view=s.plView||(ch.length?"draft":"live");
  const stats=pl.pub.tiers.reduce((a,t)=>{const st=planStats(s,t);a.act+=st.act;a.mrr+=st.mrr;a.can+=st.can;return a},{act:0,mrr:0,can:0});
  const setupHtml=done<steps.length?`<div class="card" style="margin-bottom:12px"><div class="sphead"><b>${ic("check")} Get started</b><span class="mut">${done} of ${steps.length} done</span></div><div class="prog"><i style="width:${done/steps.length*100}%"></i></div><div class="steps2">${steps.map(x=>`<button class="st ${x.done?"done":x===next?"next":""}" ${x.done?"disabled":""} data-setup="${x.k}">${ic(x.done?"check":x===next?"cr":"dot")}<span><b>${x.t}</b><small>${x.d}</small></span></button>`).join("")}</div><div class="row2" style="margin-top:10px"><button class="btn p" data-setup="${next.k}">Next: ${next.t}${ic("cr")}</button></div></div>`:"";
  const strip=pl.pub.tiers.length?`<div class="strip s4"><button class="stat" data-gom=""><small>${ic("users")} Active members</small><b>${stats.act}</b></button><button class="stat" data-go="dash"><small>${ic("coin")} Collected in ${MN[dm]}</small><b>${kusd(kpiSeries(s).g[dm],s)}</b></button><button class="stat" data-gom="canceled"><small>${ic("clock")} Ending soon</small><b>${stats.can}</b></button><button class="stat" data-gom="att"><small>${ic("alert")} Need attention</small><b class="neg">${attN(s)}</b></button></div>`:"";
  const tr=t=>{const st=planStats(s,t);return`<tr class="row ${chg.has(t.id)?"chg":""}" data-pe="tiers:${t.id}"><td><b>${t.name}</b> ${t.pub?"":'<span class="badge">Hidden</span>'}${t.books&&t.books!=="member"?` <span class="badge" title="Books access this plan gives">${ic("scale")}Books: ${BKT[t.books]}</span>`:""}${chg.has(t.id)?' <span class="badge b-warn">draft</span>':""}<div class="mut">${t.blurb||""}</div></td><td>${priceTxt(t,s)}${t.qty?`<div class="mut">Sold in ${t.qty.join(", ")}</div>`:""}</td><td>${t.grants.map(g=>grantTxt(g,s,t)).join("<br>")}</td><td class="r"><button class="link" data-pm="${t.name}" title="Show these members">${st.act}</button>${st.can?` <span class="mut">+${st.can} ending</span>`:""}</td><td class="r">${money(st.mrr,s.cur)}</td><td class="r"><button class="btn ico s" data-pe="tiers:${t.id}" aria-label="Edit ${t.name}" title="Edit">${ic("edit")}</button></td></tr>`};
  const ar=a=>`<tr class="row ${chg.has(a.id)?"chg":""}" data-pe="addons:${a.id}"><td><b>${a.name}</b> ${a.pub?"":'<span class="badge">Hidden</span>'}${chg.has(a.id)?' <span class="badge b-warn">draft</span>':""}</td><td>${priceTxt(a,s)}</td><td>${a.grants.map(g=>grantTxt(g,s,null)).join("<br>")}</td><td class="r"></td><td class="r"></td><td class="r"><button class="btn ico s" data-pe="addons:${a.id}" aria-label="Edit ${a.name}" title="Edit">${ic("edit")}</button></td></tr>`;
  const canPub=ch.length&&!pr.length&&s.stripe.connected;
- const modeSeg=`<div class="seg" role="group" aria-label="Plans view"><button class="${mode==="edit"?"on":""}" data-pmode="edit">${ic("edit")}Edit</button><button class="${mode==="preview"?"on":""}" data-pmode="preview">${ic("eye")}Preview</button></div>`;
- const editBody=`<h5>${ic("layers")} Memberships <span class="mut" style="text-transform:none;font-weight:400">${pl.draft.tiers.length} of 4</span></h5>
+ const modeSeg=`<div class="seg" role="group" aria-label="Plans view"><button class="${mode==="edit"?"on":""}" data-pmode="edit" aria-pressed="${mode==="edit"}">${ic("edit")}Edit</button><button class="${mode==="preview"?"on":""}" data-pmode="preview" aria-pressed="${mode==="preview"}">${ic("eye")}Preview</button><button class="${mode==="code"?"on":""}" data-pmode="code" aria-pressed="${mode==="code"}">${ic("code")}Code</button></div>`;
+ const editBody=`${kGoneNote(ch)}<h5>${ic("layers")} Memberships <span class="mut" style="text-transform:none;font-weight:400">${pl.draft.tiers.length} of 4</span></h5>
   <table><thead><tr><th>Plan</th><th>Price</th><th>Members get</th><th class="r">Members</th><th class="r">Monthly</th><th></th></tr></thead><tbody>${pl.draft.tiers.map(tr).join("")||'<tr><td colspan="6" class="mut" style="padding:16px">No memberships yet.</td></tr>'}</tbody></table>
   <div style="margin:8px 0 4px"><button class="btn s" data-pnew="tiers" ${pl.draft.tiers.length>=4?'disabled title="Up to 4 memberships"':""}>${ic("plus")}Add membership</button></div>
   <h5>${ic("gift")} Packs and add-ons <span class="mut" style="text-transform:none;font-weight:400">${pl.draft.addons.length} of 6</span></h5>
@@ -729,7 +751,7 @@ function plans(){const s=sch(),own=s.role==="owner",ch=diff(s),pr=problems(s),pl
   <p class="mut" style="margin-top:12px">${ic("info")} A change starts a new version for new purchases. Members keep the version they bought. ${own?"":"Admins edit the draft; owners publish."}</p>`;
  $("#pl").innerHTML=setupHtml+(mode==="edit"?strip:"")+`<div class="tools"><b>Plans</b><span class="badge">${pl.version?`v${pl.version} published`:"Not published yet"}</span>${ch.length?`<span class="badge b-warn">${ic("edit")}Draft · ${ch.length} change${ch.length===1?"":"s"}</span>`:""}<span class="sp"></span>${modeSeg}
   ${ch.length?`<button class="btn" id="pdisc">${ic("undo")}Discard draft</button>`:""}<button class="btn p" id="prev" ${canPub?"":"disabled"} title="${pr.length?"Fix the problems first":!s.stripe.connected?"Connect Stripe first":ch.length?"":"Nothing to publish"}">${ic("upload")}Review and publish</button></div>
-  ${pr.length?`<div class="note">${ic("alert")}<span>${pr.length} problem${pr.length===1?"":"s"}: ${pr[0]}${pr.length>1?` (+${pr.length-1} more)`:""}</span></div>`:""}`+(mode==="edit"?editBody:planPreview(s,view,ch))}
+  ${pr.length&&mode!=="code"?`<div class="note">${ic("alert")}<span>${pr.length} problem${pr.length===1?"":"s"}: ${pr[0]}${pr.length>1?` (+${pr.length-1} more)`:""}</span></div>`:""}`+(mode==="edit"?editBody:mode==="code"?kCodeHtml(s,own,pr,ch):planPreview(s,view,ch));if(mode==="code")kBind(s)}
 function editPlan(spec,isNew){const s=sch(),[kind,id]=spec.split(":");let t;
  if(isNew){t=kind==="tiers"?{id:"new-plan",name:"",blurb:"",pub:true,month:0,year:null,qty:null,grants:[{n:8,every:"month",roll:0}]}:{id:"new-pack",name:"",pub:true,price:0,every:"once",grants:[{n:8,every:"once",roll:0}]}}
  else t=clone(find(s.pl.draft[kind],id));
@@ -769,6 +791,236 @@ function reviewModal(){const s=sch(),own=s.role==="owner",ch=diff(s),aff=ch.redu
  <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn p" id="pgo" ${own?"disabled":'disabled title="Owners publish"'}>${ic("upload")}Publish v${s.pl.version+1}</button></div>`);
  if(own)$("#ppin").oninput=e=>$("#pgo").disabled=e.target.value.length<4;
  $("#pgo").onclick=()=>{s.pl.version++;s.pl.pub=clone(s.pl.draft);s.plView=null;s.E.unshift(ev(NOW,"catalog.published","—",`Plans v${s.pl.version} published · ${ch.map(c=>c.name).join(", ")}`,"","","admin",{pend:1}));closeM();render();toast(`Published v${s.pl.version}. The Stripe prices are being updated.`)}}
+
+/* Plans as YAML (Code mode). One draft, three views. A restricted YAML subset with a tiny emitter and parser, no library.
+   Block maps, block lists of maps, one-line lists of numbers, plain/'single'/"double" scalars, # comments. No anchors, aliases, tags, block text or inline maps. */
+IC.code='<path d="M8 8l-5 4 5 4M16 8l5 4-5 4M14 4l-4 16"/>';
+const K_CUR={"$":"USD","C$":"CAD"},K_ALNUM="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",K_DEBOUNCE=250,K_LINE_PX=18;
+const K_PLAIN=/^[A-Za-z0-9][A-Za-z0-9 .,;!?()/&+_-]*$/,K_WORDS=/^(true|false|null|yes|no|on|off|y|n)$/i,K_NUM=/^-?\d+(\.\d+)?$/,K_KEY=/^[A-Za-z_][A-Za-z0-9_-]*\s*:(\s|$)/,K_KV=/^([A-Za-z_][A-Za-z0-9_-]*)\s*:(?:\s+(.*))?$/,K_ID=/^[a-z0-9][a-z0-9-]{0,39}$/;
+const K_EVERY_TIER=["month","year"],K_EVERY_PACK=["once","month","year"],K_BOOKS=["member","governance","public"];
+const kEsc=v=>String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+let kTimer=0,kTimerSchool=null,kKeep=null,kWired=false;
+class KErr extends Error{constructor(line,msg){super(msg);this.line=line;this.msg=msg}}
+const kHash=text=>{let h=2166136261;for(const c of text){h^=c.codePointAt(0);h=Math.imul(h,16777619)>>>0}return h};
+const kStripeId=(prefix,key)=>{let h=kHash(key),out="";for(let i=0;i<14;i++){h=Math.imul(h^(i+1),2654435761)>>>0;out+=K_ALNUM[h%K_ALNUM.length]}return`${prefix}_${out}`};
+const kStr=v=>v!==""&&K_PLAIN.test(v)&&!/\s$/.test(v)&&!K_WORDS.test(v)&&!K_NUM.test(v)?v:JSON.stringify(v);
+const kSig=s=>JSON.stringify([s.pl.version,s.pl.pub,s.pl.draft]);
+
+function kStripeNote(s,kind,id){const p=find(s.pl.pub[kind],id);if(!p)return"# stripe: created when you publish";
+ const at=(key,v)=>kStripeId("price",`${s.name}/${kind}/${id}/${key}/${v}`);
+ if(kind==="addons")return`# stripe: ${kStripeId("prod",`${s.name}/${kind}/${id}`)} · price ${at("price",p.price)}`;
+ return`# stripe: ${kStripeId("prod",`${s.name}/${kind}/${id}`)} · month ${at("month",p.month)}${p.year?` · year ${at("year",p.year)}`:""}`}
+
+function kEmit(s,d=s.pl.draft){const out=[
+  `# ${s.name}: plans. Edit here, then Review and publish.`,
+  "# Each plan is keyed by its id: rename a plan by changing name, not id.",
+  "# Lines that start with # stripe: are read-only and come back when you Format.",
+  `version: ${s.pl.version}`,`currency: ${kStr(K_CUR[s.cur]||s.cur)}`,`timeZone: ${kStr(s.tz)}`,""];
+ const grants=t=>{out.push("    grants:");for(const g of t.grants)out.push(`      - feature: ${kStr(s.unit.other)}`,`        units: ${g.n}`,`        every: ${kStr(g.every)}`,`        rollover: ${g.roll||0}`)};
+ if(!d.tiers.length)out.push("memberships: []");else{out.push("memberships:");
+  for(const t of d.tiers){out.push(`  ${kStripeNote(s,"tiers",t.id)}`,`  - id: ${kStr(t.id)}`,`    name: ${kStr(t.name)}`,`    blurb: ${kStr(t.blurb||"")}`,`    public: ${!!t.pub}`);
+   if(t.books&&t.books!=="member")out.push(`    books: ${kStr(t.books)}`);
+   out.push("    prices:",`      month: ${t.month}`);if(t.year!==null&&t.year!==undefined)out.push(`      year: ${t.year}`);
+   if(t.qty)out.push(`    quantities: [${t.qty.join(", ")}]`);
+   grants(t)}}
+ out.push("");
+ if(!d.addons.length)out.push("packs: []");else{out.push("packs:");
+  for(const a of d.addons){out.push(`  ${kStripeNote(s,"addons",a.id)}`,`  - id: ${kStr(a.id)}`,`    name: ${kStr(a.name)}`,`    public: ${!!a.pub}`,`    price: ${a.price}`,`    every: ${kStr(a.every)}`);grants(a)}}
+ return`${out.join("\n")}\n`}
+
+/* Parser: text -> rows -> node tree (every node knows its line) -> plan model. */
+function kStripComment(src,n){let quote="",prev="";
+ for(let i=0;i<src.length;i++){const c=src[i];
+  if(quote){if(quote==='"'&&c==="\\"){i++;continue}if(c===quote){if(quote==="'"&&src[i+1]==="'"){i++;continue}quote=""}continue}
+  if((c==='"'||c==="'")&&(prev===""||":-[,".includes(prev))){quote=c;prev=c;continue}
+  if(c==="#"&&(i===0||/\s/.test(src[i-1])))return src.slice(0,i);
+  if(!/\s/.test(c))prev=c}
+ if(quote)throw new KErr(n,"This quote is never closed. Text must stay on one line.");
+ return src}
+function kRows(text){const rows=[];
+ text.replace(/\r\n?/g,"\n").replace(/^﻿/,"").split("\n").forEach((src,i)=>{const n=i+1,body=kStripComment(src,n);if(!body.trim())return;
+  if(/^ *\t/.test(body))throw new KErr(n,"Tabs aren't allowed. Indent with spaces.");
+  const lead=body.match(/^ */)[0].length;rows.push({n,indent:lead,text:body.slice(lead).replace(/\s+$/,"")})});
+ return rows}
+function kReject(text,n){const c=text[0];
+ if(c==="&")throw new KErr(n,"Anchors (&) aren't accepted. Write the value out in full.");
+ if(c==="*")throw new KErr(n,"Aliases (*) aren't accepted. Write the value out in full.");
+ if(c==="!")throw new KErr(n,"Tags (!) aren't accepted. Write the plain value.");
+ if(c==="|"||c===">")throw new KErr(n,"Block text (| or >) isn't accepted. Put the text on one line.");
+ if(c==="{")throw new KErr(n,"Inline { } maps aren't accepted. Put each key on its own line.");
+ if(text.startsWith("<<"))throw new KErr(n,"Merge keys (<<) aren't accepted. Write the values out in full.");
+ if(c==="@"||c==="`"||c==="%")throw new KErr(n,`"${c}" can't start a value. Put the text in quotes.`)}
+function kScalar(t,n){
+ if(t[0]==='"'){const m=t.match(/^"((?:[^"\\]|\\.)*)"$/);if(!m)throw new KErr(n,"Text after a closing quote isn't accepted.");
+  try{return JSON.parse(`"${m[1]}"`)}catch{throw new KErr(n,"This quoted text has an escape that isn't accepted. Use \\n, \\t, \\\" or \\\\.")}}
+ if(t[0]==="'"){const m=t.match(/^'((?:[^']|'')*)'$/);if(!m)throw new KErr(n,"Text after a closing quote isn't accepted.");return m[1].replace(/''/g,"'")}
+ kReject(t,n);
+ if(t==="null"||t==="~")return null;
+ if(t==="true")return true;
+ if(t==="false")return false;
+ if(K_NUM.test(t))return+t;
+ if(/^(yes|no|on|off|y|n)$/i.test(t))throw new KErr(n,`Write true or false, or put "${t}" in quotes if it is text.`);
+ if(/:(\s|$)/.test(t))throw new KErr(n,"Put text that contains a colon in quotes.");
+ return t}
+function kFlow(val,n){if(!val.endsWith("]"))throw new KErr(n,"This list is missing its closing ].");
+ const inner=val.slice(1,-1),parts=[];let cur2="",quote="";
+ for(let i=0;i<inner.length;i++){const c=inner[i];
+  if(quote){cur2+=c;if(quote==='"'&&c==="\\"){cur2+=inner[++i]||"";continue}if(c===quote)quote="";continue}
+  if(c==='"'||c==="'"){quote=c;cur2+=c;continue}
+  if(c===","){parts.push(cur2);cur2="";continue}
+  cur2+=c}
+ parts.push(cur2);
+ const items=parts.map(x=>x.trim());if(items.length&&items[items.length-1]==="")items.pop();
+ return{t:"flow",line:n,v:items.map(x=>{if(!x)throw new KErr(n,"This list has an empty item.");if(x[0]==="["||x[0]==="{")throw new KErr(n,"Lists inside lists aren't accepted.");return kScalar(x,n)})}}
+function kValue(val,n){if(val[0]==="[")return kFlow(val,n);return{t:"sc",line:n,v:kScalar(val,n)}}
+const kIsDash=r=>r.text==="-"||r.text.startsWith("- ");
+function kTree(rows){let i=0;
+ const block=indent=>kIsDash(rows[i])?seq(indent):map(indent);
+ function seq(indent){const node={t:"seq",line:rows[i].n,items:[]};
+  while(i<rows.length&&rows[i].indent===indent&&kIsDash(rows[i])){const r=rows[i],rest=r.text.slice(1).replace(/^ +/,"");
+   if(!rest){i++;node.items.push(i<rows.length&&rows[i].indent>indent?block(rows[i].indent):{t:"sc",line:r.n,v:null});continue}
+   const at=indent+(r.text.length-rest.length);rows[i]={n:r.n,indent:at,text:rest};
+   if(kIsDash(rows[i]))node.items.push(seq(at));
+   else if(K_KEY.test(rest))node.items.push(map(at));
+   else{i++;node.items.push(kValue(rest,r.n))}}
+  return node}
+ function map(indent){const node={t:"map",line:rows[i].n,items:new Map()};
+  while(i<rows.length&&rows[i].indent===indent&&!kIsDash(rows[i])){const r=rows[i],m=r.text.match(K_KV);
+   if(!m){kReject(r.text,r.n);throw new KErr(r.n,"Expected key: value on this line.")}
+   const[,key,val]=m;if(node.items.has(key))throw new KErr(r.n,`"${key}" appears twice in the same place.`);
+   i++;
+   if(val===undefined||val===""){const next=rows[i];
+    if(next&&next.indent>indent)node.items.set(key,{line:r.n,v:block(next.indent)});
+    else if(next&&next.indent===indent&&kIsDash(next))node.items.set(key,{line:r.n,v:seq(indent)});
+    else node.items.set(key,{line:r.n,v:{t:"sc",line:r.n,v:null}})}
+   else node.items.set(key,{line:r.n,v:kValue(val,r.n)})}
+  if(i<rows.length&&rows[i].indent>indent)throw new KErr(rows[i].n,"This line is indented more than the line above it.");
+  return node}
+ const root=block(rows[0].indent);
+ if(i<rows.length)throw new KErr(rows[i].n,"This line doesn't line up with the lines above it.");
+ return root}
+
+function kBuild(root,s){
+ const typeText={string:"text",number:"a number",boolean:"true or false"};
+ const one=(e,what,type,nullable)=>{const n=e.v;
+  if(n.t!=="sc")throw new KErr(e.line,`${what} must be ${typeText[type]}, on one line.`);
+  if(n.v===null&&nullable)return null;
+  if(typeof n.v!==type)throw new KErr(e.line,`${what} must be ${typeText[type]}${nullable?" or left out":""}.`);
+  return n.v};
+ const allow=(node,keys,where)=>{for(const[k,e]of node.items)if(!keys.includes(k))throw new KErr(e.line,`Unknown key "${k}" in ${where}. Use: ${keys.join(", ")}.`)};
+ const asMap=(e,what)=>{if(e.v.t!=="map")throw new KErr(e.line,`${what} must be a list of keys, one per line.`);return e.v};
+ const asList=(e,what)=>{const n=e.v;if(n.t==="seq")return n.items;if(n.t==="sc"&&n.v===null)return[];if(n.t==="flow"&&!n.v.length)return[];throw new KErr(e.line,`${what} must be a list. Start each entry with "- ".`)};
+ const enumOf=(e,what,list)=>{const v=one(e,what,"string");if(!list.includes(v))throw new KErr(e.line,`${what} must be one of: ${list.join(", ")}.`);return v};
+ if(root.t!=="map")throw new KErr(root.line,"The document must be keys such as memberships: and packs:.");
+ allow(root,["version","currency","timeZone","memberships","packs"],"the top level");
+ const top=(key,want,hint)=>{const e=root.items.get(key);if(!e)return;const v=one(e,key,typeof want);if(v!==want)throw new KErr(e.line,hint)};
+ top("version",s.pl.version,`version is the published version (${s.pl.version}). It changes when you publish, so leave it as ${s.pl.version}.`);
+ top("currency",K_CUR[s.cur]||s.cur,`currency is set in Settings (${K_CUR[s.cur]||s.cur}), not in plans.`);
+ top("timeZone",s.tz,`timeZone is set in Settings (${s.tz}), not in plans.`);
+ const items=[],feature=s.unit.other;
+ const grantsOf=(e,every,where)=>{if(!e)throw new KErr(where.line,"grants is missing. A plan needs at least one.");
+  const list=asList(e,"grants");if(!list.length)throw new KErr(e.line,"A plan needs at least one grant.");
+  return list.map(item=>{if(item.t!=="map")throw new KErr(item.line,"Each grant is a set of keys: feature, units, every, rollover.");
+   allow(item,["feature","units","every","rollover"],"a grant");
+   const f=item.items.get("feature"),u=item.items.get("units"),ev=item.items.get("every"),ro=item.items.get("rollover");
+   if(f&&one(f,"feature","string")!==feature)throw new KErr(f.line,`feature must be ${feature}: it is the only thing plans give today.`);
+   if(!u)throw new KErr(item.line,"A grant needs units.");if(!ev)throw new KErr(item.line,"A grant needs every.");
+   return{n:one(u,"units","number"),every:enumOf(ev,"every",every),roll:ro?one(ro,"rollover","number"):0}})};
+ const common=m=>{const id=m.items.get("id");if(!id)throw new KErr(m.line,"Every plan needs an id.");
+  const idv=one(id,"id","string");if(!K_ID.test(idv))throw new KErr(id.line,"id uses lowercase letters, digits and dashes, up to 40.");
+  const name=m.items.get("name"),pub=m.items.get("public");
+  return{id:idv,name:name?one(name,"name","string"):"",pub:pub?one(pub,"public","boolean"):true}};
+ const out={tiers:[],addons:[]};let memLine=null,packLine=null;
+ const mem=root.items.get("memberships"),packs=root.items.get("packs");
+ if(mem){memLine=mem.line;for(const m of asList(mem,"memberships")){
+  if(m.t!=="map")throw new KErr(m.line,"Each membership is a set of keys, starting with - id:.");
+  allow(m,["id","name","blurb","public","books","prices","quantities","grants"],"a membership");
+  const c=common(m),blurb=m.items.get("blurb"),books=m.items.get("books"),prices=m.items.get("prices"),qty=m.items.get("quantities");
+  let month=0,year=null;
+  if(prices){const pm=asMap(prices,"prices");allow(pm,["month","year"],"prices");
+   if(pm.items.get("month"))month=one(pm.items.get("month"),"month","number");
+   if(pm.items.get("year"))year=one(pm.items.get("year"),"year","number",true)}
+  let sizes=null;
+  if(qty){const n=qty.v;
+   if(n.t==="flow")sizes=n.v;else if(n.t==="seq")sizes=n.items.map(x=>{if(x.t!=="sc")throw new KErr(x.line,"Sizes are plain numbers.");return x.v});else if(!(n.t==="sc"&&n.v===null))throw new KErr(qty.line,"quantities is a list of numbers, like [1, 2, 4].");
+   if(sizes&&sizes.some(x=>typeof x!=="number"))throw new KErr(qty.line,"quantities are numbers, like [1, 2, 4].")}
+  const t={id:c.id,name:c.name,blurb:blurb?one(blurb,"blurb","string"):"",pub:c.pub,month,year,qty:sizes};
+  if(books){const b=enumOf(books,"books",K_BOOKS);if(b!=="member")t.books=b}
+  t.grants=grantsOf(m.items.get("grants"),K_EVERY_TIER,m);
+  out.tiers.push(t);items.push({kind:"tiers",id:t.id,name:t.name,line:m.line})}}
+ if(packs){packLine=packs.line;for(const m of asList(packs,"packs")){
+  if(m.t!=="map")throw new KErr(m.line,"Each pack is a set of keys, starting with - id:.");
+  allow(m,["id","name","public","price","every","grants"],"a pack");
+  const c=common(m),price=m.items.get("price"),every=m.items.get("every");
+  const a={id:c.id,name:c.name,pub:c.pub,price:price?one(price,"price","number"):0,every:every?enumOf(every,"every",K_EVERY_PACK):"once"};
+  a.grants=grantsOf(m.items.get("grants"),K_EVERY_PACK,m);
+  out.addons.push(a);items.push({kind:"addons",id:a.id,name:a.name,line:m.line})}}
+ return{draft:out,items,memLine,packLine}}
+
+function kParse(text,s){
+ try{const rows=kRows(text);
+  if(rows.length&&rows[0].text==="---")rows.shift();
+  if(rows.some(r=>r.text==="---"||r.text==="..."))throw new KErr(rows.find(r=>r.text==="---"||r.text==="...").n,"Only one document is accepted.");
+  if(!rows.length)throw new KErr(1,"The document is empty. Use Reset to published to start again.");
+  return{ok:true,...kBuild(kTree(rows),s)}}
+ catch(e){if(e instanceof KErr)return{ok:false,line:e.line,msg:e.msg};throw e}}
+
+/* Editor state and view. The text lives on the school (s.kYaml) next to the draft it mirrors. */
+function kState(s){const sig=kSig(s);let y=s.kYaml;
+ if(!y||y.sig!==sig)y=s.kYaml={text:kEmit(s),sig};
+ y.res=kParse(y.text,s);return y}
+function kLocate(pr,res){return pr.map(text=>{let line=null;
+ const hit=res.items.find(it=>it.name&&text.startsWith(`${it.name}:`));
+ if(hit)line=hit.line;
+ else if(text==="A plan needs a name.")line=(res.items.find(it=>!it.name.trim())||{}).line;
+ else if(/memberships/.test(text))line=res.memLine;
+ else if(/packs/.test(text))line=res.packLine;
+ return{text,line:line||null}})}
+const kGutterHtml=(text,bad=new Set())=>text.split("\n").map((_,i)=>`<i class="${bad.has(i+1)?"bad":""}">${i+1}</i>`).join("");
+const kLineBtn=n=>`<button class="link" data-kline="${n}" aria-label="Go to line ${n}">line ${n}</button>`;
+function kGoneNote(ch){const gone=ch.filter(c=>c.gone);
+ return gone.length?`<div class="note">${ic("alert")}<span>Removed in the draft: ${gone.map(c=>kEsc(c.name)).join(", ")}. Publishing archives ${gone.length===1?"it":"them"} in Stripe. Discard the draft to bring ${gone.length===1?"it":"them"} back.</span></div>`:""}
+function kCodeHtml(s,own,pr,ch){const y=kState(s),res=y.res,located=res.ok?kLocate(pr,res):[],bad=new Set(res.ok?located.map(x=>x.line).filter(Boolean):[res.line]);
+ const pill=!res.ok?`<span class="kpill bad" role="status">${ic("xc")}Parse error at line ${res.line}</span>`:pr.length?`<span class="kpill warn" role="status">${ic("alert")}${pr.length} problem${pr.length===1?"":"s"}</span>`:`<span class="kpill ok" role="status">${ic("check")}Valid</span>`;
+ const msgs=!res.ok?`<div class="err" role="alert">${ic("xc")} Line ${res.line}: ${kEsc(res.msg)} ${kLineBtn(res.line)}</div><div class="mut">The draft is unchanged until this is fixed.</div>`
+  :located.length?located.map(x=>`<div class="err">${ic("alert")} ${kEsc(x.text)} ${x.line?kLineBtn(x.line):""}</div>`).join(""):`<div class="ok">${ic("check")} No problems.</div>`;
+ const chg=ch.length?ch.map(c=>`<div class="kc"><b>${kEsc(c.name)}</b> ${c.gone?'<span class="badge b-bad">Removed</span>':c.lines[0].t==="New plan"?'<span class="badge b-ok">New</span>':""}${c.lines.map(l=>`<div>${kEsc(l.t)}</div><div class="mut">${kEsc(l.s)}</div>`).join("")}</div>`).join(""):'<div class="mut">No changes yet. This matches what is published.</div>';
+ return`<div class="kcode"><div class="kmain">
+  <div class="ktool" role="toolbar" aria-label="YAML editor">
+   <button class="btn s" id="kfmt" ${own?"":"disabled"} title="Rewrite the document in the standard layout">${ic("sliders")}Format</button>
+   <button class="btn s" id="kcopy" title="Copy the YAML">${ic("copy")}Copy</button>
+   <button class="btn s" id="kreset" ${own&&ch.length?"":"disabled"} title="Replace the draft with what is published">${ic("undo")}Reset to published</button>
+   <span class="sp"></span>${pill}</div>
+  <p class="kmut" id="khelp">${ic("info")} Comments are not saved: plans are stored as JSON. Anchors, aliases and tags are not accepted.</p>
+  ${own?"":`<div class="lock">${ic("lock")} Owners edit plans. You can read and copy this YAML.</div>`}
+  <div class="ked"><div class="kgut" id="kgut" aria-hidden="true">${kGutterHtml(y.text,bad)}</div>
+   <textarea id="kta" class="kta" spellcheck="false" wrap="off" autocomplete="off" autocapitalize="off" aria-label="Plans as YAML" aria-describedby="khelp" ${own?"":"readonly"}>${kEsc(y.text)}</textarea></div>
+  <div class="kmsg" id="kmsg" aria-live="polite">${msgs}</div></div>
+  <aside class="kchg" aria-label="Changes vs published"><h5>${ic("list")} Changes vs published <span class="mut" style="text-transform:none;font-weight:400">${ch.length}</span></h5>${chg}</aside></div>`}
+
+function kApply(s,render){clearTimeout(kTimer);kTimer=0;kTimerSchool=null;const y=s.kYaml;if(!y)return;
+ const res=kParse(y.text,s);
+ if(res.ok){if(JSON.stringify(res.draft)!==JSON.stringify(s.pl.draft))s.pl.draft=res.draft;y.sig=kSig(s)}
+ if(render&&sch()===s&&s.plMode==="code")kRefresh()}
+function kFlush(){if(!kTimer)return;const s=kTimerSchool;kApply(s,false);
+ const button=$("#prev");if(button&&sch()===s)button.disabled=!(diff(s).length&&!problems(s).length&&s.stripe.connected)}
+function kRefresh(){const ta=$("#kta");kKeep=ta?{ta,from:ta.selectionStart,to:ta.selectionEnd,top:ta.scrollTop,left:ta.scrollLeft,focus:document.activeElement===ta}:null;plans()}
+function kJump(ta,line){const rows=ta.value.split("\n");let at=0;for(let i=0;i<line-1;i++)at+=rows[i].length+1;
+ ta.focus();ta.setSelectionRange(at,at+(rows[line-1]||"").length);ta.scrollTop=Math.max(0,(line-3)*K_LINE_PX);$("#kgut").scrollTop=ta.scrollTop}
+function kBind(s){let ta=$("#kta");if(!ta)return;
+ if(kKeep){const k=kKeep;kKeep=null;if(k.ta.value===ta.value){ta.replaceWith(k.ta);ta=k.ta;ta.scrollTop=k.top;ta.scrollLeft=k.left;if(k.focus){ta.focus({preventScroll:true});ta.setSelectionRange(k.from,k.to)}}}
+ $("#kgut").scrollTop=ta.scrollTop;
+ if(!kWired){kWired=true;$("#pl").addEventListener("mousedown",kFlush,true)}
+ const y=s.kYaml;
+ ta.oninput=()=>{y.text=ta.value;$("#kgut").innerHTML=kGutterHtml(ta.value);$("#kgut").scrollTop=ta.scrollTop;clearTimeout(kTimer);kTimerSchool=s;kTimer=setTimeout(()=>kApply(s,true),K_DEBOUNCE)};
+ ta.onscroll=()=>{$("#kgut").scrollTop=ta.scrollTop};
+ ta.onblur=()=>{if(kTimer)kApply(s,true)};
+ $$("#pl [data-kline]").forEach(b=>{b.onclick=()=>kJump(ta,+b.dataset.kline)});
+ $("#kfmt").onclick=()=>{kApply(s,false);const res=kParse(y.text,s);
+  if(!res.ok){toast(`Fix line ${res.line} before formatting.`);return}
+  s.pl.draft=res.draft;y.text=kEmit(s);y.sig=kSig(s);kRefresh();toast("Formatted.")};
+ $("#kcopy").onclick=async()=>{try{await navigator.clipboard.writeText(y.text);toast("YAML copied.")}catch{ta.select();toast("Press Ctrl or Cmd+C to copy.")}};
+ $("#kreset").onclick=()=>{clearTimeout(kTimer);kTimer=0;s.pl.draft=clone(s.pl.pub);render();toast("Draft reset to the published plans.")}}
 
 function permCheck(s){const m=s.stripe.missing;return{W:PERMS_W.map(p=>[p+" (write)",1]),R:PERMS_R.map(p=>[p+" (read)",1]),N:PERMS_N.map(p=>[p,!m.includes(p)])}}
 function permModal(s){const c=permCheck(s),mk=a=>a.map(([n,ok])=>`<div class="${ok?"ok":"no"}">${ic(ok?"check":"xc")}<span style="color:var(--foreground)">${n}</span></div>`).join("");
