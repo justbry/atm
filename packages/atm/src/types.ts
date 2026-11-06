@@ -461,6 +461,107 @@ export type ShareStatement = {
 	balanceOwed: number;
 };
 
+// ---------------------------------------------------------------------------------------------------------------
+// Signed receipts and sealed months: a third record of each payment, kept by the family, and a signature per closed month.
+// ---------------------------------------------------------------------------------------------------------------
+
+/**
+ * The facts of one paid or refunded payment, made from its event alone (`receiptOf`), so the school's books can make it
+ * again byte for byte. Its canonical form (`canonicalize`, "canonical v1") is what is signed: a change to it is receipt v2.
+ */
+export type AtmReceipt = {
+	v: 1;
+	school: string;
+	/** The family's timeline, e.g. `family:fam_8k2`. No name or email: a receipt may be shown to anyone. */
+	key: string;
+	event_id: string;
+	event_type: "payment.succeeded" | "payment.refunded";
+	/** UTC ISO, from the event. */
+	event_time: string;
+	/** School-local `YYYY-MM-DD`, from the event. */
+	date: string;
+	/** Cents. `amount_paid` on a payment, `amount` on a refund. */
+	amount: number;
+	currency: string;
+	/** The Stripe object the event came from: the invoice id on a payment, the payload's `id` on a refund. */
+	stripe_id: string;
+	/** The event that caused this one (a refund's payment), when the event names it. */
+	cause: string | null;
+	/** sha256 (hex) of the event's canonical form. This is the link to the school's books. */
+	event_hash: string;
+};
+
+export type AtmSignedReceipt = {
+	receipt: AtmReceipt;
+	/** Which public key verifies `sig`, e.g. `trifold-2026-11`. */
+	key_id: string;
+	/** Ed25519 over `canonicalize(receipt)`, base64url without padding. */
+	sig: string;
+};
+
+/** The key a receipt or a seal is signed with: an Ed25519 private key as PKCS#8 PEM, and the id its public key is published under. */
+export type AtmSigner = { keyId: string; privateKeyPem: string };
+
+/** Published public keys: key id to an Ed25519 SPKI PEM. Old keys stay, so old receipts keep verifying. */
+export type AtmPublicKeys = Record<string, string>;
+
+export type ReceiptVerdict =
+	| { ok: true }
+	| { ok: false; reason: "malformed" | "unknown_key" | "bad_signature" };
+
+/** A signed receipt against the school's events: does the books' event still make the same receipt. */
+export type LedgerVerdict =
+	| { ok: true }
+	| { ok: false; reason: "missing_event" | "event_changed" | "not_receipted" };
+
+/** One month's events as they stood at `sealed_at`, chained to the school's seal before it. */
+export type AtmSeal = {
+	v: 1;
+	school: string;
+	/** `YYYY-MM`, by the events' school-local `date`. */
+	month: string;
+	/** Events counted: the month's events with `ingest_time <= sealed_at`. */
+	events: number;
+	/** Events among them with postings, as `buildJournal` counts transactions. */
+	transactions: number;
+	/** sha256 of the counted events' canonical forms, sorted by id and joined by "\n". The same formula as `inputsHash`. */
+	events_hash: string;
+	/** UTC ISO, passed in by the caller (atm reads no clock). */
+	sealed_at: string;
+	/** sha256 of the canonical form of the previous signed seal for this school, or null for the first. */
+	prev_seal_hash: string | null;
+};
+
+export type AtmSignedSeal = { seal: AtmSeal; key_id: string; sig: string };
+
+export type SealOfInput = {
+	school: string;
+	month: string;
+	/** All the school's events, one per `idem` (as `readEvents` returns them); `sealOf` picks the month's. */
+	events: readonly AtmEvent[];
+	sealedAt: string;
+	/** The school's last signed seal, or null for its first. */
+	previous: AtmSignedSeal | null;
+};
+
+/** What `verifySeals` found, one verdict per seal in chain order. `ok` is false when any seal is not `ok`; late events alone leave it true. */
+export type SealReport = {
+	ok: boolean;
+	seals: {
+		month: string;
+		sealed_at: string;
+		verdict:
+			| "ok"
+			| "malformed"
+			| "bad_signature"
+			| "unknown_key"
+			| "broken_link"
+			| "events_changed";
+	}[];
+	/** Month events newer than that month's latest seal. */
+	unsealedLate: { month: string; event_id: string; ingest_time: string }[];
+};
+
 /** A grant or rollover row past its expiry that still holds a balance: the engine drops it by the clock, the cron books `credit.expired`. */
 export type AtmLapsedRow = {
 	table: "customerEntitlements" | "rollovers";
