@@ -1,0 +1,171 @@
+{
+	"$comment": "The parity adapter's map (protocol v9 addendum §3). selectors: literal rewrites applied to every selector the smoke body passes to $, $$ and txt (a match must not touch a letter, digit, - or _ on either side), in order. aliases: before every $, $$ and txt call and every step, each element matching ui gets the mockup attribute it lacks, from one of its UI attributes through values (a value map; unmapped values pass through), transform (a named adapter function) or constant; so mockup selectors and dataset reads ([data-bv=fin], .dataset.p) work unchanged. helpers: where each prelude name comes from: adapter (test/parity/adapter.ts), prelude (smoke.mjs's own definition, re-evaluated over the adapter's $), or a UI counterpart. unmapped: mockup controls deliberately left without a UI selector, and why. internals: mockup internals and what stands for them in the UI; null means the UI has no counterpart yet, so the checks that need them stay pending-slice.",
+	"selectors": [
+		{
+			"mockup": "#dash",
+			"ui": "#pane[aria-labelledby=tab-dashboard]",
+			"why": "one #pane shows the current tab; this matches it only while Dashboard is open, as the mockup's #dash is the hidden pane otherwise"
+		},
+		{
+			"mockup": "#pl",
+			"ui": "#pane[aria-labelledby=tab-plans]"
+		},
+		{
+			"mockup": "#mem",
+			"ui": "#pane[aria-labelledby=tab-members]"
+		},
+		{
+			"mockup": "#bk",
+			"ui": "#pane[aria-labelledby=tab-bookings]"
+		},
+		{
+			"mockup": "#cod",
+			"ui": "#pane[aria-labelledby=tab-promos]"
+		},
+		{
+			"mockup": "#led",
+			"ui": "#pane[aria-labelledby=tab-ledger]"
+		},
+		{
+			"mockup": "#rep",
+			"ui": "#pane[aria-labelledby=tab-reports]"
+		},
+		{
+			"mockup": "#sw",
+			"ui": "[data-test=school-switcher]"
+		},
+		{
+			"mockup": "#pb",
+			"ui": "[data-test=period-button]",
+			"why": "the top bar's period button; the frozen mockup moved its arrows into the popover, the UI still has S0's arrows beside it"
+		},
+		{
+			"mockup": "#gb",
+			"ui": "[data-test=settings-button]"
+		},
+		{
+			"mockup": "#hb",
+			"ui": "[data-test=help-button]"
+		},
+		{
+			"mockup": "#bnr",
+			"ui": "[data-test=stale-banner]"
+		},
+		{
+			"mockup": "#ts",
+			"ui": ".toast"
+		},
+		{
+			"mockup": "svg[aria-label='Gross by day']",
+			"ui": "svg[aria-label^='Gross by day']",
+			"why": "the UI's accessible name adds the month: Gross by day, Nov 2026"
+		}
+	],
+	"aliases": [
+		{
+			"ui": ".tab[data-tab]",
+			"attribute": "data-p",
+			"from": "data-tab",
+			"values": {
+				"plans": "pl",
+				"dashboard": "dash",
+				"members": "mem",
+				"bookings": "bk",
+				"promos": "cod",
+				"ledger": "led",
+				"reports": "rep"
+			}
+		},
+		{
+			"ui": "[data-test=school-option][data-school]",
+			"attribute": "data-sc",
+			"from": "data-school"
+		},
+		{
+			"ui": "[data-test=dash-view][data-view]",
+			"attribute": "data-dv",
+			"from": "data-view"
+		},
+		{
+			"ui": "[data-test=dash-period][data-period]",
+			"attribute": "data-dm",
+			"from": "data-period",
+			"transform": "monthIndex",
+			"why": "the mockup's month strip keys a month by its 0-based index (data-dm=5 is Jun); the UI by its period (2026-06)"
+		},
+		{
+			"ui": "[data-test=dash-period][data-period]",
+			"attribute": "data-dpk",
+			"from": "data-period",
+			"transform": "periodKey",
+			"why": "the mockup's year and quarter strips key a period as 2026 or 2026Q3; the UI as 2026 or 2026-Q3"
+		},
+		{
+			"ui": "[data-test=dash-step][data-step]",
+			"attribute": "data-dstep",
+			"from": "data-step"
+		},
+		{
+			"ui": "[data-test=preset-option][data-preset]",
+			"attribute": "data-dsc",
+			"from": "data-preset"
+		},
+		{
+			"ui": "[data-test=pin-chip]",
+			"attribute": "data-blk",
+			"constant": ""
+		},
+		{
+			"ui": "[data-test=pin-unlock]",
+			"attribute": "data-bpgo",
+			"constant": ""
+		}
+	],
+	"helpers": {
+		"d": "adapter: document",
+		"$": "adapter: querySelector over the rewritten selector",
+		"$$": "adapter: querySelectorAll over the rewritten selector",
+		"txt": "adapter: the rewritten selector's text, whitespace collapsed",
+		"win": "adapter: window",
+		"errs": "adapter: console.error calls and window error events while the body runs",
+		"ok": "adapter: records the check",
+		"tab": "prelude",
+		"sc": "prelude",
+		"__m": "uiSource: [, the text of every src/** .ts and .tsx file], the UI's counterpart of the mockup's inline script",
+		"__h": "none",
+		"file": "none",
+		"fails": "none"
+	},
+	"internals": {
+		"style": "themeCss: the first <style> of the document holds src/theme.css, minified the way the mockup writes its stylesheet (no spaces around { } : ; , and no ; before })",
+		"window.__t": null,
+		"window.__t.SC": null,
+		"window.__t.people": null,
+		"window.__t.roleGuard": null,
+		"window.__t.kEmit": null,
+		"window.__t.kParse": null,
+		"window.__t.kCsv": null,
+		"window.__t.kHist": null,
+		"window.__t.kScope": null,
+		"window.__t.kFilter": null,
+		"window.__t.DISCLOSURE": null,
+		"window.__t.bkFig": null,
+		"window.__t.bkAggP": null,
+		"window.__t.bkAgg": null,
+		"window.__t.bkYear": null,
+		"window.__t.bkSize": null,
+		"window.__t.pMeta": null,
+		"window.__t.perY": null,
+		"window.__t.perQ": null,
+		"window.__t.perM": null,
+		"window.__t.vaAllowed": null,
+		"window.__t.VW": null,
+		"window.__t.reportDocCsv": null,
+		"window.__t.pMetaOf": null,
+		"window.__t.render": null
+	},
+	"unmapped": {
+		"#kview": "the frozen mockup's View as button (#kview, its popover #kvp with [data-bv] options, exit #vax): the UI has no View as yet (S7). The UI's static scope note and its Dashboard-local 'View books as' switch are the obsolete S1 vocabulary and are deliberately not mapped onto it.",
+		"#pp": "the frozen mockup's period popover (presets [data-pk], booking ranges [data-bp]): S7's single period control; the UI's S0 popover has other contents"
+	}
+}

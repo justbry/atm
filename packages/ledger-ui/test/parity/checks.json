@@ -1,0 +1,2519 @@
+{
+	"$comment": "Parity table (protocol v9 addendum §3): every runtime check of plans/ledger-ui/design/smoke.mjs, keyed <slug of the check name>.<occurrence>. slice: the slice that owns it (by the tab or feature it exercises). status: pass | fail (owned by a built slice and failing in the last recorded UI run; gate R stays red until it passes) | pending-slice (its slice is not built yet) | na (cannot apply to the UI; reason says why). line: first line of the smoke.mjs statement that runs it. ui: the UI selectors the adapter resolved for it. note: a person's diagnosis, kept by every tool. Regenerate ids with plans/ledger-ui/loop/tools/parity-sync.ts; record UI statuses with bun test/parity/run.ts --slice S<k> --record.",
+	"smoke": {
+		"path": "plans/ledger-ui/design/smoke.mjs",
+		"sha256": "e71a6f6a488df4126f6fd132992f855cd5f953e8ceb43c6b51d1812b762e6b98",
+		"runtimeChecks": 327
+	},
+	"sliceOrder": ["S0", "S1", "S0b", "S1b", "S2", "S3", "S4", "S5", "S6", "S7"],
+	"checks": {
+		"boots-without-errors.1": {
+			"name": "boots without errors",
+			"line": 12,
+			"slice": "S0",
+			"status": "pass"
+		},
+		"tabs.1": {
+			"name": "tabs",
+			"line": 13,
+			"slice": "S0",
+			"status": "pass",
+			"ui": ".tab"
+		},
+		"plans-collected-stat.1": {
+			"name": "plans collected stat",
+			"line": 15,
+			"slice": "S3",
+			"status": "pending-slice",
+			"ui": "#pane[aria-labelledby=tab-plans] .strip"
+		},
+		"dash-money-cards.1": {
+			"name": "dash money cards",
+			"line": 18,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard"
+		},
+		"dash-derived-badge.1": {
+			"name": "dash derived badge",
+			"line": 19,
+			"slice": "S1",
+			"status": "fail",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kt",
+			"reason": "fail",
+			"note": "UI: every school's Dashboard shows the Before University mart documents with the 'Fixture data: invented' badge (S1 golden note); the mockup marks Vibes of Light 'From this school's events'."
+		},
+		"dash-nov-gross.1": {
+			"name": "dash nov gross",
+			"line": 20,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard b"
+		},
+		"members-view.1": {
+			"name": "members view",
+			"line": 21,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard | #pane[aria-labelledby=tab-dashboard] .kcard b"
+		},
+		"risk-view.1": {
+			"name": "risk view",
+			"line": 22,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcards"
+		},
+		"month-step.1": {
+			"name": "month step",
+			"line": 23,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths button.on"
+		},
+		"b4u-fixture-badge.1": {
+			"name": "b4u fixture badge",
+			"line": 26,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kt"
+		},
+		"b4u-jun-gross.1": {
+			"name": "b4u jun gross",
+			"line": 27,
+			"slice": "S1",
+			"status": "fail",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard b",
+			"reason": "fail: 0.0%",
+			"note": "UI: switching school keeps the route query, so B4 Uni opens on the view and month left at Vibes of Light (Risk, Oct 2026) instead of its own Money, Jun; the mockup keeps dashboard state per school. Fresh #/b4u/dashboard shows the expected value ($623.00 gross, $592.04 net, 23 paying)."
+		},
+		"b4u-jun-net.1": {
+			"name": "b4u jun net",
+			"line": 28,
+			"slice": "S1",
+			"status": "fail",
+			"reason": "fail: 0.0%,0,$0.00 + $0.00,$496.01",
+			"note": "UI: switching school keeps the route query, so B4 Uni opens on the view and month left at Vibes of Light (Risk, Oct 2026) instead of its own Money, Jun; the mockup keeps dashboard state per school. Fresh #/b4u/dashboard shows the expected value ($623.00 gross, $592.04 net, 23 paying)."
+		},
+		"b4u-members-paying-23.1": {
+			"name": "b4u members paying 23",
+			"line": 29,
+			"slice": "S1",
+			"status": "fail",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard b",
+			"reason": "fail: 20",
+			"note": "UI: switching school keeps the route query, so B4 Uni opens on the view and month left at Vibes of Light (Risk, Oct 2026) instead of its own Money, Jun; the mockup keeps dashboard state per school. Fresh #/b4u/dashboard shows the expected value ($623.00 gross, $592.04 net, 23 paying)."
+		},
+		"disputes-flags.1": {
+			"name": "disputes flags",
+			"line": 30,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kflag"
+		},
+		"annual-note.1": {
+			"name": "annual note",
+			"line": 31,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .note"
+		},
+		"annual-jan-gross.1": {
+			"name": "annual jan gross",
+			"line": 32,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard b"
+		},
+		"nw-empty.1": {
+			"name": "nw empty",
+			"line": 34,
+			"slice": "S1",
+			"status": "fail",
+			"ui": "#pane[aria-labelledby=tab-dashboard]",
+			"reason": "fail: View books asPublicMemberGovernanceFinance adminOwnerPIN lockedYou are Owner here. This sw",
+			"note": "UI: Lotus Lane shows the selected mart preset like every school; 'No payments yet' appears only for a preset without payments (free-only). The mockup's empty school has no events."
+		},
+		"bk-default-week.1": {
+			"name": "bk default week",
+			"line": 37,
+			"slice": "S2",
+			"status": "pending-slice",
+			"ui": "#bchips b"
+		},
+		"bk-week-day-headers.1": {
+			"name": "bk week day headers",
+			"line": 38,
+			"slice": "S2",
+			"status": "pending-slice",
+			"ui": "#bb tr.day"
+		},
+		"bk-week-rows.1": {
+			"name": "bk week rows",
+			"line": 39,
+			"slice": "S2",
+			"status": "pending-slice",
+			"ui": "#bb tr.row"
+		},
+		"bk-bulk-on-wed.1": {
+			"name": "bk bulk on wed",
+			"line": 40,
+			"slice": "S2",
+			"status": "pending-slice",
+			"ui": "#bb [data-bulk]"
+		},
+		"bk-today-overdue.1": {
+			"name": "bk today overdue",
+			"line": 42,
+			"slice": "S2",
+			"status": "pending-slice",
+			"ui": "#bb | #bb tr.day"
+		},
+		"bulk-gone-after-confirm.1": {
+			"name": "bulk gone after confirm",
+			"line": 44,
+			"slice": "S2",
+			"status": "pending-slice",
+			"ui": "#bb [data-bulk]"
+		},
+		"bulk-toast.1": {
+			"name": "bulk toast",
+			"line": 45,
+			"slice": "S2",
+			"status": "pending-slice",
+			"ui": ".toast"
+		},
+		"bk-tomorrow-empty.1": {
+			"name": "bk tomorrow empty",
+			"line": 46,
+			"slice": "S2",
+			"status": "pending-slice",
+			"ui": "#bb"
+		},
+		"bk-next-week-2-2-overdue-pending.1": {
+			"name": "bk next week (2 + 2 overdue pending)",
+			"line": 47,
+			"slice": "S2",
+			"status": "pending-slice",
+			"ui": "#bb tr.row"
+		},
+		"bk-step-week.1": {
+			"name": "bk step week",
+			"line": 48,
+			"slice": "S2",
+			"status": "pending-slice",
+			"ui": "#bchips b"
+		},
+		"bk-filter-approval.1": {
+			"name": "bk filter approval",
+			"line": 49,
+			"slice": "S2",
+			"status": "pending-slice",
+			"ui": "#bb tr.row"
+		},
+		"mem-role-column.1": {
+			"name": "mem role column",
+			"line": 53,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#pane[aria-labelledby=tab-members] thead th"
+		},
+		"mem-role-chips-owner-admin-member.1": {
+			"name": "mem role chips owner/admin/member",
+			"line": 54,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb .kr-owner | #mb .kr-admin | #mb .kr-member"
+		},
+		"mem-owners-and-admins-listed-without-a-plan.1": {
+			"name": "mem owners and admins listed without a plan",
+			"line": 55,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row"
+		},
+		"mem-finance-chip-on-the-admin-with-the-grant-only.1": {
+			"name": "mem finance chip on the admin with the grant only",
+			"line": 56,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb .kfin"
+		},
+		"mem-admin-with-no-plan-shows-no-plan-not-0.1": {
+			"name": "mem admin with no plan shows no plan, not 0",
+			"line": 57,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row[data-id=u_rav]"
+		},
+		"mem-admin-can-also-hold-a-plan.1": {
+			"name": "mem admin can also hold a plan",
+			"line": 58,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row[data-id=m_093]"
+		},
+		"mem-role-filter-chips.1": {
+			"name": "mem role filter chips",
+			"line": 59,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#rchips [data-rf]"
+		},
+		"mem-filter-owners-and-admins.1": {
+			"name": "mem filter owners and admins",
+			"line": 60,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row"
+		},
+		"mem-filter-members.1": {
+			"name": "mem filter members",
+			"line": 61,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row"
+		},
+		"mem-filter-all.1": {
+			"name": "mem filter all",
+			"line": 62,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row"
+		},
+		"mem-sort-attention-first.1": {
+			"name": "mem sort: attention first",
+			"line": 65,
+			"slice": "S4",
+			"status": "pending-slice"
+		},
+		"mem-sort-calm-rows-by-role-then-name.1": {
+			"name": "mem sort: calm rows by role then name",
+			"line": 66,
+			"slice": "S4",
+			"status": "pending-slice"
+		},
+		"top-bar-view-as-replaces-the-static-chip-its-help-keeps-that-admins-see-all-members.1": {
+			"name": "top bar: View as replaces the static chip; its help keeps that admins see all members",
+			"line": 67,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "[data-test=scope-note]"
+		},
+		"drawer-admin-capability.1": {
+			"name": "drawer admin capability",
+			"line": 70,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#dr"
+		},
+		"drawer-admin-without-finance-money-no.1": {
+			"name": "drawer admin without finance: money no",
+			"line": 71,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#dr"
+		},
+		"drawer-member-capability.1": {
+			"name": "drawer member capability",
+			"line": 72,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#dr"
+		},
+		"owner-can-use-role-actions.1": {
+			"name": "owner can use role actions",
+			"line": 73,
+			"slice": "S4",
+			"status": "pending-slice"
+		},
+		"last-owner-guard-sole-owner-cannot-be-removed.1": {
+			"name": "last owner guard: sole owner cannot be removed",
+			"line": 74,
+			"slice": "S4",
+			"status": "pending-slice"
+		},
+		"self-demote-guard.1": {
+			"name": "self-demote guard",
+			"line": 75,
+			"slice": "S4",
+			"status": "pending-slice"
+		},
+		"role-confirm-modal-explains-refresh.1": {
+			"name": "role confirm modal explains refresh",
+			"line": 77,
+			"slice": "S4",
+			"status": "pending-slice"
+		},
+		"revoke-finance-applied.1": {
+			"name": "revoke finance applied",
+			"line": 78,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb .kfin | #dr"
+		},
+		"role-change-toast-and-pending-ledger-event.1": {
+			"name": "role change toast and pending ledger event",
+			"line": 79,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": ".toast"
+		},
+		"make-admin-applied.1": {
+			"name": "make admin applied",
+			"line": 80,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row[data-id=m_204]"
+		},
+		"remove-admin-applied.1": {
+			"name": "remove admin applied",
+			"line": 81,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb .kr-admin"
+		},
+		"remove-admin-on-a-role-only-person-drops-them-from-the-roster.1": {
+			"name": "remove admin on a role-only person drops them from the roster",
+			"line": 82,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row"
+		},
+		"b4u-viewer-is-an-admin-and-sees-all.1": {
+			"name": "b4u viewer is an admin and sees all",
+			"line": 85,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "[data-test=scope-note] | #mb .kr-owner | #mb .kr-admin"
+		},
+		"non-owner-make-admin-disabled-with-owner-needed-title.1": {
+			"name": "non-owner: make admin disabled with owner-needed title",
+			"line": 86,
+			"slice": "S4",
+			"status": "pending-slice"
+		},
+		"non-owner-finance-and-remove-disabled.1": {
+			"name": "non-owner: finance and remove disabled",
+			"line": 87,
+			"slice": "S4",
+			"status": "pending-slice"
+		},
+		"non-owner-click-does-nothing.1": {
+			"name": "non-owner click does nothing",
+			"line": 88,
+			"slice": "S4",
+			"status": "pending-slice"
+		},
+		"non-owner-owner-row-actions-disabled.1": {
+			"name": "non-owner: owner row actions disabled",
+			"line": 89,
+			"slice": "S4",
+			"status": "pending-slice"
+		},
+		"b4u-family-chip-on-the-wu-family.1": {
+			"name": "b4u family chip on the Wu family",
+			"line": 90,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb .kfam"
+		},
+		"portal-scope-banner.1": {
+			"name": "portal scope banner",
+			"line": 94,
+			"slice": "S6",
+			"status": "pending-slice",
+			"ui": "#vm .kscope"
+		},
+		"portal-adult-toggle.1": {
+			"name": "portal adult toggle",
+			"line": 95,
+			"slice": "S6",
+			"status": "pending-slice",
+			"ui": "#vm [data-vfam]"
+		},
+		"portal-adult-sees-the-whole-family-only.1": {
+			"name": "portal adult sees the whole family only",
+			"line": 96,
+			"slice": "S6",
+			"status": "pending-slice",
+			"ui": "#vm [data-fm]"
+		},
+		"portal-family-rows-carry-their-own-balance-and-bookings.1": {
+			"name": "portal family rows carry their own balance and bookings",
+			"line": 97,
+			"slice": "S6",
+			"status": "pending-slice",
+			"ui": "#vm"
+		},
+		"portal-teen-sees-only-their-own-row.1": {
+			"name": "portal teen sees only their own row",
+			"line": 98,
+			"slice": "S6",
+			"status": "pending-slice",
+			"ui": "#vm [data-fm] | #vm .kscope"
+		},
+		"portal-teen-scope-banner.1": {
+			"name": "portal teen scope banner",
+			"line": 99,
+			"slice": "S6",
+			"status": "pending-slice",
+			"ui": "#vm .kscope"
+		},
+		"portal-without-family-shows-only-that-member.1": {
+			"name": "portal without family shows only that member",
+			"line": 102,
+			"slice": "S6",
+			"status": "pending-slice",
+			"ui": "#vm .kscope"
+		},
+		"view-as-the-old-static-chip-is-now-a-button-with-a-listbox-popup-eye-icon-label-view-as-role.1": {
+			"name": "view as: the old static chip is now a button with a listbox popup, eye icon, label View as <role>",
+			"line": 111,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "[data-test=scope-note]"
+		},
+		"view-as-sits-in-the-top-bar-right-after-the-school-switcher-and-the-period-control.1": {
+			"name": "view as: sits in the top bar right after the school switcher and the period control",
+			"line": 112,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"view-as-the-help-keeps-the-old-tooltip-text-and-the-preview-vs-portal-line.1": {
+			"name": "view as: the help keeps the old tooltip text and the preview-vs-portal line",
+			"line": 113,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "#kvp"
+		},
+		"view-as-options-in-order-owner-finance-admin-admin-governance-member-public-each-with-a-sees-can-t-see-line.1": {
+			"name": "view as: options in order Owner, Finance admin, Admin, Governance, Member, Public, each with a sees/can't-see line",
+			"line": 114,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "#kvp [data-bv]"
+		},
+		"view-as-governance-summary-says-months-plans-spread-and-no-names-or-rows.1": {
+			"name": "view as: Governance summary says months, plans, spread and no names or rows",
+			"line": 115,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "#kvp [data-bv=governance] small"
+		},
+		"view-as-custom-audiences-are-a-disabled-later-row.1": {
+			"name": "view as: custom audiences are a disabled later row",
+			"line": 116,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "#kvp .it[disabled]"
+		},
+		"view-as-a-finance-admin-previews-everything-but-the-owner-disabled-you-do-not-hold-this-audience.1": {
+			"name": "view as: a finance admin previews everything but the owner (disabled, You do not hold this audience)",
+			"line": 118,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "#kvp [data-bv]"
+		},
+		"view-as-the-owner-previews-every-role.1": {
+			"name": "view as: the owner previews every role",
+			"line": 119,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "#kvp [data-bv]"
+		},
+		"view-as-an-admin-without-the-grant-who-holds-a-membership-previews-admin-member-and-public-only.1": {
+			"name": "view as: an admin without the grant who holds a membership previews Admin, Member and Public only",
+			"line": 120,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "#kvp [data-bv]"
+		},
+		"view-as-an-admin-without-the-grant-and-no-membership-previews-admin-and-public-only.1": {
+			"name": "view as: an admin without the grant and no membership previews Admin and Public only",
+			"line": 121,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "#kvp [data-bv]"
+		},
+		"view-as-cedar-rule-a-viewer-never-previews-above-what-they-hold.1": {
+			"name": "view as: Cedar rule, a viewer never previews above what they hold",
+			"line": 122,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"view-as-picking-an-option-re-renders-the-active-tab-in-place.1": {
+			"name": "view as: picking an option re-renders the active tab in place",
+			"line": 128,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"view-as-banner-says-preview-this-is-what-governance-sees-you-are-owner-with-an-exit-button.1": {
+			"name": "view as: banner says Preview: this is what Governance sees. You are Owner. with an Exit button",
+			"line": 129,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"view-as-every-tab-re-renders-for-the-previewed-role.1": {
+			"name": "view as: every tab re-renders for the previewed role",
+			"line": 131,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"view-as-governance-preview-locks-members-and-bookings-roster-and-managebookings-not-books.1": {
+			"name": "view as: governance preview locks Members and Bookings (roster and ManageBookings, not books)",
+			"line": 132,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": ".tab[data-p=mem] | #mlock"
+		},
+		"view-as-exit-returns-to-yourself-and-hides-the-banner.1": {
+			"name": "view as: Exit returns to yourself and hides the banner",
+			"line": 133,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"view-as-writes-are-disabled-while-previewing-with-exit-preview-to-act.1": {
+			"name": "view as: writes are disabled while previewing, with Exit preview to act",
+			"line": 135,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"view-as-settings-writes-are-off-in-preview-too.1": {
+			"name": "view as: settings writes are off in preview too",
+			"line": 136,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"view-as-admin-preview-shows-the-roster-but-money-is-finance-only.1": {
+			"name": "view as: admin preview shows the roster but money is Finance only",
+			"line": 137,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row"
+		},
+		"ranked-2-ledger-is-a-lock-panel-for-an-admin-without-the-grant.1": {
+			"name": "ranked 2: Ledger is a lock panel for an admin without the grant",
+			"line": 138,
+			"slice": "S5",
+			"status": "pending-slice"
+		},
+		"books-viewer-defaults-to-the-signed-in-audience-finance-admin-no-local-switch-on-the-dashboard.1": {
+			"name": "books: viewer defaults to the signed-in audience (finance admin), no local switch on the Dashboard",
+			"line": 142,
+			"slice": "S1b",
+			"status": "pending-slice",
+			"ui": "#kview"
+		},
+		"books-each-audience-renders-a-different-dashboard.1": {
+			"name": "books: each audience renders a different dashboard",
+			"line": 144,
+			"slice": "S1b",
+			"status": "pending-slice"
+		},
+		"books-every-audience-has-a-caption.1": {
+			"name": "books: every audience has a caption",
+			"line": 145,
+			"slice": "S1b",
+			"status": "pending-slice"
+		},
+		"books-pin-chip-only-from-governance-up.1": {
+			"name": "books: PIN chip only from Governance up",
+			"line": 146,
+			"slice": "S1",
+			"status": "fail",
+			"reason": "unreached: not reached: the step at line 146 threw: null is not an object (evaluating '$(\"#kview\").click')",
+			"note": "Obsolete S1 vocabulary: the frozen mockup (disclosure-v2) picks the audience with the top bar's View as (smoke va(): #kview then #kvp [data-bv=<audience>]); the UI has only S1's Dashboard-local 'View books as' switch, so va() throws, the Dashboard stays at B4 Uni's signed-in Finance admin level and the check reads the wrong audience. Fixed by S7 (View as) and S1b (audiences)."
+		},
+		"books-public-switching-re-snaps-the-period-with-a-toast.1": {
+			"name": "books public: switching re-snaps the period with a toast",
+			"line": 149,
+			"slice": "S1b",
+			"status": "pending-slice",
+			"ui": ".toast"
+		},
+		"books-public-year-grain-only.1": {
+			"name": "books public: year grain only",
+			"line": 150,
+			"slice": "S1",
+			"status": "fail",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths [data-dpk] | #pane[aria-labelledby=tab-dashboard] .kmonths button",
+			"reason": "fail: ‹,Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,›",
+			"note": "Obsolete S1 vocabulary: the frozen mockup (disclosure-v2) picks the audience with the top bar's View as (smoke va(): #kview then #kvp [data-bv=<audience>]); the UI has only S1's Dashboard-local 'View books as' switch, so va() throws, the Dashboard stays at B4 Uni's signed-in Finance admin level and the check reads the wrong audience. Fixed by S7 (View as) and S1b (audiences)."
+		},
+		"books-public-small-school-money-rounded-to-100-not-1-000.1": {
+			"name": "books public: small school, money rounded to $100 (not $1,000)",
+			"line": 151,
+			"slice": "S1b",
+			"status": "pending-slice",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard b"
+		},
+		"books-public-years-inside-the-delay-are-listed-disabled-published-after.1": {
+			"name": "books public: years inside the delay are listed, disabled, Published after",
+			"line": 152,
+			"slice": "S1b",
+			"status": "pending-slice"
+		},
+		"books-public-a-disabled-year-cannot-be-picked.1": {
+			"name": "books public: a disabled year cannot be picked",
+			"line": 153,
+			"slice": "S1b",
+			"status": "pending-slice",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths button.on"
+		},
+		"books-public-losses-and-cash-are-members-only-governance-with-the-reason-never-0.1": {
+			"name": "books public: losses and cash are members_only / governance, with the reason, never 0",
+			"line": 154,
+			"slice": "S1b",
+			"status": "pending-slice",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard[data-k=refunds] [data-hid=members_only] | #pane[aria-labelledby=tab-dashboard] .kcard[data-k=refunds] b | #pane[aria-labelledby=tab-dashboard] .kcard[data-k=payouts] b"
+		},
+		"books-public-categories-only-no-plan-breakdown.1": {
+			"name": "books public: categories only, no plan breakdown",
+			"line": 155,
+			"slice": "S1b",
+			"status": "pending-slice",
+			"ui": "#pane[aria-labelledby=tab-dashboard]"
+		},
+		"books-public-people-by-quarter-and-activity-by-month-from-the-file.1": {
+			"name": "books public: people by quarter and activity by month, from the file",
+			"line": 157,
+			"slice": "S1b",
+			"status": "pending-slice",
+			"ui": "#pane[aria-labelledby=tab-dashboard]"
+		},
+		"books-member-re-snaps-to-the-latest-published-quarter-with-the-toast.1": {
+			"name": "books member: re-snaps to the latest published quarter with the toast",
+			"line": 161,
+			"slice": "S1b",
+			"status": "pending-slice",
+			"ui": ".toast"
+		},
+		"books-member-quarter-grain.1": {
+			"name": "books member: quarter grain",
+			"line": 162,
+			"slice": "S1",
+			"status": "fail",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths [data-dpk]",
+			"reason": "fail",
+			"note": "Obsolete S1 vocabulary: the frozen mockup (disclosure-v2) picks the audience with the top bar's View as (smoke va(): #kview then #kvp [data-bv=<audience>]); the UI has only S1's Dashboard-local 'View books as' switch, so va() throws, the Dashboard stays at B4 Uni's signed-in Finance admin level and the check reads the wrong audience. Fixed by S7 (View as) and S1b (audiences)."
+		},
+		"books-member-money-rounded-to-100.1": {
+			"name": "books member: money rounded to $100",
+			"line": 163,
+			"slice": "S1",
+			"status": "fail",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard b",
+			"reason": "fail: $5,735.00,$60.00,$173.52,$5,501.48,$0.00",
+			"note": "Obsolete S1 vocabulary: the frozen mockup (disclosure-v2) picks the audience with the top bar's View as (smoke va(): #kview then #kvp [data-bv=<audience>]); the UI has only S1's Dashboard-local 'View books as' switch, so va() throws, the Dashboard stays at B4 Uni's signed-in Finance admin level and the check reads the wrong audience. Fixed by S7 (View as) and S1b (audiences)."
+		},
+		"books-member-a-quarter-publishes-6-weeks-after-it-closes-q3-2026-after-18-nov-2026.1": {
+			"name": "books member: a quarter publishes 6 weeks after it closes (Q3 2026 after 18 Nov 2026)",
+			"line": 164,
+			"slice": "S1b",
+			"status": "pending-slice"
+		},
+		"books-member-losses-as-one-total-cash-governance-and-up.1": {
+			"name": "books member: losses as one total, cash Governance and up",
+			"line": 165,
+			"slice": "S1b",
+			"status": "pending-slice",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard[data-k=refunds] b"
+		},
+		"books-gov-month-grain-closed-months-only.1": {
+			"name": "books gov: month grain, closed months only",
+			"line": 168,
+			"slice": "S1",
+			"status": "fail",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths button[data-dm]:not(.kwait) | #pane[aria-labelledby=tab-dashboard] .kcaption",
+			"reason": "fail: Finance admin sees everything, live: months and days, the open month included, names included. Cell rules are off, so no figure is hidden or banded. Every identified read is audited.",
+			"note": "Obsolete S1 vocabulary: the frozen mockup (disclosure-v2) picks the audience with the top bar's View as (smoke va(): #kview then #kvp [data-bv=<audience>]); the UI has only S1's Dashboard-local 'View books as' switch, so va() throws, the Dashboard stays at B4 Uni's signed-in Finance admin level and the check reads the wrong audience. Fixed by S7 (View as) and S1b (audiences). Even at Governance the UI strip has 9 closed and 2 waiting months (Jan to Nov), the mockup 9 and 3."
+		},
+		"books-gov-exact-figures-cents.1": {
+			"name": "books gov: exact figures (cents)",
+			"line": 170,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard b"
+		},
+		"books-gov-plan-breakdown-with-cell-rules-suppressed-cell-shows-with-the-reason.1": {
+			"name": "books gov: plan breakdown with cell rules, suppressed cell shows — with the reason",
+			"line": 171,
+			"slice": "S1",
+			"status": "fail",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcutv | #pane[aria-labelledby=tab-dashboard] .kwhy",
+			"reason": "fail: 0 MRR is not computed: cash basis, a yearly payer counts in the month paid · ARR is not computed: cash basis · Churn is not computed: cash basis",
+			"note": "Obsolete S1 vocabulary: the frozen mockup (disclosure-v2) picks the audience with the top bar's View as (smoke va(): #kview then #kvp [data-bv=<audience>]); the UI has only S1's Dashboard-local 'View books as' switch, so va() throws, the Dashboard stays at B4 Uni's signed-in Finance admin level and the check reads the wrong audience. Fixed by S7 (View as) and S1b (audiences). At Governance (#/b4u/dashboard?level=governance) the UI's first .kwhy is the cash-basis 'MRR is not computed' line; the 'fewer than 5' reason is a later .kwhy."
+		},
+		"books-gov-spread-of-donors-a-failing-bucket-as-10-and-its-neighbour-rounded-to-10-the-median-no-rows.1": {
+			"name": "books gov: spread of donors, a failing bucket as <10 and its neighbour rounded to 10, the median, no rows",
+			"line": 173,
+			"slice": "S1b",
+			"status": "pending-slice"
+		},
+		"books-gov-no-personal-names-emails-or-per-person-rows.1": {
+			"name": "books gov: no personal names, emails or per-person rows",
+			"line": 174,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] table"
+		},
+		"books-gov-months-not-yet-closed-are-not-drawn-as-zeros.1": {
+			"name": "books gov: months not yet closed are not drawn as zeros",
+			"line": 175,
+			"slice": "S1",
+			"status": "fail",
+			"ui": "#pane[aria-labelledby=tab-dashboard] svg title",
+			"reason": "fail",
+			"note": "Obsolete S1 vocabulary: the frozen mockup (disclosure-v2) picks the audience with the top bar's View as (smoke va(): #kview then #kvp [data-bv=<audience>]); the UI has only S1's Dashboard-local 'View books as' switch, so va() throws, the Dashboard stays at B4 Uni's signed-in Finance admin level and the check reads the wrong audience. Fixed by S7 (View as) and S1b (audiences). At Governance the UI's chart titles also say 'Not shown yet' with a capital N; the check matches 'not shown yet'."
+		},
+		"ranked-1-governance-gets-the-donor-spread-in-reports-no-table-no-names.1": {
+			"name": "ranked 1: governance gets the donor spread in Reports, no table, no names",
+			"line": 176,
+			"slice": "S5",
+			"status": "pending-slice",
+			"ui": "#donors"
+		},
+		"ranked-2-ledger-is-a-lock-panel-for-governance.1": {
+			"name": "ranked 2: Ledger is a lock panel for governance",
+			"line": 177,
+			"slice": "S5",
+			"status": "pending-slice"
+		},
+		"books-fin-no-suppressed-or-banded-cell-in-any-view-or-month.1": {
+			"name": "books fin: no suppressed or banded cell in any view or month",
+			"line": 183,
+			"slice": "S1",
+			"status": "fail",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcutv,#pane[aria-labelledby=tab-dashboard] .kcut,#pane[aria-labelledby=tab-dashboard] .kwhy,#pane[aria-labelledby=tab-dashboard] .khid,#pane[aria-labelledby=tab-dashboard] .kapprox",
+			"reason": "fail",
+			"note": "UI: at Finance admin the Dashboard shows the cash-basis '... is not computed' lines as .kwhy (annual-prepay preset, carried from the earlier preset click); the mockup has no .kwhy at the full audiences."
+		},
+		"books-fin-open-month-is-hatched-and-live-days-shown.1": {
+			"name": "books fin: open month is hatched and live, days shown",
+			"line": 184,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths .kopen | #pane[aria-labelledby=tab-dashboard] .kopen | #pane[aria-labelledby=tab-dashboard] .kmonths"
+		},
+		"books-fin-caption-says-everything-names-included-audited.1": {
+			"name": "books fin: caption says everything, names included, audited",
+			"line": 185,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcaption"
+		},
+		"books-fin-no-fixture-value-renders-as-null-or-nan.1": {
+			"name": "books fin: no fixture value renders as null or NaN",
+			"line": 186,
+			"slice": "S1",
+			"status": "pass"
+		},
+		"books-owner-no-suppressed-or-banded-cell-in-any-view-or-month.1": {
+			"name": "books owner: no suppressed or banded cell in any view or month",
+			"line": 183,
+			"slice": "S1",
+			"status": "fail",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcutv,#pane[aria-labelledby=tab-dashboard] .kcut,#pane[aria-labelledby=tab-dashboard] .kwhy,#pane[aria-labelledby=tab-dashboard] .khid,#pane[aria-labelledby=tab-dashboard] .kapprox",
+			"reason": "fail",
+			"note": "Obsolete S1 vocabulary: the frozen mockup (disclosure-v2) picks the audience with the top bar's View as (smoke va(): #kview then #kvp [data-bv=<audience>]); the UI has only S1's Dashboard-local 'View books as' switch, so va() throws, the Dashboard stays at B4 Uni's signed-in Finance admin level and the check reads the wrong audience. Fixed by S7 (View as) and S1b (audiences). va('owner') throws, so this reads the Finance admin dashboard, which shows the cash-basis '... is not computed' lines as .kwhy."
+		},
+		"books-owner-open-month-is-hatched-and-live-days-shown.1": {
+			"name": "books owner: open month is hatched and live, days shown",
+			"line": 184,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths .kopen | #pane[aria-labelledby=tab-dashboard] .kopen | #pane[aria-labelledby=tab-dashboard] .kmonths"
+		},
+		"books-owner-caption-says-everything-names-included-audited.1": {
+			"name": "books owner: caption says everything, names included, audited",
+			"line": 185,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcaption"
+		},
+		"books-owner-no-fixture-value-renders-as-null-or-nan.1": {
+			"name": "books owner: no fixture value renders as null or NaN",
+			"line": 186,
+			"slice": "S1",
+			"status": "pass"
+		},
+		"books-fin-daily-gross-for-the-open-month.1": {
+			"name": "books fin: daily gross for the open month",
+			"line": 188,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] svg[aria-label^='Gross by day'] rect"
+		},
+		"ranked-1-finance-sees-donors-and-payers-with-names-amounts-and-the-audit-line.1": {
+			"name": "ranked 1: finance sees Donors and payers with names, amounts and the audit line",
+			"line": 190,
+			"slice": "S5",
+			"status": "pending-slice",
+			"ui": "#donors table"
+		},
+		"ranked-1-an-anonymous-donor-shows-as-anonymous-with-a-stable-id-to-finance-never-the-name.1": {
+			"name": "ranked 1: an anonymous donor shows as Anonymous with a stable id to finance, never the name",
+			"line": 191,
+			"slice": "S5",
+			"status": "pending-slice",
+			"ui": "#donors [data-anon]"
+		},
+		"ranked-2-finance-sees-the-ledger-with-names.1": {
+			"name": "ranked 2: finance sees the Ledger with names",
+			"line": 192,
+			"slice": "S5",
+			"status": "pending-slice",
+			"ui": "#lb"
+		},
+		"ranked-1-the-owner-sees-the-anonymous-donor-s-name-marked-anonymous-to-finance.1": {
+			"name": "ranked 1: the owner sees the anonymous donor's name, marked anonymous to finance",
+			"line": 195,
+			"slice": "S5",
+			"status": "pending-slice",
+			"ui": "#donors [data-anon]"
+		},
+		"ranked-1-member-reports-show-a-lock-for-donors-and-payers-no-names.1": {
+			"name": "ranked 1: member Reports show a lock for Donors and payers, no names",
+			"line": 198,
+			"slice": "S5",
+			"status": "pending-slice",
+			"ui": "#donors | #donors .klock"
+		},
+		"ranked-6-member-reports-show-the-income-statement-from-the-member-document-chevrons-disabled.1": {
+			"name": "ranked 6: member Reports show the income statement from the Member document, chevrons disabled",
+			"line": 199,
+			"slice": "S5",
+			"status": "pending-slice"
+		},
+		"books-gov-pin-locked-lock-state-not-zeros.1": {
+			"name": "books gov PIN locked: lock state, not zeros",
+			"line": 203,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] | #pane[aria-labelledby=tab-dashboard] .kcard | #pane[aria-labelledby=tab-dashboard] svg.kc"
+		},
+		"books-fin-pin-locked-lock-state-not-zeros.1": {
+			"name": "books fin PIN locked: lock state, not zeros",
+			"line": 203,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] | #pane[aria-labelledby=tab-dashboard] .kcard | #pane[aria-labelledby=tab-dashboard] svg.kc"
+		},
+		"books-owner-pin-locked-lock-state-not-zeros.1": {
+			"name": "books owner PIN locked: lock state, not zeros",
+			"line": 203,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] | #pane[aria-labelledby=tab-dashboard] .kcard | #pane[aria-labelledby=tab-dashboard] svg.kc"
+		},
+		"books-locked-reports-show-the-lock-not-names.1": {
+			"name": "books locked: Reports show the lock, not names",
+			"line": 204,
+			"slice": "S5",
+			"status": "pending-slice",
+			"ui": "#rblock"
+		},
+		"books-locked-ledger-shows-the-lock.1": {
+			"name": "books locked: Ledger shows the lock",
+			"line": 205,
+			"slice": "S5",
+			"status": "pending-slice",
+			"ui": "#lblock"
+		},
+		"books-pin-entering-the-pin-unlocks-the-books.1": {
+			"name": "books PIN: entering the PIN unlocks the books",
+			"line": 207,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] | #pane[aria-labelledby=tab-dashboard] .kcard | #pane[aria-labelledby=tab-dashboard] [data-blk]"
+		},
+		"rounding-harbor-arts-is-a-large-school-for-2024-and-2026-b4-uni-small.1": {
+			"name": "rounding: Harbor Arts is a large school for 2024 and 2026, B4 Uni small",
+			"line": 211,
+			"slice": "S1b",
+			"status": "pending-slice"
+		},
+		"rounding-large-school-public-money-to-the-nearest-1-000.1": {
+			"name": "rounding: large school, Public money to the nearest $1,000",
+			"line": 212,
+			"slice": "S1b",
+			"status": "pending-slice",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard b"
+		},
+		"rounding-large-school-member-money-to-100-and-the-year-total-is-not-the-sum-of-its-rounded-quarters.1": {
+			"name": "rounding: large school, Member money to $100, and the year total is not the sum of its rounded quarters",
+			"line": 215,
+			"slice": "S1b",
+			"status": "pending-slice",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard[data-k=gross_collected] b | #pane[aria-labelledby=tab-dashboard] .kyear"
+		},
+		"ranked-7-admin-without-the-grant-sees-plan-structure-revenue-and-counts-finance-or-governance-only.1": {
+			"name": "ranked 7: admin without the grant sees plan structure, revenue and counts Finance or governance only",
+			"line": 218,
+			"slice": "S3",
+			"status": "pending-slice",
+			"ui": "#pane[aria-labelledby=tab-plans] [data-k=revenue_by_tier]"
+		},
+		"ranked-8-promo-redemption-counts-are-governance-and-up-redemptions-names-finance-only.1": {
+			"name": "ranked 8: promo redemption counts are Governance and up; Redemptions (names) finance only",
+			"line": 219,
+			"slice": "S5",
+			"status": "pending-slice",
+			"ui": "#cb [data-k=redemptions]"
+		},
+		"ranked-3-drawer-for-an-admin-without-the-grant-payments-finance-only-invoice-and-adjust-finance-only-csv-finance-admins-only.1": {
+			"name": "ranked 3: drawer for an admin without the grant: payments Finance only, invoice and adjust Finance only, CSV finance admins only",
+			"line": 221,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#dr .kpay | #dr [data-act=invoice]"
+		},
+		"ranked-3-the-menu-gates-money-items-for-an-admin-without-the-grant.1": {
+			"name": "ranked 3: the ⋯ menu gates money items for an admin without the grant",
+			"line": 222,
+			"slice": "S4",
+			"status": "pending-slice"
+		},
+		"ranked-3-the-portal-preview-by-an-admin-without-the-grant-shows-no-amounts-and-cannot-export.1": {
+			"name": "ranked 3: the portal preview by an admin without the grant shows no amounts and cannot export",
+			"line": 223,
+			"slice": "S6",
+			"status": "pending-slice",
+			"ui": "#khist"
+		},
+		"ranked-7-governance-sees-per-plan-counts-with-small-counts-as-10-and-revenue-hidden-under-5-payers.1": {
+			"name": "ranked 7: governance sees per-plan counts with small counts as <10 and revenue hidden under 5 payers",
+			"line": 226,
+			"slice": "S3",
+			"status": "pending-slice",
+			"ui": "#pane[aria-labelledby=tab-plans] [data-k=tier_members] .kapprox"
+		},
+		"ranked-7-public-preview-shows-only-plans-on-sale-and-governance-and-up-for-the-breakdown.1": {
+			"name": "ranked 7: public preview shows only plans on sale and Governance and up for the breakdown",
+			"line": 227,
+			"slice": "S3",
+			"status": "pending-slice",
+			"ui": "#pane[aria-labelledby=tab-plans] tbody | #pane[aria-labelledby=tab-plans] [data-k=revenue_by_tier]"
+		},
+		"ranked-8-public-preview-of-promos-cannot-reveal-codes.1": {
+			"name": "ranked 8: public preview of Promos cannot reveal codes",
+			"line": 228,
+			"slice": "S5",
+			"status": "pending-slice",
+			"ui": "#cb [data-rev]"
+		},
+		"counts-tiny-school-at-public-shows-a-failing-count-as-10-and-hides-the-amount.1": {
+			"name": "counts: tiny school at Public shows a failing count as <10 and hides the amount",
+			"line": 231,
+			"slice": "S1b",
+			"status": "pending-slice"
+		},
+		"counts-failing-counts-round-to-the-nearest-10-and-1-9-shows-10-never-0.1": {
+			"name": "counts: failing counts round to the nearest 10 and 1-9 shows <10, never 0",
+			"line": 232,
+			"slice": "S1b",
+			"status": "pending-slice"
+		},
+		"disclosure-changing-one-rule-in-the-js-object-changes-the-rendered-caption.1": {
+			"name": "disclosure: changing one rule in the JS object changes the rendered caption",
+			"line": 237,
+			"slice": "S1b",
+			"status": "pending-slice"
+		},
+		"audience-chip-owner-is-owner-everything.1": {
+			"name": "audience chip: Owner is Owner · everything",
+			"line": 242,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row[data-id=u_pri]"
+		},
+		"audience-chip-admin-with-the-finance-grant-is-finance-admin.1": {
+			"name": "audience chip: admin with the finance grant is Finance admin",
+			"line": 243,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row[data-id=u_tes]"
+		},
+		"audience-chip-adult-with-a-live-board-membership-is-governance.1": {
+			"name": "audience chip: adult with a live Board membership is Governance",
+			"line": 244,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row[data-id=s_27]"
+		},
+		"audience-chip-adult-with-a-live-membership-is-member.1": {
+			"name": "audience chip: adult with a live membership is Member",
+			"line": 245,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row[data-id=s_21]"
+		},
+		"audience-chip-a-child-never-holds-member-the-guardian-does.1": {
+			"name": "audience chip: a child never holds Member, the guardian does",
+			"line": 246,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row[data-id=s_26]"
+		},
+		"audience-chip-admin-without-the-finance-grant-gets-audiences-like-anyone-else-member-by-plan.1": {
+			"name": "audience chip: admin without the finance grant gets audiences like anyone else (Member by plan)",
+			"line": 248,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row[data-id=m_093]"
+		},
+		"audience-chip-a-canceled-membership-is-public.1": {
+			"name": "audience chip: a canceled membership is Public",
+			"line": 249,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row[data-id=m_051]"
+		},
+		"audience-chip-revoking-the-grant-drops-the-admin-to-public.1": {
+			"name": "audience chip: revoking the grant drops the admin to Public",
+			"line": 250,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row[data-id=u_rav]"
+		},
+		"tier-audience-board-tier-is-hidden-not-for-sale-names-governance.1": {
+			"name": "tier audience: Board tier is hidden, not for sale, names Governance",
+			"line": 253,
+			"slice": "S3",
+			"status": "pending-slice",
+			"ui": "#pane[aria-labelledby=tab-plans] [data-pe='tiers:board']"
+		},
+		"tier-audience-editor-has-an-audience-field-governance-for-board-no-finance-or-owner.1": {
+			"name": "tier audience: editor has an Audience field, Governance for Board, no finance or owner",
+			"line": 255,
+			"slice": "S3",
+			"status": "pending-slice",
+			"ui": "#paud"
+		},
+		"tier-audience-default-is-member.1": {
+			"name": "tier audience: default is Member",
+			"line": 257,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"tier-audience-the-change-lands-in-the-draft.1": {
+			"name": "tier audience: the change lands in the draft",
+			"line": 259,
+			"slice": "S3",
+			"status": "pending-slice",
+			"ui": "#pane[aria-labelledby=tab-plans] [data-pe='tiers:sparkle']"
+		},
+		"tier-audience-review-says-access-moves-at-once-with-a-notice.1": {
+			"name": "tier audience: review says access moves at once, with a notice",
+			"line": 260,
+			"slice": "S3",
+			"status": "pending-slice",
+			"ui": "#md"
+		},
+		"tier-audience-publishing-writes-one-books-audience-changed-audit-row.1": {
+			"name": "tier audience: publishing writes one books.audience_changed audit row",
+			"line": 262,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"tier-audience-members-on-the-tier-move-at-once-and-see-the-notice.1": {
+			"name": "tier audience: members on the tier move at once and see the notice",
+			"line": 263,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"settings-the-six-classes-with-their-kpis-and-what-each-audience-sees.1": {
+			"name": "settings: the six classes with their KPIs and what each audience sees",
+			"line": 267,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "#set [data-dclass] | #set [data-dcell='income.public']"
+		},
+		"settings-rounding-by-size-explained-and-this-school-s-size-shown.1": {
+			"name": "settings: rounding by size explained and this school's size shown",
+			"line": 268,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "#set"
+		},
+		"settings-custom-audiences-are-a-disabled-later-row.1": {
+			"name": "settings: custom audiences are a disabled later row",
+			"line": 269,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "#set .kdcust"
+		},
+		"settings-the-change-permission-table.1": {
+			"name": "settings: the change-permission table",
+			"line": 270,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "#set .kdperm"
+		},
+		"settings-moving-refund-rate-to-a-more-open-class-than-refunds-is-refused-more-open-than-input.1": {
+			"name": "settings: moving refund_rate to a more open class than refunds is refused, more_open_than_input",
+			"line": 273,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "#dval"
+		},
+		"settings-public-money-finer-than-categories-is-below-the-floor.1": {
+			"name": "settings: Public money finer than categories is below the floor",
+			"line": 275,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "#dval"
+		},
+		"settings-a-stricter-rule-is-valid-and-needs-the-pin-only.1": {
+			"name": "settings: a stricter rule is valid and needs the PIN only",
+			"line": 277,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "#dval"
+		},
+		"settings-saving-writes-books-disclosure-changed-and-the-member-caption-follows.1": {
+			"name": "settings: saving writes books.disclosure_changed and the member caption follows",
+			"line": 279,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"settings-more-open-for-public-is-valid-but-needs-pin-and-the-mailed-link-step-up.1": {
+			"name": "settings: more open for Public is valid but needs PIN and the mailed-link step-up",
+			"line": 282,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "#dval"
+		},
+		"settings-the-step-up-modal-opens-after-the-pin.1": {
+			"name": "settings: the step-up modal opens after the PIN",
+			"line": 284,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"settings-cancelling-the-step-up-changes-nothing.1": {
+			"name": "settings: cancelling the step-up changes nothing",
+			"line": 285,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"settings-admins-see-the-disclosure-read-only.1": {
+			"name": "settings: admins see the disclosure read-only",
+			"line": 288,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "#set [data-dov]"
+		},
+		"portal-adult-member-reads-the-member-document-quarters-100.1": {
+			"name": "portal: adult member reads the Member document (quarters, $100)",
+			"line": 292,
+			"slice": "S6",
+			"status": "pending-slice"
+		},
+		"embed-only-the-public-document-can-be-embedded-with-the-warning.1": {
+			"name": "embed: only the Public document can be embedded, with the warning",
+			"line": 293,
+			"slice": "S6",
+			"status": "pending-slice",
+			"ui": "#md"
+		},
+		"portal-governance-tier-adult-sees-the-governance-view-link.1": {
+			"name": "portal: Governance-tier adult sees the governance view link",
+			"line": 295,
+			"slice": "S6",
+			"status": "pending-slice"
+		},
+		"portal-a-child-sees-that-their-guardian-sees-school-books.1": {
+			"name": "portal: a child sees that their guardian sees school books",
+			"line": 296,
+			"slice": "S6",
+			"status": "pending-slice"
+		},
+		"portal-a-member-without-a-live-membership-reads-the-public-document.1": {
+			"name": "portal: a member without a live membership reads the Public document",
+			"line": 297,
+			"slice": "S6",
+			"status": "pending-slice"
+		},
+		"period-one-control-in-the-top-bar-right-of-the-school-switcher.1": {
+			"name": "period: one control in the top bar right of the school switcher",
+			"line": 300,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "[data-test=school-switcher] | [data-test=period-button]"
+		},
+		"period-closed-control-shows-no-dates-only-an-icon-and-a-preset-word-with-an-accessible-name.1": {
+			"name": "period: closed control shows no dates, only an icon and a preset word, with an accessible name",
+			"line": 301,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "[data-test=period-button]"
+		},
+		"period-the-popover-holds-the-date-label-arrows-presets-custom-range-and-compare.1": {
+			"name": "period: the popover holds the date label, arrows, presets, custom range and compare",
+			"line": 302,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"period-one-control-drives-dashboard-reports-ledger-and-members.1": {
+			"name": "period: one control drives Dashboard, Reports, Ledger and Members",
+			"line": 304,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths button.on"
+		},
+		"period-a-non-default-period-tints-the-control.1": {
+			"name": "period: a non-default period tints the control",
+			"line": 305,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "[data-test=period-button]"
+		},
+		"period-a-month-picked-on-the-dashboard-is-the-same-period-everywhere.1": {
+			"name": "period: a month picked on the dashboard is the same period everywhere",
+			"line": 306,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": ".tab[data-p=rep] | #stmt"
+		},
+		"period-public-may-pick-only-years-presets-it-cannot-use-are-disabled-with-the-reason.1": {
+			"name": "period: Public may pick only years; presets it cannot use are disabled with the reason",
+			"line": 308,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"period-embargoed-years-are-listed-but-disabled-published-after.1": {
+			"name": "period: embargoed years are listed but disabled, Published after",
+			"line": 309,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"period-on-bookings-the-same-control-offers-today-tomorrow-this-week-next-week.1": {
+			"name": "period: on Bookings the same control offers Today, Tomorrow, This week, Next week",
+			"line": 311,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "#pp [data-bp]"
+		},
+		"period-leaving-bookings-restores-the-money-period.1": {
+			"name": "period: leaving Bookings restores the money period",
+			"line": 312,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "[data-test=period-button] | #pp [data-bp]"
+		},
+		"narrow-and-gear-are-pinned-no-shrink-and-ordered-before-period-and-view-as-when-the-bar-wraps.1": {
+			"name": "narrow: ? and gear are pinned (no shrink) and ordered before period and View as when the bar wraps",
+			"line": 316,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"narrow-compact-classes-labels-collapse-to-icon-plus-short-role-school-name-truncates.1": {
+			"name": "narrow: compact classes, labels collapse to icon plus short role, school name truncates",
+			"line": 317,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"matrix-vol-owner-no-names-or-exact-money-where-not-allowed-every-gate-carries-its-reason-never-0-or-null.1": {
+			"name": "matrix vol owner: no names or exact money where not allowed, every gate carries its reason, never 0 or null",
+			"line": 332,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"matrix-vol-finance-no-names-or-exact-money-where-not-allowed-every-gate-carries-its-reason-never-0-or-null.1": {
+			"name": "matrix vol finance: no names or exact money where not allowed, every gate carries its reason, never 0 or null",
+			"line": 332,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"matrix-vol-admin-no-names-or-exact-money-where-not-allowed-every-gate-carries-its-reason-never-0-or-null.1": {
+			"name": "matrix vol admin: no names or exact money where not allowed, every gate carries its reason, never 0 or null",
+			"line": 332,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"matrix-vol-governance-no-names-or-exact-money-where-not-allowed-every-gate-carries-its-reason-never-0-or-null.1": {
+			"name": "matrix vol governance: no names or exact money where not allowed, every gate carries its reason, never 0 or null",
+			"line": 332,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"matrix-vol-member-no-names-or-exact-money-where-not-allowed-every-gate-carries-its-reason-never-0-or-null.1": {
+			"name": "matrix vol member: no names or exact money where not allowed, every gate carries its reason, never 0 or null",
+			"line": 332,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"matrix-vol-public-no-names-or-exact-money-where-not-allowed-every-gate-carries-its-reason-never-0-or-null.1": {
+			"name": "matrix vol public: no names or exact money where not allowed, every gate carries its reason, never 0 or null",
+			"line": 332,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"matrix-b4u-finance-no-names-or-exact-money-where-not-allowed-every-gate-carries-its-reason-never-0-or-null.1": {
+			"name": "matrix b4u finance: no names or exact money where not allowed, every gate carries its reason, never 0 or null",
+			"line": 332,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"matrix-b4u-admin-no-names-or-exact-money-where-not-allowed-every-gate-carries-its-reason-never-0-or-null.1": {
+			"name": "matrix b4u admin: no names or exact money where not allowed, every gate carries its reason, never 0 or null",
+			"line": 332,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"matrix-b4u-governance-no-names-or-exact-money-where-not-allowed-every-gate-carries-its-reason-never-0-or-null.1": {
+			"name": "matrix b4u governance: no names or exact money where not allowed, every gate carries its reason, never 0 or null",
+			"line": 332,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"matrix-b4u-governance-reports-tiles-equal-the-disclosure-driven-values.1": {
+			"name": "matrix b4u governance: Reports tiles equal the disclosure-driven values",
+			"line": 333,
+			"slice": "S5",
+			"status": "pending-slice"
+		},
+		"matrix-b4u-member-no-names-or-exact-money-where-not-allowed-every-gate-carries-its-reason-never-0-or-null.1": {
+			"name": "matrix b4u member: no names or exact money where not allowed, every gate carries its reason, never 0 or null",
+			"line": 332,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"matrix-b4u-member-reports-tiles-equal-the-disclosure-driven-values.1": {
+			"name": "matrix b4u member: Reports tiles equal the disclosure-driven values",
+			"line": 333,
+			"slice": "S5",
+			"status": "pending-slice"
+		},
+		"matrix-b4u-public-no-names-or-exact-money-where-not-allowed-every-gate-carries-its-reason-never-0-or-null.1": {
+			"name": "matrix b4u public: no names or exact money where not allowed, every gate carries its reason, never 0 or null",
+			"line": 332,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"matrix-b4u-public-reports-tiles-equal-the-disclosure-driven-values.1": {
+			"name": "matrix b4u public: Reports tiles equal the disclosure-driven values",
+			"line": 333,
+			"slice": "S5",
+			"status": "pending-slice"
+		},
+		"matrix-har-owner-no-names-or-exact-money-where-not-allowed-every-gate-carries-its-reason-never-0-or-null.1": {
+			"name": "matrix har owner: no names or exact money where not allowed, every gate carries its reason, never 0 or null",
+			"line": 332,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"matrix-har-finance-no-names-or-exact-money-where-not-allowed-every-gate-carries-its-reason-never-0-or-null.1": {
+			"name": "matrix har finance: no names or exact money where not allowed, every gate carries its reason, never 0 or null",
+			"line": 332,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"matrix-har-admin-no-names-or-exact-money-where-not-allowed-every-gate-carries-its-reason-never-0-or-null.1": {
+			"name": "matrix har admin: no names or exact money where not allowed, every gate carries its reason, never 0 or null",
+			"line": 332,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"matrix-har-governance-no-names-or-exact-money-where-not-allowed-every-gate-carries-its-reason-never-0-or-null.1": {
+			"name": "matrix har governance: no names or exact money where not allowed, every gate carries its reason, never 0 or null",
+			"line": 332,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"matrix-har-governance-reports-tiles-equal-the-disclosure-driven-values.1": {
+			"name": "matrix har governance: Reports tiles equal the disclosure-driven values",
+			"line": 333,
+			"slice": "S5",
+			"status": "pending-slice"
+		},
+		"matrix-har-member-no-names-or-exact-money-where-not-allowed-every-gate-carries-its-reason-never-0-or-null.1": {
+			"name": "matrix har member: no names or exact money where not allowed, every gate carries its reason, never 0 or null",
+			"line": 332,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"matrix-har-member-reports-tiles-equal-the-disclosure-driven-values.1": {
+			"name": "matrix har member: Reports tiles equal the disclosure-driven values",
+			"line": 333,
+			"slice": "S5",
+			"status": "pending-slice"
+		},
+		"matrix-har-public-no-names-or-exact-money-where-not-allowed-every-gate-carries-its-reason-never-0-or-null.1": {
+			"name": "matrix har public: no names or exact money where not allowed, every gate carries its reason, never 0 or null",
+			"line": 332,
+			"slice": "S7",
+			"status": "pending-slice"
+		},
+		"matrix-har-public-reports-tiles-equal-the-disclosure-driven-values.1": {
+			"name": "matrix har public: Reports tiles equal the disclosure-driven values",
+			"line": 333,
+			"slice": "S5",
+			"status": "pending-slice"
+		},
+		"matrix-switching-audience-on-reports-re-renders-without-a-tab-change.1": {
+			"name": "matrix: switching audience on Reports re-renders without a tab change",
+			"line": 338,
+			"slice": "S5",
+			"status": "pending-slice",
+			"ui": ".tab[data-p=rep] | #kpis"
+		},
+		"matrix-the-reports-download-for-a-lower-audience-is-aggregate-only.1": {
+			"name": "matrix: the Reports download for a lower audience is aggregate only",
+			"line": 339,
+			"slice": "S5",
+			"status": "pending-slice"
+		},
+		"axis-gross-vs-net-has-12-month-labels-none-are-svg-text.1": {
+			"name": "axis: gross vs net has 12 month labels, none are SVG text",
+			"line": 344,
+			"slice": "S1",
+			"status": "fail",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kax | #pane[aria-labelledby=tab-dashboard] svg.kc text",
+			"reason": "fail: 0",
+			"note": "Mockup: its month strip and axis draw all 12 months (Oct to Dec not shown yet); the UI draws the document's periods, Jan to Nov 2026 (11 labels). No SVG text."
+		},
+		"axis-gross-by-day-has-day-labels.1": {
+			"name": "axis: gross by day has day labels",
+			"line": 345,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kaxd span"
+		},
+		"axis-label-font-is-at-least-11px.1": {
+			"name": "axis: label font is at least 11px",
+			"line": 346,
+			"slice": "S1",
+			"status": "pass"
+		},
+		"axis-the-selected-month-label-is-marked.1": {
+			"name": "axis: the selected month label is marked",
+			"line": 347,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kax span.on"
+		},
+		"chips-role-and-finance-chips-carry-their-styled-classes.1": {
+			"name": "chips: role and finance chips carry their styled classes",
+			"line": 349,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb .krole"
+		},
+		"balance-bar-three-segments-on-every-row-with-a-plan.1": {
+			"name": "balance bar: three segments on every row with a plan",
+			"line": 350,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb .bar3"
+		},
+		"yaml-the-plans-mode-segment-is-edit-preview-code.1": {
+			"name": "yaml: the Plans mode segment is Edit | Preview | Code",
+			"line": 359,
+			"slice": "S3",
+			"status": "pending-slice",
+			"ui": "#pane[aria-labelledby=tab-plans] [data-pmode]"
+		},
+		"yaml-fixtures-include-a-non-public-tier-and-the-board-tier.1": {
+			"name": "yaml: fixtures include a non-public tier and the Board tier",
+			"line": 362,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-round-trip-parse-emit-draft-equals-the-draft-vol.1": {
+			"name": "yaml: round trip parse(emit(draft)) equals the draft, vol",
+			"line": 364,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-round-trip-parse-emit-draft-equals-the-draft-b4u.1": {
+			"name": "yaml: round trip parse(emit(draft)) equals the draft, b4u",
+			"line": 364,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-round-trip-parse-emit-draft-equals-the-draft-map.1": {
+			"name": "yaml: round trip parse(emit(draft)) equals the draft, map",
+			"line": 364,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-round-trip-parse-emit-draft-equals-the-draft-nw.1": {
+			"name": "yaml: round trip parse(emit(draft)) equals the draft, nw",
+			"line": 364,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-round-trip-parse-emit-draft-equals-the-draft-har.1": {
+			"name": "yaml: round trip parse(emit(draft)) equals the draft, har",
+			"line": 364,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-round-trip-keeps-quotes-colons-signs-accents-words-like-yes-numbers-as-names.1": {
+			"name": "yaml: round trip keeps quotes, colons, # signs, accents, words like yes, numbers as names",
+			"line": 366,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-stripe-ids-are-read-only-comments-on-published-plans-and-absent-plans-say-so.1": {
+			"name": "yaml: Stripe ids are read-only comments on published plans and absent plans say so",
+			"line": 367,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-code-shows-a-monospace-textarea-with-a-line-number-gutter-that-matches-the-text.1": {
+			"name": "yaml: Code shows a monospace textarea with a line-number gutter that matches the text",
+			"line": 370,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-toolbar-has-format-copy-reset-to-published-and-a-valid-pill.1": {
+			"name": "yaml: toolbar has Format, Copy, Reset to published and a Valid pill",
+			"line": 371,
+			"slice": "S3",
+			"status": "pending-slice",
+			"ui": "#kfmt | #pane[aria-labelledby=tab-plans] .kpill"
+		},
+		"yaml-the-honest-limits-line-is-shown-under-the-toolbar.1": {
+			"name": "yaml: the honest-limits line is shown under the toolbar",
+			"line": 372,
+			"slice": "S3",
+			"status": "pending-slice",
+			"ui": "#khelp"
+		},
+		"yaml-code-has-the-plans-ids-as-keys-the-read-only-header-and-review-stays-disabled-with-no-changes.1": {
+			"name": "yaml: Code has the plans, ids as keys, the read-only header, and Review stays disabled with no changes",
+			"line": 373,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-the-debounced-re-render-keeps-the-same-textarea-node-caret-undo-history-and-scroll-survive.1": {
+			"name": "yaml: the debounced re-render keeps the same textarea node (caret, undo history and scroll survive)",
+			"line": 377,
+			"slice": "S3",
+			"status": "pending-slice",
+			"ui": "#kta"
+		},
+		"yaml-a-price-typed-in-code-updates-the-draft-after-the-debounce.1": {
+			"name": "yaml: a price typed in Code updates the draft after the debounce",
+			"line": 378,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-the-change-shows-under-changes-vs-published-and-review-and-publish-enables.1": {
+			"name": "yaml: the change shows under Changes vs published and Review and publish enables",
+			"line": 379,
+			"slice": "S3",
+			"status": "pending-slice",
+			"ui": ".kchg"
+		},
+		"yaml-edit-shows-the-price-typed-in-code.1": {
+			"name": "yaml: Edit shows the price typed in Code",
+			"line": 381,
+			"slice": "S3",
+			"status": "pending-slice",
+			"ui": "#pane[aria-labelledby=tab-plans] tr[data-pe='tiers:shine']"
+		},
+		"yaml-switching-modes-keeps-the-edit-code-edit-preview-code.1": {
+			"name": "yaml: switching modes keeps the edit (Code -> Edit -> Preview -> Code)",
+			"line": 383,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-review-and-publish-lists-the-changed-tier-with-the-old-and-new-price-and-the-member-count.1": {
+			"name": "yaml: Review and publish lists the changed tier with the old and new price and the member count",
+			"line": 385,
+			"slice": "S3",
+			"status": "pending-slice",
+			"ui": "#md"
+		},
+		"yaml-an-edit-made-in-edit-shows-up-in-code.1": {
+			"name": "yaml: an edit made in Edit shows up in Code",
+			"line": 389,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-an-invalid-document-shows-parse-error-at-line-n-and-leaves-the-draft-unchanged.1": {
+			"name": "yaml: an invalid document shows Parse error at line N and leaves the draft unchanged",
+			"line": 393,
+			"slice": "S3",
+			"status": "pending-slice",
+			"ui": "#pane[aria-labelledby=tab-plans] .kpill | #kmsg"
+		},
+		"yaml-the-error-line-is-marked-in-the-gutter-and-has-a-jump-link.1": {
+			"name": "yaml: the error line is marked in the gutter and has a jump link",
+			"line": 394,
+			"slice": "S3",
+			"status": "pending-slice",
+			"ui": "#kgut i.bad"
+		},
+		"yaml-the-invalid-text-survives-a-mode-switch.1": {
+			"name": "yaml: the invalid text survives a mode switch",
+			"line": 396,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-an-anchor-is-rejected-with-a-clear-error.1": {
+			"name": "yaml: an anchor is rejected with a clear error",
+			"line": 399,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-an-alias-is-rejected-with-a-clear-error.1": {
+			"name": "yaml: an alias is rejected with a clear error",
+			"line": 400,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-a-tag-is-rejected-with-a-clear-error.1": {
+			"name": "yaml: a tag is rejected with a clear error",
+			"line": 401,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-a-merge-key-is-rejected-with-a-clear-error.1": {
+			"name": "yaml: a merge key is rejected with a clear error",
+			"line": 402,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-block-text-is-rejected-with-a-clear-error.1": {
+			"name": "yaml: block text is rejected with a clear error",
+			"line": 403,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-an-inline-map-is-rejected-with-a-clear-error.1": {
+			"name": "yaml: an inline map is rejected with a clear error",
+			"line": 404,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-a-tab-indent-is-rejected-with-a-clear-error.1": {
+			"name": "yaml: a tab indent is rejected with a clear error",
+			"line": 405,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-an-unknown-key-is-rejected-with-a-clear-error.1": {
+			"name": "yaml: an unknown key is rejected with a clear error",
+			"line": 406,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-a-second-document-is-rejected-with-a-clear-error.1": {
+			"name": "yaml: a second document is rejected with a clear error",
+			"line": 407,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-a-changed-time-zone-is-rejected-with-a-clear-error.1": {
+			"name": "yaml: a changed time zone is rejected with a clear error",
+			"line": 408,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-a-wrong-price-type-is-rejected-with-a-clear-error.1": {
+			"name": "yaml: a wrong price type is rejected with a clear error",
+			"line": 409,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-an-anchor-typed-in-the-editor-shows-the-error-in-the-status-pill.1": {
+			"name": "yaml: an anchor typed in the editor shows the error in the status pill",
+			"line": 412,
+			"slice": "S3",
+			"status": "pending-slice",
+			"ui": "#pane[aria-labelledby=tab-plans] .kpill | #kmsg"
+		},
+		"yaml-problems-s-are-listed-under-the-editor-and-the-status-pill-counts-them.1": {
+			"name": "yaml: problems(s) are listed under the editor and the status pill counts them",
+			"line": 416,
+			"slice": "S3",
+			"status": "pending-slice",
+			"ui": "#pane[aria-labelledby=tab-plans] .kpill | #kmsg"
+		},
+		"yaml-the-offending-tier-s-line-is-highlighted-in-the-gutter-and-review-is-disabled.1": {
+			"name": "yaml: the offending tier's line is highlighted in the gutter and Review is disabled",
+			"line": 417,
+			"slice": "S3",
+			"status": "pending-slice",
+			"ui": "#kgut i.bad"
+		},
+		"yaml-a-published-tier-missing-from-the-draft-shows-as-removed-in-the-changes-list.1": {
+			"name": "yaml: a published tier missing from the draft shows as Removed in the changes list",
+			"line": 421,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-the-publish-review-lists-the-removed-tier-and-its-1-current-member.1": {
+			"name": "yaml: the publish review lists the removed tier and its 1 current member",
+			"line": 423,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-edit-mode-says-what-was-removed-and-keeps-the-discard-draft-button.1": {
+			"name": "yaml: Edit mode says what was removed and keeps the Discard draft button",
+			"line": 425,
+			"slice": "S3",
+			"status": "pending-slice",
+			"ui": "#pane[aria-labelledby=tab-plans] .note"
+		},
+		"yaml-format-re-emits-the-canonical-yaml-drops-comments-regenerates-the-stripe-comments.1": {
+			"name": "yaml: Format re-emits the canonical YAML, drops comments, regenerates the Stripe comments",
+			"line": 430,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-format-is-idempotent.1": {
+			"name": "yaml: Format is idempotent",
+			"line": 432,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-format-on-an-invalid-document-changes-nothing-and-says-why.1": {
+			"name": "yaml: Format on an invalid document changes nothing and says why",
+			"line": 434,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-reset-to-published-is-enabled-with-changes.1": {
+			"name": "yaml: Reset to published is enabled with changes",
+			"line": 437,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-reset-to-published-restores-the-draft-and-the-text.1": {
+			"name": "yaml: Reset to published restores the draft and the text",
+			"line": 439,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-owner-gets-an-editable-textarea-and-enabled-format.1": {
+			"name": "yaml: owner gets an editable textarea and enabled Format",
+			"line": 442,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-admin-reads-code-but-the-textarea-is-read-only-format-and-reset-are-disabled-with-the-owners-note.1": {
+			"name": "yaml: admin reads Code but the textarea is read-only, Format and Reset are disabled, with the owners note",
+			"line": 444,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-publishing-from-a-code-edit-publishes-it-and-the-text-follows-the-new-version-no-stale-error.1": {
+			"name": "yaml: publishing from a Code edit publishes it and the text follows the new version, no stale error",
+			"line": 450,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-editor-css-gutter-monospace-no-wrap-and-a-600px-rule-that-stacks-the-panes.1": {
+			"name": "yaml: editor css (gutter, monospace, no wrap) and a 600px rule that stacks the panes",
+			"line": 453,
+			"slice": "S3",
+			"status": "pending-slice"
+		},
+		"yaml-no-console-log-in-the-page.1": {
+			"name": "yaml: no console.log in the page",
+			"line": 454,
+			"slice": "S0",
+			"status": "pass"
+		},
+		"hist-card-is-titled-invoices-and-payments.1": {
+			"name": "hist: card is titled Invoices and payments",
+			"line": 468,
+			"slice": "S6",
+			"status": "pending-slice",
+			"ui": "#khist h4"
+		},
+		"hist-portal-is-the-pure-member-view-no-admin-block-tags-toggle-buttons.1": {
+			"name": "hist: portal is the pure member view (no admin block, tags, toggle, buttons)",
+			"line": 469,
+			"slice": "S6",
+			"status": "pending-slice",
+			"ui": "#vm .mp-admin,#vm .mp-tag,#vm #vad,#vm [data-act] | #vm"
+		},
+		"hist-home-tab-has-no-admin-tools-or-switch-plan-button.1": {
+			"name": "hist: home tab has no admin tools or switch-plan button",
+			"line": 471,
+			"slice": "S6",
+			"status": "pending-slice",
+			"ui": "#vm [data-act],#vm [data-vact=switch],#vm .mp-admin | #vm"
+		},
+		"hist-collapsed-shows-the-latest-5-rows.1": {
+			"name": "hist: collapsed shows the latest 5 rows",
+			"line": 473,
+			"slice": "S6",
+			"status": "pending-slice",
+			"ui": "#khist tr.k-r"
+		},
+		"hist-month-year-group-headings.1": {
+			"name": "hist: month-year group headings",
+			"line": 474,
+			"slice": "S6",
+			"status": "pending-slice",
+			"ui": "#khist tr.grp th"
+		},
+		"hist-show-all-history-reveals-older-rows-12-over-two-years.1": {
+			"name": "hist: Show all history reveals older rows (12+ over two years)",
+			"line": 478,
+			"slice": "S6",
+			"status": "pending-slice"
+		},
+		"hist-filter-last-year-changes-the-row-count-and-only-shows-that-year.1": {
+			"name": "hist: filter Last year changes the row count and only shows that year",
+			"line": 481,
+			"slice": "S6",
+			"status": "pending-slice"
+		},
+		"hist-statuses-cover-paid-refunded-partly-refunded-failed-open.1": {
+			"name": "hist: statuses cover Paid, Refunded, Partly refunded, Failed, Open",
+			"line": 482,
+			"slice": "S6",
+			"status": "pending-slice"
+		},
+		"hist-refunds-are-negative-rows-with-status-refunded-newest-first.1": {
+			"name": "hist: refunds are negative rows with status Refunded, newest first",
+			"line": 483,
+			"slice": "S6",
+			"status": "pending-slice"
+		},
+		"hist-card-has-a-download-csv-button-with-the-tooltip.1": {
+			"name": "hist: card has a Download CSV button with the tooltip",
+			"line": 484,
+			"slice": "S6",
+			"status": "pending-slice",
+			"ui": "#kdl"
+		},
+		"csv-bom-crlf-line-ends-and-the-header.1": {
+			"name": "csv: BOM, CRLF line ends and the header",
+			"line": 487,
+			"slice": "S6",
+			"status": "pending-slice"
+		},
+		"csv-rfc-4180-quoting-and-doubled-quotes.1": {
+			"name": "csv: RFC 4180 quoting and doubled quotes",
+			"line": 488,
+			"slice": "S6",
+			"status": "pending-slice"
+		},
+		"csv-signed-two-decimal-amounts-never-apostrophe-guarded.1": {
+			"name": "csv: signed two-decimal amounts, never apostrophe-guarded",
+			"line": 489,
+			"slice": "S6",
+			"status": "pending-slice"
+		},
+		"csv-formula-injection-guard-on.1": {
+			"name": "csv: formula-injection guard on = + - @",
+			"line": 490,
+			"slice": "S6",
+			"status": "pending-slice"
+		},
+		"csv-no-member-column-unless-asked.1": {
+			"name": "csv: no member column unless asked",
+			"line": 491,
+			"slice": "S6",
+			"status": "pending-slice"
+		},
+		"csv-dl-adult-export-is-a-real-file-with-bom-bytes-crlf-and-the-family-rows.1": {
+			"name": "csv dl: adult export is a real file with BOM bytes, CRLF and the family rows",
+			"line": 494,
+			"slice": "S6",
+			"status": "pending-slice"
+		},
+		"csv-dl-file-name-is-invoices-member-from-to-csv-and-the-url-is-revoked.1": {
+			"name": "csv dl: file name is invoices-<member>-<from>-<to>.csv and the URL is revoked",
+			"line": 496,
+			"slice": "S6",
+			"status": "pending-slice"
+		},
+		"csv-dl-toast-says-how-many-rows.1": {
+			"name": "csv dl: toast says how many rows",
+			"line": 497,
+			"slice": "S6",
+			"status": "pending-slice"
+		},
+		"csv-dl-adult-export-has-only-own-family-ids-and-no-other-family.1": {
+			"name": "csv dl: adult export has only own family ids and no other family",
+			"line": 499,
+			"slice": "S6",
+			"status": "pending-slice"
+		},
+		"csv-dl-all-exports-every-row.1": {
+			"name": "csv dl: All exports every row",
+			"line": 501,
+			"slice": "S6",
+			"status": "pending-slice"
+		},
+		"csv-dl-teen-export-has-only-their-own-rows-and-no-member-column.1": {
+			"name": "csv dl: teen export has only their own rows and no member column",
+			"line": 504,
+			"slice": "S6",
+			"status": "pending-slice"
+		},
+		"hist-teen-sees-no-family-names-in-the-card.1": {
+			"name": "hist: teen sees no family names in the card",
+			"line": 505,
+			"slice": "S6",
+			"status": "pending-slice",
+			"ui": "#khist"
+		},
+		"csv-dl-child-export-has-only-their-own-rows.1": {
+			"name": "csv dl: child export has only their own rows",
+			"line": 507,
+			"slice": "S6",
+			"status": "pending-slice"
+		},
+		"hist-family-less-member-sees-own-rows-only-no-member-column.1": {
+			"name": "hist: family-less member sees own rows only, no member column",
+			"line": 510,
+			"slice": "S6",
+			"status": "pending-slice"
+		},
+		"admin-csv-ledger-has-download-csv-enabled-for-a-finance-admin.1": {
+			"name": "admin csv: Ledger has Download CSV, enabled for a finance admin",
+			"line": 513,
+			"slice": "S5",
+			"status": "pending-slice",
+			"ui": "#lcsv"
+		},
+		"admin-csv-ledger-export-uses-the-same-helper-bom-crlf-header-event-columns-and-the-file-name-keeps-the-period.1": {
+			"name": "admin csv: ledger export uses the same helper (BOM, CRLF, header + event columns) and the file name keeps the period",
+			"line": 515,
+			"slice": "S5",
+			"status": "pending-slice"
+		},
+		"admin-csv-reports-download-exports-the-income-statement-lines.1": {
+			"name": "admin csv: Reports download exports the income statement lines",
+			"line": 517,
+			"slice": "S5",
+			"status": "pending-slice"
+		},
+		"admin-csv-drawer-has-a-payments-section-with-download-csv.1": {
+			"name": "admin csv: drawer has a Payments section with Download CSV",
+			"line": 519,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#dr"
+		},
+		"admin-csv-drawer-export-is-the-member-s-history-only.1": {
+			"name": "admin csv: drawer export is the member's history only",
+			"line": 520,
+			"slice": "S4",
+			"status": "pending-slice"
+		},
+		"gate-non-finance-admin-has-ledger-csv-disabled-with-the-title.1": {
+			"name": "gate: non-finance admin has Ledger CSV disabled with the title",
+			"line": 523,
+			"slice": "S5",
+			"status": "pending-slice"
+		},
+		"gate-drawer-download-csv-disabled-with-the-title.1": {
+			"name": "gate: drawer Download CSV disabled with the title",
+			"line": 525,
+			"slice": "S4",
+			"status": "pending-slice"
+		},
+		"gate-menu-download-csv-disabled-with-the-title-refund-says-owner-role.1": {
+			"name": "gate: menu Download CSV disabled with the title, refund says owner role",
+			"line": 527,
+			"slice": "S4",
+			"status": "pending-slice"
+		},
+		"gate-portal-preview-by-a-non-finance-admin-cannot-export.1": {
+			"name": "gate: portal preview by a non-finance admin cannot export",
+			"line": 529,
+			"slice": "S6",
+			"status": "pending-slice"
+		},
+		"gate-donors-csv-disabled-for-a-non-finance-admin.1": {
+			"name": "gate: donors CSV disabled for a non-finance admin",
+			"line": 530,
+			"slice": "S5",
+			"status": "pending-slice",
+			"ui": "#kdon"
+		},
+		"gate-donors-csv-present-and-enabled-with-the-grant.1": {
+			"name": "gate: donors CSV present and enabled with the grant",
+			"line": 531,
+			"slice": "S5",
+			"status": "pending-slice",
+			"ui": "#kdon"
+		},
+		"menu-every-members-row-has-a-button-with-aria-haspopup.1": {
+			"name": "menu: every Members row has a ⋯ button with aria-haspopup",
+			"line": 534,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row | #mb [data-kmenu]"
+		},
+		"menu-eye-button-is-still-next-to-it.1": {
+			"name": "menu: eye button is still next to it",
+			"line": 535,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row"
+		},
+		"menu-opens-a-role-menu-with-the-listed-items-for-the-owner.1": {
+			"name": "menu: opens a role=menu with the listed items for the owner",
+			"line": 538,
+			"slice": "S4",
+			"status": "pending-slice"
+		},
+		"menu-groups-are-separated-by-rules.1": {
+			"name": "menu: groups are separated by rules",
+			"line": 539,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#kmm hr"
+		},
+		"menu-owner-sees-every-action-enabled.1": {
+			"name": "menu: owner sees every action enabled",
+			"line": 540,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#kmm [role=menuitem]"
+		},
+		"menu-destructive-item-uses-the-danger-style.1": {
+			"name": "menu: destructive item uses the danger style",
+			"line": 541,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#kmm button.d"
+		},
+		"menu-send-invoice-opens-the-invoice-modal.1": {
+			"name": "menu: Send invoice opens the invoice modal",
+			"line": 542,
+			"slice": "S4",
+			"status": "pending-slice"
+		},
+		"menu-adjust-opens-the-adjust-modal.1": {
+			"name": "menu: Adjust opens the adjust modal",
+			"line": 543,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#md"
+		},
+		"menu-refund-a-payment-opens-the-refund-modal-with-the-payment-picker.1": {
+			"name": "menu: Refund a payment opens the refund modal with the payment picker",
+			"line": 544,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#md"
+		},
+		"menu-release-a-booking-opens-a-booking-picker.1": {
+			"name": "menu: Release a booking opens a booking picker",
+			"line": 545,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#md"
+		},
+		"menu-picking-a-booking-reaches-the-existing-release-flow.1": {
+			"name": "menu: picking a booking reaches the existing release flow",
+			"line": 546,
+			"slice": "S4",
+			"status": "pending-slice"
+		},
+		"menu-download-csv-downloads-that-member-s-history.1": {
+			"name": "menu: Download CSV downloads that member's history",
+			"line": 548,
+			"slice": "S4",
+			"status": "pending-slice"
+		},
+		"kbd-arrowdown-on-the-button-opens-the-menu-and-focuses-the-first-item.1": {
+			"name": "kbd: ArrowDown on the button opens the menu and focuses the first item",
+			"line": 553,
+			"slice": "S4",
+			"status": "pending-slice"
+		},
+		"kbd-arrowdown-moves-to-the-next-enabled-item-arrowup-wraps.1": {
+			"name": "kbd: ArrowDown moves to the next enabled item, ArrowUp wraps",
+			"line": 556,
+			"slice": "S4",
+			"status": "pending-slice"
+		},
+		"kbd-escape-closes-the-menu-and-returns-focus-to-the-button.1": {
+			"name": "kbd: Escape closes the menu and returns focus to the button",
+			"line": 558,
+			"slice": "S4",
+			"status": "pending-slice"
+		},
+		"menu-outside-click-closes-it.1": {
+			"name": "menu: outside click closes it",
+			"line": 559,
+			"slice": "S4",
+			"status": "pending-slice"
+		},
+		"menu-the-button-toggles-it.1": {
+			"name": "menu: the button toggles it",
+			"line": 560,
+			"slice": "S4",
+			"status": "pending-slice"
+		},
+		"menu-drawer-header-menu-is-the-same-builder-same-items-as-the-row.1": {
+			"name": "menu: drawer header menu is the same builder (same items as the row)",
+			"line": 562,
+			"slice": "S4",
+			"status": "pending-slice"
+		},
+		"menu-no-plan-admin-row-has-view-as-member-disabled-with-a-title-and-no-money-action-group.1": {
+			"name": "menu: no-plan admin row has View as member disabled with a title and no money-action group",
+			"line": 564,
+			"slice": "S4",
+			"status": "pending-slice"
+		},
+		"layout-the-history-table-stacks-at-520px-and-the-menu-becomes-a-bottom-sheet-at-600px.1": {
+			"name": "layout: the history table stacks at 520px and the menu becomes a bottom sheet at 600px",
+			"line": 567,
+			"slice": "S6",
+			"status": "pending-slice"
+		},
+		"no-runtime-errors.1": {
+			"name": "no runtime errors",
+			"line": 570,
+			"slice": "S0",
+			"status": "pass"
+		},
+		"top-bar-says-admins-see-all-members.1": {
+			"name": "top bar says admins see all members",
+			"line": 67,
+			"slice": "S0",
+			"status": "pass",
+			"ui": "[data-test=scope-note]",
+			"removed": true
+		},
+		"books-viewer-defaults-to-the-signed-in-level-finance-admin.1": {
+			"name": "books: viewer defaults to the signed-in level (finance admin)",
+			"line": 107,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] [data-bv].on | #pane[aria-labelledby=tab-dashboard] .klock",
+			"removed": true
+		},
+		"books-five-viewers-in-the-switcher.1": {
+			"name": "books: five viewers in the switcher",
+			"line": 108,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] [data-bv]",
+			"removed": true
+		},
+		"books-the-five-viewers-render-different-dashboards.1": {
+			"name": "books: the five viewers render different dashboards",
+			"line": 110,
+			"slice": "S1",
+			"status": "fail",
+			"reason": "unreached: not reached: the step at line 110 threw: Object.values requires that input parameter not be null or undefined",
+			"removed": true
+		},
+		"books-every-non-full-view-has-a-caption.1": {
+			"name": "books: every non-full view has a caption",
+			"line": 111,
+			"slice": "S1",
+			"status": "fail",
+			"ui": "#pane[aria-labelledby=tab-dashboard] [data-bv=public] | #pane[aria-labelledby=tab-dashboard] | #pane[aria-labelledby=tab-dashboard] .kcaption | #pane[aria-labelledby=tab-dashboard] [data-bv=member]",
+			"reason": "fail",
+			"removed": true
+		},
+		"books-public-money-rounded-to-1-000.1": {
+			"name": "books public: money rounded to $1,000",
+			"line": 116,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kcard b",
+			"removed": true
+		},
+		"books-public-a-period-that-has-not-passed-the-delay-is-hatched.1": {
+			"name": "books public: a period that has not passed the delay is hatched",
+			"line": 117,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kmonths .kwait | #pane[aria-labelledby=tab-dashboard] .krow.kwait | #pane[aria-labelledby=tab-dashboard] | #pane[aria-labelledby=tab-dashboard] .kwait",
+			"removed": true
+		},
+		"books-public-2026-shows-from-jan-2028-and-has-no-figures-not-zeros.1": {
+			"name": "books public: 2026 shows from Jan 2028 and has no figures, not zeros",
+			"line": 119,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kwaitbox | #pane[aria-labelledby=tab-dashboard] .kcard",
+			"removed": true
+		},
+		"books-public-usage-shows-once-the-year-closed-2025-members-shown.1": {
+			"name": "books public: usage shows once the year closed (2025 members shown)",
+			"line": 121,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kwaitbox | #pane[aria-labelledby=tab-dashboard] .krow.kwait | #pane[aria-labelledby=tab-dashboard]",
+			"removed": true
+		},
+		"books-public-totals-and-categories-only-no-plan-breakdown.1": {
+			"name": "books public: totals and categories only, no plan breakdown",
+			"line": 123,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] | #pane[aria-labelledby=tab-dashboard] .kbox .krow span[title]",
+			"removed": true
+		},
+		"books-member-a-quarter-shows-after-it-closed-plus-one-quarter.1": {
+			"name": "books member: a quarter shows after it closed plus one quarter",
+			"line": 129,
+			"slice": "S1",
+			"status": "pass",
+			"ui": "#pane[aria-labelledby=tab-dashboard] .kwaitbox | #pane[aria-labelledby=tab-dashboard] [data-dpk=2026Q2]:not(.kwait)",
+			"removed": true
+		},
+		"books-gov-distribution-g4-with-complementary-suppression-and-the-median-no-rows.1": {
+			"name": "books gov: distribution (G4) with complementary suppression and the median, no rows",
+			"line": 138,
+			"slice": "S1",
+			"status": "pass",
+			"removed": true
+		},
+		"books-gov-reports-show-the-distribution-instead-of-the-donors-table.1": {
+			"name": "books gov: Reports show the distribution instead of the Donors table",
+			"line": 143,
+			"slice": "S5",
+			"status": "pending-slice",
+			"ui": "#donors | #donors table",
+			"removed": true
+		},
+		"books-gov-ledger-a-row-per-person-is-not-shown.1": {
+			"name": "books gov: Ledger (a row per person) is not shown",
+			"line": 144,
+			"slice": "S5",
+			"status": "pending-slice",
+			"removed": true
+		},
+		"books-fin-donors-and-payers-table-with-names-amounts-and-the-audit-line.1": {
+			"name": "books fin: Donors and payers table with names, amounts and the audit line",
+			"line": 159,
+			"slice": "S5",
+			"status": "pending-slice",
+			"ui": "#donors table | #donors",
+			"removed": true
+		},
+		"books-fin-ledger-payer-column-shows-names.1": {
+			"name": "books fin: Ledger payer column shows names",
+			"line": 160,
+			"slice": "S5",
+			"status": "pending-slice",
+			"ui": "#lb",
+			"removed": true
+		},
+		"books-owner-donors-and-payers-visible-to-the-owner.1": {
+			"name": "books owner: Donors and payers visible to the owner",
+			"line": 161,
+			"slice": "S5",
+			"status": "pending-slice",
+			"ui": "#donors table",
+			"removed": true
+		},
+		"books-member-reports-hide-the-names-and-the-statement.1": {
+			"name": "books member: Reports hide the names and the statement",
+			"line": 162,
+			"slice": "S5",
+			"status": "pending-slice",
+			"removed": true
+		},
+		"books-locked-reports-and-ledger-show-the-lock-not-names.1": {
+			"name": "books locked: Reports and Ledger show the lock, not names",
+			"line": 169,
+			"slice": "S5",
+			"status": "pending-slice",
+			"ui": "#rblock",
+			"removed": true
+		},
+		"books-plans-board-tier-is-hidden-not-for-sale-gives-governance.1": {
+			"name": "books plans: Board tier is hidden, not for sale, gives Governance",
+			"line": 177,
+			"slice": "S3",
+			"status": "pending-slice",
+			"ui": "#pane[aria-labelledby=tab-plans] tbody | #pane[aria-labelledby=tab-plans] [data-pe='tiers:board']",
+			"removed": true
+		},
+		"books-plans-editor-has-a-books-access-field-governance-selected-for-board.1": {
+			"name": "books plans: editor has a Books access field, Governance selected for Board",
+			"line": 179,
+			"slice": "S3",
+			"status": "pending-slice",
+			"ui": "#pbk",
+			"removed": true
+		},
+		"books-plans-default-is-member.1": {
+			"name": "books plans: default is Member",
+			"line": 182,
+			"slice": "S3",
+			"status": "pending-slice",
+			"removed": true
+		},
+		"books-plans-the-change-lands-in-the-draft.1": {
+			"name": "books plans: the change lands in the draft",
+			"line": 184,
+			"slice": "S3",
+			"status": "pending-slice",
+			"ui": "#pane[aria-labelledby=tab-plans] [data-pe='tiers:sparkle']",
+			"removed": true
+		},
+		"books-plans-review-says-it-starts-a-new-version-and-existing-members-keep-theirs.1": {
+			"name": "books plans: review says it starts a new version and existing members keep theirs",
+			"line": 186,
+			"slice": "S3",
+			"status": "pending-slice",
+			"ui": "#md",
+			"removed": true
+		},
+		"books-chip-owner-is-owner-full.1": {
+			"name": "books chip: Owner is Owner / full",
+			"line": 190,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row[data-id=u_pri]",
+			"removed": true
+		},
+		"books-chip-admin-with-the-finance-grant-is-finance-admin.1": {
+			"name": "books chip: admin with the finance grant is Finance admin",
+			"line": 191,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row[data-id=u_tes]",
+			"removed": true
+		},
+		"books-chip-adult-with-a-live-board-membership-is-governance.1": {
+			"name": "books chip: adult with a live Board membership is Governance",
+			"line": 192,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row[data-id=s_27]",
+			"removed": true
+		},
+		"books-chip-adult-with-a-live-membership-is-member.1": {
+			"name": "books chip: adult with a live membership is Member",
+			"line": 193,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row[data-id=s_21]",
+			"removed": true
+		},
+		"books-chip-a-child-never-holds-member-the-guardian-does.1": {
+			"name": "books chip: a child never holds Member, the guardian does",
+			"line": 194,
+			"slice": "S4",
+			"status": "pending-slice",
+			"removed": true
+		},
+		"books-chip-admin-without-the-finance-grant-is-read-like-anyone-else-member-by-plan.1": {
+			"name": "books chip: admin without the finance grant is read like anyone else (Member by plan)",
+			"line": 196,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row[data-id=m_093] | #mb tr.row[data-id=u_rav]",
+			"removed": true
+		},
+		"books-chip-a-canceled-membership-is-public.1": {
+			"name": "books chip: a canceled membership is Public",
+			"line": 197,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row[data-id=m_051]",
+			"removed": true
+		},
+		"books-chip-revoking-the-grant-drops-the-admin-to-public.1": {
+			"name": "books chip: revoking the grant drops the admin to Public",
+			"line": 198,
+			"slice": "S4",
+			"status": "pending-slice",
+			"ui": "#mb tr.row[data-id=u_rav]",
+			"removed": true
+		},
+		"books-settings-three-policy-rows-with-the-spec-defaults.1": {
+			"name": "books settings: three policy rows with the spec defaults",
+			"line": 201,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "#set [data-bkrow] | #set [data-bkf]",
+			"removed": true
+		},
+		"books-settings-save-enabled-once-something-changed.1": {
+			"name": "books settings: save enabled once something changed",
+			"line": 204,
+			"slice": "S7",
+			"status": "pending-slice",
+			"removed": true
+		},
+		"books-settings-public-finer-than-its-default-opens-the-step-up-mailed-link.1": {
+			"name": "books settings: Public finer than its default opens the step-up (mailed link)",
+			"line": 206,
+			"slice": "S7",
+			"status": "pending-slice",
+			"removed": true
+		},
+		"books-settings-cancelling-the-step-up-changes-nothing.1": {
+			"name": "books settings: cancelling the step-up changes nothing",
+			"line": 207,
+			"slice": "S7",
+			"status": "pending-slice",
+			"removed": true
+		},
+		"books-settings-public-coarser-or-later-saves-without-the-step-up.1": {
+			"name": "books settings: Public coarser or later saves without the step-up",
+			"line": 210,
+			"slice": "S7",
+			"status": "pending-slice",
+			"removed": true
+		},
+		"books-settings-after-the-step-up-the-public-level-changes.1": {
+			"name": "books settings: after the step-up the Public level changes",
+			"line": 212,
+			"slice": "S7",
+			"status": "pending-slice",
+			"removed": true
+		},
+		"books-settings-admins-see-the-policy-read-only.1": {
+			"name": "books settings: admins see the policy read-only",
+			"line": 214,
+			"slice": "S7",
+			"status": "pending-slice",
+			"ui": "#set [data-bkf]",
+			"removed": true
+		},
+		"books-portal-adult-member-sees-quarters-rounded-aggregates-only.1": {
+			"name": "books portal: adult member sees quarters, rounded, aggregates only",
+			"line": 218,
+			"slice": "S6",
+			"status": "pending-slice",
+			"removed": true
+		},
+		"books-portal-governance-tier-adult-sees-the-governance-view-link.1": {
+			"name": "books portal: Governance-tier adult sees the governance view link",
+			"line": 220,
+			"slice": "S6",
+			"status": "pending-slice",
+			"removed": true
+		},
+		"books-portal-a-child-sees-that-their-guardian-sees-school-books.1": {
+			"name": "books portal: a child sees that their guardian sees school books",
+			"line": 222,
+			"slice": "S6",
+			"status": "pending-slice",
+			"removed": true
+		},
+		"books-portal-a-member-without-a-live-membership-is-public.1": {
+			"name": "books portal: a member without a live membership is Public",
+			"line": 224,
+			"slice": "S6",
+			"status": "pending-slice",
+			"removed": true
+		},
+		"books-tiny-school-hides-cells-under-the-5-contributor-rule-at-public.1": {
+			"name": "books: tiny school hides cells under the 5-contributor rule at Public",
+			"line": 226,
+			"slice": "S1",
+			"status": "fail",
+			"reason": "unreached: not reached: the step at line 226 threw: null is not an object (evaluating '$(`#dash [data-bv=${l}]`).click')",
+			"removed": true
+		}
+	}
+}
