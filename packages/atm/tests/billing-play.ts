@@ -9,7 +9,6 @@ import {
 	tierPriceKey,
 } from "../src/billing/stripe-menu.js";
 import type { Menu } from "../src/billing/types.js";
-import type { Store } from "./billing-store.js";
 import {
 	chargeRefunded,
 	disputeEvent,
@@ -63,6 +62,21 @@ const giftLine = (addonId: string): EventLine => {
 	};
 };
 
+/** What `play` needs of a family service: `createStore`'s, or the real handler's (`simulate-inputs-history.ts`). */
+export type PlayStore = {
+	handle: (
+		event: unknown,
+		at: number,
+	) => { refused?: { reason: string; message: string } | null };
+	spend: (n: number, at: number) => void;
+	avail: (at: number) => number;
+	readonly rows: readonly {
+		table: string;
+		id: string;
+		data: Record<string, unknown>;
+	}[];
+};
+
 type Sub = {
 	id: string;
 	tier: (typeof TIERS)[number];
@@ -81,7 +95,7 @@ export const play = ({
 }: {
 	seed: number;
 	steps: number;
-	store: Store;
+	store: PlayStore;
 }) => {
 	const rng = makeRng(`prop-${seed}`);
 	const sent: { event: unknown; at: number }[] = [];

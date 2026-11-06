@@ -9,6 +9,7 @@ import { resolvePolicy } from "./billing/policy.js";
 import type { BillingPolicy, Menu } from "./billing/types.js";
 import { engineCommandTypes, runEngineCommand } from "./engine.js";
 import { bunSqlite } from "./handler/bun-sqlite.js";
+import { inputsStatus, sqliteInputsSource } from "./handler/inputs.js";
 import { assertInputTables } from "./handler/schema.js";
 import { journalMonth, readEvents } from "./ledger/files.js";
 import {
@@ -35,13 +36,21 @@ import {
 	shareStatement,
 } from "./ledger/share-statement.js";
 import { shipOutbox } from "./ledger/ship.js";
-import { inputsShipStatus, shipInputs } from "./ledger/ship-inputs.js";
+import {
+	folderInputsSource,
+	inputsShipStatus,
+	shipInputs,
+} from "./ledger/ship-inputs.js";
 import { simulate } from "./ledger/simulate.js";
+import {
+	InputsSimulateError,
+	simulateFromInputs,
+} from "./ledger/simulate-inputs.js";
 import { outboxStatus } from "./ledger/status.js";
 import { addScenarioCommands, runScenarioSimulate } from "./scenario/cli.js";
 import { FolderStore } from "./store/folder-store.js";
 import { R2Store } from "./store/r2-store.js";
-import type { AtmCatalogRow } from "./types.js";
+import type { AtmCatalogRow, AtmEnv } from "./types.js";
 
 /** How long `atm ship` waits for the handler's write lock on a busy database. */
 const BUSY_TIMEOUT_MS = 5000;
@@ -620,6 +629,11 @@ type SimulateOptions = {
 	policy?: string;
 	currentMenu?: string;
 	currentCatalog?: string;
+	inputs?: string;
+	env?: string;
+	effectiveFrom?: string;
+	currentPolicy?: string;
+	allowBaselineDrift?: boolean;
 	json?: boolean;
 };
 
@@ -660,22 +674,158 @@ const catalogFrom = async (
 	return rows as AtmCatalogRow[];
 };
 
-const policyFrom = async (path: string): Promise<BillingPolicy> => {
-	const overrides = await readInputFile("--policy", path);
+const policyFrom = async (
+	path: string,
+	flag = "--policy",
+): Promise<BillingPolicy> => {
+	const overrides = await readInputFile(flag, path);
 	try {
 		return resolvePolicy(overrides);
 	} catch (error) {
-		throw new InputError(`--policy ${path}: ${oneLine(error)}`);
+		throw new InputError(`${flag} ${path}: ${oneLine(error)}`);
 	}
 };
 
 const SIMULATE_MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 
+const assertSchoolFolder = (school: string): void => {
+	// `--school ..` or `a/../b` would read some other folder's events as the school's (as `atm reconcile` refuses).
+	if (
+		school === "" ||
+		school === "." ||
+		school === ".." ||
+		basename(school) !== school
+	)
+		throw new InputError(
+			`--school ${JSON.stringify(school)} must be one folder name under schools/`,
+		);
+};
+
+/** The handler's SQLite, opened read-only, behind the `InputsSource` the replay reads through. Nothing is written. */
+const readStoredInputs = async (path: string, env: AtmEnv, school: string) => {
+	const found = await stat(path).catch(() => null);
+	if (!found) throw new InputError(`--inputs ${path} does not exist`);
+	if (found.isDirectory()) {
+		// a shipped copy of the inputs (`atm inputs ship`): the same InputsRead, from a store root
+		const read = await folderInputsSource(path).read({ env, school });
+		if (read.inputs.length === 0 && read.refused.length === 0)
+			throw new InputError(
+				`no inputs under ${path}/schools/${school}/inputs/${env}: run atm inputs ship, or point --inputs at the handler's database`,
+			);
+		return read;
+	}
+	let database: Database;
+	try {
+		database = new Database(path, { readonly: true });
+	} catch (error) {
+		throw new InputError(
+			`--inputs ${path} cannot be opened as SQLite: ${oneLine(error)}`,
+		);
+	}
+	try {
+		const db = bunSqlite(database);
+		let status: ReturnType<typeof inputsStatus>;
+		try {
+			status = inputsStatus(db, { env, school });
+		} catch (error) {
+			throw new InputError(
+				`--inputs ${path} cannot be read as the handler's database: ${oneLine(error)}`,
+			);
+		}
+		if (!status.available)
+			throw new InputError(
+				`${path} holds no stored inputs for school ${school} (${env}): the handler stores them from atm 0.9.0, so a what-if on the grant rules covers only the history after that; run atm simulate without --inputs for the command-level what-if on the whole log`,
+			);
+		return await sqliteInputsSource(db, path).read({ env, school });
+	} finally {
+		database.close();
+	}
+};
+
+const runSimulateFromInputs = async (
+	opts: SimulateOptions & { root: string; school: string },
+): Promise<void> => {
+	assertSchoolFolder(opts.school);
+	if (opts.env !== "live" && opts.env !== "test")
+		throw new InputError("--env must be live or test with --inputs");
+	const env: AtmEnv = opts.env;
+	if (opts.catalog || opts.currentCatalog)
+		throw new InputError(
+			"--catalog and --current-catalog are not used with --inputs: the catalog follows the menu",
+		);
+	if (opts.month !== undefined && !SIMULATE_MONTH.test(opts.month))
+		throw new InputError(`--month ${opts.month} is not YYYY-MM`);
+	let effectiveFrom: number | undefined;
+	if (opts.effectiveFrom !== undefined) {
+		effectiveFrom = Date.parse(opts.effectiveFrom);
+		if (Number.isNaN(effectiveFrom))
+			throw new InputError(
+				`--effective-from ${opts.effectiveFrom} is not an ISO instant (2026-03-01T00:00:00Z)`,
+			);
+	}
+	const candidate = {
+		menu: opts.menu ? await menuFrom("--menu", opts.menu) : undefined,
+		policy: opts.policy ? await policyFrom(opts.policy) : undefined,
+	};
+	const current = {
+		menu: opts.currentMenu
+			? await menuFrom("--current-menu", opts.currentMenu)
+			: undefined,
+		policy: opts.currentPolicy
+			? await policyFrom(opts.currentPolicy, "--current-policy")
+			: undefined,
+	};
+	const { events } = await readEvents(opts.root, opts.school);
+	if (events.length === 0)
+		throw new InputError(
+			`no events under ${opts.root}/schools/${opts.school}/events`,
+		);
+	const stored = await readStoredInputs(
+		opts.inputs as string,
+		env,
+		opts.school,
+	);
+	let result: ReturnType<typeof simulateFromInputs>;
+	try {
+		result = simulateFromInputs({
+			events,
+			inputs: stored,
+			env,
+			school: opts.school,
+			candidate,
+			current,
+			...(effectiveFrom === undefined ? {} : { effectiveFrom }),
+			month: opts.month,
+			allowBaselineDrift: opts.allowBaselineDrift === true,
+		});
+	} catch (error) {
+		if (error instanceof InputsSimulateError)
+			throw new InputError(error.message);
+		throw error;
+	}
+	if (opts.json) {
+		const {
+			events: _candidateEvents,
+			balances: _balances,
+			deliveries,
+			...rest
+		} = result;
+		writeJson({
+			ok: true,
+			school: opts.school,
+			env,
+			...rest,
+			deliveries: deliveries.filter((d) => d.kind !== "same"),
+		});
+	} else process.stdout.write(`${result.summary}\n`);
+	if (result.differences > 0) process.exitCode = EXIT_CONFLICT;
+};
+
 const runSimulate = async (opts: SimulateOptions): Promise<void> => {
 	if (opts.profile || opts.scenario) {
-		if (opts.root || opts.school)
+		if (opts.root || opts.school || opts.inputs)
 			throw new InputError(
-				"--profile and --scenario generate a scenario; --root and --school replay a log. Give one or the other",
+				"--profile and --scenario generate a scenario; --root, --school and --inputs replay a log. Give one or the other",
 			);
 		return runScenarioSimulate(opts, scenarioKit);
 	}
@@ -683,16 +833,20 @@ const runSimulate = async (opts: SimulateOptions): Promise<void> => {
 		throw new InputError(
 			"give --root and --school to replay a log, or --profile <name> (atm scenarios list) to simulate a scenario",
 		);
-	// `--school ..` or `a/../b` would read some other folder's events as the school's (as `atm reconcile` refuses).
-	if (
-		opts.school === "" ||
-		opts.school === "." ||
-		opts.school === ".." ||
-		basename(opts.school) !== opts.school
-	)
-		throw new InputError(
-			`--school ${JSON.stringify(opts.school)} must be one folder name under schools/`,
-		);
+	if (opts.inputs !== undefined)
+		return runSimulateFromInputs({
+			...opts,
+			root: opts.root,
+			school: opts.school,
+		});
+	for (const [flag, value] of [
+		["--env", opts.env],
+		["--effective-from", opts.effectiveFrom],
+		["--current-policy", opts.currentPolicy],
+		["--allow-baseline-drift", opts.allowBaselineDrift],
+	] as const)
+		if (value !== undefined) throw new InputError(`${flag} is for --inputs`);
+	assertSchoolFolder(opts.school);
 	if (opts.menu && opts.catalog)
 		throw new InputError("give --menu or --catalog, not both");
 	if (opts.currentMenu && opts.currentCatalog)
@@ -741,7 +895,7 @@ const runSimulate = async (opts: SimulateOptions): Promise<void> => {
 const simulateCommand = program
 	.command("simulate")
 	.description(
-		"a what-if: replay a school's event log against a candidate menu or policy and diff balances, posting totals (by month and account) and the commands' decisions against the log; writes nothing. It re-decides credits only: it cannot change what Stripe charged, and the grant rules (upgrade grants, amounts from invoices) are not in the log's commands. Needs the menu or catalog rows the log was written under. Exits 0 with no differences, 1 with differences, 2 for input it cannot use (one line on stderr)",
+		"a what-if: replay a school's event log against a candidate menu or policy and diff balances, posting totals (by month and account) and the commands' decisions against the log; writes nothing. It re-decides credits only: it cannot change what Stripe charged, and the grant rules (upgrade grants, amounts from invoices) are not in the log's commands. Needs the menu or catalog rows the log was written under. Exits 0 with no differences, 1 with differences, 2 for input it cannot use (one line on stderr). With --inputs (the handler's stored Stripe inputs) it is a what-if on the grant rules instead: see the options below",
 	)
 	.option("--root <folder>", "the folder that holds schools/<id>/")
 	.option("--school <id>", "school id, as in schools/<id>/")
@@ -782,8 +936,25 @@ const simulateCommand = program
 		"report only this month's posting totals and commands (balances stay as of the last event)",
 	)
 	.option(
+		"--inputs <sqlite file | folder>",
+		"the handler's SQLite database, or a folder `atm inputs ship` shipped them to: decide the stored Stripe inputs again (the grant rules: upgradeGrant, what an invoice grants, a menu's prices and tiers) with the recorded menu and policy, which must reproduce the log, and then with the candidate. Opened read-only; writes nothing. Needs --env. --menu and --policy are optional (none is the identity); --current-menu and --current-policy replace the recorded ones; --catalog and --current-catalog are not used",
+	)
+	.option("--env <live|test>", "with --inputs: the Stripe mode of the inputs")
+	.option(
+		"--effective-from <ISO instant>",
+		"with --inputs: the candidate applies to inputs created from this instant on (default: from the start)",
+	)
+	.option(
+		"--current-policy <file>",
+		"with --inputs: the policy the inputs were decided under, instead of the stored one",
+	)
+	.option(
+		"--allow-baseline-drift",
+		"with --inputs: go on when the replay with the recorded menu and policy does not reproduce the log (exit 2 otherwise); the drift is reported, not counted",
+	)
+	.option(
 		"--json",
-		"print one JSON line ({ok, school, balances, balanceChanges, postingChanges, transactions, changed, refused, unaffected, differences, asOf, summary}) instead of the summary",
+		"print one JSON line ({ok, school, balances, balanceChanges, postingChanges, transactions, changed, refused, unaffected, differences, asOf, summary}; with --inputs: {ok, school, env, baseline, deliveries (the changes), balanceChanges, postingChanges, transactions, notReplayable, replayed, refused, notSimulated, unaffected, differences, asOf, summary}) instead of the summary",
 	)
 	.action((opts: SimulateOptions) =>
 		unattended("simulate", opts.json === true, () => runSimulate(opts)),

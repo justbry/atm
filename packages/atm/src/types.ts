@@ -2147,6 +2147,236 @@ export interface InputsSource {
 	read(filter: { env: AtmEnv; school: string }): Promise<InputsRead>;
 }
 
+// ---- Simulating from stored inputs ----
+
+/**
+ * What `simulateFromInputs` is given. The log's events, the stored inputs read through any `InputsSource`, and the
+ * candidate. No candidate menu and no candidate policy is the identity.
+ */
+export type InputsSimulateInput = {
+	/** The log (as `AtmSimulateInput.events`). */
+	events: readonly AtmEvent[];
+	/** From any `InputsSource.read`; the replay does not know where it came from. */
+	inputs: InputsRead;
+	env: AtmEnv;
+	school: string;
+	/** The candidate; neither given is the identity. A `policy` is the whole candidate policy (resolve it over the defaults with `resolvePolicy`). */
+	candidate: {
+		menu?: Menu;
+		policy?: BillingPolicy;
+		/**
+		 * Stripe price ids by lookup key for prices the candidate menu adds. An invoice line names its price by id only, and
+		 * the stored context knows the ids of the prices the recorded menu published; a price the candidate adds has an id
+		 * only once it is published, so give it here. A price the recorded menu had keeps the id it was bought under.
+		 */
+		priceIds?: Record<string, string>;
+	};
+	/** The candidate applies from this instant (ms) on, by each input's Stripe `created`; default from the start. */
+	effectiveFrom?: number;
+	/** Overrides of the recorded side (the baseline's menu or policy); default the stored contexts. */
+	current?: { menu?: Menu; policy?: BillingPolicy };
+	/** `YYYY-MM`: report only this month's posting totals, deliveries and commands (balances stay as of `asOf`). */
+	month?: string;
+	/** Balances are counted at this instant on both sides; default the last event applied. */
+	asOf?: string;
+	/** Keep going when the baseline does not reproduce the log (the drift is reported); otherwise `InputsSimulateError`. */
+	allowBaselineDrift?: boolean;
+};
+
+/** What one input decided, summed up so two decisions can be compared. */
+export type DecisionSummary = {
+	/** The refusal (a 422 reason), or null when the input was applied. */
+	refused: { reason: StripeEventRefusal["reason"] } | null;
+	/** How many events the input made. */
+	events: number;
+	/** Credit units issued per feature: the positive postings to `credits:avail:*` of the input's events. */
+	granted: Record<string, number>;
+	/** Credit units taken back per feature: the negative postings to `credits:avail:*` of the input's events. */
+	removed: Record<string, number>;
+	/** `canonicalize` of the row changes (engine rows and grants row), for equality. */
+	rowsDigest: string;
+	/** What a booking's payment or refund decided, when the input is one. */
+	booking: BookingPaymentOutcome["action"] | null;
+};
+
+/** One stored input, what was decided against what the candidate decides. */
+export type InputsDeliveryChange = {
+	/** Stripe's `evt_...`. */
+	eventId: string;
+	type: string;
+	appliedOrder: number | null;
+	subjectKey: string;
+	/** The event's `created`, ISO. */
+	at: string;
+	/**
+	 * `same`; `changed` (it decides, but not the same credits, rows or events); `newly_refused` (the candidate's rules
+	 * refuse an input that was applied); `newly_applied` (a stored 422 refusal that the candidate accepts; only from a SQLite
+	 * source, which holds the refusals); `no_longer_applied` (it made rows or events and the candidate makes none).
+	 */
+	kind:
+		| "same"
+		| "changed"
+		| "newly_refused"
+		| "newly_applied"
+		| "no_longer_applied";
+	recorded: DecisionSummary;
+	candidate: DecisionSummary;
+};
+
+/** One place where the replay with the recorded context does not reproduce the log. */
+export type InputsBaselineMismatch = {
+	eventId: string;
+	subjectKey: string;
+	reason:
+		| "events_differ"
+		| "revision_gap"
+		| "refused_differently"
+		| "context_missing";
+	/** The `idem` of the events the log holds for the input (or the carried command). */
+	recordedIdems: string[];
+	/** The `idem` of the events the replay made. */
+	replayedIdems: string[];
+};
+
+/** History the replay cannot re-decide, carried over unchanged. */
+export type NotReplayable = {
+	/** The holder; null when a decision names none. */
+	subjectKey: string | null;
+	/**
+	 * In the order they are checked: `erased` (the holder's inputs are tombstones), `inputs_not_stored` (decided before the
+	 * inputs were stored, or never shipped), `context_missing` (the menu and policy an input was decided under are not in
+	 * the source), `non_input_writes` (the holder's rows moved by a write that is neither a stored input nor a logged
+	 * command), `booking_writes` (a refund or lost dispute that follows a credit hold: the booking records it reads are not
+	 * reproduced).
+	 */
+	reason:
+		| "inputs_not_stored"
+		| "non_input_writes"
+		| "booking_writes"
+		| "erased"
+		| "context_missing";
+	/** Recorded decision events carried over unchanged. */
+	decisions: number;
+	firstDecisionAt: string | null;
+};
+
+/** The menu, policy and price ids a replay decides an input with. */
+export type ReplayContext = {
+	menu: Menu;
+	menuVersion: string | number;
+	policy: BillingPolicy;
+	policyVersion: string | number;
+	priceIds: Record<string, string>;
+};
+
+/** What `replayInputs` is given: the log, the stored inputs and which menu and policy to decide each with. */
+export type ReplayInputsOptions = {
+	events: readonly AtmEvent[];
+	inputs: InputsRead;
+	env: AtmEnv;
+	school: string;
+	/** Which menu and policy to decide with, per input: the recorded context or a replacement. */
+	contextFor: (
+		input: StoredInput,
+		recorded: StoredContext | undefined,
+	) => ReplayContext;
+	/** The draw order to run the carried commands under, by instant; undefined keeps the command as recorded. */
+	carriedPolicy?: (atMs: number) => BillingPolicy | undefined;
+	/** The baseline run. Given, this run is a candidate: it stops where the baseline stopped and compares with its states. */
+	against?: ReplayInputsResult;
+};
+
+export type ReplayHalt = { token: string; reason: NotReplayable["reason"] };
+
+/** What one input decided in a replay. */
+export type ReplayedInput = {
+	appliedOrder: number;
+	subjectKey: string;
+	events: AtmEvent[];
+	refused: StripeEventRefusal | null;
+	rowsDigest: string;
+	booking: DecisionSummary["booking"];
+	/** The invoices the refund or dispute was linked to (payment ref to invoice). */
+	invoiceIds: Record<string, string>;
+};
+
+/** What `replayInputs` leaves: the events, what each input decided, the rows, and the history it could not replay. */
+export type ReplayInputsResult = {
+	/** Decision events and carried events, deduped by idem (first wins), in id order. */
+	events: AtmEvent[];
+	/** By Stripe event id, for every input that ran. */
+	byInput: Map<string, ReplayedInput>;
+	/** The rows and revision of every holder that ran, as the replay leaves them. */
+	rows: Map<string, { rows: BillingRow[]; revision: number }>;
+	notReplayable: NotReplayable[];
+	/** Commands the engine refused (a candidate only). */
+	refused: AtmSimulateRefusal[];
+	/** Where a holder stopped being replayed, by subject key. */
+	halts: Map<string, ReplayHalt>;
+	/** The baseline's mismatches with the log (empty for a candidate). */
+	mismatches: InputsBaselineMismatch[];
+	/** The state each carried command ran on, for the candidate to compare with, by command key. */
+	preStates: Map<string, string>;
+	/** Holders that ran at least one input, by subject key. */
+	holders: Set<string>;
+	/** The log events a replayed input or command replaced. */
+	replaced: Set<AtmEvent>;
+	carriedCommands: number;
+	/** The open holds the carried commands left, by lock id. */
+	holds: Record<string, AtmHold>;
+	/** Applied inputs whose payment line was booked by an earlier refused attempt and is carried as the log has it. */
+	carriedPayments: string[];
+};
+
+/** The result of `simulateFromInputs`. */
+export type InputsSimulation = Pick<
+	AtmSimulation,
+	| "balances"
+	| "balanceChanges"
+	| "postingChanges"
+	| "transactions"
+	| "asOf"
+	| "unaffected"
+> & {
+	/** The candidate's events (left out of the CLI's `--json`), for building its journal. */
+	events: AtmEvent[];
+	/** Whether the replay with the recorded context reproduces the log, and where it does not. */
+	baseline: {
+		identical: boolean;
+		inputs: number;
+		/**
+		 * Applied inputs whose payment line was booked by an earlier refused attempt, under a menu and policy that are no
+		 * longer stored: the line is carried as the log has it, not decided again.
+		 */
+		carriedPayments: number;
+		mismatches: InputsBaselineMismatch[];
+	};
+	/** Every replayed input; the CLI lists only the ones that are not `same`. */
+	deliveries: InputsDeliveryChange[];
+	notReplayable: {
+		decisions: number;
+		holders: number;
+		/** When the first input was stored (ISO), or null with none. */
+		firstStoredAt: string | null;
+		/** The Stripe event id of the first input stored. */
+		firstStoredEventId: string | null;
+		items: NotReplayable[];
+	};
+	replayed: { holders: number; inputs: number; carriedCommands: number };
+	/** Commands the candidate's engine refused (as `AtmSimulation.refused`). */
+	refused: AtmSimulateRefusal[];
+	/** Policy settings the candidate changes that stored inputs cannot simulate (booking calls decide them). */
+	notSimulated: string[];
+	/** The delivery changes that are not `same`, the balance and posting changes, and the refused commands. */
+	differences: number;
+	summary: string;
+};
+
+/** Thrown by `simulateFromInputs` for input it cannot use (the CLI's exit 2). */
+export interface InputsSimulateErrorConstructor {
+	new (message?: string): Error;
+	readonly prototype: Error;
+}
 // ---- Shipping the stored inputs ----
 
 /**
