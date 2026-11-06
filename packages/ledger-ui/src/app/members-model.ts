@@ -585,39 +585,3 @@ export function paymentsOf(
 		}),
 	];
 }
-
-// ---- CSV (mockup `kCsv`): the member's payment history as a file
-
-const formulaStart = /^[=+\-@\t\r]/;
-const csvNeedsQuotes = /[",\r\n]/;
-const byteOrderMark = "\uFEFF";
-/** A text cell that starts like a spreadsheet formula gets a leading quote; the date and the amount are left as they
- * are. */
-function csvCell(value: string, guard: boolean): string {
-	const text = guard && formulaStart.test(value) ? `'${value}` : value;
-	return csvNeedsQuotes.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
-}
-
-export function paymentsCsv(rows: PaymentRow[], currency: string): string {
-	const header = [
-		"date",
-		"description",
-		"amount",
-		"currency",
-		"status",
-		"invoice_id",
-		"payment_id",
-	].map((name) => csvCell(name, false));
-	const lines = rows.map((row) =>
-		[
-			csvCell(row.date, false),
-			csvCell(row.description, true),
-			csvCell((row.amountCents / 100).toFixed(2), false),
-			csvCell(currency, false),
-			csvCell(row.status, true),
-			csvCell(row.invoiceId ?? "", true),
-			csvCell(row.paymentId ?? "", true),
-		].join(","),
-	);
-	return `${byteOrderMark}${[header.join(","), ...lines].join("\r\n")}\r\n`;
-}
