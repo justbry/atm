@@ -2,7 +2,7 @@
 	"id": "payout-failed",
 	"school": "sch_vol",
 	"title": "payout.paid, then the payout fails",
-	"path": "payout.failed (not mapped: 200 ignored)",
+	"path": "payout.failed -> a payout.paid reversed (idem stripe:<po>:failed)",
 	"order": 30,
 	"fees": {
 		"in_1": 784

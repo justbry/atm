@@ -1,0 +1,35 @@
+{
+	"id": "evt_SYNTH_0010",
+	"object": "event",
+	"api_version": "2025-10-29.clover",
+	"created": 1793666400,
+	"type": "payout.failed",
+	"livemode": false,
+	"data": {
+		"object": {
+			"object": "payout",
+			"id": "po_SYNTH_0001",
+			"amount": 24500,
+			"arrival_date": 1793577600,
+			"automatic": true,
+			"balance_transaction": "txn_SYNTH_0009",
+			"created": 1793491200,
+			"currency": "usd",
+			"description": "STRIPE PAYOUT",
+			"destination": "ba_SYNTH_0001",
+			"failure_balance_transaction": "txn_SYNTH_0010",
+			"failure_code": "account_closed",
+			"failure_message": "The bank account has been closed.",
+			"livemode": false,
+			"metadata": {},
+			"method": "standard",
+			"original_payout": null,
+			"reconciliation_status": "completed",
+			"reversed_by": null,
+			"source_type": "card",
+			"statement_descriptor": null,
+			"status": "failed",
+			"type": "bank_account"
+		}
+	}
+}
