@@ -210,7 +210,7 @@
 		{
 			"id": "scope-note-all-schools",
 			"source": "mockup #113 renderHead: #kview hidden on All schools",
-			"route": "#/all/plans?theme=light",
+			"route": "#/all/all?theme=light",
 			"expect": {
 				"count": {
 					"[data-test=scope-note]": 0

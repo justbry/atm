@@ -15,7 +15,7 @@ const browser = await chromium.launch({ executablePath });
 for (const entry of golden.entries) {
 	const page = await browser.newPage({ viewport: { width: 1100, height: 900 } });
 	await page.goto(`http://localhost:5181/${entry.route}`);
-	await page.waitForFunction((hash) => document.getElementById("app")?.dataset.route === hash, entry.route);
+	await page.waitForFunction(() => document.getElementById("app")?.dataset.route === location.hash);
 	for (const step of entry.steps ?? []) if (step.click) await page.click(step.click, { force: true });
 	await page.waitForTimeout(100);
 	const text = await page.evaluate(() => document.getElementById("app").innerText);
