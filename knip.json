@@ -110,13 +110,10 @@
 			"project": ["src/**/*.ts", "tests/**/*.ts"]
 		},
 		"packages/atm": {
-			"entry": ["tests/gap/*.ts"]
+			"entry": ["tests/gap/*.ts", "tests/worker-fixture/worker.ts"]
 		},
 		"packages/ksuid": {
 			"project": ["src/**/*.ts"]
-		},
-		"packages/atm": {
-			"entry": ["tests/worker-fixture/worker.ts"]
 		},
 		"packages/billing": {
 			"entry": ["config/autumn.config.ts", "scripts/**/*.ts", "tests/**/*.test.ts"],
