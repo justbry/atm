@@ -14,7 +14,7 @@ Detail lives in the companion docs in this folder:
 
 ## 1. Summary
 
-**Trifold** keeps the books for small businesses that bill through Stripe: memberships, usage, paid bookings, add-ons. Its engine, **Trivalance** (the `atm` package), builds the books from the payment events themselves. Every payment gets a signed receipt the customer keeps. Every closed month is sealed. Anyone can verify both with an open, free verifier.
+**Trifold** is the company behind **atm**, an engine that keeps the books for small businesses that bill through Stripe (memberships, usage, paid bookings, add-ons), and runs atm for them as a managed service. atm builds the books from the payment events themselves. Every payment gets a signed receipt the customer keeps. Every closed month is sealed. Anyone can verify both with an open, free verifier.
 
 The business is **open core**:
 - The standard and the verifier are open.
@@ -144,7 +144,7 @@ These are assumptions, not forecasts. `financial-model.md` describes how to run 
 | Student data (FERPA, state privacy laws) | Checked per school type; personal data kept out of signed receipts, as it is today |
 | Key compromise | Keys in a managed key service, a dated revocation list, old keys kept verifiable |
 | Erasure breaks receipts | Owner decision before release (`packages/atm/ROADMAP.md`): keep personal data out of hashed fields, or delete keys instead of editing events |
-| Trademark conflict | TRIBALANCE (Reg. 4374077, class 36) is the closest mark; clearance search before filing Trivalance in classes 9 and 42 |
+| Trademark conflict | "Trifold" collides in search with the Samsung Galaxy Z TriFold, and old TRIFOLD filings exist (a dead class 9 application, a class 42 filing of unknown status). Clearance search for Trifold in classes 9, 36 and 42 before filing. "atm" is too generic to register; it stays a product name, and the trademark protection sits on Trifold |
 | Competitors' deep discounts | Compete with the free core and provable books, not on price |
 
 ## 11. Next 90 days

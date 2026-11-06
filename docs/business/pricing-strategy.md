@@ -127,7 +127,7 @@ The `simulate` engine and CLI stay free. They were already published under Apach
 | Verifier and SDKs | Apache-2.0 |
 | Core engine (atm) | **FSL-1.1-ALv2** (Functional Source License): use and modify freely, including internally; no competing hosted service; each version becomes Apache-2.0 after two years |
 | Cloud, Witness, enterprise code | Proprietary (a service; the code is never distributed) |
-| Names | Trademark policy: "Trifold", "Trivalance" and "Witnessed by Trifold" are reserved; forks must rename |
+| Names | Trademark policy: "Trifold" and "Witnessed by Trifold" are reserved; a fork may say it is based on atm but may not use the Trifold names |
 | Contributions | CLA for the engine; DCO for the spec and verifier |
 
 **Claim rule.** An FSL engine can't be called "open source." Say "open standard, open verifier, fair-source engine."

@@ -17,13 +17,13 @@ Priority: **P0** blocks any public page, even a waitlist page. **P1** blocks the
 These block almost everything else. Settle them in this order.
 
 1. **What "launch" means.** A one-page waitlist and verifier on a real domain, or the full site from the brand doc's outline. Every page in the outline except Trust and Developers describes things that don't exist yet (cloud, Rifo, Pricing Lab, compliance packs, bookings). **Default:** launch a waitlist page plus the open-standard pages first; ship the full site with cloud Free (phase 1 in `business-plan.md`).
-2. **The primary domain and which name leads.** trivalance.com/.ai/.io, gettrifold.com and usetrifold.com look unregistered; trifold.com and trifold.ai are taken (trifold.ai is listed for sale). This decides the email sender domain, the receipt "Verify at …" link (which gets printed on every receipt and is hard to change), the DNS owner, and SEO. **Default:** buy the free ones now; Trifold is the site's name, with gettrifold.com as the primary site and a short, permanent verify host (see section 2).
+2. **The primary domain.** Trifold is the company and the managed service; atm is the engine (the name Trivalance was dropped on 2026-11-06). gettrifold.com and usetrifold.com look unregistered; trifold.com and trifold.ai are taken (trifold.ai is listed for sale). This decides the email sender domain, the receipt "Verify at …" link (which gets printed on every receipt and is hard to change), the DNS owner, and SEO. **Default:** buy the free ones now; Trifold is the site's name, with gettrifold.com as the primary site and a short, permanent verify host (see section 2).
 3. **Which audience the homepage leads with.** The brand doc's hero is studio-shaped ("memberships, bookings and books"); the business plan's first market is Idaho and Utah microschools, and Trifold has no booking product. **Default:** lead with microschools, keep studios as a secondary solution page.
 4. **The claim baseline for launch day.** The brand doc and business plan disagree on the ladder ("tamper-evident" after steps 1–3 in the brand doc vs "signed receipts and sealed books" until milestones 2 and 3 in the plan), and signed receipts are built on `dev` but not released or deployed at buzz-school (`packages/atm/ROADMAP.md`, unchecked items). **Default:** use only "double-entry, append-only, replayable books" and "open receipt standard (preview)" until receipts ship to a real school; never "triple-entry accounting" before milestones 2 and 3.
 5. **The engine licence.** FSL vs Apache decides what the site may call "open source" (an FSL engine can't be), the licensing page, and the GitHub/README copy. `LICENSE` at the repo root is Apache-2.0 today.
 6. **Fresh site or rebrand Autumn's `apps/website`.** See section 13 for the facts. **Default:** a fresh, small site; reuse only patterns (markdown-for-agents, `llms.txt`, sitemap), not content.
-7. **Legal entity and the lawyer.** Privacy policy, terms, witness terms and the trademark policy all need a named legal entity (Trivalance, Inc.? an LLC?) and an address. Nothing public can carry terms without it.
-8. **Trademark clearance before the logo and the name go public.** TRIBALANCE (Reg. 4374077, class 36) is one letter from Trivalance; the Samsung Galaxy Z TriFold dominates search for "trifold". Spending on a logo and domain before a clearance search risks a rename.
+7. **Legal entity and the lawyer.** Privacy policy, terms, witness terms and the trademark policy all need a named legal entity (Trifold, Inc.? an LLC?) and an address. Nothing public can carry terms without it.
+8. **Trademark clearance before the logo and the name go public.** The Samsung Galaxy Z TriFold dominates search for "trifold", and old TRIFOLD filings need checking (section "Naming collisions found"). Spending on a logo and domain before a clearance search risks a rename.
 
 ## 1. Brand and assets
 
@@ -57,14 +57,14 @@ Other handles checked: npm `trivalance` free; npm `trifold` taken (a React swipe
 
 | # | Unknown | Why it matters | Who decides | Recommended default | How to resolve |
 |---|---|---|---|---|---|
-| 2.1 (P0) | Which domain is the primary site | Email deliverability, SEO, every link and the receipt link | Owner | gettrifold.com for the site; redirect usetrifold.com to it; hold trivalance.* for the engine, the legal entity and the standard | Register the free ones together; decide before writing the email setup |
-| 2.2 (P0) | The permanent verify host printed on receipts | A receipt lives for years; its URL can't move. The brand loop ("Verify at trifold…") depends on it | Owner, Engineering | A dedicated host such as `verify.gettrifold.com`, or the standard's own domain (e.g. trivalance.org, not checked) so other issuers can use it neutrally | Decide whether the verifier belongs to Trifold or to the open standard (section 6) |
+| 2.1 (P0) | Which domain is the primary site | Email deliverability, SEO, every link and the receipt link | Owner | gettrifold.com for the site; redirect usetrifold.com to it. The trivalance.* domains are no longer needed | Register the free ones together; decide before writing the email setup |
+| 2.2 (P0) | The permanent verify host printed on receipts | A receipt lives for years; its URL can't move. The brand loop ("Verify at trifold…") depends on it | Owner, Engineering | A dedicated host such as `verify.gettrifold.com`, or a neutral domain for the standard (not chosen or checked) so other issuers can use it | Decide whether the verifier belongs to Trifold or to the open standard (section 6) |
 | 2.3 (P0) | Where `/.well-known/trifold-keys.json` is served | `packages/atm/ROADMAP.md` puts it on buzz-school; a Trifold cloud needs its own; the website must not break it | Engineering | Per issuer, on the issuer's domain; Trifold's own on the primary domain | Settle with the key-id owner decision in ROADMAP |
-| 2.4 (P1) | How much "Trivalance" appears on the site | Two names confuse buyers; the engine name is for developers and contracts | Owner | Trifold everywhere; "powered by the Trivalance engine" in the footer, Developers and Trust pages only | — |
+| 2.4 (P1) | How atm appears on the site | Buyers see Trifold; developers need the engine's name | Owner | Trifold everywhere; "built on atm, the engine Trifold maintains" on the Developers and Trust pages and in the footer | Decided 2026-11-06: Trivalance dropped |
 | 2.5 (P1) | Buy trifold.ai or trifold.com later? | Owning the exact match helps SEO and stops confusion | Owner | Don't buy now; ask for a price once revenue justifies it | Get a broker quote (Spaceship listing for .ai; a GoDaddy broker for .com) |
 | 2.6 (P1) | Whether tfd.dev and GitHub `tfd-dev` are already the owner's | If not, `tfd` docs need another host | Owner | — | Check the Cloudflare account and GitHub |
-| 2.7 (P1) | npm name for the CLI (`npx tfd verify`) | The brand doc promises `npx tfd verify`; today the binary is `atm`, the package is `private: true`, and releases ship as a GitHub tarball (`.github/workflows/release-atm.yml`) | Owner, Engineering | Claim the `@trifold` scope (or `@trivalance`) and try `tfd`; until published, the site shows the GitHub install | Try to create the npm org; check npm's name-similarity rules for `tfd` |
-| 2.8 (P1) | GitHub org name | `trifold` is taken | Owner | `trivalance` org for the engine and the standard | Create it |
+| 2.7 (P1) | npm name for the CLI (`npx tfd verify`) | The brand doc promises `npx tfd verify`; today the binary is `atm`, the package is `private: true`, and releases ship as a GitHub tarball (`.github/workflows/release-atm.yml`) | Owner, Engineering | Claim the `@trifold` scope and try `tfd`; until published, the site shows the GitHub install | Try to create the npm org; check npm's name-similarity rules for `tfd` |
+| 2.8 (P1) | GitHub org name | `trifold` is taken | Owner | An org such as `gettrifold` (free when checked) for atm and the standard | Create it |
 
 ## 3. Positioning and audiences
 
@@ -108,7 +108,7 @@ Other handles checked: npm `trivalance` free; npm `trifold` taken (a React swipe
 |---|---|---|---|---|---|
 | 6.1 (P0) | What is live vs waitlist | Cloud doesn't exist. What exists: the self-hosted engine and the `atm` CLI (0.9.0, GitHub tarball), receipts and seals on `dev`, ledger-ui for one tenant | Owner | Every page marks features as Available (self-hosted), Preview, or Planned | One status table on the site, updated per release |
 | 6.2 (P0) | "Start free" button target | No cloud Free tier | Owner | "Join the waitlist" and "Self-host it" | — |
-| 6.3 (P1) | Where the spec lives | Plan phase 0: spec v1 in its own repo with test vectors; not done | Owner, Engineering | A `trivalance/receipt-spec` repo; the site links to it | Create when the spec is frozen |
+| 6.3 (P1) | Where the spec lives | Plan phase 0: spec v1 in its own repo with test vectors; not done | Owner, Engineering | A receipt-spec repo in the Trifold GitHub org; the site links to it | Create when the spec is frozen |
 | 6.4 (P1) | Docs site stack and host | `apps/docs/mintlify` is Autumn's Mintlify docs (`"name": "Autumn"`, Autumn logos); the website redirects `/docs` to docs.useautumn.com | Owner, Engineering | New docs for `atm`/`tfd` only, from `packages/atm/README.md` and `docs/`; Mintlify or a static generator | Decide whether to pay for Mintlify; don't reuse Autumn's docs |
 | 6.5 (P1) | CLI name on the site: `atm` or `tfd` | The binary is `atm`; the brand says `tfd` | Owner, Engineering | Rename before the site shows commands, or show `atm` with "becomes `tfd`" | Rename task in `packages/atm` |
 | 6.6 (P1) | Changelog and roadmap pages | `packages/atm/ROADMAP.md` and release notes exist | Owner | Publish a changelog from GitHub releases; no public dated roadmap | — |
@@ -138,7 +138,7 @@ Other handles checked: npm `trivalance` free; npm `trifold` taken (a React swipe
 | 8.8 (P1) | Tax-prep disclaimer | Paid preparers need a PTIN; Trifold never signs returns | Lawyer | Footer and pricing note: "Trifold prepares tax-ready books. It doesn't prepare or file tax returns or give tax advice." | Lawyer wording |
 | 8.9 (P1) | Witness terms | What "Trifold saw this record at time T" promises and limits liability | Lawyer | Not public until Witnessed exists | Lawyer drafts with the plan's narrow definition |
 | 8.10 (P1) | Licensing page | Explains Apache standard, FSL (or Apache) engine, proprietary cloud, CLA/DCO | Owner, Lawyer | One plain page with a table, after Decide first 5 | — |
-| 8.11 (P1) | Trademark policy page | Reserves Trifold, Trivalance, "Witnessed by Trifold"; forks must rename | Lawyer | Publish with `TRADEMARKS.md` after clearance; use ™ not ® until registered | Clearance search, then filing |
+| 8.11 (P1) | Trademark policy page | Reserves Trifold and "Witnessed by Trifold"; forks must rename | Lawyer | Publish with `TRADEMARKS.md` after clearance; use ™ not ® until registered | Clearance search, then filing |
 | 8.12 (P1) | Accessibility statement | No binding federal Title III web rule for private businesses, but courts and settlements use WCAG 2.1 AA, and website ADA suits rose to about 3,100 in 2025 | Owner, Engineering | Build to WCAG 2.1 AA; publish a statement with a contact | Audit before launch (section 15) |
 | 8.13 (P2) | COPPA | The site targets adults; COPPA matters only if children use a product page | Lawyer | State the site isn't directed to children under 13 | — |
 
@@ -241,9 +241,8 @@ The plan lists a Stripe App in phase 1. If the site mentions it before it is lis
 - **npm `trifold`**: a React swipe-layout library.
 - **GitHub `trifold`**: an existing user account (since 2021).
 - **TRIFOLD trademarks**: aggregator sites show a dead class 9 application (Incipio, serial 77941454) and a "tri fold" class 42 filing (serial 77000614, status unknown). Confirm in USPTO TSDR.
-- **TRIBALANCE** (Reg. 4374077, TriOptima AB, class 36, live): from the brand doc; one letter from Trivalance.
-- **"Trivalence"**: a chemistry and logic term, and speech-to-text's spelling of Trivalance; it competes in search. Trivalence Technologies LLC (plastics) per the brand doc.
-- No software or fintech company named "Trifold" or "Trivalance" turned up in web searches. That is a weak signal, not a clearance search.
+- **TRIBALANCE** and **"Trivalence"** no longer matter: the name Trivalance was dropped on 2026-11-06.
+- No software or fintech company named "Trifold" turned up in web searches. That is a weak signal, not a clearance search.
 
 ## Sources
 
