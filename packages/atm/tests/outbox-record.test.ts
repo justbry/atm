@@ -125,6 +125,8 @@ const newSchool = () => {
 		schoolId: SCHOOL,
 		nowMs: () => clock.now,
 		workerId: "worker-a",
+		// a delivery with no paymentFee warns (fee_unknown) once per payment; tests/handler-fee-unknown.test.ts reads those lines
+		warn: () => undefined,
 		context: () => ({
 			menu,
 			menuVersion: 3,

@@ -161,6 +161,10 @@ export const formatReconcile = (result: ReconcileResult): string => {
 		lines.push(
 			`skipped in the log: ${count} money line(s) not booked (${reason})`,
 		);
+	if (result.feeUnknown > 0)
+		lines.push(
+			`no fee booked: ${result.feeUnknown} payment(s) with fee_known false (their fee is not in the log)`,
+		);
 	for (const [object, count] of Object.entries(result.counts))
 		lines.push(
 			`${object}: Stripe ${count.stripe ?? "not supplied"}, log ${count.log}`,

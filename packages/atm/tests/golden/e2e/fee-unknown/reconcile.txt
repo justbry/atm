@@ -1,9 +1,10 @@
 reconcile 2026-01 (America/Denver, live mode)
+no fee booked: 1 payment(s) with fee_known false (their fee is not in the log)
 invoice: Stripe 1, log 1
 refund: Stripe 0, log 0
 dispute: Stripe 0, log 0
 payout: Stripe 1, log 1
 fees: Stripe 1, log 0
 net: Stripe 2, log 1
-not_in_log: fees: Stripe took 784 cents in fees; the log has no expenses:billing:stripe-fees or expenses:billing:dispute-fees postings [stripe 7.84, log none]
+not_in_log: fees: Stripe took 784 cents in fees; the log has no expenses:billing:stripe-fees or expenses:billing:dispute-fees postings; 1 payment(s) in the log have fee_known false: their fee was never booked [stripe 7.84, log none]
 1 difference(s)
