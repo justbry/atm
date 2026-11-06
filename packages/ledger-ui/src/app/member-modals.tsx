@@ -9,7 +9,7 @@ import type {
 	MemberDetail,
 	SwitchTier,
 } from "../data/members.ts";
-import { cutoffHours } from "./booking-text.ts";
+import { type ConsequenceLine, consequenceLine } from "./booking-text.ts";
 import { Dialog } from "./dialog.tsx";
 import { Icon, type IconName } from "./icon.tsx";
 import {
@@ -578,6 +578,40 @@ function RefundModal({
 const bookingLine = (booking: MemberBooking, context: ModalContext): string =>
 	`${booking.service} · ${booking.id} · ${context.write.person.name} · ${context.write.person.id}`;
 
+/** The consequence sentence of a member booking, from the shared wording in `booking-text.ts`. */
+function ConsequencePreview({
+	line,
+}: {
+	line: ConsequenceLine | null;
+}): JSX.Element | null {
+	if (!line) return null;
+	return (
+		<>
+			{line.before}
+			{line.strong && <b>{line.strong}</b>}
+			{line.after}
+		</>
+	);
+}
+
+const consequenceOf = (
+	action: "noshow" | "release",
+	waive: boolean,
+	booking: MemberBooking,
+	write: ModalContext["write"],
+): ConsequenceLine | null =>
+	consequenceLine({
+		action,
+		waive,
+		rules: write.rules,
+		booking: {
+			billing: { kind: "held", credits: booking.creditsHeld },
+			cutoffMinutes: booking.cutoffMinutes,
+		},
+		creditUnit: write.unit,
+		memberName: write.person.name,
+	});
+
 function ReleaseHoldModal({
 	context,
 	booking,
@@ -588,22 +622,14 @@ function ReleaseHoldModal({
 	const { write } = context;
 	const [waive, setWaive] = useState(false);
 	const { busy, submit } = useSubmit(context);
-	const held = countOf(booking.creditsHeld, write.unit);
 	return (
 		<ModalFrame
 			title={`Release hold · ${write.schoolName}`}
 			subtitle={bookingLine(booking, context)}
 			preview={
-				waive ? (
-					<>
-						<b>{held}</b> return to {write.person.name}'s available balance.
-					</>
-				) : (
-					<>
-						Inside the {cutoffHours(booking.cutoffMinutes)} cutoff, the school's
-						rule <b>forfeits {held}</b>. Tick "Waive" to return them.
-					</>
-				)
+				<ConsequencePreview
+					line={consequenceOf("release", waive, booking, write)}
+				/>
 			}
 			confirm={{
 				label: "Release hold",
@@ -642,25 +668,14 @@ function NoShowModal({
 }): JSX.Element {
 	const { write } = context;
 	const { busy, submit } = useSubmit(context);
-	const held = countOf(booking.creditsHeld, write.unit);
 	return (
 		<ModalFrame
 			title={`Mark no-show · ${write.schoolName}`}
 			subtitle={bookingLine(booking, context)}
 			preview={
-				booking.creditsHeld === 0 ? (
-					"No credits are involved. The no-show is recorded."
-				) : write.rules.noShow === "spend" ? (
-					<>
-						Rule: a no-show spends the {write.unit.other}. <b>{held}</b> are
-						spent.
-					</>
-				) : (
-					<>
-						Rule: a no-show releases the {write.unit.other}. <b>{held}</b>{" "}
-						return to available.
-					</>
-				)
+				<ConsequencePreview
+					line={consequenceOf("noshow", false, booking, write)}
+				/>
 			}
 			confirm={{
 				label: "Mark no-show",

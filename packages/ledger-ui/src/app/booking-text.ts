@@ -35,6 +35,10 @@ export type ConsequenceLine = { before: string; strong: string; after: string };
 const creditCount = (count: number, unit: CreditUnit): string =>
 	`${count} ${count === 1 ? unit.one : unit.other}`;
 
+/** The verb that goes with a count: "1 session is spent", "2 sessions are spent". */
+const agree = (count: number, singular: string, plural: string): string =>
+	count === 1 ? singular : plural;
+
 /** Built only from the school's rules, the booking's `billing` and the attendee's name; with no `billing` there is no
  * line, and no balance is computed. A no-show on a booking holding no credits says so. */
 export function consequenceLine({
@@ -68,12 +72,12 @@ export function consequenceLine({
 			? {
 					before: `Rule: a no-show spends the ${creditUnit.other}. `,
 					strong: count,
-					after: " are spent.",
+					after: ` ${agree(credits, "is", "are")} spent.`,
 				}
 			: {
 					before: `Rule: a no-show releases the ${creditUnit.other}. `,
 					strong: count,
-					after: " return to available.",
+					after: ` ${agree(credits, "returns", "return")} to available.`,
 				};
 	}
 	if (billing.kind !== "held") return null;
@@ -87,6 +91,6 @@ export function consequenceLine({
 	return {
 		before: "",
 		strong: count,
-		after: ` return to ${memberName}'s available balance.`,
+		after: ` ${agree(credits, "returns", "return")} to ${memberName}'s available balance.`,
 	};
 }

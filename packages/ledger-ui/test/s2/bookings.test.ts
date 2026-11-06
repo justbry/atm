@@ -647,7 +647,7 @@ test("the No-show dialog says what the school's rule does to the held credits", 
 	await open("#/vol/bookings");
 	await click(noShow);
 	expect(text("[data-test=dialog] .prev")).toBe(
-		"Rule: a no-show spends the sessions. 1 session are spent.",
+		"Rule: a no-show spends the sessions. 1 session is spent.",
 	);
 	unmount?.();
 	document.body.innerHTML = "";
