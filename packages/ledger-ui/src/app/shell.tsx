@@ -196,14 +196,18 @@ export function Shell({
 			lastTabs.current[school.id] = shownTab;
 	}, [school, shownTab]);
 
-	const chooseSchool = (nextId: string): void => {
-		const query = withQuery(withQuery(route, "member", null), "as", null).query;
-		if (nextId === allSchools)
-			navigate({ schoolId: nextId, tab: allSchools, query });
+	/** Another school opens as its own signed-in person, on its own Dashboard view, period and preset (mockup
+	 * `setSchool`): only the theme carries over. */
+	const chooseSchool = (chosen: string): void => {
+		const query = new URLSearchParams();
+		const themeAsked = route.query.get("theme");
+		if (themeAsked) query.set("theme", themeAsked);
+		if (chosen === allSchools)
+			navigate({ schoolId: chosen, tab: allSchools, query });
 		else
 			navigate({
-				schoolId: nextId,
-				tab: lastTabs.current[nextId] ?? "plans",
+				schoolId: chosen,
+				tab: lastTabs.current[chosen] ?? "plans",
 				query,
 			});
 	};

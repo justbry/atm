@@ -1,43 +1,36 @@
 import { type ComponentChildren, Fragment, type JSX } from "preact";
 import { useEffect, useLayoutEffect, useState } from "preact/hooks";
 import {
-	type BooksLevel,
+	type Audience,
+	audienceNames,
+	audiences,
+	type LockPanel as Lock,
+} from "../data/disclosure.ts";
+import {
 	type Cell,
 	cellKind,
+	type DocumentPeriod,
 	type HiddenKind,
 	type KpiDocument,
-	type LagClass,
-	type PeriodInfo,
+	type TableGrain,
 } from "../data/kpi-document.ts";
-import type { Reader } from "../data/reader.ts";
-import type {
-	BooksLevelOption,
-	DashboardOptions,
-	Preset,
-	School,
-} from "../data/types.ts";
+import type { Preset } from "../data/types.ts";
+import type { BooksPaneProps } from "./books-pane.ts";
 import { Icon, type IconName } from "./icon.tsx";
-import { cellText, KpiValue, numberFormat } from "./kpi-cell.tsx";
+import { cellText } from "./kpi-cell.tsx";
 import { LockPanel } from "./lock-panel.tsx";
+import { monthName, type Period, parsePeriod } from "./period.ts";
 import { PinLock } from "./pin-lock.tsx";
-import { type Route, withQuery } from "./route.ts";
+import { withQuery } from "./route.ts";
 import { useViewing } from "./viewing.ts";
 
 type DashboardView = "money" | "members" | "risk";
-type ViewOption = {
-	id: DashboardView;
-	label: string;
-	icon: IconName;
-	/** Which delay of the level the view follows (the document's `caption` and `waiting` are per lag class). */
-	lag: LagClass;
-};
+type ViewOption = { id: DashboardView; label: string; icon: IconName };
 const views: [ViewOption, ...ViewOption[]] = [
-	{ id: "money", label: "Money", icon: "coin", lag: "money" },
-	{ id: "members", label: "Members", icon: "users", lag: "usage" },
-	{ id: "risk", label: "Risk", icon: "alert", lag: "money" },
+	{ id: "money", label: "Money", icon: "coin" },
+	{ id: "members", label: "Members", icon: "users" },
+	{ id: "risk", label: "Risk", icon: "alert" },
 ];
-/** The mockup's `BK_LV` icons, by the Reader's rank order (widest audience first), so no level is named here. */
-const levelIcons: IconName[] = ["eye", "user", "users", "coin", "key"];
 const chartColors = [
 	"var(--chart-1)",
 	"var(--chart-2)",
@@ -58,26 +51,33 @@ const chartWidth = 600;
 const dayChartWidth = 1200;
 const dayChartHeight = 64;
 const dayLabelEvery = 5;
+const openMonthTitle = "Open month: live, can still change";
+/** A suppressed cell's text is "Hidden: <why>"; its reason line names the row before the why. */
+const hiddenPrefix = /^Hidden: /;
+/** The hidden kinds that keep a figure from an audience: their cells say why, with the clock or the lock. */
+const withheldKinds = new Set<HiddenKind>([
+	"embargoed",
+	"members_only",
+	"no_grant",
+]);
 
-/** What every part of the pane reads: the document, the Reader's labels, the view's lag class, the selected period's
- * index, and how to open a period. */
-type Books = {
-	document: KpiDocument;
-	labels: Record<HiddenKind, string>;
-	lag: LagClass;
-	selected: number;
-	choose: (period: string) => void;
-};
+/** The document's whole-unit money (its `roundTo`), as the mockup's `kusd0` writes it. */
+const wholeMoney = (minorUnits: number, symbol: string): string =>
+	`${minorUnits < 0 ? "−" : ""}${symbol}${Math.round(Math.abs(minorUnits) / 100).toLocaleString("en-US")}`;
 
-const cellAt = ({ document }: Books, kpi: string, index: number): Cell =>
-	document.series[kpi]?.[index] ?? { hidden: "not_computed" };
-/** The cell's number, or null for a band or a hidden cell: those are never drawn, and never as 0. */
-const numberAt = (books: Books, kpi: string, index: number): number | null => {
-	const cell = cellAt(books, kpi, index);
-	return typeof cell === "number" ? cell : null;
+const grainOf = (period: string): TableGrain => {
+	if (/^\d{4}$/.test(period)) return "year";
+	if (/-Q\d$/.test(period)) return "quarter";
+	if (/^\d{4}-\d{2}$/.test(period)) return "month";
+	return "day";
 };
-const seriesStartingWith = (document: KpiDocument, prefix: string): string[] =>
-	Object.keys(document.series).filter((kpi) => kpi.startsWith(prefix));
+/** `Jun` for a month, `Q2 2026` for a quarter, `2024` for a year. */
+function periodName(period: string): string {
+	const [year = "", part] = period.split("-");
+	if (part === undefined) return year;
+	if (part.startsWith("Q")) return `${part} ${year}`;
+	return monthName(`${period}-01`);
+}
 /** "A", "A and B", "A, B and C". */
 function namesList(names: string[]): string {
 	const last = names.at(-1) ?? "";
@@ -86,19 +86,106 @@ function namesList(names: string[]): string {
 		: `${names.slice(0, -1).join(", ")} and ${last}`;
 }
 
-/** One document cell of the selected period, or of `index`. */
+/** What every part of the pane reads: the document, the strip period on screen, and how to open a period. */
+type Books = {
+	document: KpiDocument;
+	selected: DocumentPeriod;
+	choose: (period: string) => void;
+};
+
+/** The cell of a KPI in a period, from the table of that period's grain; undefined when the document has none. */
+function cellAt(
+	document: KpiDocument,
+	kpi: string,
+	period: string,
+): Cell | undefined {
+	const table = document.tables[grainOf(period)];
+	const index = table?.periods.indexOf(period) ?? -1;
+	return index < 0 ? undefined : table?.series[kpi]?.[index];
+}
+/** The cell's number, or null: a band or a hidden cell is never drawn, and never as 0. */
+function numberAt(
+	document: KpiDocument,
+	kpi: string,
+	period: string,
+): number | null {
+	const cell = cellAt(document, kpi, period);
+	return typeof cell === "number" ? cell : null;
+}
+const textOf = (document: KpiDocument, kpi: string, cell: Cell): string =>
+	cellText(document, kpi, cell);
+const seriesStartingWith = (
+	document: KpiDocument,
+	grain: TableGrain,
+	prefix: string,
+): string[] =>
+	Object.keys(document.tables[grain]?.series ?? {}).filter((kpi) =>
+		kpi.startsWith(prefix),
+	);
+/** The periods of a table that fall in the selected period's year; every year for the year table. */
+function periodsOf(books: Books, grain: TableGrain): string[] {
+	const year = books.selected.period.slice(0, 4);
+	return (books.document.tables[grain]?.periods ?? []).filter(
+		(period) => grain === "year" || period.startsWith(`${year}-`),
+	);
+}
+
+/** One document cell (protocol §3): its kind in `data-cell`, its text exactly as the mockup writes it, and its reason
+ * in the title: a hidden cell its text, a rounded count "Rounded to the nearest 10: <why>". A cell shown a second time
+ * (the donor rows under the donor line) is not `marked` again. */
 function Value({
 	books,
 	kpi,
-	index = books.selected,
+	period = books.selected.period,
 	test,
+	marked = true,
 }: {
 	books: Books;
 	kpi: string;
-	index?: number;
+	period?: string;
 	test?: string;
+	marked?: boolean;
 }): JSX.Element {
-	return <KpiValue context={books} kpi={kpi} index={index} test={test} />;
+	const { document } = books;
+	const cell = cellAt(document, kpi, period);
+	if (cell === undefined) return <span class="kcutv">—</span>;
+	const shared = marked
+		? {
+				"data-test": test,
+				"data-kpi": kpi,
+				"data-period": period,
+				"data-cell": cellKind(cell),
+			}
+		: {};
+	const text = textOf(document, kpi, cell);
+	if (typeof cell === "number") return <span {...shared}>{text}</span>;
+	if ("hidden" in cell) {
+		if (cell.hidden === "suppressed")
+			return (
+				<span {...shared} class="kcutv" title={cell.text}>
+					{text}
+				</span>
+			);
+		if (withheldKinds.has(cell.hidden))
+			return (
+				<span {...shared} class="khid" data-hid={cell.hidden} title={cell.text}>
+					<Icon name={cell.hidden === "embargoed" ? "clock" : "lock"} />
+					{text}
+				</span>
+			);
+		return <span {...shared}>{text}</span>;
+	}
+	if (cell.why)
+		return (
+			<span
+				{...shared}
+				class="kapprox"
+				title={`Rounded to the nearest 10: ${cell.why}`}
+			>
+				{text}
+			</span>
+		);
+	return <span {...shared}>{text}</span>;
 }
 
 type Tone = "ok" | "warn" | "bad" | "";
@@ -114,8 +201,17 @@ function disputeTone(disputes: number | null): Tone {
 	if (disputes >= 1) return "warn";
 	return "ok";
 }
+/** A card whose figure is withheld says why instead of its line (mockup `kcard`). */
+function withheldLine(cell: Cell | undefined): string | null {
+	if (cell === undefined || typeof cell === "number" || !("hidden" in cell))
+		return null;
+	if (cell.hidden === "suppressed") return cell.text;
+	if (cell.hidden === "embargoed") return "Inside its delay";
+	if (withheldKinds.has(cell.hidden)) return "Not in this document";
+	return null;
+}
 
-/** A card (mockup `kc`): its value cells joined by "+", dashed when the first is hidden by the cell rules. */
+/** A card (mockup `kcard`): its value cells joined by "+", dashed when the first is withheld. */
 function Card({
 	books,
 	label,
@@ -129,9 +225,15 @@ function Card({
 	tone?: Tone;
 	children: ComponentChildren;
 }): JSX.Element {
-	const cut = cellKind(cellAt(books, kpis[0], books.selected)) === "suppressed";
+	const withheld = withheldLine(
+		cellAt(books.document, kpis[0], books.selected.period),
+	);
 	return (
-		<div class={`kcard ${cut ? "kcut" : tone}`.trim()} data-test="kpi-card">
+		<div
+			class={`kcard ${withheld === null ? tone : "kcut"}`.trim()}
+			data-test="kpi-card"
+			data-k={kpis[0]}
+		>
 			<small data-test="kpi-label">{label}</small>
 			<b>
 				{kpis.map((kpi, index) => (
@@ -141,12 +243,12 @@ function Card({
 					</Fragment>
 				))}
 			</b>
-			<i>{children}</i>
+			<i>{withheld ?? children}</i>
 		</div>
 	);
 }
 
-/** The month before, as a cell: the mockup's change against it would be a number the UI computes. */
+/** The month before, as its cell: the mockup's change against it would be a number the UI computes. */
 function Previous({
 	books,
 	kpi,
@@ -154,121 +256,17 @@ function Previous({
 	books: Books;
 	kpi: string;
 }): ComponentChildren {
-	const before = books.document.periodInfo[books.selected - 1];
+	const { periods } = books.document;
+	const before =
+		periods[
+			periods.findIndex(({ period }) => period === books.selected.period) - 1
+		];
 	if (!before) return "First month";
 	return (
 		<>
-			{before.label}:{" "}
-			<Value books={books} kpi={kpi} index={books.selected - 1} />
+			{periodName(before.period)}:{" "}
+			<Value books={books} kpi={kpi} period={before.period} />
 		</>
-	);
-}
-
-/** The cards of a view (mockup `dashAgg` and `dashFull`): the month grain adds the average per member and, on Risk,
- * net income. */
-function Cards({
-	books,
-	view,
-}: {
-	books: Books;
-	view: DashboardView;
-}): JSX.Element {
-	const { document, selected } = books;
-	const label = document.periodInfo[selected]?.label ?? "";
-	const month = document.grain === "month";
-	const rate = numberAt(books, "refund_rate", selected);
-	const { roundTo } = document.policy;
-	const rounding = roundTo
-		? `rounded to ${numberFormat("money0", document.currency).format(roundTo / 100)}`
-		: "exact";
-	if (view === "money")
-		return (
-			<div class="kcards">
-				<Card books={books} label="Gross collected" kpis={["gross_collected"]}>
-					{month ? (
-						<Previous books={books} kpi="gross_collected" />
-					) : (
-						`${label}, ${rounding}`
-					)}
-				</Card>
-				<Card
-					books={books}
-					label="Refunds"
-					kpis={["refunds"]}
-					tone={month ? refundTone(rate) : ""}
-				>
-					<Value books={books} kpi="refund_rate" /> of gross
-				</Card>
-				<Card books={books} label="Payment fees" kpis={["stripe_fees"]}>
-					{month ? <Previous books={books} kpi="stripe_fees" /> : `in ${label}`}
-				</Card>
-				<Card books={books} label="Net income" kpis={["net_income"]} tone="ok">
-					{month ? (
-						<Previous books={books} kpi="net_income" />
-					) : (
-						"Rounded on its own"
-					)}
-				</Card>
-				<Card books={books} label="Paid out" kpis={["payouts"]}>
-					Lands the month after
-				</Card>
-			</div>
-		);
-	if (view === "members")
-		return (
-			<div class="kcards">
-				<Card books={books} label="Paying members" kpis={["paying_members"]}>
-					{month ? (
-						<Previous books={books} kpi="paying_members" />
-					) : (
-						`most in one month of ${label}`
-					)}
-				</Card>
-				<Card books={books} label="New paying" kpis={["new_paying_members"]}>
-					{month ? "first payment this month" : `first payment in ${label}`}
-				</Card>
-				{month && (
-					<Card books={books} label="Avg per paying member" kpis={["arpa"]}>
-						in {label}
-					</Card>
-				)}
-				<Card books={books} label="Credits used" kpis={["credits_consumed"]}>
-					<Value books={books} kpi="credits_granted" /> granted ·{" "}
-					<Value books={books} kpi="credits_expired" /> expired
-				</Card>
-			</div>
-		);
-	return (
-		<div class="kcards">
-			<Card
-				books={books}
-				label="Refund rate"
-				kpis={["refund_rate"]}
-				tone={refundTone(rate)}
-			>
-				<Value books={books} kpi="refunds" /> refunded
-			</Card>
-			<Card
-				books={books}
-				label="Disputes opened"
-				kpis={["disputes_opened"]}
-				tone={disputeTone(numberAt(books, "disputes_opened", selected))}
-			>
-				in {label}
-			</Card>
-			<Card
-				books={books}
-				label="Dispute cost"
-				kpis={["disputes_lost", "dispute_fees"]}
-			>
-				lost + fees
-			</Card>
-			{month && (
-				<Card books={books} label="Net income" kpis={["net_income"]}>
-					<Previous books={books} kpi="net_income" />
-				</Card>
-			)}
-		</div>
 	);
 }
 
@@ -289,62 +287,70 @@ function Legend({
 	);
 }
 
-/** The period labels under a chart, as HTML so they keep their size when the chart scales. */
-function Axis({ books }: { books: Books }): JSX.Element {
-	const { periodInfo } = books.document;
+/** The month labels under a chart, as HTML so they keep their size when the chart scales. */
+function Axis({
+	books,
+	periods,
+}: {
+	books: Books;
+	periods: string[];
+}): JSX.Element {
 	return (
 		<div
 			class="kax"
 			aria-hidden="true"
-			style={{ gridTemplateColumns: `repeat(${periodInfo.length}, 1fr)` }}
+			style={{ gridTemplateColumns: `repeat(${periods.length}, 1fr)` }}
 		>
-			{periodInfo.map((info, index) => (
+			{periods.map((period) => (
 				<span
-					key={info.period}
-					class={index === books.selected ? "on" : undefined}
+					key={period}
+					class={period === books.selected.period ? "on" : undefined}
 				>
-					{info.label}
+					{periodName(period)}
 				</span>
 			))}
 		</div>
 	);
 }
 
-/** A column per period with its cells in the tooltip; the selected period's column is shaded. */
+type ChartSeries = { kpi: string; name: string; color: string };
+
+/** A column per month with its cells in the tooltip ("not shown yet" for a cell that is no number); the selected
+ * month's column is shaded. */
 function Column({
 	books,
-	index,
+	period,
+	position,
 	width,
 	height,
-	kpis,
+	series,
 }: {
 	books: Books;
-	index: number;
+	period: string;
+	position: number;
 	width: number;
 	height: number;
-	kpis: Array<{ kpi: string; name: string }>;
+	series: ChartSeries[];
 }): JSX.Element {
-	const label = books.document.periodInfo[index]?.label;
-	const cells = kpis.map(
-		({ kpi, name }) =>
-			`${name} ${cellText(books, kpi, cellAt(books, kpi, index))}`,
-	);
+	const { document } = books;
+	const cells = series.map(({ kpi, name }) => {
+		const cell = cellAt(document, kpi, period);
+		return `${name} ${typeof cell === "number" ? textOf(document, kpi, cell) : "not shown yet"}`;
+	});
 	return (
 		<rect
-			class={index === books.selected ? "col on" : "col"}
-			x={index * width}
+			class={period === books.selected.period ? "col on" : "col"}
+			x={position * width}
 			y={0}
 			width={width}
 			height={height}
 		>
-			<title>{`${label}: ${cells.join(" · ")}`}</title>
+			<title>{`${periodName(period)}: ${cells.join(" · ")}`}</title>
 		</rect>
 	);
 }
 
-type ChartSeries = { kpi: string; name: string; color: string };
-
-/** Grouped bars per period (mockup `kbars`), scaled to the largest number shown. */
+/** Grouped bars per month (mockup `kbars`), scaled to the largest number shown. */
 function Bars({
 	books,
 	series,
@@ -353,11 +359,11 @@ function Bars({
 	series: ChartSeries[];
 }): JSX.Element {
 	const height = 110;
-	const { periodInfo } = books.document;
-	const columnWidth = chartWidth / periodInfo.length;
+	const periods = periodsOf(books, "month");
+	const columnWidth = chartWidth / periods.length;
 	const barWidth = (columnWidth * 0.72) / series.length;
 	const values = series.map(({ kpi }) =>
-		periodInfo.map((_, index) => numberAt(books, kpi, index)),
+		periods.map((period) => numberAt(books.document, kpi, period)),
 	);
 	const largest = Math.max(
 		1,
@@ -371,14 +377,15 @@ function Bars({
 				role="img"
 				aria-label={namesList(series.map(({ name }) => name))}
 			>
-				{periodInfo.map((info, index) => (
-					<g key={info.period}>
+				{periods.map((period, index) => (
+					<g key={period}>
 						<Column
 							books={books}
-							index={index}
+							period={period}
+							position={index}
 							width={columnWidth}
 							height={height}
-							kpis={series}
+							series={series}
 						/>
 						{series.map(({ kpi, color }, position) => {
 							const value = values[position]?.[index] ?? null;
@@ -404,12 +411,12 @@ function Bars({
 					</g>
 				))}
 			</svg>
-			<Axis books={books} />
+			<Axis books={books} periods={periods} />
 		</>
 	);
 }
 
-/** A line through the periods' numbers (mockup `kline`), with an optional dashed threshold. */
+/** A line through the months' numbers (mockup `kline`), with an optional dashed threshold. */
 function Line({
 	books,
 	kpi,
@@ -426,9 +433,9 @@ function Line({
 	threshold?: number;
 }): JSX.Element {
 	const height = 100;
-	const { periodInfo } = books.document;
-	const columnWidth = chartWidth / periodInfo.length;
-	const values = periodInfo.map((_, index) => numberAt(books, kpi, index));
+	const periods = periodsOf(books, "month");
+	const columnWidth = chartWidth / periods.length;
+	const values = periods.map((period) => numberAt(books.document, kpi, period));
 	const top = Math.max(
 		smallestTop,
 		threshold ?? 0,
@@ -449,14 +456,15 @@ function Line({
 					role="img"
 					aria-label={name}
 				>
-					{periodInfo.map((info, index) => (
+					{periods.map((period, index) => (
 						<Column
-							key={info.period}
+							key={period}
 							books={books}
-							index={index}
+							period={period}
+							position={index}
 							width={columnWidth}
 							height={height}
-							kpis={[{ kpi, name }]}
+							series={[{ kpi, name, color }]}
 						/>
 					))}
 					{threshold !== undefined && (
@@ -476,50 +484,48 @@ function Line({
 						points={points.join(" ")}
 						pointer-events="none"
 					/>
-					{values.map((value, index) =>
-						value === null ? null : (
+					{values.map((value, index) => {
+						const period = periods[index] ?? "";
+						const selected = period === books.selected.period;
+						return value === null ? null : (
 							<circle
-								key={periodInfo[index]?.period}
+								key={period}
 								cx={x(index)}
 								cy={y(value)}
-								r={index === books.selected ? 4.5 : 2.5}
-								fill={index === books.selected ? "var(--foreground)" : color}
+								r={selected ? 4.5 : 2.5}
+								fill={selected ? "var(--foreground)" : color}
 								pointer-events="none"
 							/>
-						),
-					)}
+						);
+					})}
 				</svg>
 				{threshold !== undefined && (
 					<span
 						class="kthr"
 						style={{ top: `${(y(threshold) / height) * 100}%` }}
 					>
-						{cellText(books, kpi, threshold)}
+						{textOf(books.document, kpi, threshold)}
 					</span>
 				)}
 			</div>
-			<Axis books={books} />
+			<Axis books={books} periods={periods} />
 		</>
 	);
 }
 
-/** Gross per day of the selected month (mockup `kdays`): days not shown yet are a low grey stub, never a 0 bar. */
-function Days({
-	books,
-	period,
-	label,
-}: {
-	books: Books;
-	period: string;
-	label: string;
-}): JSX.Element | null {
-	const { days } = books.document;
+/** Gross per day of the selected month (mockup `kdays`): a day that is no number is a low grey stub, never a 0 bar.
+ * Each day carries its cell's kind and, for a number, its value. */
+function Days({ books }: { books: Books }): JSX.Element | null {
+	const { document, selected } = books;
+	const days = document.tables.day;
 	if (!days) return null;
-	const inMonth = days.periods.flatMap((day, index) =>
-		day.startsWith(`${period}-`)
-			? [{ day, cell: days.series.gross_collected?.[index] }]
-			: [],
-	);
+	const month = monthName(selected.from);
+	const inMonth = days.periods.flatMap((day, index) => {
+		const cell = days.series.gross_collected?.[index];
+		return day.startsWith(`${selected.period}-`) && cell !== undefined
+			? [{ day, cell }]
+			: [];
+	});
 	const columnWidth = dayChartWidth / inMonth.length;
 	const largest = Math.max(
 		1,
@@ -531,9 +537,9 @@ function Days({
 				class="kc"
 				viewBox={`0 0 ${dayChartWidth} ${dayChartHeight}`}
 				role="img"
-				aria-label={`Gross by day, ${label}`}
+				aria-label={`Gross by day, ${selected.label}`}
 			>
-				{inMonth.map(({ day, cell = { hidden: "not_computed" } }, position) => {
+				{inMonth.map(({ day, cell }, position) => {
 					const shared = {
 						"data-kpi": "gross_collected",
 						"data-day": day,
@@ -542,9 +548,7 @@ function Days({
 						width: columnWidth - 2,
 						rx: 2,
 					};
-					const title = (
-						<title>{`${label} ${Number(day.slice(8))}: ${cellText(books, "gross_collected", cell)}`}</title>
-					);
+					const label = `${month} ${Number(day.slice(8))}`;
 					if (typeof cell !== "number")
 						return (
 							<rect
@@ -555,7 +559,7 @@ function Days({
 								fill="var(--border)"
 								opacity={0.4}
 							>
-								{title}
+								<title>{`${label}: not yet`}</title>
 							</rect>
 						);
 					const barHeight = (cell / largest) * dayChartHeight;
@@ -568,7 +572,7 @@ function Days({
 							height={barHeight}
 							fill={firstColor}
 						>
-							{title}
+							<title>{`${label}: ${textOf(document, "gross_collected", cell)}`}</title>
 						</rect>
 					);
 				})}
@@ -591,23 +595,48 @@ function Days({
 	);
 }
 
-/** Rows of one period's breakdown (plans, funds, donor sizes), then the reason of every hidden row. */
-function Breakdown({
+/** The reason line under a breakdown (mockup `kwhyHtml`): "<row>: <why>" for every row the cell rules hid or
+ * rounded. */
+function Reasons({
 	books,
 	kpis,
 }: {
 	books: Books;
 	kpis: string[];
+}): JSX.Element | null {
+	const { document, selected } = books;
+	const reasons = kpis.flatMap((kpi) => {
+		const cell = cellAt(document, kpi, selected.period);
+		const title = document.meta[kpi]?.title;
+		if (cell === undefined || typeof cell === "number") return [];
+		if ("hidden" in cell)
+			return cell.hidden === "suppressed"
+				? [`${title}: ${cell.text.replace(hiddenPrefix, "")}`]
+				: [];
+		return cell.why ? [`${title}: ${cell.why}`] : [];
+	});
+	if (reasons.length === 0) return null;
+	return (
+		<div class="kwhy" data-test="kpi-why">
+			<Icon name="lock" />
+			<span>{reasons.join(" · ")}</span>
+		</div>
+	);
+}
+
+/** Rows of one period's breakdown (plans, funds, donor sizes), then the reason of every row the rules hid. */
+function Breakdown({
+	books,
+	kpis,
+	marked = true,
+}: {
+	books: Books;
+	kpis: string[];
+	marked?: boolean;
 }): JSX.Element {
 	const { document, selected } = books;
-	const values = kpis.map((kpi) => numberAt(books, kpi, selected));
+	const values = kpis.map((kpi) => numberAt(document, kpi, selected.period));
 	const largest = Math.max(1, ...values.filter((value) => value !== null));
-	const reasons = kpis.flatMap((kpi) => {
-		const cell = cellAt(books, kpi, selected);
-		return typeof cell === "object" && "hidden" in cell && cell.why
-			? [`${document.meta[kpi]?.title}: ${cell.why}`]
-			: [];
-	});
 	return (
 		<>
 			{kpis.map((kpi, index) => {
@@ -627,103 +656,260 @@ function Breakdown({
 							)}
 						</div>
 						<b>
-							<Value books={books} kpi={kpi} />
+							<Value books={books} kpi={kpi} marked={marked} />
 						</b>
 					</div>
 				);
 			})}
-			{reasons.length > 0 && (
-				<div class="kwhy" data-test="kpi-why">
-					<Icon name="lock" />
-					<span>{reasons.join(" · ")}</span>
-				</div>
-			)}
+			<Reasons books={books} kpis={kpis} />
 		</>
 	);
 }
 
-/** Public and Member (mockup `dashAgg`): one row per period, the waiting ones with the day they show from. */
-function PeriodRows({
+/** One row per period of a KPI at its own grain (`meta.every`) over the selected period's year (every year for a
+ * yearly KPI): mockup `dashAgg` `series`. A period inside its delay is hatched. */
+function SeriesRows({
 	books,
-	view,
-	levels,
+	kpi,
 }: {
 	books: Books;
-	view: DashboardView;
-	levels: BooksLevelOption[];
+	kpi: string;
 }): JSX.Element {
-	const { document, selected, lag } = books;
-	const kpi = view === "members" ? "paying_members" : "gross_collected";
-	const values = document.periodInfo.map((_, index) =>
-		numberAt(books, kpi, index),
-	);
+	const { document, selected } = books;
+	const every = document.meta[kpi]?.every ?? document.grain;
+	const periods = periodsOf(books, every);
+	const values = periods.map((period) => numberAt(document, kpi, period));
 	const largest = Math.max(1, ...values.filter((value) => value !== null));
-	const lead = `${view === "members" ? "Paying members" : "Gross"} by ${document.grain}${view === "risk" ? " (the base for refund and dispute rates)" : ""}`;
-	const breakdownsFrom = levels.find(({ steps }) => steps > "G2")?.name;
-	const identified = levels
-		.filter(({ steps }) => steps === "G6")
-		.map(({ name }) => name);
 	return (
-		<div class="kgrid">
-			<div class="kbox">
-				<h6>{lead}</h6>
-				{document.periodInfo.map((info, index) => {
-					const value = values[index] ?? null;
-					if (info.waiting[lag])
-						return (
-							<div class="krow kp kwait" key={info.period}>
-								<span>{info.label}</span>
-								<div class="t" />
-								<b>from {info.shownFromLabel[lag]}</b>
-							</div>
-						);
-					return (
-						<div
-							class={index === selected ? "krow kp kon" : "krow kp"}
-							key={info.period}
-						>
-							<span>{info.label}</span>
-							<div class="t">
-								{value !== null && (
-									<i
-										style={{
-											width: `${(Math.max(0, value) / largest) * 100}%`,
-											background: firstColor,
-										}}
-									/>
-								)}
-							</div>
-							<b>
-								<Value books={books} kpi={kpi} index={index} />
-							</b>
+		<>
+			{periods.map((period, index) => {
+				const value = values[index] ?? null;
+				const cell = cellAt(document, kpi, period);
+				const embargoed = cell !== undefined && cellKind(cell) === "embargoed";
+				const rowClass =
+					value === null
+						? embargoed
+							? "krow kp kwait"
+							: "krow kp"
+						: period === selected.period
+							? "krow kp kon"
+							: "krow kp";
+				return (
+					<div class={rowClass} key={period}>
+						<span>{periodName(period)}</span>
+						<div class="t">
+							{value !== null && (
+								<i
+									style={{
+										width: `${(Math.max(0, value) / largest) * 100}%`,
+										background: firstColor,
+									}}
+								/>
+							)}
 						</div>
-					);
-				})}
-				<div class="mut" style={{ marginTop: "8px" }}>
-					{view === "members"
-						? "Counts of people."
-						: "Rounded on their own, so a year is not the sum of its rounded quarters."}{" "}
-					Cell rules hide a figure with fewer than{" "}
-					{document.rules.minContributors} payers.
-				</div>
-			</div>
-			<div class="kbox">
-				<h6>More detail</h6>
-				<div class="mut">
-					Breakdowns by plan or fund show from {breakdownsFrom} up. Names show
-					to {namesList(identified)} only.
-				</div>
-			</div>
-		</div>
+						<b>
+							<Value books={books} kpi={kpi} period={period} />
+						</b>
+					</div>
+				);
+			})}
+		</>
 	);
 }
 
-/** "Needs a look" (mockup Risk): the periods with a refund rate over 10% or 3 disputes or more. */
+/** "<title> by <grain>": the heading of a series. */
+const seriesHeading = (
+	document: KpiDocument,
+	kpi: string,
+	title: string,
+): string => `${title} by ${document.meta[kpi]?.every ?? document.grain}`;
+
+/** Public and Member (mockup `dashAgg`): the period's cards, then each KPI's series at its own grain. Below
+ * Governance the plan breakdown is the row's lock panel. */
+function AggregateBody({
+	books,
+	view,
+	creditsName,
+	planLock,
+	fewerThan,
+}: {
+	books: Books;
+	view: DashboardView;
+	creditsName: string;
+	planLock: Lock | undefined;
+	fewerThan: number | null;
+}): JSX.Element {
+	const { document, selected } = books;
+	const { label } = selected;
+	if (view === "money") {
+		const kinds = seriesStartingWith(
+			document,
+			grainOf(selected.period),
+			"revenue_by_kind:",
+		);
+		const year = selected.period.slice(0, 4);
+		return (
+			<>
+				<div class="kcards">
+					<Card
+						books={books}
+						label="Gross collected"
+						kpis={["gross_collected"]}
+					>
+						{document.roundTo > 0
+							? `${label}, rounded to ${wholeMoney(document.roundTo, document.symbol)}`
+							: label}
+					</Card>
+					<Card books={books} label="Refunds" kpis={["refunds"]}>
+						<Value books={books} kpi="refund_rate" /> of gross
+					</Card>
+					<Card books={books} label="Payment fees" kpis={["stripe_fees"]}>
+						in {label}
+					</Card>
+					<Card
+						books={books}
+						label="Net income"
+						kpis={["net_income"]}
+						tone="ok"
+					>
+						Rounded on its own
+					</Card>
+					<Card books={books} label="Paid out" kpis={["payouts"]}>
+						Lands the month after
+					</Card>
+				</div>
+				<div class="kgrid">
+					<div class="kbox">
+						<h6>{seriesHeading(document, "gross_collected", "Gross")}</h6>
+						<SeriesRows books={books} kpi="gross_collected" />
+						{document.grain === "quarter" &&
+							document.tables.year?.periods.includes(year) && (
+								<div class="krow kyear" data-year={year}>
+									<span>
+										<b>{year} total</b>
+									</span>
+									<div class="t" />
+									<b>
+										<Value books={books} kpi="gross_collected" period={year} />
+									</b>
+								</div>
+							)}
+						<div class="mut" style={{ marginTop: "8px" }}>
+							Each period is rounded on its own, so a year is not the sum of its
+							rounded quarters.
+						</div>
+					</div>
+					<div class="kbox">
+						<h6>Income by kind, {label}</h6>
+						{kinds.length > 0 ? (
+							<Breakdown books={books} kpis={kinds} />
+						) : (
+							<div class="mut">No income in this period.</div>
+						)}
+						{planLock && (
+							<>
+								<h6 style={{ marginTop: "10px" }}>By plan or fund</h6>
+								<LockPanel lock={planLock} surface="dashboard-plan" />
+							</>
+						)}
+						<div class="mut" style={{ marginTop: "8px" }}>
+							Names show to finance admins and the owner only.
+						</div>
+					</div>
+				</div>
+			</>
+		);
+	}
+	if (view === "members")
+		return (
+			<>
+				<div class="kcards">
+					<Card books={books} label="Paying members" kpis={["paying_members"]}>
+						most in one month of {label}
+					</Card>
+					<Card books={books} label="New paying" kpis={["new_paying_members"]}>
+						first payment in {label}
+					</Card>
+					<Card books={books} label="Avg per paying member" kpis={["arpa"]}>
+						in {label}
+					</Card>
+					<Card
+						books={books}
+						label={`${creditsName} used`}
+						kpis={["credits_consumed"]}
+					>
+						<Value books={books} kpi="credits_granted" /> granted ·{" "}
+						<Value books={books} kpi="credits_expired" /> expired
+					</Card>
+				</div>
+				<div class="kgrid">
+					<div class="kbox">
+						<h6>
+							{seriesHeading(document, "paying_members", "Paying members")}
+						</h6>
+						<SeriesRows books={books} kpi="paying_members" />
+						<div class="mut" style={{ marginTop: "8px" }}>
+							Counts of people.
+							{fewerThan !== null &&
+								` Under ${fewerThan} payers a count shows as <10 or to the nearest 10, never 0.`}
+						</div>
+					</div>
+					<div class="kbox">
+						<h6>
+							{seriesHeading(
+								document,
+								"credits_consumed",
+								`${creditsName} used`,
+							)}
+						</h6>
+						<SeriesRows books={books} kpi="credits_consumed" />
+					</div>
+				</div>
+			</>
+		);
+	return (
+		<>
+			<div class="kcards">
+				<Card books={books} label="Refund rate" kpis={["refund_rate"]}>
+					<Value books={books} kpi="refunds" /> refunded
+				</Card>
+				<Card books={books} label="Disputes opened" kpis={["disputes_opened"]}>
+					in {label}
+				</Card>
+				<Card
+					books={books}
+					label="Dispute cost"
+					kpis={["disputes_lost", "dispute_fees"]}
+				>
+					lost + fees
+				</Card>
+				<Card books={books} label="Net income" kpis={["net_income"]}>
+					after refunds and fees
+				</Card>
+			</div>
+			<div class="kgrid">
+				<div class="kbox">
+					<h6>{seriesHeading(document, "refunds", "Refunds")}</h6>
+					<SeriesRows books={books} kpi="refunds" />
+				</div>
+				<div class="kbox">
+					<h6>
+						{seriesHeading(document, "gross_collected", "Gross")} (the base for
+						refund and dispute rates)
+					</h6>
+					<SeriesRows books={books} kpi="gross_collected" />
+				</div>
+			</div>
+		</>
+	);
+}
+
+/** "Needs a look" (mockup Risk): the months with a refund rate over 10% or 3 disputes or more. */
 function Flags({ books }: { books: Books }): JSX.Element {
-	const { periodInfo } = books.document;
-	const flags = periodInfo.flatMap((info, index) => {
-		const rate = numberAt(books, "refund_rate", index);
-		const disputes = numberAt(books, "disputes_opened", index);
+	const { document } = books;
+	const flags = periodsOf(books, "month").flatMap((period) => {
+		const rate = numberAt(document, "refund_rate", period);
+		const disputes = numberAt(document, "disputes_opened", period);
 		const highRate = rate !== null && rate > refundRateBad;
 		const manyDisputes = disputes !== null && disputes >= disputesBad;
 		if (!highRate && !manyDisputes) return [];
@@ -731,20 +917,20 @@ function Flags({ books }: { books: Books }): JSX.Element {
 			(highRate && rate > refundRateSevere) ||
 			(manyDisputes && disputes >= disputesSevere);
 		return [
-			<div class="kflag" data-test="dash-flag" key={info.period}>
+			<div class="kflag" data-test="dash-flag" key={period}>
 				<span class={severe ? "kdot kd-bad" : "kdot kd-warn"} />
-				<span>{info.label}</span>
+				<span>{periodName(period)}</span>
 				<span class="mut">
 					{highRate && (
 						<>
 							Refund rate{" "}
-							<Value books={books} kpi="refund_rate" index={index} />
+							<Value books={books} kpi="refund_rate" period={period} />
 						</>
 					)}
 					{highRate && manyDisputes && " · "}
 					{manyDisputes && (
 						<>
-							<Value books={books} kpi="disputes_opened" index={index} />{" "}
+							<Value books={books} kpi="disputes_opened" period={period} />{" "}
 							disputes
 						</>
 					)}
@@ -753,7 +939,7 @@ function Flags({ books }: { books: Books }): JSX.Element {
 					<button
 						type="button"
 						class="link"
-						onClick={() => books.choose(info.period)}
+						onClick={() => books.choose(period)}
 					>
 						Show ›
 					</button>
@@ -767,103 +953,190 @@ function Flags({ books }: { books: Books }): JSX.Element {
 			{flags.length > 0 ? (
 				flags
 			) : (
-				<div class="mut">Nothing unusual in {books.document.year}.</div>
+				<div class="mut">
+					Nothing unusual in {books.selected.period.slice(0, 4)}.
+				</div>
 			)}
 		</div>
 	);
 }
 
-/** Governance, Finance admin and Owner (mockup `dashFull`): the month's charts, breakdowns and distributions. */
-function MonthCharts({
+/** How donors give (mockup `bkDistHtml`): the count, each size bucket and the median gift, as cells. */
+function Donors({ books }: { books: Books }): JSX.Element {
+	const { document, selected } = books;
+	const donors = cellAt(document, "donors_count", selected.period);
+	if (donors === 0)
+		return (
+			<div class="mut">
+				No donations recorded in {selected.period.slice(0, 4)} yet.
+			</div>
+		);
+	if (typeof donors !== "number")
+		return (
+			<div class="kdistline" data-test="donor-line">
+				<Value books={books} kpi="donors_count" /> donors
+			</div>
+		);
+	const buckets = seriesStartingWith(document, "month", "donors_by_size:");
+	return (
+		<>
+			<div class="kdistline" data-test="donor-line">
+				<b>
+					<Value books={books} kpi="donors_count" /> donors
+				</b>
+				:{" "}
+				{buckets.map((kpi, index) => (
+					<Fragment key={kpi}>
+						{index > 0 && ", "}
+						<Value books={books} kpi={kpi} /> {document.meta[kpi]?.title}
+					</Fragment>
+				))}
+				; median gift <Value books={books} kpi="donors_median_gift" />
+			</div>
+			<Breakdown books={books} kpis={buckets} marked={false} />
+		</>
+	);
+}
+
+/** Governance, Finance admin and Owner (mockup `dashFull`): the month's cards, charts, breakdowns and spreads. */
+function MonthBody({
 	books,
 	view,
+	creditsName,
+	identities,
 	openReports,
 }: {
 	books: Books;
 	view: DashboardView;
+	creditsName: string;
+	identities: boolean;
 	openReports: () => void;
 }): JSX.Element {
 	const { document, selected } = books;
-	const info = document.periodInfo[selected];
-	const label = info?.label ?? "";
-	const { year } = document;
-	const identified = document.policy.steps === "G6";
-	const planLock = useViewing().option.locks["dashboard-plan"];
+	const month = monthName(selected.from);
+	const year = selected.period.slice(0, 4);
+	const index = document.tables.month?.periods.indexOf(selected.period) ?? -1;
+	const rate = numberAt(document, "refund_rate", selected.period);
 	if (view === "money") {
-		const plans = seriesStartingWith(document, "revenue_by_tier:");
-		const funds = seriesStartingWith(document, "donations_by_fund:");
-		const hasDays = document.days?.periods.some((day) =>
-			day.startsWith(`${info?.period}-`),
+		const plans = seriesStartingWith(document, "month", "revenue_by_tier:");
+		const funds =
+			document.tables.month?.order?.donations_by_fund?.[index] ?? [];
+		const days = document.tables.day?.periods.some((day) =>
+			day.startsWith(`${selected.period}-`),
 		);
 		return (
-			<div class="kgrid">
-				<div class="kbox">
-					<h6>
-						Gross vs net, {year}
-						<Legend
-							items={[
-								["Gross", grossColor],
-								["Net", firstColor],
-							]}
-						/>
-					</h6>
-					<Bars
+			<>
+				<div class="kcards">
+					<Card
 						books={books}
-						series={[
-							{ kpi: "gross_collected", name: "Gross", color: grossColor },
-							{ kpi: "net_income", name: "Net", color: firstColor },
-						]}
-					/>
+						label="Gross collected"
+						kpis={["gross_collected"]}
+					>
+						<Previous books={books} kpi="gross_collected" />
+					</Card>
+					<Card
+						books={books}
+						label="Refunds"
+						kpis={["refunds"]}
+						tone={
+							rate !== null && rate > refundRateWarn ? refundTone(rate) : ""
+						}
+					>
+						<Value books={books} kpi="refund_rate" /> of gross
+					</Card>
+					<Card books={books} label="Payment fees" kpis={["stripe_fees"]}>
+						<Previous books={books} kpi="stripe_fees" />
+					</Card>
+					<Card
+						books={books}
+						label="Net income"
+						kpis={["net_income"]}
+						tone="ok"
+					>
+						<Previous books={books} kpi="net_income" />
+					</Card>
+					<Card books={books} label="Paid out" kpis={["payouts"]}>
+						Lands the month after
+					</Card>
 				</div>
-				<div class="kbox">
-					{planLock ? (
-						<>
-							<h6>By plan or fund</h6>
-							<LockPanel lock={planLock} surface="dashboard-plan" />
-						</>
-					) : (
-						<>
-							<h6>Gross by plan, {label}</h6>
-							{plans.length > 0 ? (
-								<Breakdown books={books} kpis={plans} />
-							) : (
-								<div class="mut">No plans yet.</div>
-							)}
-							<div class="mut" style={{ marginTop: "8px" }}>
-								Memberships only. Add-ons and bookings appear here when the
-								school sells them.
-							</div>
-						</>
-					)}
-				</div>
-				{funds.length > 0 && (
+				<div class="kgrid">
 					<div class="kbox">
 						<h6>
-							Donations by fund, {year} to {label}
-						</h6>
-						<Breakdown books={books} kpis={funds} />
-					</div>
-				)}
-				{info && hasDays && (
-					<div class="kbox" style={{ gridColumn: "1 / -1" }}>
-						<h6>
-							Gross by day, {label}
+							Gross vs net, {year}
 							<Legend
 								items={[
-									[info.partial ? "Days so far (live)" : "Day", firstColor],
+									["Gross", grossColor],
+									["Net", firstColor],
 								]}
 							/>
 						</h6>
-						<Days books={books} period={info.period} label={label} />
+						<Bars
+							books={books}
+							series={[
+								{ kpi: "gross_collected", name: "Gross", color: grossColor },
+								{ kpi: "net_income", name: "Net", color: firstColor },
+							]}
+						/>
 					</div>
-				)}
-			</div>
+					<div class="kbox">
+						<h6>Gross by plan, {month}</h6>
+						{plans.length > 0 ? (
+							<Breakdown books={books} kpis={plans} />
+						) : (
+							<div class="mut">No plans yet.</div>
+						)}
+						<div class="mut" style={{ marginTop: "8px" }}>
+							Memberships only. Add-ons and bookings appear here when the school
+							sells them.
+						</div>
+					</div>
+					{funds.length > 0 && (
+						<div class="kbox">
+							<h6>
+								Donations by fund, {year} to {month}
+							</h6>
+							<Breakdown books={books} kpis={funds} />
+						</div>
+					)}
+					{document.live && days && (
+						<div class="kbox" style={{ gridColumn: "1 / -1" }}>
+							<h6>
+								Gross by day, {month}
+								<Legend
+									items={[
+										[selected.open ? "Days so far (live)" : "Day", firstColor],
+									]}
+								/>
+							</h6>
+							<Days books={books} />
+						</div>
+					)}
+				</div>
+			</>
 		);
 	}
-	if (view === "members") {
-		const buckets = seriesStartingWith(document, "donors_by_size:");
+	if (view === "members")
 		return (
 			<>
+				<div class="kcards">
+					<Card books={books} label="Paying members" kpis={["paying_members"]}>
+						<Previous books={books} kpi="paying_members" />
+					</Card>
+					<Card books={books} label="New paying" kpis={["new_paying_members"]}>
+						first payment this month
+					</Card>
+					<Card books={books} label="Avg per paying member" kpis={["arpa"]}>
+						in {month}
+					</Card>
+					<Card
+						books={books}
+						label={`${creditsName} used`}
+						kpis={["credits_consumed"]}
+					>
+						<Value books={books} kpi="credits_granted" /> granted ·{" "}
+						<Value books={books} kpi="credits_expired" /> expired
+					</Card>
+				</div>
 				<div class="kgrid">
 					<div class="kbox">
 						<h6>
@@ -882,7 +1155,7 @@ function MonthCharts({
 					</div>
 					<div class="kbox">
 						<h6>
-							Credits
+							{creditsName}
 							<Legend
 								items={[
 									["Granted", firstColor],
@@ -900,40 +1173,26 @@ function MonthCharts({
 							]}
 						/>
 					</div>
-					{"donors_count" in document.series && (
+					{"donors_count" in (document.tables.month?.series ?? {}) && (
 						<div class="kbox" style={{ gridColumn: "1 / -1" }}>
 							<h6>
-								How donors give, {year} to {label}
+								How donors give, {year} to {month}
 								<Legend
 									items={[
 										[
-											identified
-												? "Distribution only here; names are in Reports"
+											identities
+												? "Spread only here; names are in Reports"
 												: "No names, no rows",
 											thirdColor,
 										],
 									]}
 								/>
 							</h6>
-							<div class="kdistline" data-test="donor-line">
-								<b>
-									<Value books={books} kpi="donors_count" /> donors
-								</b>
-								:{" "}
-								{buckets.map((kpi, index) => (
-									<Fragment key={kpi}>
-										{index > 0 && ", "}
-										<Value books={books} kpi={kpi} />{" "}
-										{document.meta[kpi]?.title}
-									</Fragment>
-								))}
-								; median gift <Value books={books} kpi="donors_median_gift" />
-							</div>
-							<Breakdown books={books} kpis={buckets} />
+							<Donors books={books} />
 						</div>
 					)}
 				</div>
-				{identified && (
+				{identities && (
 					<div class="kcaption">
 						<Icon name="info" />
 						<span>
@@ -947,290 +1206,329 @@ function MonthCharts({
 				)}
 			</>
 		);
-	}
-	const anyDisputes = document.periodInfo.some(
-		(_, index) => (numberAt(books, "disputes_opened", index) ?? 0) > 0,
+	const anyDisputes = periodsOf(books, "month").some(
+		(period) => (numberAt(document, "disputes_opened", period) ?? 0) > 0,
 	);
 	return (
-		<div class="kgrid">
-			<div class="kbox">
-				<h6>
-					Refund rate
-					<Legend items={[["Share of gross refunded", fifthColor]]} />
-				</h6>
-				<Line
+		<>
+			<div class="kcards">
+				<Card
 					books={books}
-					kpi="refund_rate"
-					name="Refund rate"
-					color={fifthColor}
-					smallestTop={0.12}
-					threshold={refundRateBad}
-				/>
+					label="Refund rate"
+					kpis={["refund_rate"]}
+					tone={refundTone(rate)}
+				>
+					<Value books={books} kpi="refunds" /> refunded
+				</Card>
+				<Card
+					books={books}
+					label="Disputes opened"
+					kpis={["disputes_opened"]}
+					tone={disputeTone(
+						numberAt(document, "disputes_opened", selected.period),
+					)}
+				>
+					in {month}
+				</Card>
+				<Card
+					books={books}
+					label="Dispute cost"
+					kpis={["disputes_lost", "dispute_fees"]}
+				>
+					lost + fees
+				</Card>
+				<Card books={books} label="Net income" kpis={["net_income"]}>
+					<Previous books={books} kpi="net_income" />
+				</Card>
 			</div>
-			<div class="kbox">
-				<h6>
-					Dispute cost
-					<Legend
-						items={[
-							["Lost", fifthColor],
-							["Fees", fourthColor],
-						]}
-					/>
-				</h6>
-				{anyDisputes ? (
-					<Bars
+			<div class="kgrid">
+				<div class="kbox">
+					<h6>
+						Refund rate
+						<Legend items={[["Share of gross refunded", fifthColor]]} />
+					</h6>
+					<Line
 						books={books}
-						series={[
-							{ kpi: "disputes_lost", name: "Lost", color: fifthColor },
-							{ kpi: "dispute_fees", name: "Fees", color: fourthColor },
-						]}
+						kpi="refund_rate"
+						name="Refund rate"
+						color={fifthColor}
+						smallestTop={0.12}
+						threshold={refundRateBad}
 					/>
-				) : (
-					<div class="kempty">No disputes in {year}</div>
-				)}
+				</div>
+				<div class="kbox">
+					<h6>
+						Dispute cost
+						<Legend
+							items={[
+								["Lost", fifthColor],
+								["Fees", fourthColor],
+							]}
+						/>
+					</h6>
+					{anyDisputes ? (
+						<Bars
+							books={books}
+							series={[
+								{ kpi: "disputes_lost", name: "Lost", color: fifthColor },
+								{ kpi: "dispute_fees", name: "Fees", color: fourthColor },
+							]}
+						/>
+					) : (
+						<div class="kempty">No disputes in {year}</div>
+					)}
+				</div>
+				<Flags books={books} />
 			</div>
-			<Flags books={books} />
-		</div>
+		</>
 	);
 }
 
-/** The cells the cards do not show: the blocked balance on Members, the KPIs the server does not compute on Money. */
-function Unavailable({
-	books,
-	view,
-}: {
-	books: Books;
-	view: DashboardView;
-}): JSX.Element | null {
-	const { document } = books;
-	const reasons = document.notComputed
-		.filter(({ id }) => !(id in document.series))
-		.map(({ reason }) => reason);
-	let content: ComponentChildren = null;
-	if (view === "members" && "credits_outstanding" in document.series)
-		content = (
-			<>
-				{document.meta.credits_outstanding?.title}:{" "}
-				<Value books={books} kpi="credits_outstanding" />
-			</>
-		);
-	else if (view === "money" && reasons.length > 0)
-		content = reasons.join(" · ");
-	if (!content) return null;
+/** The strip period the route shows (S7's notes, mockup `snapP`): the route's period when the audience may pick it,
+ * else the last pickable one that ends on or before it, else the first pickable one. */
+function snapPeriod(
+	periods: DocumentPeriod[],
+	asked: Period,
+): DocumentPeriod | undefined {
+	const pickable = periods.filter(({ state }) => state === "shown");
 	return (
-		<div class="kwhy" style={{ margin: "-4px 0 10px" }}>
+		pickable.find(({ from, to }) => from === asked.from && to === asked.to) ??
+		pickable.filter(({ to }) => to <= asked.to).at(-1) ??
+		pickable[0] ??
+		periods[0]
+	);
+}
+
+/** The caption (document `captions` by the selected year), its audience name in bold as the mockup writes it. */
+function Caption({
+	text,
+	audience,
+}: {
+	text: string;
+	audience: Audience;
+}): JSX.Element {
+	const name = audienceNames[audience];
+	return (
+		<div class="kcaption" data-test="dash-caption">
 			<Icon name="info" />
-			<span>{content}</span>
+			<span>
+				{text.startsWith(name) ? (
+					<>
+						<b>{name}</b>
+						{text.slice(name.length)}
+					</>
+				) : (
+					text
+				)}
+			</span>
 		</div>
 	);
-}
-
-/** A period button's title: when a period not shown yet shows, or that the open month is live. */
-function periodTitle(info: PeriodInfo, lag: LagClass): string | undefined {
-	if (info.shownFrom[lag] !== null)
-		return `Shows from ${info.shownFromLabel[lag]}`;
-	if (info.partial) return "Open month: live, can still change";
-	return undefined;
-}
-
-/** The hash's period; else the school's opening month; else the last period the view shows; else the first. */
-function selectedIndex(
-	document: KpiDocument,
-	asked: string | null,
-	opensOn: string | undefined,
-	shows: (info: PeriodInfo) => boolean,
-): number {
-	const requested = document.periods.indexOf(asked ?? "");
-	if (requested >= 0) return requested;
-	const opening = document.periodInfo.findIndex(
-		(info) => info.period === opensOn && shows(info),
-	);
-	if (opening >= 0) return opening;
-	return Math.max(0, document.periodInfo.map(shows).lastIndexOf(true));
 }
 
 type Loaded = {
 	key: string;
-	options: DashboardOptions;
-	preset: Preset;
-	level: BooksLevelOption;
+	school: string;
+	presets: Preset[];
 	document: KpiDocument | undefined;
 };
 
-/** The Dashboard pane (mockup `dashboard()`): the books level switcher, then Money, Members or Risk for one period of
- * the server's KPI document at that level. Every number is a document cell written in its format; nothing is summed,
- * compared across periods or recomputed. */
+/** The Dashboard pane (mockup `dashboard()`): Money, Members or Risk for one period of the KPI document of the
+ * audience the route views (`useViewing`). Public and Member read their years or quarters, each KPI at its
+ * own grain; Governance and up read months, the live audiences with the open month and its days. Every figure is a
+ * document cell written as the mockup writes it: nothing is summed, compared or recomputed, and a hidden or missing
+ * cell is never a 0. */
 export function Dashboard({
 	reader,
 	school,
+	clock,
 	route,
 	navigate,
 	onRendered,
 	onToast,
-}: {
-	reader: Reader;
-	school: School;
-	route: Route;
-	navigate: (route: Route) => void;
-	/** Called after each render that shows the document the route asks for. */
-	onRendered: () => void;
-	onToast: (text: string) => void;
-}): JSX.Element | null {
+}: BooksPaneProps): JSX.Element | null {
 	const { query } = route;
 	const view = views.find(({ id }) => id === query.get("view")) ?? views[0];
+	const { disclosure, option, view: audienceView } = useViewing();
+	const { audience } = option;
+	const pinLocked = audienceView.pin && query.get("pin") === "locked";
 	const presetAsked = query.get("preset");
-	const levelAsked = query.get("level");
-	const pinAsked = query.get("pin") === "locked";
-	const { booksLevel } = school;
-	const key = `${presetAsked}.${levelAsked ?? booksLevel}.${pinAsked}`;
+	const key = `${school.id}/${presetAsked}/${audience}/${pinLocked}`;
 	const [loaded, setLoaded] = useState<Loaded | null>(null);
 	useEffect(() => {
 		let current = true;
 		const load = async (): Promise<void> => {
-			const options = await reader.dashboardOptions();
-			const preset =
-				options.presets.find(({ id }) => id === presetAsked) ??
-				options.presets[0];
-			const level =
-				options.levels.find(({ id }) => id === levelAsked) ??
-				options.levels.find(({ id }) => id === booksLevel);
-			if (!level) return;
+			const { presets } = await reader.dashboardOptions();
+			const preset = presets.find(({ id }) => id === presetAsked) ?? presets[0];
 			const document = await reader.kpiDocument({
+				school: school.id,
 				preset: preset.id,
-				level: level.id,
-				pinLocked: level.pin && pinAsked,
+				audience,
+				pinLocked,
 			});
-			if (current) setLoaded({ key, options, preset, level, document });
+			if (current) setLoaded({ key, school: school.id, presets, document });
 		};
 		load();
 		return () => {
 			current = false;
 		};
-	}, [reader, key, presetAsked, levelAsked, pinAsked, booksLevel]);
-	const shown = loaded?.key === key ? loaded : null;
+	}, [reader, key, school.id, presetAsked, audience, pinLocked]);
+	const onScreen = loaded?.key === key && loaded.document !== undefined;
 	useLayoutEffect(() => {
-		if (shown?.document) onRendered();
+		if (onScreen) onRendered();
 	});
-	if (!shown?.document) return null;
+	/** While the next document loads, the one before stays on screen (the route is reported only once it is in). */
+	const document = loaded?.school === school.id ? loaded.document : undefined;
+	if (!(loaded && document)) return null;
 
-	const { options, preset, level, document } = shown;
 	const go = (name: string, value: string | null): void =>
 		navigate(withQuery(route, name, value));
+	const preset =
+		loaded.presets.find(({ id }) => id === presetAsked) ?? loaded.presets[0];
 	const month = document.grain === "month";
-	const shows = (info: PeriodInfo): boolean =>
-		info.shownFrom[view.lag] === null;
-	const selectable = (info: PeriodInfo | undefined): info is PeriodInfo =>
-		info !== undefined && (!month || shows(info));
-	const selected = selectedIndex(
-		document,
-		query.get("month"),
-		school.dashboardOpensOn,
-		shows,
+	const selected = snapPeriod(
+		document.periods,
+		parsePeriod(
+			query.get("month") ?? school.dashboardOpensOn ?? null,
+			clock.today,
+		),
 	);
-	const selectedInfo = document.periodInfo[selected];
+	if (!selected) return null;
 	const books: Books = {
 		document,
-		labels: options.labels,
-		lag: view.lag,
 		selected,
-		choose: (period) => go("month", period),
+		choose: (period) => {
+			const target = document.periods.find(
+				(candidate) => candidate.period === period,
+			);
+			if (target) go("month", month ? period : `${target.from}..${target.to}`);
+		},
 	};
-	const levelName = (id: BooksLevel): string =>
-		options.levels.find((option) => option.id === id)?.name ?? id;
-	const currency = numberFormat("money0", document.currency)
-		.formatToParts(0)
-		.find(({ type }) => type === "currency")?.value;
-	const waiting = selectedInfo?.waiting[view.lag];
-	const empty = (document.series.payments_count ?? []).every(
-		(cell) => cell === 0 || cellKind(cell) === "not_yet",
+	const position = document.periods.indexOf(selected);
+	const creditsName = `${school.creditUnit.other.charAt(0).toUpperCase()}${school.creditUnit.other.slice(1)}`;
+	const pinAudiences = audiences.filter(
+		(candidate) => disclosure.views[candidate].pin,
 	);
 	const step = (direction: -1 | 1): JSX.Element => {
-		const target = document.periodInfo[selected + direction];
+		const target = document.periods[position + direction];
 		return (
 			<button
 				type="button"
 				data-test="dash-step"
 				data-step={direction}
 				aria-label={direction < 0 ? "Previous month" : "Next month"}
-				disabled={!selectable(target)}
+				disabled={target?.state !== "shown"}
 				onClick={() => target && books.choose(target.period)}
 			>
 				{direction < 0 ? "‹" : "›"}
 			</button>
 		);
 	};
+	const caption = document.captions[selected.period.slice(0, 4)];
 	let body: JSX.Element;
-	if (empty)
+	if (selected.state !== "shown")
+		body = (
+			<div class="kbox kwait kwaitbox">
+				<b>{selected.label} is not shown yet</b>
+				<span>{selected.title}.</span>
+			</div>
+		);
+	else if (!month)
+		body = (
+			<AggregateBody
+				books={books}
+				view={view.id}
+				creditsName={creditsName}
+				planLock={option.locks["dashboard-plan"]}
+				fewerThan={audienceView.smallCounts?.fewerThan ?? null}
+			/>
+		);
+	else if (document.empty)
 		body = (
 			<div class="kbox kempty" data-test="dash-empty">
 				No payments yet. This dashboard fills in after the first payment.
 			</div>
 		);
-	else if (waiting)
-		body = (
-			<div class="kbox kwait kwaitbox" data-test="dash-wait">
-				<b>{waiting.title}</b>
-				<span>{waiting.when}</span>
-				<span>{waiting.why}</span>
-			</div>
-		);
 	else
 		body = (
-			<>
-				<Cards books={books} view={view.id} />
-				<Unavailable books={books} view={view.id} />
-				{month && (
-					<MonthCharts
-						books={books}
-						view={view.id}
-						openReports={() => navigate({ ...route, tab: "reports" })}
-					/>
-				)}
-			</>
+			<MonthBody
+				books={books}
+				view={view.id}
+				creditsName={creditsName}
+				identities={audienceView.identities}
+				openReports={() => navigate({ ...route, tab: "reports" })}
+			/>
 		);
 
 	return (
 		<>
-			<div class="kbv">
-				<span class="mut">View books as</span>
+			<div class="kt">
 				<div class="seg">
-					{options.levels.map((option, rank) => (
+					{views.map(({ id, label, icon }) => (
 						<button
-							key={option.id}
+							key={id}
 							type="button"
-							class={option.id === level.id ? "on" : undefined}
-							data-test="books-level"
-							data-level={option.id}
-							aria-pressed={option.id === level.id}
-							onClick={() => go("level", option.id)}
+							class={id === view.id ? "on" : undefined}
+							data-test="dash-view"
+							data-view={id}
+							aria-pressed={id === view.id}
+							onClick={() => go("view", id)}
 						>
-							<Icon name={levelIcons[rank] ?? "eye"} />
-							{option.name}
+							<Icon name={icon} />
+							{label}
 						</button>
 					))}
 				</div>
-				{level.pin && (
+				<span class="badge" data-test="dash-badge">
+					<Icon name="scale" />
+					Cash basis · {document.symbol}
+				</span>
+				<span
+					class={document.dataSource === "fixture" ? "badge b-warn" : "badge"}
+					data-test="dash-badge"
+					title={document.notes.join(" ") || undefined}
+				>
+					{document.dataSource === "fixture"
+						? "Fixture data: invented"
+						: "From this school's events"}
+				</span>
+				{audienceView.pin && (
 					<button
 						type="button"
-						class={pinAsked ? "chip on" : "chip"}
+						class={pinLocked ? "chip on" : "chip"}
 						data-test="pin-chip"
-						aria-pressed={pinAsked}
-						title={`${namesList(options.levels.filter(({ pin }) => pin).map(({ name }) => name))} open books with the family PIN`}
-						onClick={() => go("pin", pinAsked ? null : "locked")}
+						aria-pressed={pinLocked}
+						title={`${namesList(pinAudiences.map((candidate) => audienceNames[candidate]))} open books with the family PIN`}
+						onClick={() => go("pin", pinLocked ? null : "locked")}
 					>
 						<Icon name="lock" />
 						PIN locked
 					</button>
 				)}
-				<span class="kbvnote mut" data-test="books-note">
-					You are {levelName(booksLevel)} here. This switch previews what each
-					level sees.
-				</span>
+				{document.source.kind === "mart" && (
+					<>
+						<span class="sp" />
+						<div class="seg" style={{ flexWrap: "wrap" }}>
+							{loaded.presets.map(({ id, label }) => (
+								<button
+									key={id}
+									type="button"
+									class={id === preset?.id ? "on" : undefined}
+									data-test="preset-option"
+									data-preset={id}
+									aria-pressed={id === preset?.id}
+									onClick={() => go("preset", id)}
+								>
+									{label}
+								</button>
+							))}
+						</div>
+					</>
+				)}
 			</div>
 			{document.pinLocked ? (
 				<PinLock
-					key={level.id}
-					levelName={level.name}
+					key={audience}
+					levelName={audienceNames[audience]}
 					onUnlock={() => {
 						go("pin", null);
 						onToast("Books unlocked for this session.");
@@ -1238,89 +1536,41 @@ export function Dashboard({
 				/>
 			) : (
 				<>
-					<div class="kt">
-						<div class="seg">
-							{views.map(({ id, label, icon }) => (
-								<button
-									key={id}
-									type="button"
-									class={id === view.id ? "on" : undefined}
-									data-test="dash-view"
-									data-view={id}
-									aria-pressed={id === view.id}
-									onClick={() => go("view", id)}
-								>
-									<Icon name={icon} />
-									{label}
-								</button>
-							))}
-						</div>
-						<span class="badge" data-test="dash-badge">
-							<Icon name="scale" />
-							Cash basis · {currency}
-						</span>
-						<span class="badge b-warn" data-test="dash-badge">
-							Fixture data: invented
-						</span>
-						{document.verified && (
-							<span class="badge b-ok" data-test="verified-badge">
-								Verified
-							</span>
-						)}
-						<span class="sp" />
-						<div class="seg" style={{ flexWrap: "wrap" }}>
-							{options.presets.map(({ id, label }) => (
-								<button
-									key={id}
-									type="button"
-									class={id === preset.id ? "on" : undefined}
-									data-test="preset-option"
-									data-preset={id}
-									aria-pressed={id === preset.id}
-									onClick={() => go("preset", id)}
-								>
-									{label}
-								</button>
-							))}
-						</div>
-					</div>
 					<div class="kmonths">
 						{month && step(-1)}
-						{document.periodInfo.map((info, index) => {
-							const notYet = !shows(info);
+						{document.periods.map((period) => {
+							const classes = [
+								period === selected && "on",
+								period.state === "embargoed" && "kwait",
+								period.open && "kopen",
+							].filter(Boolean);
 							return (
 								<button
-									key={info.period}
+									key={period.period}
 									type="button"
-									class={
-										[
-											index === selected && "on",
-											notYet && "kwait",
-											info.partial && "kopen",
-										]
-											.filter(Boolean)
-											.join(" ") || undefined
-									}
+									class={classes.join(" ") || undefined}
 									data-test="dash-period"
-									data-period={info.period}
-									aria-pressed={index === selected}
-									disabled={!selectable(info)}
-									title={periodTitle(info, view.lag)}
-									onClick={() => books.choose(info.period)}
+									data-period={period.period}
+									aria-pressed={period === selected}
+									disabled={period.state !== "shown"}
+									title={
+										period.open ? openMonthTitle : (period.title ?? undefined)
+									}
+									onClick={() => books.choose(period.period)}
 								>
-									{info.label}
+									{month ? periodName(period.period) : period.label}
 								</button>
 							);
 						})}
 						{month && step(1)}
 						{month && (
 							<span class="mut" style={{ marginLeft: "6px" }}>
-								{document.year}
+								{selected.period.slice(0, 4)}
 							</span>
 						)}
-						{document.partialPeriods.length > 0 && (
+						{document.periods.some(({ open }) => open) && (
 							<span
-								class="mut"
+								class="mut kopenkey"
 								style={{ marginLeft: "6px" }}
 								data-test="open-key"
 							>
@@ -1328,20 +1578,14 @@ export function Dashboard({
 							</span>
 						)}
 					</div>
-					<div class="kcaption" data-test="dash-caption">
-						<Icon name="info" />
-						<span>{document.caption[view.lag]}</span>
-					</div>
-					{month && preset.note && (
+					{caption && <Caption text={caption} audience={audience} />}
+					{month && document.source.kind === "mart" && preset?.note && (
 						<div class="note" data-test="dash-note">
 							<Icon name="alert" />
 							<span>{preset.note}</span>
 						</div>
 					)}
 					{body}
-					{!month && !empty && (
-						<PeriodRows books={books} view={view.id} levels={options.levels} />
-					)}
 				</>
 			)}
 		</>

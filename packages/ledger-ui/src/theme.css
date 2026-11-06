@@ -1731,7 +1731,7 @@ svg.kc .col.on {
 }
 .krow {
 	display: grid;
-	grid-template-columns: 70px 1fr 72px;
+	grid-template-columns: minmax(70px, max-content) 1fr minmax(72px, max-content);
 	gap: 8px;
 	align-items: center;
 	margin: 7px 0;
@@ -2000,9 +2000,6 @@ svg.kc .col.on {
 	flex: none;
 	margin-top: 1px;
 }
-.krow.kp {
-	grid-template-columns: 78px 1fr 104px;
-}
 .krow.kwait .t {
 	background: none;
 }
@@ -2014,6 +2011,37 @@ svg.kc .col.on {
 .krow.kp.kon span {
 	color: var(--foreground);
 	font-weight: 600;
+}
+/* The frozen mockup's (disclosure v2) cells: a withheld cell says why beside its clock or lock, a rounded count is
+   dotted, and Member's year total sits under its quarters. */
+.khid {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	font-size: 10.5px;
+	font-weight: 500;
+	color: var(--muted-foreground);
+	white-space: normal;
+	text-align: left;
+}
+.khid .i {
+	width: 11px;
+	height: 11px;
+	flex: none;
+}
+.krow .khid {
+	white-space: nowrap;
+}
+.kcard .khid {
+	font-size: 11px;
+}
+.kapprox {
+	border-bottom: 1px dotted var(--muted-foreground);
+	cursor: help;
+}
+.kyear {
+	border-top: 1px dashed var(--border);
+	padding-top: 4px;
 }
 .klock {
 	display: grid;

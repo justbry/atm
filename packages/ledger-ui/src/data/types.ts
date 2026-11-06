@@ -1,5 +1,3 @@
-import type { BooksLevel } from "./kpi-document.ts";
-
 /** The clock the UI runs on (protocol §3): the UI never reads the system time. `today` is `YYYY-MM-DD`, `now` is
  * `YYYY-MM-DDTHH:MM`. */
 export type Clock = { today: string; now: string };
@@ -15,10 +13,8 @@ export type School = {
 	role: "owner" | "admin";
 	/** What the school calls a held credit (mockup `unit`): "1 session held", "2 sessions held". */
 	creditUnit: { one: string; other: string };
-	/** The signed-in person's books level here (mockup `bkDefault`): the Dashboard opens at it. */
-	booksLevel: BooksLevel;
-	/** The month the Dashboard opens on at the month grain (the mockup opens its fixture school on Jun); without it,
-	 * the last period shown. */
+	/** The month the Dashboard opens on (the mockup opens its fixture school on Jun); without it, the clock's month.
+	 * Either snaps to a period the viewed audience may pick. */
 	dashboardOpensOn?: string;
 	/** The ledger shipper is behind; `lagMinutes` says by how much. */
 	stale: boolean;

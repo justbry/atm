@@ -13,12 +13,11 @@ import { plansBySchool } from "./plans.ts";
 import { fixtureMemberPortal } from "./portal.ts";
 import settingsFixture from "./settings.json";
 
-/** The mockup's five schools (its `SC` table), with the counts its headless run shows on 2026-11-05: attention from
- * `attN`, overdue bookings from `groups().out`, expiring promos from `expiring`, stale when `lag` is over 15 minutes.
- * Vibes of Light's Plans tab shows `draft` as the mockup draws it. The books level is `bkDefault`'s: at B4 Uni the
- * signed-in person is Jo A., an admin with the finance grant; at Harbor Arts Academy Rosa T., an admin without it
- * and with a live Studio membership, so member; elsewhere the owner. B4 Uni, the mockup's fixture
- * school, opens its Dashboard on Jun (`dm=5`). */
+/** The mockup's five schools (its `SC` table; test/golden/S0.json `fixtures.schools`), with the counts its headless
+ * run shows on 2026-11-05: attention from `attN`, overdue bookings from `groups().out`, expiring promos from
+ * `expiring`, stale when `lag` is over 15 minutes. Vibes of Light's Plans tab shows `draft` as the mockup draws it.
+ * Who the signed-in person is at each school, and so what the Dashboard opens as, is the disclosure's `viewer`. B4 Uni,
+ * the mockup's fixture school, opens its Dashboard on Jun (`dm=5`). */
 const schools: School[] = [
 	{
 		id: "vol",
@@ -27,7 +26,6 @@ const schools: School[] = [
 		currency: "USD",
 		creditUnit: { one: "session", other: "sessions" },
 		role: "owner",
-		booksLevel: "owner",
 		stale: false,
 		lagMinutes: 2,
 		attentionCount: 4,
@@ -40,7 +38,6 @@ const schools: School[] = [
 		currency: "USD",
 		creditUnit: { one: "credit", other: "credits" },
 		role: "admin",
-		booksLevel: "finance_admin",
 		dashboardOpensOn: "2026-06",
 		stale: false,
 		lagMinutes: 3,
@@ -54,7 +51,6 @@ const schools: School[] = [
 		currency: "CAD",
 		creditUnit: { one: "class", other: "classes" },
 		role: "owner",
-		booksLevel: "owner",
 		stale: true,
 		lagMinutes: 26,
 		attentionCount: 1,
@@ -67,7 +63,6 @@ const schools: School[] = [
 		currency: "USD",
 		creditUnit: { one: "class", other: "classes" },
 		role: "owner",
-		booksLevel: "owner",
 		stale: false,
 		lagMinutes: 1,
 		attentionCount: 0,
@@ -80,7 +75,6 @@ const schools: School[] = [
 		currency: "USD",
 		creditUnit: { one: "credit", other: "credits" },
 		role: "admin",
-		booksLevel: "member",
 		stale: false,
 		lagMinutes: 2,
 		attentionCount: 0,

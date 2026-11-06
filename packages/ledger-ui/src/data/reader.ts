@@ -20,9 +20,9 @@ export interface Reader
 		SettingsReader {
 	/** The schools the session may open, in switcher order. */
 	schools(): Promise<School[]>;
-	/** The presets and books levels the KPI documents exist for, and the cell labels. */
+	/** The presets the fixture schools' KPI documents exist for. */
 	dashboardOptions(): Promise<DashboardOptions>;
-	/** The KPI document of one preset, books level and PIN state, as the server computed it (the UI derives nothing from it), or
-	 * undefined when there is none. */
+	/** The KPI document of one school, preset, audience and PIN state, as the server computed it (the UI derives
+	 * nothing from it), or undefined when there is none. */
 	kpiDocument(query: KpiQuery): Promise<KpiDocument | undefined>;
 }
