@@ -24,6 +24,14 @@ describe("periodLabel", () => {
 			"Jan 1 – Nov 5, 2026",
 		);
 	});
+	test("a day range across a year boundary keeps the start year", () => {
+		expect(periodLabel({ from: "2026-12-15", to: "2027-01-10" })).toBe(
+			"Dec 15, 2026 – Jan 10, 2027",
+		);
+		expect(periodLabel({ from: "2026-12-15", to: "2026-12-20" })).toBe(
+			"Dec 15 – Dec 20, 2026",
+		);
+	});
 });
 
 describe("periodPresets", () => {

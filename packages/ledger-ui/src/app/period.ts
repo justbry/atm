@@ -62,14 +62,18 @@ const monthPeriod = (isoDate: string): Period => ({
 	to: endOfMonth(isoDate),
 });
 
-/** `Nov 2026`, `Sep – Nov 2026`, `Dec 2025 – Feb 2026`, or for day ranges `Jan 1 – Nov 5, 2026`. */
+/** `Nov 2026`, `Sep – Nov 2026`, `Dec 2025 – Feb 2026`, or for day ranges `Jan 1 – Nov 5, 2026` and, across a year,
+ * `Dec 15, 2026 – Jan 10, 2027`. */
 export function periodLabel(period: Period): string {
 	const { from, to } = period;
+	const fromYear = from.slice(0, 4);
+	const toYear = to.slice(0, 4);
 	if (!isWholeMonths(period))
-		return `${monthAndDay(from)} – ${monthAndDay(to)}, ${to.slice(0, 4)}`;
+		return fromYear === toYear
+			? `${monthAndDay(from)} – ${monthAndDay(to)}, ${toYear}`
+			: `${monthAndDay(from)}, ${fromYear} – ${monthAndDay(to)}, ${toYear}`;
 	if (monthsSpanned(period) === 1) return monthAndYear(from);
-	if (from.slice(0, 4) === to.slice(0, 4))
-		return `${monthName(from)} – ${monthAndYear(to)}`;
+	if (fromYear === toYear) return `${monthName(from)} – ${monthAndYear(to)}`;
 	return `${monthAndYear(from)} – ${monthAndYear(to)}`;
 }
 

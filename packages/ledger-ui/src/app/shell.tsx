@@ -26,11 +26,21 @@ const tabs: Record<SchoolTab, { label: string; icon: IconName }> = {
 	ledger: { label: "Ledger", icon: "list" },
 	reports: { label: "Reports", icon: "chart" },
 };
+const assistantPrompt = [
+	"You are helping an owner or admin of a school on atm, the bookings and payments service behind ledger.b4uni.com.",
+	"Treat this as read-only context: you can read what I paste from the ledger, and nothing you say changes plans, bookings, promos or payments.",
+	"The ledger is an append-only list of events; reports come from it through hledger and DuckDB, and apps use the School SDK, @b4uni/school.",
+	"When you are not sure what an event means, say so and point me to the ledger event reference.",
+].join(" ");
+const copyFailedToast =
+	"Could not copy the prompt: the browser blocked the clipboard.";
 const helpLinks: Array<{
 	label: string;
 	detail?: string;
 	icon: IconName;
 	toast: string;
+	/** Text the link puts on the clipboard before its toast. */
+	copy?: string;
 }> = [
 	{
 		label: "School SDK",
@@ -52,20 +62,34 @@ const helpLinks: Array<{
 		label: "Copy a prompt for an AI assistant",
 		icon: "copy",
 		toast: "Prompt copied. It gives an assistant read-only context.",
+		copy: assistantPrompt,
 	},
 ];
 
-/** A tab's badge from the school's counts (mockup `#plbadge`, `#bkbadge`, `#pbadge`), or null when it has none. */
+const counted = (count: number, noun: string): string =>
+	`${count} ${noun}${count === 1 ? "" : "s"}`;
+
+/** A tab's badge from the school's counts (mockup `#plbadge`, `#bkbadge`, `#pbadge`), or null when it has none.
+ * `meaning` is what a screen reader hears for the badge. */
 function tabBadge(
 	tab: SchoolTab,
 	{ tabBadges }: School,
-): { text: string; tone: "b-warn" | "b-bad" } | null {
-	if (tab === "plans" && tabBadges.plansDraft)
-		return { text: "draft", tone: "b-warn" };
-	if (tab === "bookings" && tabBadges.bookingsOverdue > 0)
-		return { text: String(tabBadges.bookingsOverdue), tone: "b-bad" };
-	if (tab === "promos" && tabBadges.promosExpiring > 0)
-		return { text: String(tabBadges.promosExpiring), tone: "b-warn" };
+): { text: string; meaning: string; tone: "b-warn" | "b-bad" } | null {
+	const { plansDraft, bookingsOverdue, promosExpiring } = tabBadges;
+	if (tab === "plans" && plansDraft)
+		return { text: "draft", meaning: "draft", tone: "b-warn" };
+	if (tab === "bookings" && bookingsOverdue > 0)
+		return {
+			text: String(bookingsOverdue),
+			meaning: counted(bookingsOverdue, "overdue booking"),
+			tone: "b-bad",
+		};
+	if (tab === "promos" && promosExpiring > 0)
+		return {
+			text: String(promosExpiring),
+			meaning: counted(promosExpiring, "expiring promo"),
+			tone: "b-warn",
+		};
 	return null;
 }
 
@@ -104,15 +128,39 @@ export function Shell({
 	const periodShown =
 		!school || route.tab === "ledger" || route.tab === "reports";
 
+	/** Each school's last tab, in memory only (mockup `s.last`): switching school, or leaving All schools, returns to
+	 * it, or to Plans for a school not opened yet. */
+	const lastTabs = useRef<Record<string, SchoolTab>>({});
+	const shownTab = route.tab;
+	useEffect(() => {
+		if (school && shownTab !== allSchools)
+			lastTabs.current[school.id] = shownTab;
+	}, [school, shownTab]);
+
 	const chooseSchool = (schoolId: string): void => {
 		const query = withQuery(route, "member", null).query;
 		if (schoolId === allSchools) navigate({ schoolId, tab: allSchools, query });
 		else
 			navigate({
 				schoolId,
-				tab: route.tab === allSchools ? "plans" : route.tab,
+				tab: lastTabs.current[schoolId] ?? "plans",
 				query,
 			});
+	};
+	/** Shows the link's toast; a link that copies says so only once the clipboard has taken the text. */
+	const followHelpLink = async (
+		link: (typeof helpLinks)[number],
+	): Promise<void> => {
+		if (!link.copy) {
+			setToast({ text: link.toast });
+			return;
+		}
+		try {
+			await navigator.clipboard.writeText(link.copy);
+			setToast({ text: link.toast });
+		} catch {
+			setToast({ text: copyFailedToast });
+		}
 	};
 	const chooseTab = (tab: SchoolTab): void => navigate({ ...route, tab });
 	/** The tabs pattern: arrows, Home and End move to a tab and open it. */
@@ -194,7 +242,7 @@ export function Shell({
 									data-test="help-link"
 									onClick={() => {
 										close();
-										setToast({ text: link.toast });
+										followHelpLink(link);
 									}}
 								>
 									<Icon name={link.icon} />
@@ -234,6 +282,9 @@ export function Shell({
 								type="button"
 								role="tab"
 								class="tab"
+								aria-label={
+									badge ? `${tabs[tab].label}: ${badge.meaning}` : undefined
+								}
 								id={`tab-${tab}`}
 								data-test="tab"
 								data-tab={tab}

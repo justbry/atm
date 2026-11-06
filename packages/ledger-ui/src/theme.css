@@ -2071,6 +2071,21 @@ svg.kc .col.on {
 .pgrp[hidden] {
 	display: none;
 }
+/* At phone widths a right-aligned popover (period, help) would run off the left edge. Its wrapper lets go, so the
+ * panel hangs from `.app`, pinned 12px in from both viewport edges; `top: auto` keeps it just under its trigger. */
+@media (max-width: 600px) {
+	.pw:has(> .pop.r) {
+		position: static;
+	}
+	.pop.r {
+		top: auto;
+		left: 12px;
+		right: 12px;
+		min-width: 0;
+		max-width: calc(100vw - 24px);
+		margin-top: 4px;
+	}
+}
 
 /* The app's own narrow widths. The mockup's rules above own the top bar, the tabs and the drawer. */
 @media (max-width: 728px) {

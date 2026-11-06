@@ -1,5 +1,5 @@
 import type { JSX } from "preact";
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useId, useRef } from "preact/hooks";
 import { Icon, type IconName } from "./icon.tsx";
 import type { Theme } from "./route.ts";
 
@@ -18,7 +18,11 @@ type SettingsDrawerProps = {
 	onClose: () => void;
 };
 
-/** The settings drawer (mockup `#set`, `settings()`): S0 has its header and Appearance; S7 adds the school's
+const focusableSelector =
+	"button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex='-1'])";
+
+/** The settings drawer (mockup `#set`, `settings()`), a modal dialog: Tab and Shift+Tab stay inside it and Escape
+ * closes it (a popover inside catches its own Escape first). S0 has its header and Appearance; S7 adds the school's
  * settings. */
 export function SettingsDrawer({
 	open,
@@ -27,20 +31,40 @@ export function SettingsDrawer({
 	onThemeChange,
 	onClose,
 }: SettingsDrawerProps): JSX.Element {
+	const drawer = useRef<HTMLElement>(null);
 	const closeButton = useRef<HTMLButtonElement>(null);
+	const titleId = useId();
 	useEffect(() => {
 		if (!open) return;
 		closeButton.current?.focus();
 		const onKeyDown = (event: KeyboardEvent): void => {
-			if (event.key === "Escape") onClose();
+			if (event.key === "Escape") {
+				onClose();
+				return;
+			}
+			if (event.key !== "Tab" || !drawer.current) return;
+			const focusable = [
+				...drawer.current.querySelectorAll<HTMLElement>(focusableSelector),
+			];
+			const first = focusable[0];
+			const last = focusable[focusable.length - 1];
+			const focused = document.activeElement;
+			const outside = !(focused && drawer.current.contains(focused));
+			const edge = event.shiftKey ? first : last;
+			if (!(outside || focused === edge)) return;
+			event.preventDefault();
+			(event.shiftKey ? last : first)?.focus();
 		};
 		document.addEventListener("keydown", onKeyDown);
 		return () => document.removeEventListener("keydown", onKeyDown);
 	}, [open, onClose]);
 	return (
 		<aside
+			ref={drawer}
 			class={open ? "drawer on" : "drawer"}
-			aria-label="Settings"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby={titleId}
 			inert={!open}
 		>
 			<button
@@ -52,7 +76,7 @@ export function SettingsDrawer({
 			>
 				×
 			</button>
-			<h3>
+			<h3 id={titleId}>
 				<Icon name="gear" /> Settings
 			</h3>
 			<div class="mut">{subtitle}</div>

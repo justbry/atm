@@ -22,7 +22,11 @@ export function SchoolSwitcher({
 		schools.find((school) => school.id === current)?.name ?? "All schools";
 	return (
 		<Popover
-			trigger={{ class: "btn", "data-test": "school-switcher" }}
+			trigger={{
+				class: "btn",
+				"data-test": "school-switcher",
+				"aria-haspopup": "listbox",
+			}}
 			label={
 				<>
 					<Icon name="building" />

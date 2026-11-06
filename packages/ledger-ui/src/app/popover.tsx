@@ -7,6 +7,7 @@ type PopoverProps = {
 		class: string;
 		"data-test": string;
 		"aria-label"?: string;
+		"aria-haspopup"?: "listbox" | "dialog";
 		title?: string;
 	};
 	label: ComponentChildren;
@@ -15,8 +16,9 @@ type PopoverProps = {
 	children: (close: () => void) => ComponentChildren;
 };
 
-/** The mockup's `.pw` / `.pop`: a button that discloses a panel. Escape or a click outside closes it, Escape returns
- * focus to the button, and opening another popover closes this one (that click is outside it). */
+/** The mockup's `.pw` / `.pop`: a button that discloses a panel. Escape or a click outside closes it and returns focus
+ * to the button (unless the click put focus somewhere else), and opening another popover closes this one (that click
+ * is outside it). Escape is caught before anything else hears it, so a drawer around the popover stays open. */
 export function Popover({
 	trigger,
 	label,
@@ -36,18 +38,26 @@ export function Popover({
 		const onClick = (event: MouseEvent): void => {
 			const inside =
 				event.target instanceof Node && wrapper.current?.contains(event.target);
-			if (!inside) setOpen(false);
+			if (inside) return;
+			setOpen(false);
+			const focused = document.activeElement;
+			const focusLost =
+				!focused ||
+				focused === document.body ||
+				wrapper.current?.contains(focused);
+			if (focusLost) button.current?.focus();
 		};
 		const onKeyDown = (event: KeyboardEvent): void => {
 			if (event.key !== "Escape") return;
+			event.stopPropagation();
 			setOpen(false);
 			button.current?.focus();
 		};
 		document.addEventListener("click", onClick);
-		document.addEventListener("keydown", onKeyDown);
+		document.addEventListener("keydown", onKeyDown, true);
 		return () => {
 			document.removeEventListener("click", onClick);
-			document.removeEventListener("keydown", onKeyDown);
+			document.removeEventListener("keydown", onKeyDown, true);
 		};
 	}, [open]);
 	return (

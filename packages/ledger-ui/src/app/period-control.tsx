@@ -39,7 +39,11 @@ export function PeriodControl(props: PeriodControlProps): JSX.Element {
 				<Icon name="chevronLeft" />
 			</button>
 			<Popover
-				trigger={{ class: "btn", "data-test": "period-button" }}
+				trigger={{
+					class: "btn",
+					"data-test": "period-button",
+					"aria-haspopup": "dialog",
+				}}
 				alignRight
 				label={
 					<>

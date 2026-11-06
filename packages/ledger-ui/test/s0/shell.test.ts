@@ -236,3 +236,136 @@ test("settings opens a drawer whose Appearance writes theme= to the hash", async
 	expect(element(".drawer").classList.contains("on")).toBe(false);
 	expect(document.activeElement).toBe(element("[data-test=settings-button]"));
 });
+
+test("tab badges tell a screen reader what their number means; the visible text is unchanged", async () => {
+	await open("#/vol/plans");
+	const nameOf = (tab: string): string | null =>
+		element(`[data-test=tab][data-tab=${tab}]`).getAttribute("aria-label");
+	expect(nameOf("plans")).toBe("Plans: draft");
+	expect(nameOf("bookings")).toBe("Bookings: 2 overdue bookings");
+	expect(nameOf("promos")).toBe("Promos: 1 expiring promo");
+	expect(nameOf("dashboard")).toBeNull();
+	expect(
+		[...document.querySelectorAll("[data-test=tab-badge]")].map(
+			(badge) => badge.textContent,
+		),
+	).toEqual(["draft", "2", "1"]);
+});
+
+test("switching school restores that school's last tab; leaving All schools returns to it", async () => {
+	const switchTo = async (schoolId: string): Promise<void> => {
+		await click("[data-test=school-switcher]");
+		await click(`[data-test=school-option][data-school=${schoolId}]`);
+	};
+	await open("#/vol/plans");
+	await click("[data-test=tab][data-tab=members]");
+	await switchTo("b4u");
+	expect(window.location.hash).toBe("#/b4u/plans");
+	await click("[data-test=tab][data-tab=bookings]");
+	await switchTo("vol");
+	expect(window.location.hash).toBe("#/vol/members");
+	await switchTo("all");
+	expect(window.location.hash).toBe("#/all/all");
+	await switchTo("vol");
+	expect(window.location.hash).toBe("#/vol/members");
+	await switchTo("all");
+	await switchTo("b4u");
+	expect(window.location.hash).toBe("#/b4u/bookings");
+});
+
+test("popover triggers name their popup; a click outside returns focus to the trigger", async () => {
+	await open("#/vol/ledger");
+	const switcher = element("[data-test=school-switcher]");
+	expect(switcher.getAttribute("aria-haspopup")).toBe("listbox");
+	expect(
+		element("[data-test=period-button]").getAttribute("aria-haspopup"),
+	).toBe("dialog");
+	await click("[data-test=school-switcher]");
+	expect(document.activeElement?.getAttribute("aria-label")).toBe(
+		"Find a school",
+	);
+	await click("[data-test=brand]");
+	expect(document.querySelector("[data-test=school-option]")).toBeNull();
+	expect(document.activeElement).toBe(switcher);
+
+	await click("[data-test=school-switcher]");
+	const settings = element("[data-test=settings-button]");
+	settings.focus();
+	await click("[data-test=settings-button]");
+	expect(document.querySelector("[data-test=school-option]")).toBeNull();
+	expect(document.activeElement).not.toBe(switcher);
+});
+
+test("the settings drawer is a modal dialog that keeps focus inside", async () => {
+	await open("#/vol/plans");
+	const drawer = element(".drawer");
+	expect(drawer.getAttribute("role")).toBe("dialog");
+	expect(drawer.getAttribute("aria-modal")).toBe("true");
+	const titleId = drawer.getAttribute("aria-labelledby") ?? "";
+	expect(text(`[id="${titleId}"]`)).toBe("Settings");
+	await click("[data-test=settings-button]");
+	const closeButton = element(".drawer .x");
+	expect(document.activeElement).toBe(closeButton);
+	const buttons = [...drawer.querySelectorAll<HTMLElement>("button")];
+	const last = buttons[buttons.length - 1] as HTMLElement;
+	expect(last.textContent).toBe("System");
+	last.focus();
+	await press(last, "Tab");
+	expect(document.activeElement).toBe(closeButton);
+	closeButton.dispatchEvent(
+		new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true }),
+	);
+	await settle();
+	expect(document.activeElement).toBe(last);
+	element("[data-test=help-button]").focus();
+	await press(element("[data-test=help-button]"), "Tab");
+	expect(document.activeElement).toBe(closeButton);
+});
+
+test("Escape closes an open popover first and the drawer only on the next press", async () => {
+	await open("#/vol/plans");
+	await click("[data-test=settings-button]");
+	await click("[data-test=help-button]");
+	expect(document.querySelectorAll("[data-test=help-link]").length).toBe(4);
+	await press(element("[data-test=help-link]"), "Escape");
+	expect(document.querySelector("[data-test=help-link]")).toBeNull();
+	expect(element(".drawer").classList.contains("on")).toBe(true);
+	await press(document.body, "Escape");
+	expect(element(".drawer").classList.contains("on")).toBe(false);
+});
+
+test("Copy a prompt puts the prompt on the clipboard, and says so when it cannot", async () => {
+	const copied: string[] = [];
+	let blocked = false;
+	Object.defineProperty(navigator, "clipboard", {
+		configurable: true,
+		value: {
+			writeText: async (value: string): Promise<void> => {
+				if (blocked) throw new Error("denied");
+				copied.push(value);
+			},
+		},
+	});
+	const copyPrompt = async (): Promise<void> => {
+		await click("[data-test=help-button]");
+		const links = [
+			...document.querySelectorAll<HTMLElement>("[data-test=help-link]"),
+		];
+		links[links.length - 1]?.click();
+		await settle();
+	};
+	await open("#/vol/plans");
+	await copyPrompt();
+	expect(copied.length).toBe(1);
+	expect(copied[0]).toContain("read-only");
+	expect(text(".toast.on")).toBe(
+		"Prompt copied. It gives an assistant read-only context.",
+	);
+	blocked = true;
+	await copyPrompt();
+	expect(copied.length).toBe(1);
+	expect(text(".toast.on")).toBe(
+		"Could not copy the prompt: the browser blocked the clipboard.",
+	);
+	Reflect.deleteProperty(navigator, "clipboard");
+});
