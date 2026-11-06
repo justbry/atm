@@ -169,6 +169,13 @@ const catalog: Record<string, Catalog> = {
 		kind: "money",
 		ruleOf: "dispute_fees",
 	},
+	/** The mockup's Dispute cost card: one figure, lost plus fees, under the disputes_lost rule. */
+	dispute_cost: {
+		title: "Dispute cost",
+		kind: "money",
+		ruleOf: "disputes_lost",
+		inputs: ["disputes_lost", "dispute_fees"],
+	},
 	stripe_fees: {
 		title: "Payment fees",
 		kind: "money",
@@ -647,6 +654,11 @@ export function kpiDocument(input: KpiDocumentInput): KpiDocument {
 			return top === null || bottom === null || bottom === 0
 				? null
 				: ratio(top, bottom);
+		}
+		if (id === "dispute_cost") {
+			const lost = sumOf("disputes_lost", period);
+			const fees = sumOf("dispute_fees", period);
+			return lost === null || fees === null ? null : lost + fees;
 		}
 		if (id === "arpa") {
 			const gross = sumOf("gross_collected", period);
