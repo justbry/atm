@@ -23,6 +23,8 @@ import type {
 } from "../types.js";
 
 const USD = "usd";
+/** The one currency the books take; the handler asks it of a `payout.failed` to know whether a payout line can exist. */
+export const USD_CURRENCY = USD;
 const CENTS_PER_DOLLAR = 100;
 const PAYOUT_KEY = "stripe:payouts";
 /** The income account tail of a paid booking: `income:billing:booking`. */
@@ -374,13 +376,28 @@ export const refundEvents = ({
 	];
 };
 
-/** A payout: `payout.paid` moves the cash from `assets:stripe` to `assets:clearing:stripe-payouts`. Another currency makes a `money.skipped` and no payout line. */
+/** The Stripe event that says a payout failed after it was paid out. */
+export const PAYOUT_FAILED_TYPE = "payout.failed";
+
+/** The idem of a payout's line, and of its reversal when it failed: one each, whatever event ids deliver them. */
+export const payoutIdem = (payoutId: string, failed = false): string =>
+	failed ? `stripe:${payoutId}:failed` : `stripe:${payoutId}`;
+
+/**
+ * A payout: `payout.paid` moves the cash from `assets:stripe` to `assets:clearing:stripe-payouts`. A payout that then
+ * failed (`failed`, from `payout.failed`) is the same `payout.paid` the other way round, under its own idem and dated by
+ * the failure: the cash is back in the Stripe balance, and nothing else moves (the fee was never the payout's). Another
+ * currency makes a `money.skipped` and no payout line, for the payout and for its failure alike (one marker: its idem is
+ * the payout's).
+ */
 export const payoutEvents = ({
 	payout,
 	booker,
+	failed = false,
 }: {
 	payout: StripePayout;
 	booker: Booker;
+	failed?: boolean;
 }): AtmEvent[] =>
 	payout.currency === USD
 		? [
@@ -390,15 +407,17 @@ export const payoutEvents = ({
 					tz: booker.tz,
 					eventTime: payout.at,
 					key: PAYOUT_KEY,
-					idem: `stripe:${payout.id}`,
+					idem: payoutIdem(payout.id, failed),
 					cause: booker.cause,
 					labels: { mapping: payout.source.mapping },
 					amount: payout.amount,
-					text: `payout ${payout.amount / CENTS_PER_DOLLAR} USD`,
+					...(failed ? { failed } : {}),
+					text: `payout${failed ? " failed" : ""} ${payout.amount / CENTS_PER_DOLLAR} USD`,
 					payload: {
 						id: payout.id,
 						amount: payout.amount,
 						currency: payout.currency,
+						...(failed ? { failed } : {}),
 					},
 				}),
 			]

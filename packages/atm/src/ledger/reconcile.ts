@@ -441,6 +441,15 @@ export const reconcile = (input: ReconcileInput): ReconcileResult => {
 	const ofType = (type: AtmEventType) =>
 		events.filter((event) => event.event_type === type);
 	const inScope = (event: AtmEvent) => scope.has(event.date);
+	// A payout that failed is a `payout.paid` and its reversal (`failed: true`, the same payout id). Stripe lists it as a
+	// failed payout, which is not compared, so the log's pair is left out too: neither is a difference. A payout Stripe
+	// still says is paid whose reversal is in the log shows as `missing_in_log`.
+	const reversedPayouts = new Set(
+		ofType("payout.paid").filter(isPayoutReversal).map(stripeIdOf),
+	);
+	const livePayouts = ofType("payout.paid").filter(
+		(event) => !reversedPayouts.has(stripeIdOf(event)),
+	);
 
 	const invoices = stripe.invoices
 		?.filter(inMode)
@@ -611,7 +620,7 @@ export const reconcile = (input: ReconcileInput): ReconcileResult => {
 						object: "payout",
 						eventType: "payout.paid",
 						stripe: payouts,
-						events: ofType("payout.paid"),
+						events: livePayouts,
 						flagPeriodShift: false,
 					},
 					scope,
@@ -672,7 +681,10 @@ export const reconcile = (input: ReconcileInput): ReconcileResult => {
 				stripe: inPeriod(disputes),
 				log: logCount("payment.disputed"),
 			},
-			payout: { stripe: inPeriod(payouts), log: logCount("payout.paid") },
+			payout: {
+				stripe: inPeriod(payouts),
+				log: livePayouts.filter(inScope).length,
+			},
 			fees: {
 				stripe:
 					balanceTransactions?.filter((transaction) => transaction.fee !== 0)
@@ -696,6 +708,10 @@ export const reconcile = (input: ReconcileInput): ReconcileResult => {
 		skipped,
 	};
 };
+
+/** A `payout.paid` that takes a payout back: the payout failed after it was paid out (`payout.failed`). */
+const isPayoutReversal = (event: AtmEvent): boolean =>
+	event.payload.failed === true;
 
 const logHasPayouts = (events: readonly AtmEvent[]): boolean =>
 	events.some((event) => event.event_type === "payout.paid");

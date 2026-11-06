@@ -12,6 +12,7 @@ One event per file, for each event type that `schema/mapping/` covers:
 | `charge.dispute.created.json` | `charge.dispute.created` | Dispute opened |
 | `charge.dispute.closed.json` | `charge.dispute.closed` | Dispute won |
 | `payout.paid.json` | `payout.paid` | Automatic payout of 245.00 USD, from Stripe's documented payout object |
+| `payout.failed.json` | `payout.failed` | The same payout (`po_SYNTH_0001`, 245.00 USD) failing a day after the `payout.paid` event: `status` `failed`, a `failure_code`, a `failure_message` and a `failure_balance_transaction`. **Synthetic**: written by hand from the shape of `payout.paid.json` and the pruned OpenAPI spec, not recorded from any account; every id in it is invented |
 | `customer.subscription.created.json` | `customer.subscription.created` | Active monthly subscription |
 | `customer.subscription.updated.json` | `customer.subscription.updated` | Cancel at period end |
 | `customer.subscription.deleted.json` | `customer.subscription.deleted` | Canceled |

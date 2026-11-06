@@ -236,10 +236,16 @@ export const moneyPostings = (i: AtmLedgerEventInput): AtmPosting[] => {
 					]
 				: [];
 		case "payout.paid":
-			return [
-				usd("assets:stripe", -positive()),
-				usd("assets:clearing:stripe-payouts", amount),
-			];
+			// A payout that failed puts its money back: the same two accounts, the other way round.
+			return i.failed
+				? [
+						usd("assets:stripe", positive()),
+						usd("assets:clearing:stripe-payouts", -amount),
+					]
+				: [
+						usd("assets:stripe", -positive()),
+						usd("assets:clearing:stripe-payouts", amount),
+					];
 		case "fundraise.received":
 			return [
 				usd("assets:clearing:zeffy", positive()),

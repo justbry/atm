@@ -3,8 +3,7 @@ ignored 1 Stripe record(s): payout_not_paid
 invoice: Stripe 1, log 1
 refund: Stripe 0, log 0
 dispute: Stripe 0, log 0
-payout: Stripe 0, log 1
+payout: Stripe 0, log 0
 fees: Stripe 1, log 1
 net: Stripe 3, log 1
-missing_in_stripe: payout po_1: the log has payout.paid 25216 usd on 2026-01-17, Stripe's records have none [stripe none, log 252.16]
-1 difference(s)
+no differences

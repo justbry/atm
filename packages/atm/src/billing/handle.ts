@@ -58,6 +58,7 @@ import {
 	bookerOf,
 	disputeEvents,
 	feeProblem,
+	PAYOUT_FAILED_TYPE,
 	paymentEvents,
 	payoutEvents,
 	refundEvents,
@@ -834,10 +835,14 @@ const withCertainPayment = (
 	return { ...result, refused: { ...refused, payment } };
 };
 
-/** A payout belongs to no family: it is booked for the school the caller names, and writes no rows. */
+/**
+ * A payout belongs to no family: it is booked for the school the caller names, and writes no rows. `payout.failed` is the
+ * payout reversed (`payoutEvents`' `failed`); whether the payout was booked first is the handler's to check, not a rule.
+ */
 const decidePayout = (
 	input: FactInput,
 	payout: StripePayout,
+	type: string,
 ): StripeEventResult => {
 	if (!input.school)
 		return refuse(
@@ -848,6 +853,7 @@ const decidePayout = (
 		rowChanges: null,
 		events: payoutEvents({
 			payout,
+			failed: type === PAYOUT_FAILED_TYPE,
 			booker: {
 				school: input.school,
 				tz: input.menu.timeZone,
@@ -865,7 +871,7 @@ const decideAndRun = (
 	fact: unknown,
 ): StripeEventResult => {
 	if (target === "StripePayout")
-		return decidePayout(input, fact as StripePayout);
+		return decidePayout(input, fact as StripePayout, type);
 	const grants = grantsFromRows(input.rows);
 	// A one-time booking payment (its Checkout Session, and the refund of its charge) is decided apart from the invoice rules.
 	if (target === "CheckoutSessionFact")
