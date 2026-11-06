@@ -4,6 +4,7 @@ import type {
 	MenuVersionBody,
 	MenuVersions,
 	PlanSummary,
+	PlanTierCount,
 } from "../data/plans.ts";
 
 /** What the fixture Reader returns for the Plans tab: the mockup's `SC.<school>.pl` as buzz-school menu bodies
@@ -227,6 +228,27 @@ const maplePilatesLive: Menu = {
 	addons: [],
 };
 
+/** A tier's counts with the Monthly column the server would sum: the active units at the live version's monthly
+ * price (the fixtures hold no per-member purchase prices), null when the live tier has no monthly price. */
+const tierCount = (
+	live: Menu,
+	tierId: string,
+	active: number,
+	ending: number,
+	activeUnits: number,
+): PlanTierCount => {
+	const month = live.tiers
+		.find(({ id }) => id === tierId)
+		?.prices.find(({ interval }) => interval === "month")?.amount;
+	return {
+		tierId,
+		active,
+		ending,
+		activeUnits,
+		monthlyMinor: month === undefined ? null : month * activeUnits,
+	};
+};
+
 export const plansBySchool: Record<string, SchoolPlans> = {
 	vol: {
 		versions: {
@@ -271,9 +293,9 @@ export const plansBySchool: Record<string, SchoolPlans> = {
 			endingSoon: 1,
 			collected: { period: "2026-11", amount: 28700 },
 			tiers: [
-				{ tierId: "sparkle", active: 3, ending: 0, activeUnits: 7 },
-				{ tierId: "shine", active: 1, ending: 1, activeUnits: 4 },
-				{ tierId: "glow", active: 1, ending: 0, activeUnits: 1 },
+				tierCount(vibesLive, "sparkle", 3, 0, 7),
+				tierCount(vibesLive, "shine", 1, 1, 4),
+				tierCount(vibesLive, "glow", 1, 0, 1),
 			],
 			features: [sessions],
 			stripeConnected: true,
@@ -306,9 +328,9 @@ export const plansBySchool: Record<string, SchoolPlans> = {
 			endingSoon: 0,
 			collected: { period: "2026-06", amount: 62300 },
 			tiers: [
-				{ tierId: "sparkle", active: 4, ending: 0, activeUnits: 4 },
-				{ tierId: "shine", active: 2, ending: 0, activeUnits: 3 },
-				{ tierId: "board", active: 1, ending: 0, activeUnits: 1 },
+				tierCount(b4uLive, "sparkle", 4, 0, 4),
+				tierCount(b4uLive, "shine", 2, 0, 3),
+				tierCount(b4uLive, "board", 1, 0, 1),
 			],
 			features: [credits],
 			stripeConnected: true,
@@ -340,7 +362,7 @@ export const plansBySchool: Record<string, SchoolPlans> = {
 			activeMembers: 2,
 			endingSoon: 1,
 			collected: { period: "2026-11", amount: 8500 },
-			tiers: [{ tierId: "glow", active: 2, ending: 1, activeUnits: 2 }],
+			tiers: [tierCount(maplePilatesLive, "glow", 2, 1, 2)],
 			features: [classes],
 			stripeConnected: true,
 			purchaseLinkShared: false,
@@ -372,9 +394,9 @@ export const plansBySchool: Record<string, SchoolPlans> = {
 			endingSoon: 0,
 			collected: { period: "2026-11", amount: 36000 },
 			tiers: [
-				{ tierId: "studio", active: 2, ending: 0, activeUnits: 2 },
-				{ tierId: "ensemble", active: 1, ending: 0, activeUnits: 1 },
-				{ tierId: "board", active: 1, ending: 0, activeUnits: 1 },
+				tierCount(harborArtsLive, "studio", 2, 0, 2),
+				tierCount(harborArtsLive, "ensemble", 1, 0, 1),
+				tierCount(harborArtsLive, "board", 1, 0, 1),
 			],
 			features: [credits],
 			stripeConnected: true,

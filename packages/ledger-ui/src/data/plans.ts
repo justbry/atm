@@ -157,8 +157,14 @@ export type PlanTierCount = {
 	active: number;
 	/** Live memberships set to end at the period end ("+1 ending"). */
 	ending: number;
-	/** The quantities of the `active` memberships, summed: the Monthly column is this times the tier's monthly price. */
+	/** The quantities of the `active` memberships, summed. */
 	activeUnits: number;
+	/**
+	 * The Monthly column: what the `active` memberships bring in per month at the prices they bought (a member keeps
+	 * the version they bought), in minor units, summed by the server. null when the server has no figure (a tier with
+	 * no monthly price): the UI shows "—", never 0, and never multiplies a draft price.
+	 */
+	monthlyMinor: number | null;
 };
 
 /** What the Plans tab shows besides the menu. */

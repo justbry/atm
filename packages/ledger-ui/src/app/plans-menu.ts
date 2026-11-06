@@ -144,6 +144,7 @@ export const tierCount = (
 		active: 0,
 		ending: 0,
 		activeUnits: 0,
+		monthlyMinor: null,
 	};
 
 /** The mockup's `slug`: a new plan's id. */
