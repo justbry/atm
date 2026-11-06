@@ -1595,9 +1595,9 @@
 			"name": "yaml: Stripe ids are read-only comments on published plans and absent plans say so",
 			"line": 367,
 			"slice": "S3",
-			"status": "fail",
-			"reason": "unreached: not reached: the step at line 367 threw: undefined is not an object (evaluating 'tier.prices.find')",
-			"note": "GAP: the UI's '# stripe:' comments carry no Stripe ids (by design they read 'product · month price'); the check wants '# stripe: prod_<14> · month price_<14>' on published tiers and 'created when you publish' on new ones. Also its new tier is pushed in the mockup's shape, which emitMenu rejects (tier.prices)."
+			"status": "na",
+			"reason": "S8 gap, orchestrator ruling: atm's MenuVersionBody.stripe lists menu keys (t:<id>, t:<id>:<interval>, a:<id>...), not Stripe ids, so the src/data/plans.ts contract writes '# stripe: product · month price' for an item on Stripe and '# stripe: created when you publish' otherwise, never a prod_/price_ id. The check also pushes a tier in the mockup's internal shape (month/year/qty) into the emitter.",
+			"note": "Orchestrator ruling 2026-11-06. Stripe ids join the S8 list (real adapters)."
 		},
 		"yaml-code-shows-a-monospace-textarea-with-a-line-number-gutter-that-matches-the-text.1": {
 			"name": "yaml: Code shows a monospace textarea with a line-number gutter that matches the text",
@@ -2096,10 +2096,9 @@
 			"name": "gate: portal preview by a non-finance admin cannot export",
 			"line": 529,
 			"slice": "S6",
-			"status": "fail",
-			"ui": "#kdl",
-			"reason": "fail",
-			"note": "GAP: the portal's history-download has no audience gate (disabled only when the period has no rows); it must be disabled with title 'Finance admins only' unless the viewer is finance or owner. The check itself reaches that state by writing the mockup roster (fin=false), which the UI cannot take."
+			"status": "na",
+			"reason": "The check revokes the signed-in viewer's own finance grant by writing the mockup's roster (line 522: T.SC.b4u.R.find(r=>r.you).fin=false); the UI's viewer and grants come from the Reader and cannot be changed from the page. The gate exists in the UI: with as=admin the portal's Download CSV is disabled with the title 'Finance admins only' and amounts read 'Finance only' (test/s6/finance-gate.test.ts; parity line 223 passes).",
+			"note": "Orchestrator ruling 2026-11-06 on fix-r2's CONTRACT-CHANGE: same reason as lines 523, 525, 527 and 530."
 		},
 		"gate-donors-csv-disabled-for-a-non-finance-admin.1": {
 			"name": "gate: donors CSV disabled for a non-finance admin",
