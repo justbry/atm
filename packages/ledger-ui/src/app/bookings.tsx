@@ -12,19 +12,24 @@ import type { Clock, School } from "../data/types.ts";
 import type { Writer } from "../data/writer.ts";
 import { BookingDialog } from "./booking-dialog.tsx";
 import { cutoffHours, endSentence } from "./booking-text.ts";
+import {
+	type BookingsPeriod,
+	bookingsDays,
+	bookingsLabel,
+	readBookingsPeriod,
+} from "./bookings-period.ts";
 import { Icon, type IconName } from "./icon.tsx";
-import { addDays, monthAndDay, weekdayName, weekStart } from "./period.ts";
+import { LockPanel } from "./lock-panel.tsx";
+import { addDays, monthAndDay, weekdayName } from "./period.ts";
 import { type Route, withQuery } from "./route.ts";
-import { viewedAudience } from "./view-as.ts";
+import { exitPreviewTitle, useViewing } from "./viewing.ts";
 
-type Range = "day" | "week";
 type Filter = "outcome" | "approval" | "cutoff";
-type View = { range: Range; offset: number; filter: Filter | null };
+type View = BookingsPeriod & { filter: Filter | null };
 type Dialog = { action: "noshow" | "release"; booking: Booking };
 
 /** Brief A caps a range at 62 days: the overdue group reads that many days before the range. */
 const overdueDays = 62;
-const daysPerWeek = 7;
 const sentToast =
 	"Sent. It shows as pending, then in the ledger after the next ship (≤5 min).";
 const failedToast = "Could not send. Try again.";
@@ -39,14 +44,12 @@ const filters: Array<{ slug: "all" | Filter; filter: Filter | null }> = [
 	{ slug: "cutoff", filter: "cutoff" },
 ];
 
-/** The period is the top bar's (S7's) `range=day|week` (absent: week) and `offset=<n>` (absent: 0), the chips'
- * `filter=outcome|approval|cutoff` (absent: all). */
+/** The period (`range=` and `offset=`, shared with the top bar's control) and `filter=outcome|approval|cutoff`
+ * (absent: all). */
 function readView(query: URLSearchParams): View {
-	const offset = Number(query.get("offset") ?? 0);
 	const filter = query.get("filter");
 	return {
-		range: query.get("range") === "day" ? "day" : "week",
-		offset: Number.isInteger(offset) ? offset : 0,
+		...readBookingsPeriod(query),
 		filter:
 			filter === "outcome" || filter === "approval" || filter === "cutoff"
 				? filter
@@ -54,28 +57,11 @@ function readView(query: URLSearchParams): View {
 	};
 }
 
-/** The days a view covers (mockup `bRange`): a day from the clock's today, or a Monday-to-Sunday week. */
-function viewDays(
-	{ range, offset }: View,
-	today: string,
-): { from: string; to: string } {
-	if (range === "day") {
-		const day = addDays(today, offset);
-		return { from: day, to: day };
-	}
-	const from = addDays(weekStart(today), offset * daysPerWeek);
-	return { from, to: addDays(from, daysPerWeek - 1) };
-}
-
-/** The mockup's `bLabel`. */
-function viewLabel({ range, offset }: View, from: string): string {
-	if (range === "day") {
-		const names = ["Yesterday", "Today", "Tomorrow"];
-		return names[offset + 1] ?? `${weekdayName(from)} ${monthAndDay(from)}`;
-	}
-	const names = ["Last week", "This week", "Next week"];
-	return names[offset + 1] ?? `Week of ${monthAndDay(from)}`;
-}
+const bookingsLock = {
+	reason: "admins_only",
+	who: "Owners and admins see bookings",
+	when: "Not a school-books surface: bookings carry minors' schedules (safeguarding), so they follow ManageBookings, not the audience.",
+} as const;
 
 const byStart = (first: Booking, second: Booking): number =>
 	first.startsAt.localeCompare(second.startsAt);
@@ -163,6 +149,10 @@ function RowActions({
 	onNoShow,
 	onRelease,
 }: Omit<RowProps, "withDate" | "school">): JSX.Element | null {
+	const { preview } = useViewing();
+	const writesOff = preview
+		? { disabled: true, title: exitPreviewTitle }
+		: undefined;
 	if (pending)
 		return (
 			<span class="badge b-warn">
@@ -180,6 +170,7 @@ function RowActions({
 					data-test="booking-action"
 					data-action="confirm"
 					data-booking={booking.id}
+					{...writesOff}
 					onClick={() => onConfirm(booking)}
 				>
 					<Icon name="check" />
@@ -191,6 +182,7 @@ function RowActions({
 					data-test="booking-action"
 					data-action="noshow"
 					data-booking={booking.id}
+					{...writesOff}
 					onClick={() => onNoShow(booking)}
 				>
 					<Icon name="xCircle" />
@@ -222,6 +214,7 @@ function RowActions({
 			data-test="booking-action"
 			data-action="release"
 			data-booking={booking.id}
+			{...writesOff}
 			onClick={() => onRelease(booking)}
 		>
 			<Icon name="unlock" />
@@ -288,18 +281,6 @@ type Group = {
 	withDate: boolean;
 };
 
-type BookingsProps = {
-	reader: Reader;
-	writer: Writer;
-	school: School;
-	clock: Clock;
-	route: Route;
-	navigate: (route: Route) => void;
-	/** Called after each render that shows what the route asks for: the list, or the lock panel. */
-	onRendered: () => void;
-	onToast: (text: string) => void;
-};
-
 type Loaded = { key: string; inRange: Booking[]; before: Booking[] };
 
 /** The Bookings pane (mockup `bookings()`): one day or week of the school's bookings in day groups, preceded by the
@@ -307,7 +288,7 @@ type Loaded = { key: string; inRange: Booking[]; before: Booking[] };
  * days before it). Which bookings need an outcome or sit inside their cutoff is the contract's `needsOutcome` and
  * `insideCutoff`; the Billing column is the Reader's `billing`; nothing is counted but the rows shown. Writes are
  * `recordOutcome` and `cancelBooking`, one per booking; a booking written stays "pending" until the ledger ships. */
-function BookingsList({
+export function Bookings({
 	reader,
 	writer,
 	school,
@@ -316,14 +297,26 @@ function BookingsList({
 	navigate,
 	onRendered,
 	onToast,
-}: BookingsProps): JSX.Element | null {
+}: {
+	reader: Reader;
+	writer: Writer;
+	school: School;
+	clock: Clock;
+	route: Route;
+	navigate: (route: Route) => void;
+	/** Called after each render that shows the list the route asks for. */
+	onRendered: () => void;
+	onToast: (text: string) => void;
+}): JSX.Element | null {
+	const { option, preview } = useViewing();
 	const view = readView(route.query);
-	const { from, to } = viewDays(view, clock.today);
+	const { from, to } = bookingsDays(view, clock.today);
 	const key = `${school.id}/${from}/${to}`;
 	const [loaded, setLoaded] = useState<Loaded | null>(null);
 	const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
 	const [dialog, setDialog] = useState<Dialog | null>(null);
 	useEffect(() => {
+		if (!option.admin) return;
 		let current = true;
 		const load = async (): Promise<void> => {
 			const [inRange, before] = await Promise.all([
@@ -345,11 +338,12 @@ function BookingsList({
 		return () => {
 			current = false;
 		};
-	}, [reader, school.id, from, to, key]);
+	}, [reader, school.id, from, to, key, option.admin]);
 	const shown = loaded?.key === key ? loaded : null;
 	useLayoutEffect(() => {
-		if (shown) onRendered();
+		if (shown || !option.admin) onRendered();
 	});
+	if (!option.admin) return <LockPanel lock={bookingsLock} icon="calendar" />;
 	if (!shown) return null;
 
 	const waiting: Check = ({ id }) => pending.has(id);
@@ -501,6 +495,7 @@ function BookingsList({
 							style="float:right"
 							data-test="booking-bulk"
 							data-day={group.key}
+							{...(preview && { disabled: true, title: exitPreviewTitle })}
 							onClick={() => confirmAll(needing)}
 						>
 							<Icon name="check" />
@@ -549,7 +544,7 @@ function BookingsList({
 	return (
 		<>
 			<div class="tools">
-				<b data-test="booking-range-label">{viewLabel(view, from)}</b>
+				<b data-test="booking-range-label">{bookingsLabel(view, from)}</b>
 				<span class="mut" data-test="booking-range-dates">
 					{monthAndDay(from)}
 					{from === to ? "" : ` – ${monthAndDay(to)}`} · change it in the period
@@ -604,31 +599,4 @@ function BookingsList({
 			)}
 		</>
 	);
-}
-
-/** The lock panel (mockup `lockPanel`): bookings are not a school-books surface, so the governance, member and public
- * audiences see this and none of the list, its dates or its names. */
-function BookingsLock({ onRendered }: { onRendered: () => void }): JSX.Element {
-	useLayoutEffect(() => {
-		onRendered();
-	});
-	return (
-		<div class="klock" data-test="lock-panel" data-lock="admins_only">
-			<Icon name="calendar" />
-			<h4>Owners and admins see bookings</h4>
-			<div class="mut">
-				Not a school-books surface: bookings carry minors' schedules
-				(safeguarding), so they follow ManageBookings, not the audience.
-			</div>
-		</div>
-	);
-}
-
-/** The Bookings pane (mockup `bookings()`): the list for the owner, finance and admin audiences, the lock panel for
- * the others. The audience is the signed-in person's, or the `as=` preview they may take. */
-export function Bookings(props: BookingsProps): JSX.Element | null {
-	const audience = viewedAudience(props.school, props.route.query.get("as"));
-	if (audience === "owner" || audience === "finance" || audience === "admin")
-		return <BookingsList {...props} />;
-	return <BookingsLock onRendered={props.onRendered} />;
 }

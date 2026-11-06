@@ -1,6 +1,10 @@
+import type { AudienceView, PresetGate } from "../data/disclosure.ts";
+
 /** The period control's arithmetic, after the mockup's `plabel`, `PRE` and `shifted`. Dates are `YYYY-MM-DD` strings
  * read as UTC calendar days; the clock's `today` is the only source of the current date. */
 export type Period = { from: string; to: string };
+const monthsPerYear = 12;
+const monthsPerQuarter = 3;
 
 const monthNames = [
 	"Jan",
@@ -92,24 +96,102 @@ export function periodLabel(period: Period): string {
 	return `${monthAndYear(from)} – ${monthAndYear(to)}`;
 }
 
-/** The popover's presets, computed from the clock. */
+/** The period's name in the control (mockup `pMeta` label): `2024`, `Q2 2026`, else its label. */
+export function periodName(period: Period): string {
+	if (!isWholeMonths(period)) return periodLabel(period);
+	const months = monthsSpanned(period);
+	const month = Number(period.from.slice(5, 7)) - 1;
+	const year = period.from.slice(0, 4);
+	if (months === monthsPerYear && month === 0) return year;
+	if (months === monthsPerQuarter && month % monthsPerQuarter === 0)
+		return `Q${month / monthsPerQuarter + 1} ${year}`;
+	return periodLabel(period);
+}
+
+/** The word on the closed control (mockup `pMeta` word). */
+export function periodWord(
+	period: Period,
+): "Month" | "Quarter" | "Year" | "Custom" {
+	if (!isWholeMonths(period)) return "Custom";
+	const months = monthsSpanned(period);
+	const month = Number(period.from.slice(5, 7)) - 1;
+	if (months === monthsPerYear && month === 0) return "Year";
+	if (months === monthsPerQuarter && month % monthsPerQuarter === 0)
+		return "Quarter";
+	return months === 1 ? "Month" : "Custom";
+}
+
+/** The popover's eight presets (mockup `PRE`), computed from the clock. */
 export function periodPresets(
 	today: string,
-): Array<{ label: string; period: Period }> {
+): Array<{ label: PresetGate["label"]; period: Period }> {
+	const year = today.slice(0, 4);
 	const thisMonth = monthPeriod(today);
-	const lastMonth = monthPeriod(addMonths(thisMonth.from, -1));
+	const quarterStart = `${year}-${String(
+		Math.floor((Number(today.slice(5, 7)) - 1) / monthsPerQuarter) *
+			monthsPerQuarter +
+			1,
+	).padStart(2, "0")}-01`;
+	const quarter = (from: string): Period => ({
+		from,
+		to: endOfMonth(addMonths(from, monthsPerQuarter - 1)),
+	});
 	return [
 		{ label: "This month", period: thisMonth },
-		{ label: "Last month", period: lastMonth },
+		{
+			label: "Last month",
+			period: monthPeriod(addMonths(thisMonth.from, -1)),
+		},
+		{ label: "This quarter", period: quarter(quarterStart) },
+		{
+			label: "Last quarter",
+			period: quarter(addMonths(quarterStart, -monthsPerQuarter)),
+		},
 		{
 			label: "Last 3 months",
 			period: { from: addMonths(thisMonth.from, -2), to: thisMonth.to },
 		},
 		{
-			label: "Year to date",
-			period: { from: `${today.slice(0, 4)}-01-01`, to: today },
+			label: "This year",
+			period: { from: `${year}-01-01`, to: `${year}-12-31` },
 		},
+		{
+			label: "Last year",
+			period: {
+				from: `${Number(year) - 1}-01-01`,
+				to: `${Number(year) - 1}-12-31`,
+			},
+		},
+		{ label: "Year to date", period: { from: `${year}-01-01`, to: today } },
 	];
+}
+
+/** What the viewed audience may pick (mockup `pAllow` and `snapP`): `period` itself when it is a listed, shown
+ * period of the audience; else the last shown one that ends on or before it, else the first. A live audience picks
+ * anything. */
+export function snapPeriod(period: Period, view: AudienceView | null): Period {
+	if (!view || view.live) return period;
+	const shown = view.periods.filter(({ state }) => state === "shown");
+	if (shown.some(({ from, to }) => samePeriod({ from, to }, period)))
+		return period;
+	const best =
+		shown.filter(({ to }) => to <= period.to).pop() ?? shown[0] ?? period;
+	return { from: best.from, to: best.to };
+}
+
+/** Whether the control's previous or next step is pickable, and the title that says why not (mockup `pAllow`). */
+export function stepAllowed(
+	step: Period,
+	view: AudienceView | null,
+	today: string,
+): { ok: boolean; title: string | null } {
+	if (step.from > today) return { ok: false, title: "Not started yet" };
+	if (!view || view.live) return { ok: true, title: null };
+	const gate = view.periods.find(({ from, to }) =>
+		samePeriod({ from, to }, step),
+	);
+	if (gate?.state === "shown") return { ok: true, title: null };
+	return { ok: false, title: gate?.title ?? "Nothing is listed there" };
 }
 
 /** The previous or next period of the same length: whole months step by months, other ranges by days. */

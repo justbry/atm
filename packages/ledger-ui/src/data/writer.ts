@@ -12,6 +12,7 @@ import type {
 import type { LedgerWriter } from "./ledger.ts";
 import type { PlansWriter } from "./plans.ts";
 import type { PortalWriter } from "./portal.ts";
+import type { SettingsWriter } from "./settings.ts";
 
 /** Both the Bookings tab (S2) and the Members tab (S4) record outcomes and cancel bookings, each with its own request
  * shape, so these two take either and answer what either needs. */
@@ -39,12 +40,13 @@ const membersOnlyWrites = [
 ] as const satisfies ReadonlyArray<keyof MembersWriter>;
 
 /** Every change the UI makes goes through the Writer: fixtures now, the buzz-school routes in S8. Each slice adds the
- * methods its actions call: S2 the Bookings ones, S3 the Plans ones, S4 the Members ones, S5 the promo ones and the CSV downloads. A Writer built for an earlier slice has no
+ * methods its actions call: S2 the Bookings ones, S3 the Plans ones, S4 the Members ones, S5 the promo ones and the CSV downloads, S6 the member portal's, S7 the Settings ones. A Writer built for an earlier slice has no
  * Members writes; the Members tab asks for them with `membersWritesOf`. */
 export type Writer = SharedWrites &
 	PlansWriter &
 	LedgerWriter &
 	PortalWriter &
+	SettingsWriter &
 	Partial<Pick<MembersWriter, (typeof membersOnlyWrites)[number]>>;
 
 /** The Writer as a `MembersWriter`; an error when it has no Members writes. */

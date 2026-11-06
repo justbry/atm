@@ -19,7 +19,9 @@ import type {
 import { Icon, type IconName } from "./icon.tsx";
 import { cellText, KpiValue, numberFormat } from "./kpi-cell.tsx";
 import { PinLock } from "./pin-lock.tsx";
+import { LockPanel } from "./lock-panel.tsx";
 import { type Route, withQuery } from "./route.ts";
+import { useViewing } from "./viewing.ts";
 
 type DashboardView = "money" | "members" | "risk";
 type ViewOption = {
@@ -786,6 +788,7 @@ function MonthCharts({
 	const label = info?.label ?? "";
 	const { year } = document;
 	const identified = document.policy.steps === "G6";
+	const planLock = useViewing().option.locks["dashboard-plan"];
 	if (view === "money") {
 		const plans = seriesStartingWith(document, "revenue_by_tier:");
 		const funds = seriesStartingWith(document, "donations_by_fund:");
@@ -813,16 +816,25 @@ function MonthCharts({
 					/>
 				</div>
 				<div class="kbox">
-					<h6>Gross by plan, {label}</h6>
-					{plans.length > 0 ? (
-						<Breakdown books={books} kpis={plans} />
+					{planLock ? (
+						<>
+							<h6>By plan or fund</h6>
+							<LockPanel lock={planLock} surface="dashboard-plan" />
+						</>
 					) : (
-						<div class="mut">No plans yet.</div>
+						<>
+							<h6>Gross by plan, {label}</h6>
+							{plans.length > 0 ? (
+								<Breakdown books={books} kpis={plans} />
+							) : (
+								<div class="mut">No plans yet.</div>
+							)}
+							<div class="mut" style={{ marginTop: "8px" }}>
+								Memberships only. Add-ons and bookings appear here when the
+								school sells them.
+							</div>
+						</>
 					)}
-					<div class="mut" style={{ marginTop: "8px" }}>
-						Memberships only. Add-ons and bookings appear here when the school
-						sells them.
-					</div>
 				</div>
 				{funds.length > 0 && (
 					<div class="kbox">

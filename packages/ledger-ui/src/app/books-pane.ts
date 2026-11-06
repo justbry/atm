@@ -18,3 +18,6 @@ export type BooksPaneProps = {
 
 /** cell-rules `minContributors`: a count under this shows as `<10` (a figure from 1 to 4 is never shown as it is). */
 export const smallCount = 5;
+
+/** The lock panel heading of an identified surface (the Ledger, the full statement, the donors table). */
+export const identitiesLockHeading = "Finance admins and the owner see this";

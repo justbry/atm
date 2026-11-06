@@ -1,9 +1,11 @@
 import type { BookingsReader } from "./bookings.ts";
+import type { DisclosureReader } from "./disclosure.ts";
 import type { KpiDocument, KpiQuery } from "./kpi-document.ts";
 import type { PlansReader } from "./plans.ts";
 import type { MembersReader } from "./members.ts";
 import type { LedgerReader } from "./ledger.ts";
 import type { PortalReader } from "./portal.ts";
+import type { SettingsReader } from "./settings.ts";
 import type { DashboardOptions, School } from "./types.ts";
 
 /** Everything the UI reads: fixtures now, atm's read slice and the buzz-school routes in S8. Each slice adds the
@@ -13,7 +15,9 @@ export interface Reader
 		PlansReader,
 		MembersReader,
 		LedgerReader,
-		PortalReader {
+		PortalReader,
+		DisclosureReader,
+		SettingsReader {
 	/** The schools the session may open, in switcher order. */
 	schools(): Promise<School[]>;
 	/** The presets and books levels the KPI documents exist for, and the cell labels. */

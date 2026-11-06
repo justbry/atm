@@ -13,7 +13,8 @@ const navigate = (route: Route): void => {
 };
 
 /** Follows `location.hash`; once the schools are loaded, rewrites a hash naming an unknown school or tab to the
- * route it shows, then records the rendered hash in `root.dataset.route` (protocol §3). */
+ * route it shows. The shell records the rendered hash in `root.dataset.route` once the route's data is on screen
+ * (protocol §3). */
 function App({
 	root,
 	reader,
@@ -42,29 +43,15 @@ function App({
 	const route = parseRoute(hash, schools?.map((school) => school.id) ?? []);
 	const canonical = schools ? formatRoute(route) : null;
 	const theme = themeOf(route.query);
-	/** The tabs that load data record their own render, once it is on screen. */
-	const reportsItself = [
-		"dashboard",
-		"bookings",
-		"ledger",
-		"reports",
-		"promos",
-		"plans",
-		"members",
-	].includes(route.tab);
 	useLayoutEffect(() => {
 		root.classList.toggle("light", theme === "light");
 		root.classList.toggle("dark", theme === "dark");
 	}, [root, theme]);
 	useLayoutEffect(() => {
-		if (canonical === null) return;
-		if (canonical === hash) {
-			if (!reportsItself) root.dataset.route = hash;
-			return;
-		}
+		if (canonical === null || canonical === hash) return;
 		window.history.replaceState(null, "", canonical);
 		setHash(canonical);
-	}, [root, hash, canonical, reportsItself]);
+	}, [hash, canonical]);
 
 	if (!schools) return null;
 	return (

@@ -8,7 +8,11 @@ import {
 	type ReportCell,
 	type ViewerAudience,
 } from "../data/ledger.ts";
-import { type BooksPaneProps, smallCount } from "./books-pane.ts";
+import {
+	type BooksPaneProps,
+	identitiesLockHeading,
+	smallCount,
+} from "./books-pane.ts";
 import { DownloadButton } from "./download-button.tsx";
 import { Icon } from "./icon.tsx";
 import { LockPanel } from "./lock-panel.tsx";
@@ -229,9 +233,14 @@ export function Donors({
 				<h5 data-test="donors-title">
 					<Icon name="users" /> Donors and payers
 				</h5>
-				<LockPanel title="Finance admins and the owner see this">
-					{`Names and per-person amounts. Governance sees how gifts spread. ${audienceNames[audience]} sees totals and categories only.`}
-				</LockPanel>
+				<LockPanel
+					lock={{
+						reason: "no_grant",
+						who: identitiesLockHeading,
+						when: `Names and per-person amounts. Governance sees how gifts spread. ${audienceNames[audience]} sees totals and categories only.`,
+					}}
+					hooks="books"
+				/>
 			</>
 		);
 	if (report.kind === "spread")

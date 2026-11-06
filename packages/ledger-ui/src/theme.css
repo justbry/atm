@@ -1374,14 +1374,6 @@ tr.tot td {
 	border: 1px solid var(--mp-warn);
 	color: var(--mp-warn);
 }
-.mp-tag {
-	font-size: 9.5px;
-	padding: 0 6px;
-	border: 1px dashed var(--mp-warn);
-	color: var(--mp-warn);
-	border-radius: 999px;
-	font-weight: 600;
-}
 .mp-note {
 	display: flex;
 	gap: 6px;
@@ -1542,9 +1534,38 @@ tr.tot td {
 		flex: 1 1 auto;
 	}
 }
-.mp-admin {
-	border-style: dashed;
-	border-color: var(--mp-warn);
+.kmenu {
+	position: fixed;
+	left: auto;
+	top: auto;
+	z-index: 95;
+	min-width: 230px;
+	max-width: calc(100vw - 16px);
+	max-height: calc(100vh - 16px);
+	overflow: auto;
+}
+.kmenu button.d {
+	color: var(--destructive);
+}
+.kmenu button:focus-visible {
+	outline: 2px solid var(--ring);
+	outline-offset: -2px;
+}
+@media (max-width: 600px) {
+	.kmenu {
+		left: 0 !important;
+		right: 0 !important;
+		top: auto !important;
+		bottom: 0;
+		min-width: 0;
+		max-width: none;
+		max-height: 75vh;
+		border-radius: 14px 14px 0 0;
+		padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+	}
+	.kmenu button {
+		padding: 12px 10px;
+	}
 }
 .kt {
 	display: flex;
@@ -1807,21 +1828,6 @@ svg.kc .col.on {
 .knoplan {
 	color: var(--muted-foreground);
 	font-style: italic;
-}
-.kview {
-	display: inline-flex;
-	align-items: center;
-	gap: 4px;
-	font-size: 10.5px;
-	color: var(--muted-foreground);
-	border: 1px solid var(--border);
-	border-radius: 999px;
-	padding: 2px 8px;
-	white-space: nowrap;
-}
-.kview .i {
-	width: 12px;
-	height: 12px;
 }
 .kcap {
 	margin: 8px 0 12px;
@@ -2106,13 +2112,6 @@ svg.kc .col.on {
 .mp-tabs button {
 	white-space: nowrap;
 }
-.mp-note {
-	font-size: 12px;
-	margin: 4px 0;
-	padding: 4px 8px;
-	border-radius: var(--mp-rad);
-	background: var(--mp-bg);
-}
 .gr {
 	grid-template-columns: 70px 1fr 104px 90px 28px;
 }
@@ -2120,26 +2119,6 @@ svg.kc .col.on {
 .kbp input {
 	height: 28px;
 }
-@media (max-width: 600px) {
-	.drawer {
-		width: 94%;
-	}
-	.two2 {
-		grid-template-columns: 1fr;
-	}
-	.kview {
-		font-size: 0;
-		gap: 0;
-		padding: 2px 6px;
-	}
-}
-.kbhint {
-	margin: 3px 0 0;
-	font-size: 10.5px;
-	color: var(--muted-foreground);
-}
-
-/* Plans as YAML (mockup lines 328 to 348) and the figures a viewer may not see (lines 363, 364). */
 .kcode {
 	display: flex;
 	gap: 14px;
@@ -2279,9 +2258,153 @@ svg.kc .col.on {
 		height: clamp(240px, 50vh, 420px);
 	}
 }
+@media (max-width: 600px) {
+	.drawer {
+		width: 94%;
+	}
+	.two2 {
+		grid-template-columns: 1fr;
+	}
+}
+.kbhint {
+	margin: 3px 0 0;
+	font-size: 10.5px;
+	color: var(--muted-foreground);
+}
+/* Top bar: school, period and View as sit left; help and settings are pinned right on the first row at every width. */
+.top {
+	flex-wrap: wrap;
+	gap: 6px;
+	padding: 8px 12px;
+	position: relative;
+}
+.top .ib {
+	flex-shrink: 0;
+}
+.top .tsp {
+	flex: 1 1 0;
+	min-width: 0;
+}
+.top .tbrk {
+	display: none;
+}
+.tb {
+	gap: 4px;
+	white-space: nowrap;
+	min-height: 32px;
+}
+#sw {
+	min-height: 32px;
+	max-width: 280px;
+}
+#sw .swn {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 200px;
+	display: inline-block;
+	vertical-align: middle;
+	margin: 0 4px;
+}
+#pb .pdot {
+	display: none;
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--primary);
+}
+#pb.pnd {
+	border-color: var(--primary);
+	color: var(--primary);
+}
+#pb.pnd .pdot {
+	display: inline-block;
+}
+#kview .va-r {
+	font-weight: 600;
+}
+#kview.pnd {
+	border-color: var(--warning);
+	color: var(--warning);
+}
+.vapop {
+	min-width: 330px;
+	max-width: min(390px, calc(100vw - 16px));
+}
+.vapop .it {
+	align-items: flex-start;
+}
+.vapop .it b {
+	font-weight: 600;
+}
+.vapop .it small {
+	display: block;
+	color: var(--muted-foreground);
+	font-size: 10.5px;
+	margin-top: 1px;
+	white-space: normal;
+}
+.pop .it[disabled],
+.ppgrid .chip[disabled] {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+.pop .it[disabled]:hover {
+	background: none;
+}
+.vah {
+	padding: 6px 8px;
+	font-size: 10.5px;
+}
+#pp {
+	min-width: 290px;
+	max-width: min(340px, calc(100vw - 16px));
+}
+.pph {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 8px 2px;
+}
+.pph b {
+	flex: 1;
+	text-align: center;
+	font-size: 13px;
+}
+.ppsub {
+	padding: 0 8px 4px;
+	font-size: 10.5px;
+	text-align: center;
+}
+.ppgrid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	padding: 4px 8px;
+}
+.vab {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--foreground);
+	border-bottom-color: var(--primary);
+}
+.vab[hidden] {
+	display: none;
+}
+.krow,
+.krow.kp {
+	grid-template-columns: minmax(70px, max-content) 1fr minmax(72px, max-content);
+}
+.krow .khid {
+	white-space: nowrap;
+}
 .link[disabled] {
 	opacity: 0.45;
 	cursor: not-allowed;
+}
+.vab .sp {
+	flex: 1;
 }
 .khid {
 	display: inline-flex;
@@ -2298,11 +2421,237 @@ svg.kc .col.on {
 	height: 11px;
 	flex: none;
 }
+.kcard .khid {
+	font-size: 11px;
+}
 .kapprox {
 	border-bottom: 1px dotted var(--muted-foreground);
 	cursor: help;
 }
+.kdtw {
+	overflow-x: auto;
+}
+.kdt {
+	font-size: 10.5px;
+	width: 100%;
+}
+.kdt td,
+.kdt th {
+	vertical-align: top;
+	padding: 4px;
+}
+.kdk {
+	font-size: 9.5px;
+	word-break: break-word;
+	max-width: 150px;
+}
+.kdcust {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	padding: 6px 8px;
+	margin: 8px 0;
+	border: 1px dashed var(--border);
+	border-radius: 6px;
+	opacity: 0.75;
+}
+.kdcust > span {
+	flex: 1;
+}
+.kdperm {
+	font-size: 10.5px;
+	margin: 6px 0;
+	width: 100%;
+}
+.kdr3 {
+	grid-template-columns: 1fr 1fr 1fr;
+}
+.kyear {
+	border-top: 1px dashed var(--border);
+	padding-top: 4px;
+}
+.kyearnote {
+	font-size: 10.5px;
+}
+.kddc {
+	width: 20px;
+}
+.kdd[disabled] {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+.mp-note {
+	font-size: 12px;
+	margin: 4px 0;
+	padding: 4px 8px;
+	border-radius: var(--mp-rad);
+	background: var(--mp-bg);
+}
+@media (max-width: 640px) {
+	.top {
+		gap: 4px;
+		padding: 6px 8px;
+	}
+	.top .btn {
+		padding: 3px 7px;
+		font-size: 11px;
+	}
+	.top .logo {
+		font-size: 11px;
+	}
+	#sw .swn {
+		max-width: 96px;
+		margin: 0 2px;
+	}
+	.pbw,
+	.va-l {
+		display: none;
+	}
+	.top .tper,
+	.top .tva {
+		position: static;
+	}
+	.top #pp,
+	.top #kvp {
+		left: 8px;
+		right: 8px;
+		top: 100%;
+		min-width: 0;
+		max-width: none;
+	}
+}
+@media (max-width: 440px) {
+	.top .tsw {
+		order: 1;
+	}
+	.top .tsp {
+		order: 2;
+	}
+	.top .thb,
+	.top #gb {
+		order: 3;
+	}
+	.top .tbrk {
+		display: block;
+		order: 4;
+		flex-basis: 100%;
+		height: 0;
+	}
+	.top .tper {
+		order: 5;
+	}
+	.top .tva {
+		order: 6;
+	}
+}
 
+/* Shell: the mockup's inline styles as classes. */
+.tab .badge {
+	margin-left: 6px;
+}
+.school-search {
+	padding: 4px;
+}
+.school-search input {
+	padding-left: 8px;
+	width: 100%;
+}
+.range-title {
+	color: var(--muted-foreground);
+	font-size: 10.5px;
+	display: block;
+	margin-bottom: 4px;
+}
+.section-note {
+	text-transform: none;
+	font-weight: 400;
+}
+.key-create {
+	margin-top: 8px;
+	display: inline-block;
+}
+.basis-note {
+	margin: 8px 0;
+}
+.books-intro {
+	margin: 0 0 6px;
+}
+.rounding-note {
+	margin: 6px 0;
+}
+.settings-all-note {
+	margin-top: 16px;
+}
+.permission-name {
+	color: var(--foreground);
+}
+/* At phone widths a right-aligned popover (period, help) would run off the left edge. Its wrapper lets go, so the
+ * panel hangs from `.app`, pinned 12px in from both viewport edges; `top: auto` keeps it just under its trigger. */
+@media (max-width: 600px) {
+	.pw:has(> .pop.r) {
+		position: static;
+	}
+	.pop.r {
+		top: auto;
+		left: 12px;
+		right: 12px;
+		min-width: 0;
+		max-width: calc(100vw - 24px);
+		margin-top: 4px;
+	}
+}
+
+/* The app's own narrow widths. The mockup's rules above own the top bar, the tabs and the drawer. */
+@media (max-width: 728px) {
+	.strip,
+	.strip.s4 {
+		grid-template-columns: repeat(2, 1fr);
+	}
+	.two2 {
+		grid-template-columns: 1fr;
+	}
+}
+
+/* The Bookings filter chips are buttons here (the mockup's are spans): they take the surrounding line height. */
+button.chip {
+	line-height: inherit;
+}
+
+/* The member portal, Plans and Members rules the mockup stylesheet does not have. */
+.mp-tag {
+	font-size: 9.5px;
+	padding: 0 6px;
+	border: 1px dashed var(--mp-warn);
+	color: var(--mp-warn);
+	border-radius: 999px;
+	font-weight: 600;
+}
+.mp-admin {
+	border-style: dashed;
+	border-color: var(--mp-warn);
+}
+.kview {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 10.5px;
+	color: var(--muted-foreground);
+	border: 1px solid var(--border);
+	border-radius: 999px;
+	padding: 2px 8px;
+	white-space: nowrap;
+}
+.kview .i {
+	width: 12px;
+	height: 12px;
+}
+@media (max-width: 600px) {
+	.kview {
+		font-size: 0;
+		gap: 0;
+		padding: 2px 6px;
+	}
+}
 /* Plans: the mockup's inline styles as classes. */
 .count,
 .changes-count {
@@ -2350,137 +2699,7 @@ svg.kc .col.on {
 .strip.s4.plan-strip {
 	grid-template-columns: repeat(4, 1fr);
 }
-
-/* Shell: the mockup's inline styles as classes. */
-.button-label {
-	margin: 0 4px;
-}
-.tab .badge {
-	margin-left: 6px;
-}
-.school-search {
-	padding: 4px;
-}
-.school-search input {
-	padding-left: 8px;
-	width: 100%;
-}
-.range-title {
-	color: var(--muted-foreground);
-	font-size: 10.5px;
-	display: block;
-	margin-bottom: 4px;
-}
-.appearance-note {
-	text-transform: none;
-	font-weight: 400;
-}
-.pgrp[hidden] {
-	display: none;
-}
-/* At phone widths a right-aligned popover (period, help) would run off the left edge. Its wrapper lets go, so the
- * panel hangs from `.app`, pinned 12px in from both viewport edges; `top: auto` keeps it just under its trigger. */
-@media (max-width: 600px) {
-	.pw:has(> .pop.r) {
-		position: static;
-	}
-	.pop.r {
-		top: auto;
-		left: 12px;
-		right: 12px;
-		min-width: 0;
-		max-width: calc(100vw - 24px);
-		margin-top: 4px;
-	}
-}
-
-/* The app's own narrow widths. The mockup's rules above own the top bar, the tabs and the drawer. */
-@media (max-width: 728px) {
-	.modal {
-		width: 100%;
-	}
-	.bg {
-		padding: 40px 12px 0;
-	}
-	.strip.s4 {
-		grid-template-columns: repeat(2, 1fr);
-	}
-	.two2 {
-		grid-template-columns: 1fr;
-	}
-}
-
-/* The Bookings filter chips are buttons here (the mockup's are spans): they take the surrounding line height. */
-button.chip {
-	line-height: inherit;
-}
-
-/* Members: the mockup's ⋯ menu and its bottom sheet below 600px, the "Finance only" mark, and classes for the inline
- * styles of its rows, drawer and modals. */
-.kmenu {
-	position: fixed;
-	left: auto;
-	top: auto;
-	z-index: 95;
-	min-width: 230px;
-	max-width: calc(100vw - 16px);
-	max-height: calc(100vh - 16px);
-	overflow: auto;
-}
-.kmenu button.d {
-	color: var(--destructive);
-}
-.kmenu button:focus-visible {
-	outline: 2px solid var(--ring);
-	outline-offset: -2px;
-}
-@media (max-width: 600px) {
-	.kmenu {
-		left: 0;
-		right: 0;
-		top: auto;
-		bottom: 0;
-		min-width: 0;
-		max-width: none;
-		max-height: 75vh;
-		border-radius: 14px 14px 0 0;
-		padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
-	}
-	.kmenu button {
-		padding: 12px 10px;
-	}
-}
-/* The books panes' figures (mockup, disclosure v2): a hidden figure and its reason, a rounded count, a disabled
- * drill-down. The audience rows give their value column room for "Published after 7 Jan 2027". */
-.khid {
-	display: inline-flex;
-	align-items: center;
-	gap: 3px;
-	font-size: 10.5px;
-	font-weight: 500;
-	color: var(--muted-foreground);
-	white-space: normal;
-	text-align: left;
-}
-.khid .i {
-	width: 11px;
-	height: 11px;
-	flex: none;
-}
-.kcard .khid {
-	font-size: 11px;
-}
-.krow,
-.krow.kp {
-	grid-template-columns: minmax(70px, max-content) 1fr minmax(72px, max-content);
-}
-.krow .khid {
-	white-space: nowrap;
-}
-.link[disabled] {
-	opacity: 0.45;
-	cursor: not-allowed;
-}
+/* Members: classes for the inline styles of its rows, drawer and modals. */
 .member-open,
 .plan-clear {
 	font: inherit;
@@ -2543,15 +2762,4 @@ button.chip {
 	overflow: hidden;
 	clip-path: inset(50%);
 	white-space: nowrap;
-}
-.kapprox {
-	border-bottom: 1px dotted var(--muted-foreground);
-	cursor: help;
-}
-.kddc {
-	width: 20px;
-}
-.kdd[disabled] {
-	opacity: 0.4;
-	cursor: not-allowed;
 }

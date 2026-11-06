@@ -15,7 +15,7 @@ import {
 	needsPin,
 	seesIdentities,
 } from "../data/ledger.ts";
-import type { BooksPaneProps } from "./books-pane.ts";
+import { type BooksPaneProps, identitiesLockHeading } from "./books-pane.ts";
 import { DownloadButton } from "./download-button.tsx";
 import { Icon, type IconName } from "./icon.tsx";
 import { LockPanel } from "./lock-panel.tsx";
@@ -254,9 +254,14 @@ export function Ledger({
 		);
 	if (!readable)
 		return (
-			<LockPanel title="Finance admins and the owner see this">
-				{`This lists who paid what: one row per person with amounts, refunds and member ids. ${audienceNames[audience]} sees totals in Reports and the Dashboard. Every identified read is audited.`}
-			</LockPanel>
+			<LockPanel
+				lock={{
+					reason: "no_grant",
+					who: identitiesLockHeading,
+					when: `This lists who paid what: one row per person with amounts, refunds and member ids. ${audienceNames[audience]} sees totals in Reports and the Dashboard. Every identified read is audited.`,
+				}}
+				hooks="books"
+			/>
 		);
 	if (!loaded) return null;
 
