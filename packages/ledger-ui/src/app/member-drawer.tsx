@@ -8,6 +8,7 @@ import {
 } from "../data/members.ts";
 import type { School } from "../data/types.ts";
 import { cutoffHours } from "./booking-text.ts";
+import { focusCloseButton } from "./close-focus.ts";
 import { useFocusTrap } from "./focus-trap.ts";
 import { Icon, type IconName } from "./icon.tsx";
 import {
@@ -269,7 +270,9 @@ export function MemberDrawer({
 	const closeButton = useRef<HTMLButtonElement>(null);
 	const titleId = useId();
 	useFocusTrap(trapActive, drawer, onClose);
-	useEffect(() => closeButton.current?.focus(), []);
+	useEffect(() => {
+		if (closeButton.current) focusCloseButton(closeButton.current);
+	}, []);
 	const currency = school.currency;
 	const owner = capabilities.role === "owner";
 	const locked = viewer.preview;

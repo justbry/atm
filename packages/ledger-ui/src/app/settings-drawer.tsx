@@ -1,5 +1,6 @@
 import type { ComponentChildren, JSX } from "preact";
 import { useEffect, useId, useRef } from "preact/hooks";
+import { focusCloseButton } from "./close-focus.ts";
 import { CoreIcon, type CoreIconName } from "./core-icon.tsx";
 import { useFocusTrap } from "./focus-trap.ts";
 import type { Theme } from "./route.ts";
@@ -44,7 +45,7 @@ export function SettingsDrawer({
 	const titleId = useId();
 	useFocusTrap(open && !dialogOpen, drawer, onClose);
 	useEffect(() => {
-		if (open) closeButton.current?.focus({ preventScroll: true });
+		if (open && closeButton.current) focusCloseButton(closeButton.current);
 	}, [open]);
 	return (
 		<aside

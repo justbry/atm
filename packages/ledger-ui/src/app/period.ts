@@ -118,6 +118,23 @@ export function periodWord(
 	return months === 1 ? "Month" : "Custom";
 }
 
+/** The month a pane that shows one month reads from a viewed period (mockup `syncDm`): the period's last month, held
+ * to the clock's month when the period is in the clock's year and is a quarter, a year or days rather than months.
+ * `YYYY-MM-01`. */
+export function monthOfPeriod(period: Period, today: string): string {
+	const ending = period.to.slice(0, 7);
+	const word = periodWord(period);
+	const monthly =
+		word === "Month" || (word === "Custom" && isWholeMonths(period));
+	return `${
+		period.to.slice(0, 4) === today.slice(0, 4) &&
+		!monthly &&
+		ending > today.slice(0, 7)
+			? today.slice(0, 7)
+			: ending
+	}-01`;
+}
+
 /** The popover's eight presets (mockup `PRE`), computed from the clock. */
 export function periodPresets(
 	today: string,

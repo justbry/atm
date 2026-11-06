@@ -25,16 +25,35 @@ export function useViewing(): Viewing {
 	return viewing;
 }
 
-/** The money period a pane shows (mockup `P` after `snapP`): the route's `month=` (or `fallback` when it has none),
- * moved to the last period the viewed audience may see when its grain or delay hides the asked one. Every pane's
- * period label reads this, so the label names what the audience sees: "Q2 2026" for a Member in November. */
+/** The money period shown for a route (mockup `P` after `snapP`): the route's `month=` (or `fallback`, the school's
+ * `dashboardOpensOn`, when it has none), moved to the last period the viewed audience may see when its grain or
+ * delay hides the asked one. The top bar's pill and every pane read this one function, so they name the same
+ * period; "Q2 2026" for a Member in November. */
+export function viewedPeriod(
+	asked: string | null,
+	today: string,
+	fallback: string | null,
+	view: AudienceView | null,
+): Period {
+	return snapPeriod(parsePeriod(asked ?? fallback, today), view);
+}
+
+/** The tabs whose panes open on the school's `dashboardOpensOn` month when the route names none; the Ledger and
+ * Reports panes read the route alone, so the pill does too on them. */
+export const opensOnTabs: ReadonlySet<string> = new Set([
+	"plans",
+	"dashboard",
+	"members",
+]);
+
+/** `viewedPeriod` for a pane inside a viewed school. */
 export function useViewedPeriod(
 	asked: string | null,
 	today: string,
 	fallback: string | null = null,
 ): Period {
 	const { view } = useViewing();
-	return snapPeriod(parsePeriod(asked ?? fallback, today), view);
+	return viewedPeriod(asked, today, fallback, view);
 }
 
 /** The name of the viewer's own View as row ("Owner", "Finance admin", "Admin"). */

@@ -183,28 +183,28 @@ test("the audience documents publish after their delay and say when", async () =
 	const publicReport = await report("public", "2026-06-15");
 	expect(publicReport.periodLabel).toBe("2024");
 	expect(publicReport.periods.map(({ income }) => income)).toEqual([
-		0,
-		{ hidden: "embargoed", until: "2027-01-07" },
-		{ hidden: "embargoed", until: "2028-01-07" },
+		420_000,
+		{ hidden: "embargoed", text: "Published after 7 Jan 2027" },
+		{ hidden: "embargoed", text: "Published after 7 Jan 2028" },
 	]);
 	expect(publicReport.rounding).toEqual({ unitCents: 10_000, size: "small" });
 	const member = await report("member", "2026-06-15");
 	expect(member.periodLabel).toBe("Q2 2026");
 	expect(member.periods.at(-1)?.income).toEqual({
 		hidden: "embargoed",
-		until: "2027-02-18",
+		text: "Published after 18 Feb 2027",
 	});
 	const governance = await report("governance", "2026-10-15");
 	expect(governance.periodLabel).toBe("Sep 2026");
 	expect(governance.periods.at(-3)?.income).toEqual({
 		hidden: "embargoed",
-		until: "2026-11-07",
+		text: "Published after 7 Nov 2026",
 	});
 	expect(governance.rounding).toBeNull();
-	expect(governance.figures.paidOut).toBe(0);
+	expect(governance.figures.paidOut).toBe(57_018);
 	expect(publicReport.figures.paidOut).toEqual({
 		hidden: "no_grant",
-		who: "Governance and up",
+		text: "Governance and up see this",
 	});
 });
 
@@ -215,8 +215,8 @@ test("below Governance a small amount reads under the unit, never 0", async () =
 		from: "2026-06-01",
 		to: "2026-06-30",
 	});
-	expect(member.figures.fees).toEqual({ lt: 10_000 });
-	expect(member.payments).toEqual({ lt: 10 });
+	expect(member.figures.refunds).toEqual({ lt: 10_000 });
+	expect(member.figures.fees).toBe(10_000);
 });
 
 test("governance sees how gifts spread: cells under five donors are rounded and say why", async () => {

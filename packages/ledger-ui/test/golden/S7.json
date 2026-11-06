@@ -2320,37 +2320,31 @@
 		},
 		{
 			"id": "gate-plans-revenue-public",
-			"source": "mockup plans(): each plan's members and monthly revenue are hidWho(revenue_by_tier, breakdown) for Public and Member; smoke 'ranked 7: public preview shows only plans on sale and Governance and up for the breakdown'; the owner of Vibes of Light previews as=public",
+			"source": "mockup plans(): each plan's members and monthly revenue are hidWho(revenue_by_tier, breakdown) for Public and Member; smoke 'ranked 7: public preview shows only plans on sale and Governance and up for the breakdown'; the owner of Vibes of Light previews as=public Final whole-app panel (Opus, Fable): the mockup draws no plans-revenue lock panel; its notice is the kplnote line plus a lock in each cell, so the panel is absent.",
 			"route": "#/vol/plans?as=public&theme=light",
 			"covers": {
 				"surface": "plans-revenue",
 				"as": "public"
 			},
 			"expect": {
-				"text": {
-					"[data-test=lock-panel][data-surface=plans-revenue] [data-test=lock-who]": "Governance and up see this",
-					"[data-test=lock-panel][data-surface=plans-revenue] [data-test=lock-when]": "Governance sees breakdown by month"
-				},
+				"text": {},
 				"count": {
-					"[data-test=lock-panel][data-surface=plans-revenue][data-lock=no_grant]": 1
+					"[data-surface=plans-revenue]": 0
 				}
 			}
 		},
 		{
 			"id": "gate-plans-revenue-member",
-			"source": "mockup plans(): each plan's members and monthly revenue are hidWho(revenue_by_tier, breakdown) for Public and Member; smoke 'ranked 7: public preview shows only plans on sale and Governance and up for the breakdown'; the owner of Vibes of Light previews as=member",
+			"source": "mockup plans(): each plan's members and monthly revenue are hidWho(revenue_by_tier, breakdown) for Public and Member; smoke 'ranked 7: public preview shows only plans on sale and Governance and up for the breakdown'; the owner of Vibes of Light previews as=member Final whole-app panel (Opus, Fable): the mockup draws no plans-revenue lock panel; its notice is the kplnote line plus a lock in each cell, so the panel is absent.",
 			"route": "#/vol/plans?as=member&theme=light",
 			"covers": {
 				"surface": "plans-revenue",
 				"as": "member"
 			},
 			"expect": {
-				"text": {
-					"[data-test=lock-panel][data-surface=plans-revenue] [data-test=lock-who]": "Governance and up see this",
-					"[data-test=lock-panel][data-surface=plans-revenue] [data-test=lock-when]": "Governance sees breakdown by month"
-				},
+				"text": {},
 				"count": {
-					"[data-test=lock-panel][data-surface=plans-revenue][data-lock=no_grant]": 1
+					"[data-surface=plans-revenue]": 0
 				}
 			}
 		},
@@ -2407,16 +2401,17 @@
 		},
 		{
 			"id": "gate-plans-revenue-admin",
-			"source": "mockup plans() for the Admin row: noRev 'Finance or governance only' (no_grant); the banner says their books follow their own membership",
+			"source": "mockup plans() for the Admin row: noRev 'Finance or governance only' (no_grant); the banner says their books follow their own membership Final whole-app panel (Opus, Fable): the mockup draws no plans-revenue lock panel; its notice is the kplnote line plus a lock in each cell, so the panel is absent.",
 			"route": "#/vol/plans?as=admin&theme=light",
 			"expect": {
-				"text": {
-					"[data-test=lock-panel][data-surface=plans-revenue] [data-test=lock-who]": "Finance or governance only"
-				},
+				"text": {},
 				"contains": {
 					"[data-test=preview-banner]": [
 						"Preview: this is what Admin sees. You are Owner. Their books follow their own membership: shown as Member. Writes are off."
 					]
+				},
+				"count": {
+					"[data-surface=plans-revenue]": 0
 				}
 			}
 		},
@@ -2596,7 +2591,7 @@
 		},
 		{
 			"id": "view-as-choose-public-plans",
-			"source": "mockup setVa('public') on Plans: the tab re-renders in place with the revenue lock",
+			"source": "mockup setVa('public') on Plans: the tab re-renders in place with the revenue lock Final whole-app panel (Opus, Fable): the mockup draws no plans-revenue lock panel; its notice is the kplnote line plus a lock in each cell, so the panel is absent.",
 			"route": "#/vol/plans?theme=light",
 			"steps": [
 				{
@@ -2608,8 +2603,9 @@
 			],
 			"expect": {
 				"hash": "as=public",
-				"text": {
-					"[data-test=lock-panel][data-surface=plans-revenue] [data-test=lock-who]": "Governance and up see this"
+				"text": {},
+				"count": {
+					"[data-surface=plans-revenue]": 0
 				}
 			}
 		},

@@ -216,11 +216,9 @@ function BalanceCard({
 				</div>
 			</div>
 			<Bar balance={balance} />
-			{!plan.ended && (
-				<div class="mp-muted" style="margin-top:8px">
-					Your allowance refreshes on {plan.endsOn}.
-				</div>
-			)}
+			<div class="mp-muted" style="margin-top:8px">
+				Your allowance refreshes on {plan.endsOn}.
+			</div>
 		</div>
 	);
 }

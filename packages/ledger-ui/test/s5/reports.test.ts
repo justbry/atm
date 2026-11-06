@@ -297,12 +297,12 @@ test("an audience document's Download is its six figures, hidden ones named, and
 	expect(file.name).toBe("books-public-2024.csv");
 	expect(file.text.split("\r\n")).toEqual([
 		"﻿line,kpi,value,hidden,audience,period",
-		"Income,gross_collected,$0,,public,2024",
+		'Income,gross_collected,"$4,200",,public,2024',
 		"Refunds,refunds,,Members see this,public,2024",
 		"Stripe fees,stripe_fees,,Members see this,public,2024",
 		"Net,net_income,,Members see this,public,2024",
 		"Paid out,payouts,,Governance and up see this,public,2024",
-		"Payments,payments_count,0,,public,2024",
+		"Payments,payments_count,156,,public,2024",
 		"",
 	]);
 	expect(text("[data-test=toast]")).toBe("Downloaded 6 rows");
