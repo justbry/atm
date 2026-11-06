@@ -55,6 +55,7 @@ export const createStore = ({
 	policyVersion = 1,
 	start,
 	onHandled,
+	commandPrefix = "",
 }: {
 	menu: Menu;
 	school: string;
@@ -65,6 +66,11 @@ export const createStore = ({
 	start?: { rows: BillingRow[]; revision: number };
 	/** Called with each input and its result, before the rows move on: a test checks another path against `handleStripeEvent`. */
 	onHandled?: (input: StripeEventInput, result: StripeEventResult) => void;
+	/**
+	 * Put before every command id this store makes. Command ids name one command for the whole school (the outbox keys
+	 * `engine:<commandId>:…` per school), so a school with many stores needs a prefix per subject.
+	 */
+	commandPrefix?: string;
 }) => {
 	const holder = `family:${family}`;
 	const identity = {
@@ -154,8 +160,8 @@ export const createStore = ({
 				schemaVersion: 1,
 				type: "updateBalance",
 				org: { config: {} },
-				commandId: `spend_${spends}`,
-				requestId: `spend_${spends}`,
+				commandId: `${commandPrefix}spend_${spends}`,
+				requestId: `${commandPrefix}spend_${spends}`,
 				identity,
 				occurredAt: at,
 				featureId: feature,
@@ -205,8 +211,8 @@ export const createStore = ({
 				schemaVersion: 1,
 				type,
 				org: { config: {} },
-				commandId: `${type}_${spends}`,
-				requestId: `${type}_${spends}`,
+				commandId: `${commandPrefix}${type}_${spends}`,
+				requestId: `${commandPrefix}${type}_${spends}`,
 				identity,
 				occurredAt: at,
 				...fields,
