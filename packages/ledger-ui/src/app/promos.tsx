@@ -17,6 +17,7 @@ import { formatPeriod } from "./period.ts";
 import { type Route, withQuery } from "./route.ts";
 import { useLoaded } from "./use-loaded.ts";
 import { useViewing } from "./viewing.ts";
+import { capitalise } from "./wording.ts";
 
 const previewTitle = "Exit preview to act";
 const copyFailedToast =
@@ -24,8 +25,6 @@ const copyFailedToast =
 const minimumNoteLength = 3;
 const defaultValue = "10";
 
-const capitalise = (word: string): string =>
-	`${word.slice(0, 1).toUpperCase()}${word.slice(1)}`;
 const countOf = (count: number, unit: CreditUnit): string =>
 	`${count} ${count === 1 ? unit.one : unit.other}`;
 
@@ -163,7 +162,6 @@ function PromoForm({
 					type="number"
 					step="0.01"
 					data-test="promo-value-input"
-					defaultValue={defaultValue}
 					value={value}
 					onInput={(event) => setValue(event.currentTarget.value)}
 				/>
@@ -174,7 +172,6 @@ function PromoForm({
 					id={`${ids}-expires`}
 					type="date"
 					data-test="promo-expires-input"
-					defaultValue={defaultExpires}
 					value={expires}
 					onInput={(event) => setExpires(event.currentTarget.value)}
 				/>
@@ -345,7 +342,8 @@ export function Promos({
 }: BooksPaneProps): JSX.Element | null {
 	const { option, preview: previewing } = useViewing();
 	const { audience } = option;
-	const admin = seesIdentities(audience);
+	const { admin } = option;
+	const finance = seesIdentities(audience);
 	const owner = school.role === "owner";
 	const [loaded, change] = useLoaded(`${school.id}|${audience}`, () =>
 		reader.promos({ school: school.id, audience }),
@@ -536,9 +534,9 @@ export function Promos({
 										type="button"
 										class="btn s"
 										data-test="promo-redemptions"
-										disabled={!admin}
+										disabled={!finance}
 										title={
-											admin
+											finance
 												? undefined
 												: "Finance admins only: lists who redeemed"
 										}

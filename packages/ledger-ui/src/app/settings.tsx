@@ -1,29 +1,5 @@
 import type { ComponentChildren, JSX } from "preact";
-import { useEffect, useId, useState } from "preact/hooks";
-import {
-	applyOverride,
-	audienceNames,
-	checkOverride,
-	classOf,
-	type DetailStep,
-	type DisclosureChange,
-	type DisclosureDelay,
-	type DisclosureGrain,
-	type DisclosureOverride,
-	type DisclosureRule,
-	disclosureCell,
-	disclosureMessages,
-	editOverride,
-	initialOverrideSelection,
-	type KpiClass,
-	kpiClasses,
-	kpiClassNames,
-	type OverrideEdit,
-	type OverrideSelection,
-	type RuledAudience,
-	type RuledClass,
-	ruledAudiences,
-} from "../data/disclosure.ts";
+import { useEffect, useState } from "preact/hooks";
 import type { Reader } from "../data/reader.ts";
 import {
 	type AccountingBasis,
@@ -40,37 +16,26 @@ import {
 } from "../data/settings.ts";
 import type { School } from "../data/types.ts";
 import type { Writer } from "../data/writer.ts";
-import { Dialog } from "./dialog.tsx";
 import { Icon, type IconName } from "./icon.tsx";
 import { LockPanel } from "./lock-panel.tsx";
+import { formatMoney } from "./money.ts";
 import { monthAndDay } from "./period.ts";
 import { Popover } from "./popover.tsx";
+import { BooksSection } from "./settings-books.tsx";
+import {
+	Field,
+	type Section,
+	SettingsDialog,
+	saveFailed,
+} from "./settings-shared.tsx";
 import { keepLoading } from "./use-loaded.ts";
 import { exitPreviewTitle, type Viewing } from "./viewing.ts";
-
-const currencySymbols: Record<string, string> = { USD: "$", CAD: "C$" };
-const minorUnitsPerUnit = 100;
-const saveFailed = "Could not save. Try again.";
-const disclosureSavedToast =
-	"Disclosure saved. Logged as books.disclosure_changed; applies from the next document build.";
 
 /** The school's money without decimals, as the mockup's `kusd0` writes it; minor units in. */
 const moneyOf =
 	(currency: string) =>
 	(minorUnits: number): string =>
-		`${currencySymbols[currency] ?? `${currency} `}${Math.round(minorUnits / minorUnitsPerUnit).toLocaleString("en-US")}`;
-
-type Section = {
-	school: School;
-	writer: Writer;
-	settings: SettingsData;
-	update: (change: (current: SettingsData) => SettingsData) => void;
-	/** Owners change settings; an admin reads them; while previewing, nothing is written. */
-	writeOff: { disabled: boolean; title: string | undefined };
-	money: (minorUnits: number) => string;
-	onToast: (text: string) => void;
-	onModal: (modal: ComponentChildren) => void;
-};
+		formatMoney(minorUnits, currency, true);
 
 /** The drawer's note on All schools (mockup `settings()`). */
 export function AllSchoolsNote(): JSX.Element {
@@ -78,126 +43,6 @@ export function AllSchoolsNote(): JSX.Element {
 		<div class="prev settings-all-note" data-test="settings-all-note">
 			<Icon name="info" /> Accounting, keys and connections are set per school.
 			Open a school to change them.
-		</div>
-	);
-}
-
-/** A dialog over the drawer (mockup `#md`): a title, a body, Cancel and the confirming action. Escape, a click on the
- * backdrop and Cancel close it; Tab stays inside; focus starts on the first field, else on the first button. The
- * action stays busy until it answers, and says so if it fails. */
-function SettingsDialog({
-	title,
-	icon,
-	children,
-	confirm,
-	extra,
-	onCancel,
-	cancelable = true,
-}: {
-	title: string;
-	icon?: IconName;
-	children: ComponentChildren;
-	confirm: {
-		label: string;
-		icon?: IconName;
-		danger?: boolean;
-		disabled?: boolean;
-		onConfirm: () => Promise<void> | void;
-	};
-	extra?: ComponentChildren;
-	onCancel: () => void;
-	/** False for a dialog with only its closing button. */
-	cancelable?: boolean;
-}): JSX.Element {
-	const [busy, setBusy] = useState(false);
-	const [failed, setFailed] = useState(false);
-	const run = async (): Promise<void> => {
-		setBusy(true);
-		setFailed(false);
-		try {
-			await confirm.onConfirm();
-		} catch {
-			setFailed(true);
-		}
-		setBusy(false);
-	};
-	return (
-		<Dialog
-			title={
-				<>
-					{icon && <Icon name={icon} />} {title}
-				</>
-			}
-			onClose={onCancel}
-		>
-			{children}
-			{failed && (
-				<div class="err" role="alert">
-					{saveFailed}
-				</div>
-			)}
-			<div class="mf">
-				{extra}
-				{cancelable && (
-					<button
-						type="button"
-						class="btn"
-						data-test="dialog-cancel"
-						onClick={onCancel}
-					>
-						Cancel
-					</button>
-				)}
-				<button
-					type="button"
-					class={confirm.danger ? "btn d" : "btn p"}
-					data-test="dialog-confirm"
-					disabled={busy || confirm.disabled}
-					aria-busy={busy || undefined}
-					onClick={run}
-				>
-					{confirm.icon && <Icon name={confirm.icon} />}
-					{confirm.label}
-				</button>
-			</div>
-		</Dialog>
-	);
-}
-
-/** A labelled field of a dialog (hook `dialog-field`, by `data-field`). */
-function Field({
-	label,
-	field,
-	value,
-	onInput,
-	placeholder,
-	secret = true,
-	numeric = false,
-}: {
-	label: string;
-	field: "label" | "key" | "pin" | "apiKey";
-	value: string;
-	onInput: (value: string) => void;
-	placeholder?: string;
-	secret?: boolean;
-	numeric?: boolean;
-}): JSX.Element {
-	const id = useId();
-	return (
-		<div class="fld">
-			<label for={id}>{label}</label>
-			<input
-				id={id}
-				type={secret ? "password" : "text"}
-				inputMode={numeric ? "numeric" : undefined}
-				maxLength={numeric ? 6 : undefined}
-				autoComplete="off"
-				placeholder={placeholder}
-				data-test="dialog-field"
-				data-field={field}
-				value={value}
-				onInput={(event) => onInput(event.currentTarget.value)}
-			/>
 		</div>
 	);
 }
@@ -327,513 +172,8 @@ function BasisSection({
 	);
 }
 
-const detailChoices: DetailStep[] = [
-	"total",
-	"categories",
-	"breakdown",
-	"spread",
-];
-const everyChoices: DisclosureGrain[] = ["year", "quarter", "month"];
-const afterChoices: DisclosureDelay[] = [
-	"6 weeks",
-	"3 months",
-	"12 months",
-	"24 months",
-];
-const roundChoices = [1000, 10_000, 100_000, 1_000_000];
-const ruleClasses = kpiClasses.filter(
-	(kpiClass): kpiClass is RuledClass => kpiClass !== "personal",
-);
-const changeTable: Array<[string, string, string]> = [
-	["Stricter", "Owner", "PIN open"],
-	["More open for Member or Governance", "Owner", "PIN open"],
-	[
-		"More open for Public",
-		"Owner",
-		"PIN and the mailed-link step-up (it publishes); audited",
-	],
-	["Below the floor", "Nobody", "Refused"],
-];
-const changeNotes: Record<Exclude<DisclosureChange, "none">, string> = {
-	stricter:
-		"This is stricter than today. Already-published documents for periods still inside their delay are withdrawn. It applies from the next document build.",
-	open: "This makes the Member or Governance document more open. It applies from the next document build.",
-	public_open:
-		"This makes the Public document more open. After your PIN, a mailed link confirms it: it publishes your books. It applies from the next document build.",
-};
-
-/** A table cell of the disclosure: "—" muted, "(as Public)" muted. */
-function DisclosureCell({
-	text,
-	kpiClass,
-	audience,
-}: {
-	text: string;
-	kpiClass: KpiClass;
-	audience: string;
-}): JSX.Element {
-	const inherited = text.indexOf(" (as ");
-	return (
-		<td
-			data-test="disclosure-cell"
-			data-class={kpiClass}
-			data-audience={audience}
-		>
-			{text === "—" && <span class="mut">—</span>}
-			{text !== "—" && inherited < 0 && text}
-			{inherited >= 0 && (
-				<>
-					{text.slice(0, inherited)}{" "}
-					<span class="mut">{text.slice(inherited + 1)}</span>
-				</>
-			)}
-		</td>
-	);
-}
-
-/** One select of the override editor. */
-function OverrideSelect({
-	field,
-	label,
-	value,
-	options,
-	disabled,
-	onChange,
-}: {
-	field: string;
-	label: string;
-	value: string;
-	options: Array<[string, string]>;
-	disabled: boolean;
-	onChange: (value: string) => void;
-}): JSX.Element {
-	const id = useId();
-	return (
-		<div>
-			<label for={id} data-test="override-label" data-field={field}>
-				{label}
-			</label>
-			<select
-				id={id}
-				data-test="override-field"
-				data-field={field}
-				disabled={disabled}
-				onInput={(event) => onChange(event.currentTarget.value)}
-			>
-				{options.map(([optionValue, text]) => (
-					<option
-						key={optionValue}
-						value={optionValue}
-						selected={optionValue === value}
-					>
-						{text}
-					</option>
-				))}
-			</select>
-		</div>
-	);
-}
-
-/** Save the disclosure change: the PIN first (mockup `dovSave`). */
-function PinDialog({
-	change,
-	onSave,
-	onCancel,
-}: {
-	change: Exclude<DisclosureChange, "none">;
-	onSave: (pin: string) => Promise<void>;
-	onCancel: () => void;
-}): JSX.Element {
-	const [pin, setPin] = useState("");
-	return (
-		<SettingsDialog
-			title="Save the disclosure change"
-			icon="lock"
-			confirm={{
-				label: "Confirm with PIN",
-				icon: "check",
-				disabled: pin.length < pinMinimumLength,
-				onConfirm: () => onSave(pin),
-			}}
-			onCancel={onCancel}
-		>
-			<p class="mut">{changeNotes[change]}</p>
-			<Field
-				label="Your family PIN"
-				field="pin"
-				value={pin}
-				onInput={setPin}
-				numeric
-			/>
-		</SettingsDialog>
-	);
-}
-
-function BooksSection({
-	school,
-	writer,
-	money,
-	onToast,
-	onModal,
-	viewing,
-}: Section & { viewing: Viewing }): JSX.Element {
-	const { disclosure } = viewing;
-	const { file, size, year } = disclosure;
-	const own = viewing.option.value === "owner";
-	const [saved, setSaved] = useState<DisclosureOverride>(disclosure.override);
-	const [draft, setDraft] = useState<DisclosureOverride>(disclosure.override);
-	const [selection, setSelection] = useState<OverrideSelection>(
-		initialOverrideSelection,
-	);
-	const effective = applyOverride(file, draft);
-	const check = checkOverride(file, saved, draft, money);
-	const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
-	const rule: Partial<DisclosureRule> =
-		effective.disclose[selection.ruleClass]?.[selection.ruleAudience] ?? {};
-	const kpis = ruleClasses.flatMap((kpiClass) => file.classes[kpiClass]);
-	const edit = (change: OverrideEdit): void =>
-		setDraft(editOverride(file, draft, selection, size, change));
-	const closeModal = (): void => onModal(null);
-	const applied = (): void => {
-		setSaved(draft);
-		closeModal();
-		onToast(disclosureSavedToast);
-	};
-	const askForLink = (minutes: number): void =>
-		onModal(
-			<SettingsDialog
-				title="Confirm by email: this publishes your books"
-				icon="mail"
-				confirm={{
-					label: "I opened the link",
-					icon: "check",
-					onConfirm: async () => {
-						await writer.confirmDisclosureStepUp({ school: school.id });
-						applied();
-					},
-				}}
-				onCancel={closeModal}
-			>
-				<p class="mut">
-					Public would see more, sooner or finer than today, and anyone can read
-					it.
-				</p>
-				<div class="prev">
-					<Icon name="clock" /> A link was mailed to confirm: this publishes
-					your books. Nothing changes until you open it. The link works once and
-					expires in {minutes} minutes.
-				</div>
-			</SettingsDialog>,
-		);
-	const askForPin = (): void => {
-		const [first] = check.errors;
-		if (first) {
-			onToast(`Refused: 400 ${first.code}`);
-			return;
-		}
-		const { change } = check;
-		if (change === "none") return;
-		onModal(
-			<PinDialog
-				change={change}
-				onCancel={closeModal}
-				onSave={async (pin) => {
-					const result = await writer.saveDisclosure({
-						school: school.id,
-						override: draft,
-						pin,
-					});
-					if (result.status === "step_up") askForLink(result.expiresInMinutes);
-					else applied();
-				}}
-			/>,
-		);
-	};
-	let message: ComponentChildren;
-	if (check.errors.length > 0)
-		message = check.errors.map(({ code, text }) => (
-			<div key={`${code}${text}`} class="err">
-				<Icon name="xCircle" /> 400 {code}: {text}
-			</div>
-		));
-	else if (dirty && check.change !== "none")
-		message = (
-			<div class="ok">
-				<Icon name="check" /> {disclosureMessages[check.change]}
-			</div>
-		);
-	else
-		message = (
-			<div class="mut">
-				{Object.keys(saved).length > 0
-					? `${disclosureMessages.noChange.slice(0, -1)}${disclosureMessages.savedOverrideSuffix}.`
-					: disclosureMessages.noChange}
-			</div>
-		);
-
-	return (
-		<>
-			<h5 data-test="settings-section" data-section="books">
-				<Icon name="eye" /> School books{" "}
-				<span class="mut section-note">who sees what, how fine, how soon</span>
-			</h5>
-			<p class="mut books-intro" data-test="books-intro">
-				From the disclosure file (<span class="mono">disclosure.v1.json</span>,
-				B4 Uni policy) and this school's override. Finance admins and the owner
-				always see everything, names included.
-			</p>
-			<div class="kdtw">
-				<table class="kdt">
-					<thead>
-						<tr>
-							<th>Class</th>
-							<th>KPIs</th>
-							{ruledAudiences.map((audience) => (
-								<th key={audience}>{audienceNames[audience]}</th>
-							))}
-							<th>Finance · Owner</th>
-						</tr>
-					</thead>
-					<tbody>
-						{kpiClasses.map((kpiClass) => (
-							<tr
-								key={kpiClass}
-								data-test="disclosure-row"
-								data-class={kpiClass}
-							>
-								<td>
-									<b>{kpiClassNames[kpiClass]}</b>
-								</td>
-								<td
-									class="mono kdk"
-									data-test="disclosure-kpis"
-									data-class={kpiClass}
-								>
-									{effective.classes[kpiClass].join(", ")}
-								</td>
-								{ruledAudiences.map((audience) => (
-									<DisclosureCell
-										key={audience}
-										kpiClass={kpiClass}
-										audience={audience}
-										text={disclosureCell(effective, kpiClass, audience)}
-									/>
-								))}
-								<DisclosureCell
-									kpiClass={kpiClass}
-									audience="finance"
-									text="names · live"
-								/>
-							</tr>
-						))}
-					</tbody>
-				</table>
-			</div>
-			<p class="mut rounding-note" data-test="rounding-note">
-				Money for Public and Member is rounded by school size: under{" "}
-				{money(file.rounding.largeFrom)} of income in the last closed year,{" "}
-				{money(file.rounding.small.public)} for both; from{" "}
-				{money(file.rounding.largeFrom)}, {money(file.rounding.large.public)}{" "}
-				for Public and {money(file.rounding.large.member)} for Member.
-				Governance and up: exact.{" "}
-				<b>
-					{school.name} is {size}
-				</b>{" "}
-				for {year} (fixed on 1 Jan {year}).
-			</p>
-			{!own && (
-				<div class="lock" data-test="books-readonly">
-					<Icon name="lock" /> Owners change the disclosure. You can read it.
-				</div>
-			)}
-			<div class="kbp">
-				<b>Override</b>
-				<div class="kbhint">
-					A school may move a KPI between the six classes or make rules
-					stricter. Below the floor is refused.
-				</div>
-				<div class="two">
-					<OverrideSelect
-						field="kpi"
-						label="Move a KPI"
-						value={selection.kpi}
-						options={kpis.map((kpi) => [kpi, kpi])}
-						disabled={!own}
-						onChange={(kpi) => setSelection({ ...selection, kpi })}
-					/>
-					<OverrideSelect
-						field="class"
-						label="to class"
-						value={classOf(effective, selection.kpi) ?? ""}
-						options={kpiClasses.map((kpiClass) => [
-							kpiClass,
-							kpiClassNames[kpiClass],
-						])}
-						disabled={!own}
-						onChange={(value) =>
-							edit({ field: "class", value: value as KpiClass })
-						}
-					/>
-				</div>
-				<div class="two">
-					<OverrideSelect
-						field="rule-class"
-						label="Rule for class"
-						value={selection.ruleClass}
-						options={ruleClasses.map((kpiClass) => [
-							kpiClass,
-							kpiClassNames[kpiClass],
-						])}
-						disabled={!own}
-						onChange={(value) =>
-							setSelection({ ...selection, ruleClass: value as RuledClass })
-						}
-					/>
-					<OverrideSelect
-						field="rule-audience"
-						label="audience"
-						value={selection.ruleAudience}
-						options={ruledAudiences.map((audience) => [
-							audience,
-							audienceNames[audience],
-						])}
-						disabled={!own}
-						onChange={(value) =>
-							setSelection({
-								...selection,
-								ruleAudience: value as RuledAudience,
-							})
-						}
-					/>
-				</div>
-				<div class="two kdr3">
-					<OverrideSelect
-						field="detail"
-						label="Detail"
-						value={rule.detail ?? ""}
-						options={[
-							["", "(inherit or none)"],
-							...detailChoices.map((step): [string, string] => [step, step]),
-						]}
-						disabled={!own}
-						onChange={(value) =>
-							edit({ field: "detail", value: value as DetailStep | "" })
-						}
-					/>
-					<OverrideSelect
-						field="every"
-						label="Every"
-						value={rule.every ?? "quarter"}
-						options={everyChoices.map((grain) => [grain, grain])}
-						disabled={!own}
-						onChange={(value) =>
-							edit({ field: "every", value: value as DisclosureGrain })
-						}
-					/>
-					<OverrideSelect
-						field="after"
-						label="After"
-						value={rule.after ?? ""}
-						options={[
-							["", "at close"],
-							...afterChoices.map((delay): [string, string] => [delay, delay]),
-						]}
-						disabled={!own}
-						onChange={(value) =>
-							edit({ field: "after", value: value as DisclosureDelay | "" })
-						}
-					/>
-				</div>
-				<div class="two">
-					<OverrideSelect
-						field="round"
-						label={`Round Public (${size} school) to`}
-						value={String(effective.rounding[size].public)}
-						options={roundChoices.map((units): [string, string] => [
-							String(units),
-							money(units),
-						])}
-						disabled={!own}
-						onChange={(value) => edit({ field: "round", value: Number(value) })}
-					/>
-					<div />
-				</div>
-				{/* biome-ignore lint/a11y/useSemanticElements: the validator's line holds block children; an output element is inline */}
-				<div
-					class="kmsg"
-					role="status"
-					aria-live="polite"
-					data-test="override-message"
-				>
-					{message}
-				</div>
-				<div class="kdcust" aria-disabled="true" data-test="custom-audiences">
-					<Icon name="plus" />
-					<span>
-						<b>Custom audiences: later</b>{" "}
-						<span class="mut">
-							A school-defined audience (a donor tier) is allowed by the schema
-							from version 1, not accepted in the first release.
-						</span>
-					</span>
-					<button
-						type="button"
-						class="btn s"
-						disabled
-						title="Not in the first release"
-					>
-						Add audience
-					</button>
-				</div>
-				<table class="kdperm">
-					<thead>
-						<tr>
-							<th>Change</th>
-							<th>Who</th>
-							<th>Check</th>
-						</tr>
-					</thead>
-					<tbody>
-						{changeTable.map(([change, who, rowCheck]) => (
-							<tr key={change} data-test="disclosure-change-row">
-								<td>{change}</td>
-								<td>{who}</td>
-								<td>{rowCheck}</td>
-							</tr>
-						))}
-					</tbody>
-				</table>
-				{own && (
-					<div class="row2">
-						<button
-							type="button"
-							class="btn"
-							data-test="disclosure-reset"
-							disabled={!dirty}
-							onClick={() => setDraft(saved)}
-						>
-							<Icon name="undo" />
-							Reset
-						</button>
-						<button
-							type="button"
-							class="btn p"
-							data-test="disclosure-save"
-							disabled={
-								!dirty || check.errors.length > 0 || check.change === "none"
-							}
-							onClick={askForPin}
-						>
-							<Icon name="check" />
-							Check and save
-						</button>
-					</div>
-				)}
-			</div>
-		</>
-	);
-}
-
+const copyFailedToast =
+	"Could not copy: the browser blocked the clipboard. Select the text and copy it by hand.";
 const keyNames: Record<ApiKeyKind, string> = {
 	pk: "publishable key",
 	sk: "secret key",
@@ -900,9 +240,24 @@ function KeyCreatedDialog({
 	onDone: () => void;
 	onToast: (text: string) => void;
 }): JSX.Element {
-	const copyButton = (label: string, toast: string): JSX.Element => (
+	const copyButton = (
+		label: string,
+		text: string,
+		toast: string,
+	): JSX.Element => (
 		<div class="row2">
-			<button type="button" class="btn p" onClick={() => onToast(toast)}>
+			<button
+				type="button"
+				class="btn p"
+				onClick={async () => {
+					try {
+						await navigator.clipboard.writeText(text);
+						onToast(toast);
+					} catch {
+						onToast(copyFailedToast);
+					}
+				}}
+			>
 				<Icon name="copy" />
 				{label}
 			</button>
@@ -910,6 +265,7 @@ function KeyCreatedDialog({
 	);
 	if (created.kind === "rd") {
 		const { endpoint, bucket, prefix, keyId, secret } = created.credential;
+		const credentialText = `endpoint  ${endpoint}\nbucket    ${bucket}\nprefix    ${prefix}\nkey id    ${keyId}\nsecret    ${secret}`;
 		return (
 			<SettingsDialog
 				title="Credential created"
@@ -918,10 +274,8 @@ function KeyCreatedDialog({
 				onCancel={onDone}
 			>
 				<div class="mut">The secret is shown once.</div>
-				<div class="pre">
-					{`endpoint  ${endpoint}\nbucket    ${bucket}\nprefix    ${prefix}\nkey id    ${keyId}\nsecret    ${secret}`}
-				</div>
-				{copyButton("Copy all", "Credential copied.")}
+				<div class="pre">{credentialText}</div>
+				{copyButton("Copy all", credentialText, "Credential copied.")}
 			</SettingsDialog>
 		);
 	}
@@ -934,7 +288,7 @@ function KeyCreatedDialog({
 		>
 			<div class="mut">Shown once. Copy it now.</div>
 			<div class="codebig mono">{created.secret}</div>
-			{copyButton("Copy key", "Key copied.")}
+			{copyButton("Copy key", created.secret, "Key copied.")}
 			<p class="mut">
 				Only the SHA-256 and the first 15 characters are stored.
 			</p>

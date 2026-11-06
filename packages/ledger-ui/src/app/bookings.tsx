@@ -29,10 +29,10 @@ import { LockPanel } from "./lock-panel.tsx";
 import { formatMoney } from "./money.ts";
 import type { PaneProps } from "./panes.tsx";
 import { addDays, monthAndDay, weekdayName } from "./period.ts";
-import { plural } from "./plural.ts";
 import { type Route, withQuery } from "./route.ts";
 import { keepLoading } from "./use-loaded.ts";
 import { exitPreviewTitle, useViewing } from "./viewing.ts";
+import { plural } from "./wording.ts";
 
 type Filter = "outcome" | "approval" | "cutoff";
 type View = BookingsPeriod & { filter: Filter | null };

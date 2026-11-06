@@ -22,7 +22,12 @@ type PopoverProps = {
 	panelClass?: string;
 	panelId?: string;
 	/** The panel's role and name, when the panel itself is the popup (the period dialog, the View as list). */
-	panel?: { role: "dialog" | "listbox"; "aria-label": string };
+	panel?: {
+		role: "dialog" | "listbox";
+		"aria-label": string;
+		/** The ids of text inside the panel that is not part of what its role holds (the View as notes). */
+		"aria-describedby"?: string;
+	};
 	/** The id the open trigger's `aria-controls` names, when the popup sits inside the panel (the switcher's
 	 * listbox). */
 	controls?: string;

@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { mountApp } from "../../src/app/mount.tsx";
 import { createFixtureReader } from "../../src/fixtures/reader.ts";
 import { createFixtureWriter } from "../../src/fixtures/writer.ts";
@@ -175,4 +176,116 @@ test("a viewer below the admins gets the lock panel in place of the table, whoev
 	expect(count("[data-test=lock-panel][data-surface=settings-books]")).toBe(1);
 	expect(count("[data-test=disclosure-cell]")).toBe(0);
 	expect(count("[data-test=override-field]")).toBe(0);
+});
+
+test("a Canadian school's settings write money as C$, from the same rule as every other figure", async () => {
+	await open("#/map/plans");
+	await click("[data-test=settings-button]");
+	expect(text("[data-test=basis-note]")).toContain("C$");
+	expect(text("[data-test=rounding-note]")).toContain("C$");
+	expect(text("[data-test=rounding-note]")).not.toContain("CA$");
+});
+
+test("Copy key and Copy all write to the clipboard, then toast; a refused clipboard gets an honest failure toast", async () => {
+	const copied: string[] = [];
+	let allowed = true;
+	Object.defineProperty(navigator, "clipboard", {
+		configurable: true,
+		value: {
+			writeText: (value: string) => {
+				if (!allowed) return Promise.reject(new Error("blocked"));
+				copied.push(value);
+				return Promise.resolve();
+			},
+		},
+	});
+	try {
+		await open("#/vol/plans");
+		await click("[data-test=settings-button]");
+		await click("[data-test=key-create]");
+		await click("[data-test=key-create-option][data-kind=sk]");
+		await fill("[data-test=dialog-field][data-field=label]", "Server");
+		await click("[data-test=dialog-confirm]");
+		const secret = text(".codebig");
+		await click("[data-test=dialog] .row2 button");
+		expect(copied).toEqual([secret]);
+		expect(text("[data-test=toast]")).toBe("Key copied.");
+		allowed = false;
+		await click("[data-test=dialog] .row2 button");
+		expect(copied).toEqual([secret]);
+		expect(text("[data-test=toast]")).toStartWith("Could not copy");
+		await click("[data-test=dialog-confirm]");
+
+		allowed = true;
+		await click("[data-test=key-create]");
+		await click("[data-test=key-create-option][data-kind=rd]");
+		await fill("[data-test=dialog-field][data-field=label]", "Reader");
+		await click("[data-test=dialog-confirm]");
+		const credential = element(".pre").textContent ?? "";
+		await click("[data-test=dialog] .row2 button");
+		expect(copied.at(-1)).toBe(credential);
+		expect(text("[data-test=toast]")).toBe("Credential copied.");
+	} finally {
+		Reflect.deleteProperty(navigator, "clipboard");
+	}
+});
+
+test("opening the drawer focuses Close without scrolling the frame", async () => {
+	const calls: Array<FocusOptions | undefined> = [];
+	const focus = HTMLElement.prototype.focus;
+	HTMLElement.prototype.focus = function (options?: FocusOptions): void {
+		if (this.classList.contains("x")) calls.push(options);
+		focus.call(this, options);
+	};
+	try {
+		await open("#/vol/plans");
+		await click("[data-test=settings-button]");
+		expect(calls).toEqual([{ preventScroll: true }]);
+	} finally {
+		HTMLElement.prototype.focus = focus;
+	}
+});
+
+test("a dialog is fixed to the viewport and capped to the screen, so its title shows wherever the page is scrolled", () => {
+	const css = readFileSync(
+		new URL("../../src/theme.css", import.meta.url),
+		"utf8",
+	);
+	expect(css).toMatch(/\.bg \{[^}]*position: fixed;/);
+	expect(css).toMatch(/\.modal \{[^}]*max-width: calc\(100vw - 24px\);/);
+});
+
+test("the PIN dialog hands the opener to the step-up dialog: focus goes back to Check and save only when the last dialog closes", async () => {
+	const returned: string[] = [];
+	const focus = HTMLElement.prototype.focus;
+	HTMLElement.prototype.focus = function (options?: FocusOptions): void {
+		if (this.getAttribute("data-test") === "disclosure-save")
+			returned.push("save");
+		focus.call(this, options);
+	};
+	try {
+		await open("#/vol/plans");
+		await click("[data-test=settings-button]");
+		await fill(
+			"[data-test=override-field][data-field=rule-audience]",
+			"public",
+		);
+		await fill("[data-test=override-field][data-field=every]", "quarter");
+		element("[data-test=disclosure-save]").focus();
+		returned.length = 0;
+		await click("[data-test=disclosure-save]");
+		await fill("[data-test=dialog-field][data-field=pin]", "1234");
+		await click("[data-test=dialog-confirm]");
+		expect(text("[data-test=dialog-title]")).toContain(
+			"Confirm by email: this publishes your books",
+		);
+		await new Promise((resolve) => setTimeout(resolve, 150));
+		expect(returned).toEqual([]);
+		await click("[data-test=dialog-confirm]");
+		await new Promise((resolve) => setTimeout(resolve, 150));
+		expect(count("[data-test=dialog]")).toBe(0);
+		expect(returned).toEqual(["save"]);
+	} finally {
+		HTMLElement.prototype.focus = focus;
+	}
 });

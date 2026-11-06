@@ -282,7 +282,14 @@ function MemberRow({
 							</>
 						)}
 					</td>
-					<td class="mut" data-test="member-expires">
+					<td
+						class={
+							!standing.endsToday && balance.expiresAt === null
+								? "mut"
+								: undefined
+						}
+						data-test="member-expires"
+					>
 						{standing.endsToday
 							? "Today"
 							: balance.expiresAt === null

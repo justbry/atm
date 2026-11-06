@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import type { IncomeStatement } from "../../src/data/ledger.ts";
 import type { Reader } from "../../src/data/reader.ts";
 import { createFixtureReader } from "../../src/fixtures/reader.ts";
@@ -207,14 +208,41 @@ test("the Reader is asked for the statement of the route's period, and the Downl
 	});
 });
 
-test("a statement line opens its events from the keyboard, and the type goes back to All", async () => {
+test("a statement line opens its events from a real button, and the row itself is not a tab stop", async () => {
 	await open("#/vol/reports");
 	const line = element("[data-test=report-line][data-line=memberships]");
-	line.dispatchEvent(
-		new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+	expect(line.hasAttribute("tabindex")).toBe(false);
+	const button = element<HTMLButtonElement>(
+		"[data-test=report-line][data-line=memberships] [data-test=report-line-label] button.drill",
 	);
+	expect(button.type).toBe("button");
+	button.click();
 	await new Promise((resolve) => setTimeout(resolve, 20));
 	expect(window.location.hash).toBe("#/vol/ledger?drill=memb");
+});
+
+test("the gift line ends without its own arrow (the stylesheet adds the one), and opens the gift events from its button", async () => {
+	await open("#/vol/reports");
+	const gifts = "[data-test=report-line][data-line=gifts]";
+	expect(text(gifts)).not.toContain("›");
+	expect(element(gifts).hasAttribute("tabindex")).toBe(false);
+	element<HTMLButtonElement>(`${gifts} button`).click();
+	await new Promise((resolve) => setTimeout(resolve, 20));
+	expect(window.location.hash).toBe("#/vol/ledger?drill=gift");
+});
+
+test("Reports keeps the statement and the rules side by side until the mockup's own 600px breakpoint", () => {
+	const blocks = [
+		...readFileSync(
+			new URL("../../src/theme.css", import.meta.url),
+			"utf8",
+		).matchAll(/@media[^{]+\{((?:[^{}]|\{[^{}]*\})*)\}/g),
+	].map((match) => match[0]);
+	expect(
+		blocks.filter(
+			(block) => block.includes("728px") && block.includes(".two2"),
+		),
+	).toEqual([]);
 });
 
 test("Net is not a drill-down, and the line says nothing about it", async () => {

@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { mountApp } from "../../src/app/mount.tsx";
 import type { Person } from "../../src/data/members.ts";
 import type { Reader } from "../../src/data/reader.ts";
@@ -408,4 +409,60 @@ test("the fixture Reader serves each school's fixture, and income is the months 
 	await expect(
 		reader.memberDetail({ schoolId: "vol", personId: "nobody" }),
 	).rejects.toThrow("no member nobody in school vol");
+});
+
+/** The `@media` blocks of the app's stylesheet, with the rules inside each. */
+const mediaBlocks = (): string[] =>
+	[
+		...readFileSync(
+			new URL("../../src/theme.css", import.meta.url),
+			"utf8",
+		).matchAll(/@media[^{]+\{((?:[^{}]|\{[^{}]*\})*)\}/g),
+	].map((match) => match[0]);
+
+test("the Members stat strip keeps the mockup's three columns at every width", async () => {
+	expect(mediaBlocks().filter((block) => block.includes(".strip"))).toEqual([]);
+	await open("#/vol/members");
+	expect(count(".strip > .stat")).toBe(3);
+});
+
+test("the Expires cell is muted only where it is the dash of a row with no plan", async () => {
+	await open("#/vol/members");
+	const cells = [
+		...document.querySelectorAll<HTMLElement>("[data-test=member-expires]"),
+	];
+	expect(cells.length).toBeGreaterThan(0);
+	for (const cell of cells)
+		expect(cell.classList.contains("mut")).toBe(
+			(cell.textContent ?? "").trim() === "—",
+		);
+	expect(cells.some((cell) => /\d/.test(cell.textContent ?? ""))).toBe(true);
+});
+
+test("a disabled menu item says why to a screen reader: described by text, never aria-disabled", async () => {
+	await open("#/vol/members");
+	await click(menuButton("u_kim"));
+	const item = element<HTMLButtonElement>(menuItem("remove-owner"));
+	expect(item.disabled).toBe(true);
+	expect(item.hasAttribute("aria-disabled")).toBe(false);
+	const reason = document.getElementById(
+		item.getAttribute("aria-describedby") ?? "",
+	);
+	expect(reason?.textContent).toBe("Last owner: add another owner first");
+	await press(menuItem("remove-owner"), "Escape");
+	const planned = element(
+		"[data-test=member-row]:has([data-test=member-available]:not(.knoplan))",
+	);
+	await click(
+		`[data-test=member-row][data-id=${planned.getAttribute("data-id")}] [data-test=member-menu-button]`,
+	);
+	const items = [
+		...document.querySelectorAll<HTMLButtonElement>(
+			"[data-test=member-menu-item]",
+		),
+	];
+	const enabled = items.filter((entry) => !entry.disabled);
+	expect(enabled.length).toBeGreaterThan(0);
+	for (const entry of enabled)
+		expect(entry.hasAttribute("aria-describedby")).toBe(false);
 });

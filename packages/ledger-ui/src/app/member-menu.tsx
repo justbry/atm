@@ -1,5 +1,5 @@
-import type { JSX } from "preact";
-import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
+import { Fragment, type JSX } from "preact";
+import { useEffect, useId, useLayoutEffect, useRef } from "preact/hooks";
 import {
 	type Capabilities,
 	type Member,
@@ -271,6 +271,7 @@ export function MemberMenu({
 	onClose: (returnFocus: boolean) => void;
 }): JSX.Element {
 	const menu = useRef<HTMLDivElement>(null);
+	const menuId = useId();
 	const closeNow = useRef(onClose);
 	closeNow.current = onClose;
 	useLayoutEffect(() => {
@@ -362,22 +363,36 @@ export function MemberMenu({
 					// biome-ignore lint/suspicious/noArrayIndexKey: the separators are positions, not data
 					<hr key={`rule-${index}`} />
 				) : (
-					<button
-						key={entry.action}
-						type="button"
-						role="menuitem"
-						tabIndex={-1}
-						class={entry.destructive ? "d" : undefined}
-						data-test="member-menu-item"
-						data-action={entry.action}
-						disabled={entry.reason !== ""}
-						aria-disabled={entry.reason === "" ? undefined : "true"}
-						title={entry.reason === "" ? entry.hint : entry.reason}
-						onClick={() => onChoose(entry.action)}
-					>
-						<Icon name={entry.icon} />
-						{entry.label}
-					</button>
+					<Fragment key={entry.action}>
+						<button
+							type="button"
+							role="menuitem"
+							tabIndex={-1}
+							class={entry.destructive ? "d" : undefined}
+							data-test="member-menu-item"
+							data-action={entry.action}
+							disabled={entry.reason !== ""}
+							aria-describedby={
+								entry.reason === ""
+									? undefined
+									: `${menuId}-${entry.action}-reason`
+							}
+							title={entry.reason === "" ? entry.hint : entry.reason}
+							onClick={() => onChoose(entry.action)}
+						>
+							<Icon name={entry.icon} />
+							{entry.label}
+						</button>
+						{entry.reason !== "" && (
+							<span
+								id={`${menuId}-${entry.action}-reason`}
+								class="visually-hidden"
+								aria-hidden="true"
+							>
+								{entry.reason}
+							</span>
+						)}
+					</Fragment>
 				),
 			)}
 		</div>

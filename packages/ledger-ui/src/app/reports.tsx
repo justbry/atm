@@ -463,9 +463,7 @@ function Statement({
 	const { amounts, currency } = statement;
 	const rows = statementRows.map((row) => {
 		const drillable = row.drill !== null;
-		const open = (): void => {
-			if (row.drill) onDrill(row.drill);
-		};
+		const label = row.bold ? <b>{row.label}</b> : row.label;
 		return (
 			<tr
 				key={row.line}
@@ -473,13 +471,8 @@ function Statement({
 				data-line={row.line}
 				data-dd={row.drill ?? undefined}
 				title={drillable ? drillTitle : undefined}
-				tabIndex={drillable ? 0 : undefined}
-				onClick={open}
-				onKeyDown={(event) => {
-					if (drillable && (event.key === "Enter" || event.key === " ")) {
-						event.preventDefault();
-						open();
-					}
+				onClick={() => {
+					if (row.drill) onDrill(row.drill);
 				}}
 			>
 				<td
@@ -487,7 +480,13 @@ function Statement({
 					style={row.indented ? "padding-left:20px" : undefined}
 					data-test="report-line-label"
 				>
-					{row.bold ? <b>{row.label}</b> : row.label}
+					{drillable ? (
+						<button type="button" class="drill">
+							{label}
+						</button>
+					) : (
+						label
+					)}
 				</td>
 				<td class={row.negative ? "r neg" : "r"} data-test="report-line-amount">
 					{row.bold && row.line === "net" ? (
@@ -513,17 +512,12 @@ function Statement({
 					data-line="gifts"
 					data-dd="gift"
 					title={drillTitle}
-					tabIndex={0}
 					onClick={() => onDrill("gift")}
-					onKeyDown={(event) => {
-						if (event.key === "Enter" || event.key === " ") {
-							event.preventDefault();
-							onDrill("gift");
-						}
-					}}
 				>
 					<td class="mut" colSpan={2} style="padding-top:10px">
-						{`Not income: gift certificates sold ${formatMoney(amounts.giftsSold, currency)} (held as a liability until redeemed) ›`}
+						<button type="button" class="drill">
+							{`Not income: gift certificates sold ${formatMoney(amounts.giftsSold, currency)} (held as a liability until redeemed)`}
+						</button>
 					</td>
 				</tr>
 			</tbody>

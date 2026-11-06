@@ -144,3 +144,50 @@ test("Escape closes a popover, then the next press the drawer; the bar is inert 
 	expect(element(".drawer").classList.contains("on")).toBe(false);
 	expect(element(".top").hasAttribute("inert")).toBe(false);
 });
+
+test("the View as listbox shows its notes and rules to nobody as content: they are hidden from it and describe it instead; Arrow keys, Home and End move between the rows", async () => {
+	await open("#/vol/plans");
+	await click("[data-test=view-as]");
+	const listbox = element("[role=listbox][aria-label='View as']");
+	for (const child of listbox.children)
+		expect(
+			child.getAttribute("role") === "option" ||
+				child.getAttribute("aria-hidden") === "true",
+		).toBe(true);
+	expect(count("[data-test=view-as-note]")).toBe(2);
+	const described = (listbox.getAttribute("aria-describedby") ?? "")
+		.split(" ")
+		.map((id) => document.getElementById(id)?.textContent ?? "");
+	expect(described[0]).toContain("You are Owner here.");
+	expect(described[1]).toContain("View as member on their row");
+	const pressKey = (key: string): void => {
+		document.activeElement?.dispatchEvent(
+			new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }),
+		);
+	};
+	const focused = (): string | null =>
+		document.activeElement?.getAttribute("data-as") ?? null;
+	expect(focused()).toBe("owner");
+	pressKey("ArrowDown");
+	expect(focused()).toBe("finance");
+	pressKey("End");
+	expect(focused()).toBe("public");
+	pressKey("ArrowUp");
+	expect(focused()).toBe("member");
+	pressKey("Home");
+	expect(focused()).toBe("owner");
+});
+
+test("a View as row the viewer does not hold says why in text a screen reader reads", async () => {
+	await open("#/har/plans");
+	await click("[data-test=view-as]");
+	const owner = element<HTMLButtonElement>(
+		"[data-test=view-as-option][data-as=owner]",
+	);
+	expect(owner.disabled).toBe(true);
+	expect(owner.hasAttribute("aria-disabled")).toBe(false);
+	expect(
+		document.getElementById(owner.getAttribute("aria-describedby") ?? "")
+			?.textContent,
+	).toBe("You do not hold this audience");
+});

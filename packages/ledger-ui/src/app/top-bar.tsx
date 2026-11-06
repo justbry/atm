@@ -67,6 +67,7 @@ export function TopBar({
 	onToast,
 }: TopBarProps): JSX.Element {
 	const switcherList = useId();
+	const viewAsList = useId();
 	/** Only the checkbox reads it until Reports compares periods; kept here so it outlives the popover. */
 	const [compare, setCompare] = useState(false);
 	const { today } = clock;
@@ -215,7 +216,11 @@ export function TopBar({
 					}}
 					panelClass="pop vapop"
 					panelId="kvp"
-					panel={{ role: "listbox", "aria-label": "View as" }}
+					panel={{
+						role: "listbox",
+						"aria-label": "View as",
+						"aria-describedby": `${viewAsList}-top ${viewAsList}-portal`,
+					}}
 					label={
 						<>
 							<CoreIcon name="eye" />
@@ -228,6 +233,7 @@ export function TopBar({
 					{(close) =>
 						menus && (
 							<menus.ViewAsPanel
+								listboxId={viewAsList}
 								disclosure={viewing.disclosure}
 								chosen={viewing.option}
 								onChoose={(value) => {

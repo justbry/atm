@@ -170,3 +170,48 @@ test("a promo the Reader hides the uses of is never drawn as 0", async () => {
 	for (const used of document.querySelectorAll("[data-test=promo-used]"))
 		expect(used.textContent).toBe("Governance and up see this");
 });
+
+test("the promo controls follow the viewer's View as row: an admin without the finance grant may reveal and copy, a preview below admins may not", async () => {
+	await open("#/har/promos");
+	expect(text("[data-test=promo-note]")).toBe(
+		"You are an admin here: you can view and disable promos. Owners create them.",
+	);
+	const row = "[data-test=promo-row][data-promo=c_h1]";
+	expect(
+		element<HTMLButtonElement>(`${row} [data-test=promo-reveal]`).disabled,
+	).toBe(false);
+	expect(
+		element<HTMLButtonElement>(`${row} [data-test=promo-copy]`).disabled,
+	).toBe(false);
+	expect(
+		element<HTMLButtonElement>(`${row} [data-test=promo-redemptions]`).disabled,
+	).toBe(true);
+	await click(`${row} [data-test=promo-reveal]`);
+	expect(text(`${row} [data-test=promo-code]`)).not.toContain("•");
+});
+
+test("a preview below the admins disables Show code and Copy code, and the note says who manages promos", async () => {
+	await open("#/vol/promos?as=governance");
+	const row = "[data-test=promo-row]";
+	expect(
+		element<HTMLButtonElement>(`${row} [data-test=promo-reveal]`).disabled,
+	).toBe(true);
+	expect(
+		element<HTMLButtonElement>(`${row} [data-test=promo-copy]`).disabled,
+	).toBe(true);
+	expect(text("[data-test=promo-note]")).toStartWith(
+		"Owners and admins manage promos.",
+	);
+});
+
+test("the create form's fields are controlled: they carry no defaultValue next to value", async () => {
+	await open("#/vol/promos");
+	await click("[data-test=promo-new]");
+	expect(element<HTMLInputElement>("[data-test=promo-value-input]").value).toBe(
+		"10",
+	);
+	await fill("[data-test=promo-value-input]", "25");
+	expect(element<HTMLInputElement>("[data-test=promo-value-input]").value).toBe(
+		"25",
+	);
+});

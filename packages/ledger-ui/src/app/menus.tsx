@@ -140,6 +140,31 @@ const moves: Record<string, Move> = {
 	End: (_index, count) => count - 1,
 };
 
+/** The rows of a listbox that can take focus. */
+const optionsOf = (listbox: Element | null): HTMLElement[] => [
+	...(listbox?.querySelectorAll<HTMLElement>("[role=option]:not([disabled])") ??
+		[]),
+];
+
+/** Arrow Up and Down, Home and End move focus between a listbox's rows; true when the key was one of them. */
+function moveBetweenOptions(
+	event: JSX.TargetedKeyboardEvent<HTMLElement>,
+	listbox: Element | null,
+): boolean {
+	const move = moves[event.key];
+	if (!move) return false;
+	event.preventDefault();
+	const options = optionsOf(listbox);
+	const focused = document.activeElement;
+	const index = focused instanceof HTMLElement ? options.indexOf(focused) : -1;
+	const target = Math.max(
+		0,
+		Math.min(options.length - 1, move(index, options.length)),
+	);
+	options[target]?.focus();
+	return true;
+}
+
 /** The school switcher's content (mockup `#sp`, `renderSP`): the search field, then the listbox, its rows
  * `role=option`. The listbox is one Tab stop: the current school's row, or the first row when the search hides it.
  * Arrow Up and Down, Home and End move between rows, Enter and Space choose, and Arrow Down in the search field
@@ -164,26 +189,11 @@ export function SchoolList({
 	];
 	const tabStop = shownIds.includes(current) ? current : shownIds[0];
 
-	const rows = (): HTMLElement[] => [
-		...(listbox.current?.querySelectorAll<HTMLElement>("[role=option]") ?? []),
-	];
+	const rows = (): HTMLElement[] => optionsOf(listbox.current);
 	const onListKeyDown = (
 		event: JSX.TargetedKeyboardEvent<HTMLDivElement>,
 	): void => {
-		const move = moves[event.key];
-		if (move) {
-			event.preventDefault();
-			const options = rows();
-			const focused = document.activeElement;
-			const index =
-				focused instanceof HTMLElement ? options.indexOf(focused) : -1;
-			const target = Math.max(
-				0,
-				Math.min(options.length - 1, move(index, options.length)),
-			);
-			options[target]?.focus();
-			return;
-		}
+		if (moveBetweenOptions(event, listbox.current)) return;
 		if (event.key !== "Enter" && event.key !== " ") return;
 		const option =
 			event.target instanceof HTMLElement
@@ -593,6 +603,9 @@ export function PreviewBanner({
 	);
 }
 
+const notHeldReason = "You do not hold this audience";
+const laterReason = "Custom audiences are not accepted in the first release";
+
 const viewAsIcons: Record<ViewAs, IconName> = {
 	owner: "key",
 	finance: "coin",
@@ -602,13 +615,18 @@ const viewAsIcons: Record<ViewAs, IconName> = {
 	public: "eye",
 };
 
-/** The View as list (mockup `renderVA`): the viewer's own row and what each role sees. A row the viewer does not hold
- * is disabled; the Custom audiences row is a later release. Opening it focuses the chosen row. */
+/** The View as list (mockup `renderVA`): the viewer's own row and what each role sees. The panel is the listbox, so
+ * its notes and rules are hidden from the listbox's contents and read as its description instead (`listboxId` is the
+ * prefix of the notes' ids); Arrow Up and Down, Home and End move between rows. A row the viewer does not hold is
+ * disabled, and says why to a screen reader; the Custom audiences row is a later release. Opening it focuses the
+ * chosen row. */
 export function ViewAsPanel({
+	listboxId,
 	disclosure,
 	chosen,
 	onChoose,
 }: {
+	listboxId: string;
 	disclosure: Disclosure;
 	chosen: ViewAsOption;
 	onChoose: (value: ViewAs) => void;
@@ -616,17 +634,30 @@ export function ViewAsPanel({
 	const own = disclosure.viewer.viewAs;
 	const chosenRow = useRef<HTMLButtonElement>(null);
 	useEffect(() => chosenRow.current?.focus(), []);
+	const moveBetweenRows = (
+		event: JSX.TargetedKeyboardEvent<HTMLButtonElement>,
+	): void => {
+		moveBetweenOptions(event, event.currentTarget.closest("[role=listbox]"));
+	};
 	return (
 		<>
-			<div class="vah mut" data-test="view-as-note" data-note="top">
+			<div
+				id={`${listboxId}-top`}
+				class="vah mut"
+				aria-hidden="true"
+				data-test="view-as-note"
+				data-note="top"
+			>
 				You are {ownRowName(disclosure)} here. This previews what each role
 				sees: the same document that audience gets, not a person. Owners and
 				admins own the dashboard and see everyone's data. Members see only
 				themselves and their family.
 			</div>
-			<hr />
+			{/* biome-ignore lint/a11y/noAriaHiddenOnFocusable: an hr is not focusable; inside the listbox it is only a line, so it leaves the accessibility tree. */}
+			<hr aria-hidden="true" />
 			{disclosure.viewAs.map((option) => {
 				const selected = option.value === chosen.value;
+				const reasonId = `${listboxId}-${option.value}-reason`;
 				return (
 					<button
 						key={option.value}
@@ -637,10 +668,12 @@ export function ViewAsPanel({
 						data-test="view-as-option"
 						data-as={option.value}
 						aria-selected={selected}
+						aria-describedby={option.held ? undefined : reasonId}
 						disabled={!option.held}
-						aria-disabled={option.held ? undefined : "true"}
-						title={option.held ? undefined : "You do not hold this audience"}
+						tabIndex={selected ? 0 : -1}
+						title={option.held ? undefined : notHeldReason}
 						onClick={() => onChoose(option.value)}
+						onKeyDown={moveBetweenRows}
 					>
 						<Icon name={viewAsIcons[option.value]} />
 						<span class="sp2">
@@ -651,6 +684,11 @@ export function ViewAsPanel({
 							<small data-test="view-as-summary">{option.summary}</small>
 						</span>
 						{selected && <Icon name="check" />}
+						{!option.held && (
+							<span id={reasonId} class="visually-hidden" aria-hidden="true">
+								{notHeldReason}
+							</span>
+						)}
 					</button>
 				);
 			})}
@@ -660,9 +698,10 @@ export function ViewAsPanel({
 				class="it vao"
 				data-test="view-as-later"
 				aria-selected="false"
+				aria-describedby={`${listboxId}-later-reason`}
 				disabled
-				aria-disabled="true"
-				title="Custom audiences are not accepted in the first release"
+				tabIndex={-1}
+				title={laterReason}
 			>
 				<Icon name="plus" />
 				<span class="sp2">
@@ -672,9 +711,23 @@ export function ViewAsPanel({
 						release.
 					</small>
 				</span>
+				<span
+					id={`${listboxId}-later-reason`}
+					class="visually-hidden"
+					aria-hidden="true"
+				>
+					{laterReason}
+				</span>
 			</button>
-			<hr />
-			<div class="vah mut" data-test="view-as-note" data-note="portal">
+			{/* biome-ignore lint/a11y/noAriaHiddenOnFocusable: an hr is not focusable; inside the listbox it is only a line, so it leaves the accessibility tree. */}
+			<hr aria-hidden="true" />
+			<div
+				id={`${listboxId}-portal`}
+				class="vah mut"
+				aria-hidden="true"
+				data-test="view-as-note"
+				data-note="portal"
+			>
 				<Icon name="info" /> To see one person's portal, use View as member on
 				their row in Members.
 			</div>

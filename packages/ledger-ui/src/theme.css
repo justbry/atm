@@ -557,6 +557,16 @@ tr.tot td {
 	content: " ›";
 	color: var(--muted-foreground);
 }
+/* The keyboard way into a drill row: a button that looks like the label it wraps (the mockup's rows are click-only). */
+#stmt button.drill {
+	font: inherit;
+	color: inherit;
+	background: none;
+	border: 0;
+	padding: 0;
+	text-align: left;
+	cursor: pointer;
+}
 .r {
 	text-align: right;
 	font-variant-numeric: tabular-nums;
@@ -867,7 +877,7 @@ tr.tot td {
 	color: var(--primary);
 }
 .bg {
-	position: absolute;
+	position: fixed;
 	inset: 0;
 	background: rgba(0, 0, 0, 0.5);
 	display: none;
@@ -881,7 +891,8 @@ tr.tot td {
 }
 .modal {
 	width: 460px;
-	max-height: 700px;
+	max-width: calc(100vw - 24px);
+	max-height: min(700px, calc(100vh - 56px));
 	overflow: auto;
 	background: var(--popover, var(--card));
 	border: 1px solid var(--border);
@@ -2645,17 +2656,6 @@ svg.kc .col.on {
 		min-width: 0;
 		max-width: calc(100vw - 24px);
 		margin-top: 4px;
-	}
-}
-
-/* The app's own narrow widths. The mockup's rules above own the top bar, the tabs and the drawer. */
-@media (max-width: 728px) {
-	.strip,
-	.strip.s4 {
-		grid-template-columns: repeat(2, 1fr);
-	}
-	.two2 {
-		grid-template-columns: 1fr;
 	}
 }
 

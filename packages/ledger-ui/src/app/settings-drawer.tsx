@@ -44,7 +44,7 @@ export function SettingsDrawer({
 	const titleId = useId();
 	useFocusTrap(open && !dialogOpen, drawer, onClose);
 	useEffect(() => {
-		if (open) closeButton.current?.focus();
+		if (open) closeButton.current?.focus({ preventScroll: true });
 	}, [open]);
 	return (
 		<aside
