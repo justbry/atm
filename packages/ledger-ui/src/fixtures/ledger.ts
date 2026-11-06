@@ -762,6 +762,14 @@ export function createLedgerReader(options: {
 			const school = schoolOf(id);
 			const sources = eventsBySchool[id] ?? [];
 			const previous = previousPeriod(from, to);
+			const { amounts } = statementOf(sources, from, to);
+			const before = statementOf(sources, previous.from, previous.to).amounts;
+			const changes = Object.fromEntries(
+				Object.entries(amounts).map(([line, cents]) => [
+					line,
+					cents - before[line as keyof StatementAmounts],
+				]),
+			) as StatementAmounts;
 			return {
 				school: id,
 				from,
@@ -776,7 +784,8 @@ export function createLedgerReader(options: {
 				previous: compare
 					? {
 							...previous,
-							amounts: statementOf(sources, previous.from, previous.to).amounts,
+							amounts: before,
+							changes,
 							income: incomeSeries(
 								sources,
 								previous.from,

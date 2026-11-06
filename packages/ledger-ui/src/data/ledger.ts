@@ -349,6 +349,9 @@ export type IncomeStatement = {
 		from: string;
 		to: string;
 		amounts: StatementAmounts;
+		/** Each line of this period less the same line of the previous one (the KPI tiles' "▲ $X vs <period>"),
+		 * worked out by the server: the UI formats it and never subtracts. */
+		changes: StatementAmounts;
 		income: IncomeSeries;
 	} | null;
 };
