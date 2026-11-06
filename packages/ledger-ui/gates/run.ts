@@ -2,8 +2,8 @@
  * The gate runner (protocol §6). The orchestrator runs gate P itself in its worktree before this script, so this file
  * is the orchestrator's own. Usage, from packages/ledger-ui:
  *   bun gates/run.ts --slice S<k> --changed <file of repo-relative paths> --head <sha>
- * Runs I, Y, B, S, T (builder tests, then the orchestrator suites), then R (parity with smoke.mjs), and stops at the
- * first red gate.
+ * Runs I, Y, B, S, T (builder tests, then the orchestrator suites, then every test group as `bun run test` runs it),
+ * then R (parity with smoke.mjs), and stops at the first red gate.
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -169,6 +169,8 @@ run(
 		env: { LEDGER_SLICE: slice, LEDGER_HEAD: head },
 	},
 );
+/** The package's own `bun run test`, every test group in its own process, as a person runs it (scripts/test-all.ts). */
+run("T all", "bun", ["scripts/test-all.ts"]);
 /** Gate R (protocol v9 addendum §3): smoke.mjs run against the UI; every check owned by a slice up to this one passes
  * or is na with a reason. Prints the per-slice coverage either way. */
 const parity = spawnSync("bun", ["test/parity/run.ts", "--slice", slice], {

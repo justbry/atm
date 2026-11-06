@@ -8,7 +8,7 @@
 		"dev": "bun run fixtures && vite",
 		"build": "bun run fixtures && vite build",
 		"build:size": "vite build --config gates/vite.size.config.ts",
-		"test": "bun run fixtures && bun test",
+		"test": "bun run fixtures && bun scripts/test-all.ts",
 		"gates": "bun gates/run.ts"
 	},
 	"dependencies": {
