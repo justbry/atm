@@ -1,10 +1,10 @@
 # atm: signed receipts and sealed months (triple-entry, milestone 1)
 
-Status: draft spec, 2026-11-05. Nothing built. Brand context: `docs/brand/trifold-brand-and-messaging.md` ("The triple-entry story").
+Status: built. Milestone 1 landed on `dev` in #123 (2026-11-06); #137 brings it in line with this spec (seals list `event_ids`, the `atm seal` lock). #124 was a parallel build of the same spec and is closed. Brand context: `docs/brand/trifold-brand-and-messaging.md` ("The triple-entry story").
 
 ## Goal
 
-Every paid or refunded payment gets a third record: a receipt signed with public-key cryptography that the family keeps and anyone can verify. If the school's books are later edited, the receipt no longer matches. Every closed month gets a signature too, chained to the previous month, so any edit, insertion or deletion in a sealed month shows up.
+Every paid or refunded payment gets a third record: a receipt signed with public-key cryptography that the family keeps and anyone can verify. If the school's books are later edited, the receipt no longer matches. Every closed month gets a signature too, chained to the previous month, so any edit or deletion in a sealed month shows up, and an event added to it later is listed.
 
 This milestone covers most of the value of triple-entry accounting with about 15% of the full plan's code (see "Size").
 
