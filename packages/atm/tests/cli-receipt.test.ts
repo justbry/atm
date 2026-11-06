@@ -97,6 +97,18 @@ describe("signed receipts and sealed months from the CLI", () => {
 		);
 	});
 
+	test("keys new into a folder with keys.json adds the new key beside the old one", async () => {
+		const rotated = `${KEY_ID}-next`;
+		const made = atm(["keys", "new", "--out", keys, "--id", rotated]);
+		expect(made.stderr).toBe("");
+		expect(made.exitCode).toBe(0);
+		const published = JSON.parse(await readFile(keysFile(), "utf8"));
+		expect(Object.keys(published).sort()).toEqual([KEY_ID, rotated]);
+		expect(published[rotated]).toBe(
+			await readFile(join(keys, `${rotated}.public.pem`), "utf8"),
+		);
+	});
+
 	test("receipt, verify receipt against the books, then an edited event file fails with event_changed", async () => {
 		const printed = atm(["receipt", ...schoolArgs(), ...signing()]);
 		expect(printed.stderr).toBe("");
@@ -171,6 +183,30 @@ describe("signed receipts and sealed months from the CLI", () => {
 		});
 	});
 
+	test("a seal while another holds the lock is refused and leaves the chain alone", async () => {
+		const ledger = join(root, "schools", SCHOOL, "ledger");
+		const lock = join(ledger, "seals.jsonl.lock");
+		await mkdir(ledger, { recursive: true });
+		await writeFile(lock, "1\n");
+		try {
+			const refused = atm([
+				"seal",
+				...schoolArgs(),
+				"--month",
+				"2026-03",
+				...signing(),
+			]);
+			expect(refused.exitCode).toBe(2);
+			expect(refused.stderr).toContain("seals.jsonl.lock");
+			expect(await stat(join(ledger, "seals.jsonl")).catch(() => null)).toBe(
+				null,
+			);
+		} finally {
+			// A lock left behind would refuse every later seal in this file.
+			await rm(lock, { force: true });
+		}
+	});
+
 	test("seal appends to ledger/seals.jsonl, verify seals passes, and an edit in the sealed month fails it", async () => {
 		for (const month of ["2026-03", "2026-04"]) {
 			const sealed = atm([
@@ -195,6 +231,11 @@ describe("signed receipts and sealed months from the CLI", () => {
 			"2026-03",
 			"2026-04",
 		]);
+		expect(
+			await stat(
+				join(root, "schools", SCHOOL, "ledger/seals.jsonl.lock"),
+			).catch(() => null),
+		).toBe(null);
 		const verify = ["verify", "seals", ...schoolArgs(), "--keys", keysFile()];
 		const passed = atm(verify);
 		expect(passed.exitCode).toBe(0);

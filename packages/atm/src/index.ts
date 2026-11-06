@@ -1231,8 +1231,9 @@ export const checkReceiptAgainstEvents = (
 ): LedgerVerdict => checkReceiptAgainstEventsImpl(signed, events);
 
 /**
- * The seal of a school's month at `sealedAt` (the caller's clock): the count and hash of the month's events written by
- * then, chained to the school's previous signed seal. Throws when a month event was written after `sealedAt`. Pure.
+ * The seal of a school's month at `sealedAt` (the caller's clock): the ids, count and hash of every month event in
+ * `events`, chained to the school's previous signed seal. Membership is by id, not by `ingest_time`. Throws on a bad
+ * month or instant, or two month events with one id. Pure.
  */
 export const sealOf = (input: SealOfInput): AtmSeal => sealOfImpl(input);
 
@@ -1242,8 +1243,8 @@ export const signSeal = (seal: AtmSeal, signer: AtmSigner): AtmSignedSeal =>
 
 /**
  * A school's seal chain (in the order made) against its events: a verdict per seal (`ok`, `malformed`, `bad_signature`,
- * `unknown_key`, `broken_link`, `events_changed`) and the month events written after their month's latest seal. Never
- * throws on a bad seal.
+ * `unknown_key`, `broken_link`, `events_changed`) and the month events their month's latest seal does not name (late
+ * deliveries, or insertions). Never throws on a bad seal.
  */
 export const verifySeals = (
 	seals: readonly unknown[],
