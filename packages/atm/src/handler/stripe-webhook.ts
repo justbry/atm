@@ -89,7 +89,10 @@
  *   no fee line and the answer says so (`body.feeUnknown`, and a `deps.warn` line). The fee is fixed at the first delivery of the invoice: it is not booked later (a re-send that knows the fee is told so, not booked). A payout names no family
  *   and no school, so it is booked to `deps.schoolId` whatever its `account` says: serve each school from its own
  *   endpoint, on the school's own Stripe account (a Connect endpoint would send every connected account's payouts here).
- *   Not built: `payout.failed` (a payout that fails after `payout.paid` is not reversed) and disputes' money lines.
+ *   A `payout.failed` books the payout back: a `payout.paid` event with its sides swapped (`assets:stripe` up,
+ *   `assets:clearing:stripe-payouts` down, payload `failed: true`, idem `stripe:<payout id>:failed`, dated by the failure).
+ *   It waits (409 `unmatched_payment`, no claim) until the payout's own `payout.paid` is booked, so a payout that failed
+ *   before its `payout.paid` arrived is reversed by the retry, and one that never was paid is never booked at all.
  *
  * Answers (Stripe retries every non-2xx for up to three days)
  *
@@ -104,7 +107,8 @@
  *   401 bad_signature      nothing is touched
  *   409 busy               another worker holds a fresh claim (or took it over); Stripe will retry
  *   409 unmatched_payment  a refund or dispute whose payment is not linked to an invoice yet (its
- *                          invoice_payment.paid, or the invoice itself, may not be handled yet)
+ *                          invoice_payment.paid, or the invoice itself, may not be handled yet); or a `payout.failed`
+ *                          whose `payout.paid` is not booked yet
  *   409 unmatched_invoice  an invoice_payment.paid whose invoice is not indexed (its invoice.paid is not handled yet)
  *   409 stale_revision     3 attempts lost the revision race
  *   409 refused            `unmatched_invoice`, `unknown_subscription`: the cause may arrive on its own, retry
@@ -141,6 +145,11 @@
  */
 import { resolveEnv } from "../billing/env.js";
 import { handleStripeEvent, normalizeStripeEvent } from "../billing/handle.js";
+import {
+	PAYOUT_FAILED_TYPE,
+	payoutIdem,
+	USD_CURRENCY,
+} from "../billing/money.js";
 import {
 	describeNormalizeError,
 	mappingFor,
@@ -189,6 +198,7 @@ const HANDLED_TYPES: ReadonlySet<string> = new Set([
 	"charge.dispute.created",
 	"charge.dispute.closed",
 	PAYOUT_EVENT,
+	PAYOUT_FAILED_TYPE,
 ]);
 const RETRYABLE_REFUSALS: ReadonlySet<StripeEventRefusal["reason"]> = new Set([
 	"unmatched_invoice",
@@ -394,6 +404,33 @@ const locateHolder = (
 	return { kind: "subject", subjectKey: key, invoiceIds: {} };
 };
 
+/**
+ * A `payout.failed` for a USD payout the books do not hold as paid yet: a wait (409, no claim), like a refund before its
+ * payment is linked. The reversal takes the payout back out of the clearing account, so without the payout there it would
+ * leave a negative clearing account (and an `assets:stripe` that is too high). Either the `payout.paid` is late, and the
+ * retry finds it, or the payout never was paid (Stripe fails a payout that was never `paid` too), and there is nothing to
+ * reverse: Stripe gives up after three days and the books are what they should be. A payout that is not in USD has no
+ * line to wait for: its marker is made at once (and its `payout.paid`'s is the same idem). Null when the payout is booked.
+ */
+const unbookedPayout = (
+	deps: WebhookDeps,
+	env: AtmEnv,
+	event: StripeEvent,
+): Located | null => {
+	const payoutId = stringAt(event.object, "id");
+	// An event that names no payout, or one not in USD, goes on to be refused (`bad_event`) or answered `non_usd`.
+	if (payoutId === null || event.object.currency !== USD_CURRENCY) return null;
+	const [booked] = deps.db.all<{ idem: string }>(
+		`SELECT idem FROM ledger_outbox WHERE school_id = ? AND env = ? AND idem = ?`,
+		[deps.schoolId, env, payoutIdem(payoutId)],
+	);
+	if (booked) return null;
+	return {
+		kind: "unmatched_payment",
+		message: `${event.id}: payout ${payoutId} failed, but no payout.paid for it is booked; retry once its payout.paid is handled (a payout that failed without ever being paid has nothing to reverse, and stays 409 until Stripe gives up)`,
+	};
+};
+
 const locateSubject = (
 	deps: WebhookDeps,
 	env: AtmEnv,
@@ -406,7 +443,12 @@ const locateSubject = (
 		return locateHolder(deps, env, event);
 	// A payout is the endpoint's own school's, whatever it says: nothing in it names a family or a school (see the
 	// header). The key only carries the school to `applyOnce`; no row is stored under it.
-	if (event.type === PAYOUT_EVENT)
+	if (event.type === PAYOUT_EVENT || event.type === PAYOUT_FAILED_TYPE) {
+		const waiting =
+			event.type === PAYOUT_FAILED_TYPE
+				? unbookedPayout(deps, env, event)
+				: null;
+		if (waiting) return waiting;
 		return {
 			kind: "subject",
 			subjectKey: subjectKey({
@@ -417,6 +459,7 @@ const locateSubject = (
 			}),
 			invoiceIds: {},
 		};
+	}
 	const refs = paymentRefsOf(event);
 	// payment ref -> invoice (written by invoice_payment.paid) -> subject (written by invoice.paid)
 	const hits =

@@ -238,6 +238,12 @@ export type AtmLedgerEventInput = {
 	incomeKind?: string;
 	campaign?: string;
 	won?: boolean;
+	/**
+	 * On `payout.paid`: the payout failed after it was paid out, so its money is back in the Stripe balance. The event is the
+	 * payout's reversal, `payout.paid` with the two sides swapped (`assets:stripe` up, `assets:clearing:stripe-payouts`
+	 * down); its payload says `failed: true`. An older reader takes it for a payout line that happens to run backwards.
+	 */
+	failed?: boolean;
 	payload?: Record<string, unknown>;
 	redacted?: Record<string, unknown>;
 	text?: string;

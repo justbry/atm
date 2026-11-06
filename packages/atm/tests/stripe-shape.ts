@@ -31,6 +31,7 @@ export const OBJECT_OF_EVENT: Record<string, string> = {
 	"invoice_payment.paid": "invoice_payment",
 	"charge.refunded": "charge",
 	"payout.paid": "payout",
+	"payout.failed": "payout",
 	"checkout.session.completed": "checkout.session",
 	"checkout.session.async_payment_succeeded": "checkout.session",
 	"checkout.session.expired": "checkout.session",

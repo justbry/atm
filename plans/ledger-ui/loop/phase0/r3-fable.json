@@ -1,0 +1,24 @@
+{
+	"scores": {
+		"testability": 8,
+		"convergence": 7,
+		"antiGaming": 8,
+		"simplicity": 9,
+		"cost": 8
+	},
+	"overall": 7,
+	"blockers": [
+		"preview caps below max shot count (86 vs 70, 113 vs 90); cap as formula; cap hit = stop for owner, not red gate; or 2 full + 6 others"
+	],
+	"mustFix": [
+		"G0 cannot measure S0 before build: absolute ceiling for S0, budget set at S0 pass",
+		"literal check exempts builder-written kpi-document.ts: exempt only fixtures/mart; literal = quoted string",
+		"FAILED panel rebuilds unreviewed commit: re-run panel same HEAD; discounted counter for dispute rounds",
+		"git archive omits root biome.json: include it"
+	],
+	"wouldChange": [
+		"gate-fix 30 min timeout; wall cap per attempt",
+		"imagesViewed self-reported: one observation per full pair, cite manifest files",
+		"first-of-type selector wrong; value cell rule when cellsComplete false"
+	]
+}

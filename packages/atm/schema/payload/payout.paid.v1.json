@@ -2,7 +2,7 @@
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
 	"$id": "https://b4uni.com/_schema/payload/payout.paid.v1.json",
 	"title": "payout.paid payload v1",
-	"description": "A Stripe payout.",
+	"description": "A Stripe payout that left the Stripe balance for the bank. With failed: true it is the reversal of one that then failed: the same payout id and amount, the money back in the Stripe balance, under its own idem (stripe:<payout id>:failed).",
 	"type": "object",
 	"required": ["id", "amount"],
 	"properties": {
@@ -17,6 +17,10 @@
 		"currency": {
 			"type": "string",
 			"minLength": 1
+		},
+		"failed": {
+			"const": true,
+			"description": "Present and true only on the reversal of a payout that failed after it was paid out."
 		}
 	}
 }

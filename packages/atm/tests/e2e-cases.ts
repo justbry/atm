@@ -30,6 +30,7 @@ import {
 	link,
 	MAR15,
 	ms,
+	payoutFailedOf,
 	payoutOf,
 	refundOf,
 	resent,
@@ -1937,7 +1938,7 @@ export const CASES: Case[] = [
 	{
 		id: "payout-failed",
 		title: "payout.paid, then the payout fails",
-		path: "payout.failed (not mapped: 200 ignored)",
+		path: "payout.failed -> a payout.paid reversed (idem stripe:<po>:failed)",
 		fees: FEES_26,
 		steps: [
 			...paidAndLinked(),
@@ -1950,25 +1951,23 @@ export const CASES: Case[] = [
 					at: days(2),
 				}),
 			),
-			deliver(
+			// the bank refused the transfer two days later: the payout line is reversed, dated by the failure
+			applied(
 				days(4),
-				payoutOf({
+				payoutFailedOf({
 					id: "evt_po_1_failed",
 					payoutId: "po_1",
 					amount: 25_216,
 					at: days(4),
-					type: "payout.failed",
 				}),
-				200,
-				"ignored",
 			),
 		],
-		verdict: "DISCREPANCY",
-		discrepancies: ["D3"],
+		verdict: "OK",
 		books: [
 			{
 				school: SCHOOL,
-				// the bank refused the transfer: Stripe has the 252.16 back in its balance and nothing is in the clearing account
+				// the bank refused the transfer: Stripe has the 252.16 back in its balance and nothing is in the clearing account;
+				// the fee was never the payout's, so it stays: net income is still 260.00 - 7.84
 				hand: {
 					"income:membership:sparkle-2": 26_000,
 					fees: 784,
@@ -1976,8 +1975,7 @@ export const CASES: Case[] = [
 					net: 25_216,
 					[visits()]: 2,
 				},
-				// DISCREPANCY: D3 the failure is not mapped: the 252.16 stays in the clearing account as if it had reached the bank
-				pinned: { stripe: 0, clearing: 25_216 },
+				// Stripe lists the payout as failed (reconcile does not compare it), with the payout and its failure on the balance
 				stripe: {
 					invoices: [FIRST_INVOICE],
 					refunds: [],
@@ -1995,12 +1993,7 @@ export const CASES: Case[] = [
 						),
 					],
 				},
-				reconcile: {
-					"2026-01": [
-						// DISCREPANCY: D3
-						"missing_in_stripe payout po_1",
-					],
-				},
+				reconcile: ONLY_JANUARY,
 			},
 		],
 	},
