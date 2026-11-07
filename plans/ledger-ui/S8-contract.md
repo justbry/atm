@@ -71,6 +71,8 @@ Whatever the choice, S8d delivers:
 
 `shipOutbox` has no env filter and the log has no env: a test-mode and a live event with one idem would collide. D2 (one bucket and one shipper per env) is what keeps them apart.
 
+**Spike result (buzz-school PR #1350, merged; `docs/superpowers/specs/2026-11-06-ledger-event-emission.md`).** The spike departs from the default above, because it found worse. Phase 1 is option (b) for **money and catalog events only**: buzz-school's own webhook and publish code build `payment.succeeded`, `payment.refunded`, `payment.disputed`, `dispute.closed`, `money.skipped` and `catalog.published` with atm's `ledgerEvent` and `catalogPublishedEvent`, in the same SQLite transaction as the lots, into atm's `ledger_outbox` (buzz-school migration `0138`), shipped from the family service, one bucket per environment (`b4uni-<env>-ledger`) with a shipper guard that refuses a row whose `env` is not the service's `billingKeyMode`. It is proven identical to atm's handler for `payment.succeeded` and, bar one field, `payment.refunded`. **Credit events are not in phase 1**: `recordEngineCommand` over buzz-school's lots gives a log that cannot be replayed (`no subject yet: attach a plan first`), and then atm's views job writes nothing, finance views included. Credits need atm's own handler as a shadow, or replacing buzz-school's grant engine: a separate, later decision (D12). Consequences for the UI: balances, `granted`/`rolledOver`/`used`, `Booking.billing` and the audit have no atm source in phase 1 (balances still come from members-list, which reads the live lots); `S8-ui-needs.md` rows that name atm credit events stay `not available`. Production stays off until the E2 and E11 decisions: family-keyed rows must not leave SQLite there today, so S8f is **staging only** until D13 is answered.
+
 ## 6. Slices
 
 | Slice | Repo | Delivers | Depends on |
@@ -92,7 +94,8 @@ S8a, S8b and S8d-bz can run in parallel.
 | S8b | atm #138 | built, mergeable, checked. `kpiDocument(rows, contributions, disclosure, audience, pinLocked, context)`: a sixth `context` argument (`school`, `currency`, `clock`, `preset?`, `plans?`, `donors?`, `days?`, `invented?`). `contributions` is accepted but not read yet: the oracle counts the period's paying members, not per-cell holders (D9, decided 2026-11-06: the paying-member count stays). |
 | S8a | atm #139 (stacked on #138) | built, mergeable, checked. Removes `MonthView.money` from `views/months/`, so month objects and every manifest change bytes: the orchestrator regenerates the mart snapshots and goldens in the PR that merges it (`S8a-hash-changes.md`). Finance month objects carry `grossByDay` and `income.planOrder`; contributions use the `KpiContributions` object form. |
 | S8d-bz | buzz-school #1348 | built and self-reviewed: `LEDGER_ROUTES` additions, `GET .../ledger/school`, `capabilities` fix, and `docs/features/ledger-ui-gaps.md` (the plan for every other buzz-school gap). |
-| S8d, S8c, S8e, S8f | | not started. S8c waits on #138 and #139 merging. |
+| S8d | buzz-school | spike done and merged (#1350). Build plan: spike section 9, PRs 0 to 5 (atm release, `ledger_outbox` and shipper with migration `0138`, `catalog.published`, money events, staging, production switch). Not started. |
+| S8c, S8e, S8f | | not started. S8c is unblocked (#138 and #139 are in `dev`). S8f is staging only (D13). |
 
 ## 7. Corrections to `S8-ui-needs.md` (checked 2026-11-06)
 
@@ -128,6 +131,13 @@ S8a, S8b and S8d-bz can run in parallel.
 | D9 | KPI cell rules: per-cell holders (spec) or the period's paying members (oracle `bkFig`, G1g) | **Decided (owner, 2026-11-06): the period's paying members.** A figure below the live audiences hides when the period has fewer than 5 paying members, as the oracle and the mockup do. `kpiDocument` keeps not reading `contributions` for this rule. |
 | D10 | Refund permission | **Decided (owner, 2026-11-06): the owner or any admin.** The finance grant is not needed. buzz-school splits refund from Cedar `MoneyWrite` (invoice and adjust keep their current rule) and `capabilities` answers `refund: allowed` for an admin. The ledger UI follows `capabilities` (ledger-ui PR for D10). |
 | D11 | `bookingRules` / `schoolRules` | No source (buzz-school has a per-event cutoff only; credit hold and spend wait for atm 0.8.0). Answer `null`; the UI contract allows it. |
+| D12 | Credit events in the log | *Default taken 2026-11-07 under the owner's S8 goal; the owner may override.* Not in phase 1 (spike D-1). Decide later between atm's handler as a shadow and replacing buzz-school's grant engine; both need an owner decision and a separate design. Credits screens answer "not available". |
+| D13 | May events keyed `family:<id>` reach a production bucket (spike D-3, the E2 question) | *Default taken 2026-11-07 under the owner's S8 goal; the owner may override.* No. Staging only; production stays off until the owner and counsel answer. Ties to D4. |
+| D14 | Which atm release buzz-school pins for `appendToOutbox`, `catalogPublishedEvent`, `ledgerEvent`, `shipOutbox` (spike D-2) | *Default taken 2026-11-07 under the owner's S8 goal; the owner may override.* Cut the release from `dev` and publish it where `packages/atm/release.ts` publishes today (justbry/atm releases), since the rename's release step has not happened; buzz-school pins that tarball by URL and sha512 as before. |
+| D15 | Backfill (spike D-5) and payouts (D-6) | *Default taken 2026-11-07 under the owner's S8 goal; the owner may override.* No money backfill: the log starts at switch-on and the UI says "from <date>". The catalog backfill is done. A refund or dispute with no `payment.succeeded` in the log is skipped and recorded as `money.skipped` with an audit row. Payout events are out of scope. |
+| D16 | Erasure model (spike D-4) | *Default taken 2026-11-07 under the owner's S8 goal; the owner may override.* Undecided: the log is never rewritten and a family deletion appends nothing. |
+| D17 | How a ledger fault answers Stripe (spike D-7) | *Default taken 2026-11-07 under the owner's S8 goal; the owner may override.* As spike section 3.4: a database error is a 500 (Stripe retries); a builder error is logged and audited and the credits still go. |
+| D7 | (confirmed 2026-11-07 by the ledger-ui orchestrator) | Matches the UI's `audiencesOf` (`packages/ledger-ui/src/data/disclosure.ts`): an admin without the finance grant gets `public`, or the highest audience of their own live membership tiers if they are an adult, never `finance`; the owner gets `owner`; an admin with the grant gets `finance`. The token carries no tier audience, and the Worker cannot trust a client's claim of one, so until buzz-school adds an `audience` claim to the ledger token (a follow-up to build list group 8) the Worker serves an admin without the grant at most `public`; the UI's View as only goes down. |
 
 ## 9. Open risks
 
@@ -165,3 +175,48 @@ Contract changes the plan asks for (the orchestrator changes `src/data/` and the
 - `Booking.billing` and `auditMember` belong in atm and the Worker (credit holds, replay), fed by a buzz-school facts read.
 
 Not verified by that plan, to check before building: the Stripe dashboard URL format for a live key, and whether setting `receipt_email` on a charge resends a receipt.
+
+## 11. The ledger Worker's read endpoints (S8c)
+
+This is what the UI's `HttpReader` (S8e, `packages/ledger-ui/src/data/`, the orchestrator's) is built against, and what S8c builds. Package `packages/ledger-worker`; entry `src/worker.ts`; staging at `https://ledger-staging.b4uni.com/v1`, production `https://ledger.b4uni.com/v1`. The Worker serves the UI's static assets and `/v1` from one origin, so there is no CORS. Reads only: every write goes to `api.b4uni.com` (section 2).
+
+**Test harness (a deliverable of S8c).** `packages/ledger-worker/src/testing/harness.ts` exports `startLedgerWorker({ presets, schools })`, which seeds an R2 bucket on Miniflare with the events, `runViews` output and `catalog.published` for the named presets (the 15 mart presets), starts the Worker with a test JWKS, and returns `{ url, mintToken({ sub, schools: [{ id, role, finance }], expiresInSeconds? }), stop() }`. The UI's C1 to C5 gates run S8e against it.
+
+### Conventions for every endpoint
+
+- **Request.** `GET`, `Authorization: Bearer <ledger token>`. Dates are `YYYY-MM-DD` in the school's time zone. `:school` is the id in the token's `schools[]`.
+- **Success.** `200`, `Cache-Control: private, no-store`, body `{ "asOf": string | null, "lagMinutes": number | null, "data": <shape> }`. `asOf` is the views manifest's `asOf` (ISO instant); `lagMinutes` is now minus `asOf`, rounded up; both are `null` only on the `no_data` error. `data` is the `Reader` method's return type, except where a row says otherwise.
+- **Missing figures.** A field with no source is `null` in `data` (D11); a whole answer with no source is `501 not_available` (D12). **No endpoint answers 0, an empty list or `none` for something it cannot know.** The adapter turns `null` and `not_available` into the UI's "not available" state; the contract types allow the `null`s listed below.
+- **Errors.** `{ "error": { "code": string, "message": string, "field"?: string, "retryAfterSeconds"?: number } }`, `Cache-Control: private, no-store`:
+
+| Status | `code` | When |
+| --- | --- | --- |
+| 401 | `token_missing`, `token_invalid`, `token_expired` | No bearer, a token that fails any check in section 2, or an expired one. `WWW-Authenticate: Bearer error="invalid_token"`. The UI mints a new token and retries once. |
+| 403 | `finance_required` | A finance-only endpoint and the school's entry has `finance:false`. |
+| 403 | `audience_not_allowed` | `audience` finer than the caller may view (section 4). |
+| 404 | `not_found` | A school that is unknown or not in the token's `schools[]`: the same body for both. |
+| 404 | `no_data` | The school is in the token but has no views manifest yet. `asOf` and `lagMinutes` are `null`; the UI says "no ledger data yet". |
+| 400 | `bad_request` | A missing or malformed query field (`field` names it). |
+| 409 | `view_mismatch` | A view object differs from the manifest (a run is in flight). `retryAfterSeconds` is 5. |
+| 429 | `rate_limited` | `retryAfterSeconds` is set. |
+| 501 | `not_available` | D12 and the rows below. `message` says why in one sentence. |
+| 503 | `views_unavailable` | The log cannot be replayed (`SummaryProblem.kind`) or R2 failed. |
+
+### Endpoints
+
+| Path and query | Gate | `data` | `Reader` method it backs | Notes |
+| --- | --- | --- | --- | --- |
+| `GET /v1/schools` | any token | `{ schools: [{ id, asOf: string \| null, lagMinutes: number \| null, stale: boolean }] }` for the token's schools | `School.stale`, `School.lagMinutes` (the adapter merges them into `schools()`) | `stale` is `lagMinutes > 15`. A school with no manifest has `null`s and `stale: true`. Name, time zone, currency and credit unit are not here (`GET .../ledger/school` on the family service). |
+| `GET /v1/schools/:school/kpi?audience=&pin=open\|locked` | audience gate | `KpiDocument` | `kpiDocument`; `audienceReport` for public, member and governance | `source` is `{kind:"events"}` and `dataSource` `"events"`. `pin=locked` is always allowed; `pin=open` is honoured as is (the token was minted with the PIN open). A school with no usable `catalog.published` has plans in alphabetical order. No `preset` parameter. |
+| `GET /v1/schools/:school/disclosure` | any token | `{ school, year, size, file, override: null, source: "defaults" }` | `disclosure` (the adapter adds `viewer`, `views` and `viewAs` with `audiencesOf` from the buzz-school facts) | `file` is the B4 Uni file shipped with the Worker. `override` is `null` until buzz-school stores one (build list group 8): the UI says "B4 Uni defaults". |
+| `GET /v1/schools/:school/audience-report?audience=public\|member\|governance&from=&to=` | audience gate | `AudienceReport` | `audienceReport` | Derived from the same KPI document; same errors. |
+| `GET /v1/schools/:school/ledger?from=&to=&type=&drill=` | finance | `LedgerPage` with each entry's `member` as `{ key } \| null` (the adapter fills `id` and `name` from members-list) | `ledger` | `pending` is always `[]` (the Worker cannot see buzz-school's unshipped outbox; the UI keeps its own pending writes). `timeZone`, `currency` and `unit` come from the latest `catalog.published` menu, else `null`. `promo` is not a parameter: a request with `promo` is `501 not_available`. `drill=disc` returns no rows (no event records a discount). A page holds at most one `from` to `to` range of 62 days (`400 bad_request` beyond). |
+| `GET /v1/schools/:school/income-statement?from=&to=&compare=0\|1` | finance | `IncomeStatement` | `incomeStatement` | `amounts.discounts`, `amounts.giftsSold`, `giftsOutstanding` and `matchesStripe` are `null`; `basis` is `{kind:"cash"}`; `amounts.income` is income less fundraising; `net` is what `hledger is` prints (it includes disputes and the B4 Uni share). `previous` and `previous.changes` when `compare=1`. |
+| `GET /v1/schools/:school/members-income?from=&to=` | finance | `{ cents: number }` | `membersIncome` | |
+| `GET /v1/schools/:school/members/:key/money` | finance | `{ payments: PaymentRow[], history: HistoryEvent[] }` | the money half of `memberDetail` | `:key` is `family:<id>` URL-encoded. Shapes as in `members.ts`; a field with no source is `null`. `refundable` and `stripeDashboardUrl` come from the family service, not here. Money events only in phase 1, so `history` has no credit events. Unknown key: `404 not_found`. |
+| `GET /v1/schools/:school/fundraising?from=&to=` | finance | `{ campaigns: [{ campaign, receivedCents, count }], paidOutCents: number }` | none yet (optional UI hook) | From `fundraise.received` and `fundraise.paid_out`; payouts name no campaign. |
+| `GET /healthz` | none | `{ ok: true }` (no `asOf`) | | |
+
+**`501 not_available`, today:** `donors` (names have no source anywhere and a spread needs donor identity, so the Worker has no `donors` endpoint and the adapter answers the UI's not-available state without a request), `promos`, `schoolRules`, `memberPortal`, `auditMember`, every credit figure (D12: `used`, `granted`, `rolledOver`, `Booking.billing`), `Person` rows and the members summary (family service). The Worker serves none of these and has no route for them.
+
+**Contract type changes this table asks of the orchestrator** (`src/data/`, the orchestrator's): `IncomeStatement.amounts.discounts` and `giftsSold`, `giftsOutstanding` and `matchesStripe` allow `null`; `LedgerPage.timeZone`, `currency` and `unit` allow `null`; the `LedgerEntry.member` join and `Disclosure` assembly happen in the adapter.
