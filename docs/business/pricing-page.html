@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pricing · Trifold</title>
+<!--
+  Draft pricing page for Trifold. Prices and plan contents come from
+  docs/business/pricing-strategy.md (draft, 2026-11-06); they are proposals, not offers.
+  Self-contained: no external fonts, scripts or images. Colors fall back to a light
+  "paper" palette when the host page doesn't define theme variables.
+-->
+<style>
+  :root {
+    --tf-bg: var(--background, #faf7f0);
+    --tf-fg: var(--foreground, #14213d);
+    --tf-muted: var(--muted-foreground, #5f6a85);
+    --tf-card: var(--card, #fffdf8);
+    --tf-line: var(--border, #e4ddcc);
+    --tf-soft: var(--secondary, #f2ede1);
+    --tf-seal: #b23a2a;
+    --tf-seal-soft: color-mix(in srgb, #b23a2a 14%, transparent);
+    --tf-green: var(--success, #2f6b4f);
+    --tf-green-soft: color-mix(in srgb, var(--tf-green) 14%, transparent);
+    --tf-radius: var(--radius, 10px);
+    --tf-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --tf-sans: var(--font-sans, ui-sans-serif, -apple-system, "Segoe UI", Roboto, Arial, sans-serif);
+    --tf-mono: var(--font-mono, ui-monospace, "SF Mono", Menlo, Consolas, monospace);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--tf-fg); font-family: var(--tf-sans); line-height: 1.45; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 4px 48px; }
+  a { color: inherit; }
+  h1, h2, h3 { font-family: var(--tf-serif); font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+  .draft { display: inline-block; font: 600 11px/1 var(--tf-mono); letter-spacing: .08em; text-transform: uppercase;
+    color: var(--tf-seal); border: 1px solid var(--tf-seal); border-radius: 999px; padding: 5px 9px; }
+
+  /* Hero */
+  .hero { text-align: center; padding: 28px 0 8px; }
+  .wordmark { font: 700 15px/1 var(--tf-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--tf-muted); margin-bottom: 14px; }
+  .wordmark b { color: var(--tf-seal); }
+  .hero h1 { font-size: clamp(30px, 5vw, 46px); line-height: 1.1; }
+  .hero p { color: var(--tf-muted); max-width: 640px; margin: 12px auto 0; font-size: 17px; }
+
+  /* Toggles */
+  .controls { display: flex; flex-wrap: wrap; gap: 12px 20px; justify-content: center; align-items: center; margin: 26px 0 10px; }
+  .seg { display: inline-flex; background: var(--tf-soft); border: 1px solid var(--tf-line); border-radius: 999px; padding: 3px; }
+  .seg button { appearance: none; border: 0; background: transparent; color: var(--tf-muted); font: 600 14px/1 var(--tf-sans);
+    padding: 9px 15px; border-radius: 999px; cursor: pointer; display: inline-flex; gap: 7px; align-items: center; }
+  .seg button[aria-pressed="true"] { background: var(--tf-card); color: var(--tf-fg); box-shadow: 0 1px 2px rgb(0 0 0 / .12); }
+  .seg button:focus-visible, .cta:focus-visible, input:focus-visible { outline: 2px solid var(--tf-seal); outline-offset: 2px; }
+  .pill { font: 700 10.5px/1 var(--tf-mono); letter-spacing: .04em; color: var(--tf-green); background: var(--tf-green-soft);
+    padding: 4px 6px; border-radius: 999px; }
+  .np-note { text-align: center; color: var(--tf-muted); font-size: 13.5px; max-width: 720px; margin: 0 auto; min-height: 20px; }
+  .np-note strong { color: var(--tf-fg); }
+
+  /* Estimator */
+  .estimator { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; justify-content: center;
+    margin: 18px auto 22px; padding: 12px 16px; max-width: 760px; border: 1px dashed var(--tf-line); border-radius: var(--tf-radius); }
+  .estimator label { font-weight: 600; font-size: 14px; }
+  .estimator input[type="range"] { width: 220px; accent-color: var(--tf-seal); }
+  .estimator output { font: 600 14px var(--tf-mono); }
+  .estimator .fit { font-size: 13.5px; color: var(--tf-muted); }
+  .estimator .fit b { color: var(--tf-fg); }
+
+  /* Plan cards */
+  .plans { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+  @media (max-width: 980px) { .plans { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 560px) { .plans { grid-template-columns: 1fr; } }
+  .card { position: relative; background: var(--tf-card); border: 1px solid var(--tf-line); border-radius: var(--tf-radius);
+    padding: 20px 18px 18px; display: flex; flex-direction: column; gap: 12px; }
+  .card.featured { border-color: var(--tf-fg); box-shadow: 0 0 0 1px var(--tf-fg); }
+  .card.witness { border-color: var(--tf-seal); box-shadow: 0 0 0 1px var(--tf-seal); }
+  .card.fits::after { content: "Fits your size"; position: absolute; right: 12px; top: 12px; font: 700 10px/1 var(--tf-mono);
+    letter-spacing: .05em; text-transform: uppercase; color: var(--tf-green); background: var(--tf-green-soft); padding: 4px 6px; border-radius: 999px; }
+  .badge { position: absolute; top: -11px; left: 16px; font: 700 10.5px/1 var(--tf-mono); letter-spacing: .06em; text-transform: uppercase;
+    padding: 5px 8px; border-radius: 999px; background: var(--tf-fg); color: var(--tf-card); }
+  .witness .badge { background: var(--tf-seal); color: #fff; }
+  .card h3 { font-size: 22px; }
+  .tagline { color: var(--tf-muted); font-size: 14px; min-height: 40px; margin: -6px 0 0; }
+  .price { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; min-height: 46px; }
+  .price .amt { font: 600 38px/1 var(--tf-serif); }
+  .price .per { color: var(--tf-muted); font-size: 14px; }
+  .price s { color: var(--tf-muted); font: 500 16px var(--tf-serif); }
+  .billing { color: var(--tf-muted); font-size: 12.5px; margin-top: -8px; min-height: 18px; }
+  .limits { font: 500 12.5px/1.5 var(--tf-mono); color: var(--tf-fg); background: var(--tf-soft); border-radius: 6px; padding: 8px 10px; }
+  .cta { display: block; text-align: center; text-decoration: none; font-weight: 700; font-size: 14px; padding: 11px 12px;
+    border-radius: 8px; border: 1px solid var(--tf-fg); color: var(--tf-fg); }
+  .featured .cta { background: var(--tf-fg); color: var(--tf-card); }
+  .witness .cta { background: var(--tf-seal); border-color: var(--tf-seal); color: #fff; }
+  .card ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 7px; font-size: 14px; }
+  .card li { padding-left: 20px; position: relative; }
+  .card li::before { content: "✓"; position: absolute; left: 0; color: var(--tf-green); font-weight: 700; }
+  .card li.plus::before { content: "+"; color: var(--tf-seal); }
+  .card li.np { display: none; }
+  body.np .card li.np { display: list-item; }
+  .soon { display: inline-block; margin-left: 6px; font: 700 9.5px/1 var(--tf-mono); letter-spacing: .05em; text-transform: uppercase;
+    color: var(--tf-muted); border: 1px solid var(--tf-line); padding: 3px 4px; border-radius: 4px; vertical-align: 2px; }
+
+  .side-plans { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+  @media (max-width: 760px) { .side-plans { grid-template-columns: 1fr; } }
+  .side { position: relative; display: flex; gap: 16px; align-items: center; justify-content: space-between; background: transparent;
+    border: 1px solid var(--tf-line); border-radius: var(--tf-radius); padding: 16px 18px; }
+  .side h3 { font-size: 19px; }
+  .side p { margin: 4px 0 0; color: var(--tf-muted); font-size: 14px; }
+  .side .cta { white-space: nowrap; }
+
+  section { margin-top: 52px; }
+  section > h2 { font-size: 28px; }
+  section > .lede { color: var(--tf-muted); margin: 6px 0 18px; max-width: 760px; }
+
+  /* Matrix */
+  .matrix-wrap { overflow: auto; max-height: 760px; border: 1px solid var(--tf-line); border-radius: var(--tf-radius); background: var(--tf-card); }
+  table.matrix { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 900px; font-size: 13.5px; }
+  .matrix th, .matrix td { padding: 9px 10px; border-bottom: 1px solid var(--tf-line); text-align: center; vertical-align: middle; }
+  .matrix thead th { position: sticky; top: 0; z-index: 2; background: var(--tf-card); vertical-align: bottom; border-bottom: 2px solid var(--tf-fg); }
+  .matrix thead th .n { font: 600 16px var(--tf-serif); display: block; }
+  .matrix thead th .p { font: 500 12px var(--tf-mono); color: var(--tf-muted); display: block; margin-top: 2px; }
+  .matrix th[scope="row"], .matrix thead th:first-child { position: sticky; left: 0; z-index: 1; background: var(--tf-card);
+    text-align: left; font-weight: 500; min-width: 250px; }
+  .matrix thead th:first-child { z-index: 3; }
+  .matrix tr.group th { text-align: left; font: 700 11.5px/1 var(--tf-mono); letter-spacing: .08em; text-transform: uppercase;
+    color: var(--tf-muted); background: var(--tf-soft); padding: 11px 10px; position: sticky; left: 0; }
+  .matrix .col-pro { background: color-mix(in srgb, var(--tf-fg) 4%, transparent); }
+  .matrix .col-witnessed { background: var(--tf-seal-soft); }
+  .matrix thead th.col-pro, .matrix thead th.col-witnessed { background: var(--tf-card); }
+  .matrix thead th.col-pro .n { text-decoration: underline 2px var(--tf-fg); text-underline-offset: 4px; }
+  .matrix thead th.col-witnessed .n { color: var(--tf-seal); }
+  .yes { color: var(--tf-green); font-weight: 800; font-size: 15px; }
+  .no { color: var(--tf-line); font-weight: 700; }
+  .txt { font-size: 12.5px; }
+  .hint { display: block; font-size: 12px; color: var(--tf-muted); font-weight: 400; margin-top: 2px; }
+  .matrix-legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12.5px; color: var(--tf-muted); margin-top: 10px; }
+
+  /* Add-ons, credits, FAQ */
+  .addons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  @media (max-width: 860px) { .addons { grid-template-columns: 1fr; } }
+  .addon { border: 1px solid var(--tf-line); border-radius: var(--tf-radius); padding: 16px 18px; background: var(--tf-card); }
+  .addon h3 { font-size: 18px; }
+  .addon .ap { font: 600 15px var(--tf-mono); margin: 6px 0; }
+  .addon p { margin: 0; color: var(--tf-muted); font-size: 14px; }
+  .addon.np-only { display: none; }
+  body.np .addon.np-only { display: block; }
+  table.simple { border-collapse: collapse; width: 100%; font-size: 14px; background: var(--tf-card); border: 1px solid var(--tf-line); border-radius: var(--tf-radius); overflow: hidden; }
+  .simple th, .simple td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--tf-line); }
+  .simple td:nth-child(2) { font-family: var(--tf-mono); white-space: nowrap; }
+  .simple thead th { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--tf-muted); }
+  .free-list { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+  @media (max-width: 860px) { .free-list { grid-template-columns: 1fr 1fr; } }
+  .free-list div { border: 1px solid var(--tf-line); border-radius: var(--tf-radius); padding: 12px; font-size: 14px; }
+  .free-list b { display: block; font-family: var(--tf-serif); font-size: 16px; margin-bottom: 3px; }
+  details { border-bottom: 1px solid var(--tf-line); padding: 12px 0; }
+  summary { cursor: pointer; font-weight: 600; }
+  details p { color: var(--tf-muted); margin: 8px 0 0; max-width: 800px; }
+  .fine { color: var(--tf-muted); font-size: 12.5px; margin-top: 36px; border-top: 1px solid var(--tf-line); padding-top: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="wordmark">Tri<b>fold</b> &nbsp;<span class="draft">Draft pricing</span></div>
+    <h1>Books you can prove. Priced so anyone can start.</h1>
+    <p>The tfd engine is free to self-host. Pay when you want Trifold to host it, automate it, and stand behind it as an independent witness.</p>
+  </header>
+
+  <div class="controls" role="group" aria-label="Pricing options">
+    <div class="seg" role="group" aria-label="Billing period">
+      <button type="button" data-period="monthly" aria-pressed="true">Monthly</button>
+      <button type="button" data-period="annual" aria-pressed="false">Annually <span class="pill">2 months free</span></button>
+    </div>
+    <div class="seg" role="group" aria-label="Organization type">
+      <button type="button" data-org="std" aria-pressed="true">For-profit</button>
+      <button type="button" data-org="np" aria-pressed="false">Non-profit &amp; co-op <span class="pill">~50% off</span></button>
+    </div>
+  </div>
+  <p class="np-note" id="np-note" aria-live="polite"></p>
+
+  <div class="estimator">
+    <label for="families">How many families or members?</label>
+    <input id="families" type="range" min="5" max="1000" step="5" value="60">
+    <output id="families-out" for="families">60</output>
+    <span class="fit" id="fit"></span>
+  </div>
+
+  <div class="plans" id="plans"></div>
+  <div class="side-plans" id="side-plans"></div>
+
+  <section id="compare">
+    <h2>Compare every plan</h2>
+    <p class="lede">Every plan keeps the same books and the same open receipt format. Higher plans add automation, AI, a team, and Trifold as witness.</p>
+    <div class="matrix-wrap"><table class="matrix" id="matrix"></table></div>
+    <div class="matrix-legend">
+      <span><span class="yes">✓</span> Included</span>
+      <span><span class="no">—</span> Not included</span>
+      <span><span class="soon">soon</span> On the roadmap, not yet shipped</span>
+      <span>Pack = paid add-on below</span>
+    </div>
+  </section>
+
+  <section id="addons">
+    <h2>Add-ons</h2>
+    <p class="lede">Bolt on what your organization needs. None of these are required to keep your books.</p>
+    <div class="addons" id="addon-list"></div>
+  </section>
+
+  <section id="credits">
+    <h2>What credits pay for</h2>
+    <p class="lede">One credit is one cent. Every plan includes a monthly allowance; unused credits roll over one month. Running out never stops your books: payments still book and receipts are still signed. Only Rifo and new witness signatures pause until credits return.</p>
+    <table class="simple">
+      <thead><tr><th>Action</th><th>Credits</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>Ask Rifo a question</td><td>2–10</td><td>Passes on the AI cost</td></tr>
+        <tr><td>Rifo closes your month</td><td>500–1,500</td><td>Categorize, reconcile, write the summary</td></tr>
+        <tr><td>Pricing Lab forecast</td><td>25</td><td>Replays a year of events under new prices</td></tr>
+        <tr><td>Witnessed receipt</td><td>3</td><td>Kept cheap on purpose: one per payment</td></tr>
+        <tr><td>Witnessed month seal</td><td>25</td><td>Once a month</td></tr>
+        <tr><td>Donation acknowledgment (verified non-profits)</td><td>0</td><td>Every donor's receipt carries a verify link</td></tr>
+        <tr><td>Self-signed receipt or seal, verifying, CLI simulate</td><td>0, always</td><td>Free to self-host; format and verifier are Apache-2.0</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="never">
+    <h2>Never behind a paywall</h2>
+    <p class="lede">On every plan, including self-hosted, forever.</p>
+    <div class="free-list">
+      <div><b>Verify anything</b>Families, CPAs and auditors check receipts and seals for free.</div>
+      <div><b>Export everything</b>Your books are yours, in open formats.</div>
+      <div><b>Erasure &amp; privacy</b>Delete personal data without breaking your books.</div>
+      <div><b>Security fixes</b>For every plan and every self-hosted install.</div>
+      <div><b>Open standards</b>The receipt, seal and KPI specs are open to anyone.</div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <h2>Questions</h2>
+    <details><summary>What's a ledger event?</summary>
+      <p>One thing that happened to your money: a payment, a refund, a credit used, a booking. A typical family or member makes about 7 a month, so Free's 1,000 events covers about 140 families. Most organizations upgrade for features, not limits.</p></details>
+    <details><summary>What happens if I go over my limit?</summary>
+      <p>Your books keep running. On Free you get a warning and a read-only prompt to upgrade. On paid plans, extra events are $2 per 10,000, and only if you turn overage on. By default there's a hard cap with alerts at 80% and 100%, so there are no surprise bills.</p></details>
+    <details><summary>Who qualifies for non-profit &amp; co-op pricing?</summary>
+      <p>US 501(c) organizations (we check your IRS determination letter or EIN), and cooperatives (we check your articles or bylaws). Non-profits with gross receipts of $50,000 or less get Witnessed free on the Free plan, with up to about 200 witnessed receipts a month.</p></details>
+    <details><summary>Do the annual and non-profit discounts stack?</summary>
+      <p>Yes. Annual billing is ten months' price for twelve months, applied to whichever price you qualify for.</p></details>
+    <details><summary>What does "Witnessed" mean? Is it an audit?</summary>
+      <p>It isn't an audit. Trifold countersigns each receipt and monthly seal and logs it publicly, which proves Trifold saw that exact record at that time and that nobody changed it afterwards. It doesn't prove the money moved or that the books are complete. That's what makes your auditor's job faster, not unnecessary.</p></details>
+    <details><summary>Can I self-host for free?</summary>
+      <p>Yes. The whole engine and the <code>tfd</code> CLI are free to run yourself, including receipts, seals, reconcile and simulate. tfd is source-available under the Functional Source License. The license lets you use and change it for your own organization, for non-commercial education and research, and for professional services to a licensee; it doesn't allow selling it as a competing hosted service. Every tfd release becomes Apache-2.0 two years after it ships. The verifier and receipt format are Apache-2.0 today.</p></details>
+    <details><summary>Does Trifold file my taxes?</summary>
+      <p>No. Trifold keeps provable books and prepares the reports your CPA or enrolled agent needs. Partner bookkeepers can close the month for you.</p></details>
+  </section>
+
+  <p class="fine">Draft for internal review, 2026-11-06. Prices in USD, before any sales tax. Features marked "soon" aren't available yet. Non-profit and co-op pricing requires verification. Donation acknowledgments are written to meet IRS written-acknowledgment requirements; Trifold doesn't guarantee any donor's deduction.</p>
+</div>
+
+<script>
+  const ANNUAL_MONTHS_CHARGED = 10;
+  const EVENTS_PER_FAMILY = 7;
+  const state = { period: "monthly", org: "std", families: 60 };
+
+  const PLANS = [
+    { id: "free", name: "Free", tagline: "Hosted books for small organizations getting started.", price: { std: 0, np: 0 },
+      events: 1000, limits: "1,000 events · 200 credits · 2 seats", cta: "Start free",
+      features: ["Books built from your Stripe events", "Self-signed receipts and sealed months", "Reports and on-demand reconcile", "1 Pricing Lab forecast a month",
+        { text: "Witnessed free for non-profits under $50K a year", np: true, plus: true }] },
+    { id: "starter", name: "Starter", tagline: "Signed receipts on top of the books you already keep.", price: { std: 29, np: 15 },
+      events: 5000, limits: "5,000 events · 1,000 credits · 5 seats", cta: "Choose Starter",
+      features: ["Everything in Free", { text: "QuickBooks or Xero sync", soon: true }, "Email support", "Free seats for your CPA"] },
+    { id: "pro", name: "Pro", tagline: "Replace QuickBooks. Your month closes itself.", price: { std: 79, np: 39 }, badge: "Most popular", featured: true,
+      events: 25000, limits: "25,000 events · 5,000 credits · unlimited seats", cta: "Choose Pro",
+      features: ["Everything in Starter", "Pricing Lab: forecasts and saved scenarios", "Daily reconcile with alerts", "Scheduled monthly close", "Roles, approvals and Google sign-in",
+        { text: "Rifo, your AI bookkeeper", soon: true }, { text: "Public \"open books\" page", np: true, soon: true }] },
+    { id: "witnessed", name: "Witnessed", tagline: "Books an auditor, grantor or state program can verify.", price: { std: 149, np: 79 }, badge: "Early access", witness: true,
+      events: 25000, limits: "25,000 events · 8,000 credits · unlimited seats", cta: "Join early access",
+      features: ["Everything in Pro", { text: "Trifold countersigns every receipt and seal", soon: true, plus: true }, { text: "Public transparency log", soon: true, plus: true },
+        { text: "Auditor portal", soon: true, plus: true }, { text: "Daily matching to Stripe payouts", soon: true, plus: true }, "Priority support",
+        { text: "Donation receipts use no credits", np: true, plus: true }, { text: "Unlimited board and member seats", np: true, plus: true }] },
+  ];
+
+  const SIDE_PLANS = [
+    { id: "community", name: "Community · self-hosted", body: "The whole tfd engine and CLI, on your own machine. Receipts, seals, reconcile, simulate. $0 forever.", cta: "Read the docs" },
+    { id: "platform", name: "Platform", body: "For school networks, fiscal sponsors, federations and software vendors. Rollups across organizations, SSO, SLA, white-label verify.", cta: "Talk to us" },
+  ];
+
+  const ADDONS = [
+    { name: "Witnessed + Bookkeeper", price: { std: "~$349/mo", np: "~$249/mo" }, body: "A partner bookkeeper closes your month on witnessed books. Less than most bookkeeping services alone." },
+    { name: "State program pack", price: { std: "$15–30/mo per program", np: "$15–30/mo per program" }, body: "Itemised receipts for education savings and tax-credit programs, kept current as the rules change." },
+    { name: "Non-profit pack", price: { std: "$15–25/mo", np: "$15–25/mo" }, npOnly: true, body: "Signed donation acknowledgments, restricted funds, grant reports, and a Form 990 package for your CPA." },
+    { name: "Co-op pack", price: { std: "$15–25/mo", np: "$15–25/mo" }, npOnly: true, body: "Member capital accounts, patronage allocation, and 1099-PATR export." },
+    { name: "Credit top-ups", price: { std: "$10 = 1,000 credits", np: "$10 = 1,000 credits" }, body: "For heavy Rifo use or a busy month of witnessed receipts. Opt-in only." },
+    { name: "Witness API", price: { std: "500/mo free, then $0.03–0.05", np: "500/mo free, then $0.03–0.05" }, body: "Just the witness, for self-hosters and platforms that issue their own receipts." },
+  ];
+
+  // Matrix cells: true / false / text. S(x) marks a roadmap item; N(std, np) varies with the organization toggle.
+  const S = (value) => ({ value, soon: true });
+  const N = (std, np) => ({ std, np });
+  const COLUMNS = [
+    { id: "community", name: "Community", price: { std: 0, np: 0 }, self: true },
+    { id: "free", name: "Free", price: { std: 0, np: 0 } },
+    { id: "starter", name: "Starter", price: { std: 29, np: 15 } },
+    { id: "pro", name: "Pro", price: { std: 79, np: 39 } },
+    { id: "witnessed", name: "Witnessed", price: { std: 149, np: 79 } },
+    { id: "platform", name: "Platform", custom: true },
+  ];
+  const MATRIX = [
+    ["Limits", [
+      ["Ledger events a month", "", ["Unlimited", "1,000", "5,000", "25,000", "25,000", "Custom"]],
+      ["Roughly how many families", "At about 7 events each", ["Any", "~140", "~700", "~3,500", "~3,500", "Any"]],
+      ["Credits a month", "For Rifo and witness signatures", ["—", "200", "1,000", "5,000", "8,000", "Pooled"]],
+      ["Seats", "CPA and auditor seats never count", ["Yours", "2", "5", "Unlimited", "Unlimited", "Unlimited"]],
+      ["Storage and compute", "", ["Your own", "Included", "Included", "Included", "Included", "Included"]],
+      ["Over the event limit", "Opt-in; hard cap by default", ["—", "Warning, books keep running", "$2 / 10K", "$2 / 10K", "$2 / 10K", "~$1 / 10K"]],
+    ]],
+    ["Books", [
+      ["Billing engine", "Credits, plans, bookings, codes, memberships", [true, true, true, true, true, true]],
+      ["Books built from Stripe events", "Event log and journal", [true, true, true, true, true, true]],
+      ["Financial reports", "", [true, true, true, true, true, true]],
+      ["Hosted, backed-up books", "", [false, true, true, true, true, "+ data residency"]],
+      ["Scheduled monthly close", "", [false, false, false, true, true, true]],
+      ["Month-end package for your CPA", "", ["CLI", false, false, true, true, true]],
+      ["Consolidation across organizations", "", [false, false, false, false, false, true]],
+    ]],
+    ["Receipts and seals", [
+      ["Signed receipt for every payment", "", ["Self-signed", "Self-signed", "Self-signed", "Self-signed", S("Countersigned"), S("Countersigned")]],
+      ["Sealed months", "", ["Self-signed", "Self-signed", "Self-signed", "Self-signed", S("Countersigned"), S("Countersigned")]],
+      ["Anyone can verify, free", "", [true, true, true, true, true, true]],
+      ["Trifold as independent witness", "", [false, N(false, S("Under $50K")), false, false, S(true), S(true)]],
+      ["Public transparency log", "", [false, false, false, false, S(true), S(true)]],
+      ["Per-event hash chain", "", [false, false, false, false, S(true), S(true)]],
+      ["Auditor portal", "", [false, false, false, false, S(true), S(true)]],
+      ["White-label verify page", "", [false, false, false, false, false, true]],
+    ]],
+    ["Reconcile", [
+      ["Stripe reconcile on demand", "", [true, true, true, true, true, true]],
+      ["Daily automatic reconcile with alerts", "", [false, false, false, true, true, true]],
+      ["Daily matching to Stripe payouts", "Recorded in the witnessed books", [false, false, false, false, S(true), S(true)]],
+    ]],
+    ["Pricing Lab", [
+      ["Replay the past under new prices", "", ["CLI", true, true, true, true, true]],
+      ["Forecast revenue under new prices", "", [false, "1 a month", "1 a month", true, true, true]],
+      ["Saved, shareable scenarios", "Side by side, for an owner or board", [false, false, false, true, true, true]],
+      ["Hosted CI check and staged rollouts", "", [false, false, false, true, true, true]],
+      ["Network-wide pricing tests", "", [false, false, false, false, false, true]],
+    ]],
+    ["Rifo AI", [
+      ["Ask Rifo about your books", "Uses credits", [false, S("Small quota"), S(true), S(true), S(true), S(true)]],
+      ["Rifo closes your month", "Uses credits", [false, false, false, S(true), S(true), S(true)]],
+      ["Custom agents and API", "", [false, false, false, false, false, S(true)]],
+    ]],
+    ["Team and access", [
+      ["Ledger web app", "", ["Read-only viewer", true, true, true, true, true]],
+      ["Free CPA and bookkeeper seats", "", [false, true, true, true, true, true]],
+      ["Roles and approvals", "", [false, false, false, true, true, true]],
+      ["Google sign-in", "", [false, false, false, true, true, true]],
+      ["Auditor role", "", [false, false, false, false, S(true), S(true)]],
+      ["SAML single sign-on and audit log", "", [false, false, false, false, false, true]],
+    ]],
+    ["Integrations", [
+      ["CSV and hledger export", "", [true, true, true, true, true, true]],
+      ["QuickBooks or Xero sync", "", [false, false, S(true), S(true), S(true), S(true)]],
+      ["Witness API", "", ["Metered", "Metered", "Metered", "Metered", S("Included"), S("Included")]],
+    ]],
+    ["Non-profits and co-ops", [
+      ["Signed donation acknowledgments", "Written to IRS acknowledgment rules", [false, N(false, S("Under $50K")), S("Pack"), S("Pack"), N(S("Pack"), S("Included, 0 credits")), S(true)]],
+      ["Restricted funds and grant reports", "", [false, false, S("Pack"), S("Pack"), S("Pack"), S(true)]],
+      ["Form 990 package for your CPA", "", [false, false, false, S("Pack"), S("Pack"), S(true)]],
+      ["Member capital accounts and patronage", "", [false, false, S("Co-op pack"), S("Co-op pack"), S("Co-op pack"), S(true)]],
+      ["1099-PATR export", "", [false, false, S("Co-op pack"), S("Co-op pack"), S("Co-op pack"), S(true)]],
+      ["Public \"open books\" page", "", [false, false, false, S(true), S(true), S(true)]],
+      ["Unlimited board and member viewer seats", "", [false, false, false, N(false, true), true, true]],
+    ]],
+    ["Support", [
+      ["Community forum and GitHub", "", [true, true, true, true, true, true]],
+      ["Email support", "", [false, false, true, true, true, true]],
+      ["Priority support", "", [false, false, false, false, true, true]],
+      ["Uptime SLA", "", [false, false, false, false, false, true]],
+    ]],
+    ["Never paywalled", [
+      ["Verify receipts and seals", "", [true, true, true, true, true, true]],
+      ["Export all your data", "", [true, true, true, true, true, true]],
+      ["Erasure and privacy tools", "", [true, true, true, true, true, true]],
+      ["Security fixes", "", [true, true, true, true, true, true]],
+    ]],
+  ];
+
+  const dollars = (amount) => `$${Math.round(amount).toLocaleString("en-US")}`;
+
+  function priceFor(price) {
+    const standard = price.std;
+    const monthly = price[state.org];
+    if (standard === 0) return { amount: "$0", per: "", struck: "", billing: "Free forever" };
+    const annual = state.period === "annual";
+    const effective = annual ? (monthly * ANNUAL_MONTHS_CHARGED) / 12 : monthly;
+    const discounted = Math.round(effective) < standard;
+    return {
+      amount: dollars(effective),
+      per: "/mo",
+      struck: discounted ? dollars(standard) : "",
+      billing: annual ? `Billed ${dollars(monthly * ANNUAL_MONTHS_CHARGED)} a year` : "Billed monthly",
+    };
+  }
+
+  function featureItem(feature) {
+    const item = typeof feature === "string" ? { text: feature } : feature;
+    const classes = [item.np ? "np" : "", item.plus ? "plus" : ""].filter(Boolean).join(" ");
+    const soon = item.soon ? '<span class="soon">soon</span>' : "";
+    return `<li${classes ? ` class="${classes}"` : ""}>${item.text}${soon}</li>`;
+  }
+
+  function fittingPlanId() {
+    const events = state.families * EVENTS_PER_FAMILY;
+    const fit = PLANS.find((plan) => events <= plan.events);
+    return fit ? fit.id : "platform";
+  }
+
+  function renderPlans() {
+    const fitId = fittingPlanId();
+    document.getElementById("plans").innerHTML = PLANS.map((plan) => {
+      const price = priceFor(plan.price);
+      const classes = ["card", plan.featured ? "featured" : "", plan.witness ? "witness" : "", plan.id === fitId ? "fits" : ""].filter(Boolean).join(" ");
+      return `<article class="${classes}" aria-labelledby="plan-${plan.id}">
+        ${plan.badge ? `<span class="badge">${plan.badge}</span>` : ""}
+        <h3 id="plan-${plan.id}">${plan.name}</h3>
+        <p class="tagline">${plan.tagline}</p>
+        <div class="price">${price.struck ? `<s>${price.struck}</s>` : ""}<span class="amt">${price.amount}</span><span class="per">${price.per}</span></div>
+        <div class="billing">${price.billing}</div>
+        <div class="limits">${plan.limits}</div>
+        <a class="cta" href="#">${plan.cta}</a>
+        <ul>${plan.features.map(featureItem).join("")}</ul>
+      </article>`;
+    }).join("");
+    document.getElementById("side-plans").innerHTML = SIDE_PLANS.map((plan) => `<div class="side${plan.id === fitId ? " fits" : ""}">
+        <div><h3>${plan.name}</h3><p>${plan.body}</p></div><a class="cta" href="#">${plan.cta}</a></div>`).join("");
+  }
+
+  function cellHtml(raw) {
+    let cell = raw && typeof raw === "object" && "std" in raw ? raw[state.org] : raw;
+    let soon = false;
+    if (cell && typeof cell === "object" && "soon" in cell) {
+      soon = true;
+      cell = cell.value;
+    }
+    let html;
+    if (cell === true) html = '<span class="yes" aria-label="Included">✓</span>';
+    else if (cell === false) html = '<span class="no" aria-label="Not included">—</span>';
+    else html = `<span class="txt">${cell}</span>`;
+    return soon ? `${html}<span class="soon">soon</span>` : html;
+  }
+
+  function columnPrice(column) {
+    if (column.custom) return "Custom";
+    if (column.self) return "$0 · self-hosted";
+    const price = priceFor(column.price);
+    return price.per ? `${price.amount}${price.per}` : price.amount;
+  }
+
+  function renderMatrix() {
+    const head = `<thead><tr><th scope="col">Feature</th>${COLUMNS.map((column) =>
+      `<th scope="col" class="col-${column.id}"><span class="n">${column.name}</span><span class="p">${columnPrice(column)}</span></th>`).join("")}</tr></thead>`;
+    const body = MATRIX.map(([group, rows]) => {
+      const groupRow = `<tr class="group"><th colspan="${COLUMNS.length + 1}" scope="colgroup">${group}</th></tr>`;
+      const featureRows = rows.map(([label, hint, cells]) => `<tr><th scope="row">${label}${hint ? `<span class="hint">${hint}</span>` : ""}</th>${
+        cells.map((cell, index) => `<td class="col-${COLUMNS[index].id}">${cellHtml(cell)}</td>`).join("")}</tr>`).join("");
+      return groupRow + featureRows;
+    }).join("");
+    document.getElementById("matrix").innerHTML = `${head}<tbody>${body}</tbody>`;
+  }
+
+  function renderAddons() {
+    document.getElementById("addon-list").innerHTML = ADDONS.map((addon) => `<div class="addon${addon.npOnly ? " np-only" : ""}">
+      <h3>${addon.name}</h3><div class="ap">${addon.price[state.org]}</div><p>${addon.body}</p></div>`).join("");
+  }
+
+  function renderEstimator() {
+    const events = state.families * EVENTS_PER_FAMILY;
+    const fit = fittingPlanId();
+    const name = fit === "platform" ? "Pro with overage, or Platform" : PLANS.find((plan) => plan.id === fit).name;
+    document.getElementById("families-out").textContent = state.families.toLocaleString("en-US");
+    document.getElementById("fit").innerHTML = `≈ ${events.toLocaleString("en-US")} events a month · fits <b>${name}</b> and up. Pick by features.`;
+  }
+
+  function renderNote() {
+    document.getElementById("np-note").innerHTML = state.org === "np"
+      ? "<strong>Non-profit &amp; co-op pricing</strong> for verified 501(c) organizations and cooperatives. Under $50K a year? Witnessed is free on the Free plan."
+      : "";
+  }
+
+  function render() {
+    document.body.classList.toggle("np", state.org === "np");
+    for (const button of document.querySelectorAll("[data-period]")) button.setAttribute("aria-pressed", String(button.dataset.period === state.period));
+    for (const button of document.querySelectorAll("[data-org]")) button.setAttribute("aria-pressed", String(button.dataset.org === state.org));
+    renderNote();
+    renderEstimator();
+    renderPlans();
+    renderMatrix();
+    renderAddons();
+  }
+
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-period], [data-org]");
+    if (!button) return;
+    if (button.dataset.period) state.period = button.dataset.period;
+    if (button.dataset.org) state.org = button.dataset.org;
+    render();
+  });
+  document.getElementById("families").addEventListener("input", (event) => {
+    state.families = Number(event.target.value);
+    render();
+  });
+
+  render();
+</script>
+</body>
+</html>
