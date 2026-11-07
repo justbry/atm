@@ -47,6 +47,7 @@ S0 (#112) and S1 (#118) merged earlier. Parity gate R, which runs the mockup's o
 - The Refunds card reads "Not computed" where the audience's document carries no refund rate; the mockup prints "0.0% of gross" from its own data, a figure that audience's document does not hold.
 - Reports' gift line shows one chevron (the mockup's doubled "› ›" is a glitch); "1 current member keeps" and "1 session is spent" fix the mockup's grammar.
 - The Plans Code view's `# stripe:` lines name what is on Stripe, not `prod_`/`price_` ids: atm sends menu keys (parity line 367, N/A).
+- Refunds are open to every admin (owner ruling D10, 2026-11-06), so an admin's Refund is enabled and the drawer carries no "Refunds need the owner role" note; the mockup keeps refunds the owner's. Send invoice and Adjust stay finance only.
 - Vibes of Light's fixtures carry an unpublished Plans draft (Glow $65 → $70); many S3 golden entries exercise it, and reviewers counted it as data.
 
 ## Contract gaps for S8 (real adapters; S8 stays blocked)
