@@ -1,3 +1,7 @@
+# Decisions
+
+Read `AGENTS.md` first: product names (Trifold, tfd, Rifo), the atm → tfd rename rules, licensing per path, and claim rules.
+
 # Git Rules
 
 - **NEVER push to `main`.** Not directly, not via a PR you merge yourself. All work goes on a feature branch with a PR against `dev`.

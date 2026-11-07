@@ -2,6 +2,7 @@
 	"name": "atm",
 	"version": "0.9.0",
 	"private": true,
+	"license": "SEE LICENSE IN LICENSING.md",
 	"type": "module",
 	"description": "The Trifold engine, built on Autumn's balance engine: a local CLI (tfd, also atm) and a TypeScript library that run engine commands against a subject; next, build, check and replay a school's ledger.",
 	"bin": {
@@ -23,7 +24,10 @@
 	"files": [
 		"dist",
 		"src",
-		"fixtures/scenarios"
+		"fixtures/scenarios",
+		"LICENSE.md",
+		"LICENSING.md",
+		"LICENSES"
 	],
 	"scripts": {
 		"atm": "bun ./src/atm.ts",

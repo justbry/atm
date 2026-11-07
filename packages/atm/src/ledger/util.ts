@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { createHash } from "node:crypto";
 
 /** JSON with every object's keys sorted, so the same value is always the same bytes. */

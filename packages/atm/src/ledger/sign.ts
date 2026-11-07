@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { createPrivateKey, createPublicKey, sign, verify } from "node:crypto";
 import { Ajv2020, type ValidateFunction } from "ajv/dist/2020.js";
 import type { AtmPublicKeys, AtmSigner } from "../types.js";
