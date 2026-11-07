@@ -1,0 +1,498 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "./lib/styles/fonts.css";
+
+/* Class-based dark mode, as shadcn-svelte expects. The inline script in app.html sets .dark before first paint. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Tokens (docs/website/brand-guide.md §2–4) on shadcn-svelte's variable names, so its components pick up the brand:
+ * --primary is the saffron seal, --background the ink or paper, --ring the focus color. Trifold's own tokens sit
+ * beside them and are exposed through @theme below (text-proof, bg-seal, border-ember, …).
+ * Light ("ink and foil") is :root; dark ("the vault at night") is .dark.
+ */
+:root {
+	color-scheme: light;
+	--radius: 0.875rem;
+
+	--background: #f7f3ea;
+	--foreground: #16203a;
+	--card: #fffdf8;
+	--card-foreground: #16203a;
+	--popover: #fffdf8;
+	--popover-foreground: #16203a;
+	--primary: #c98a22;
+	--primary-foreground: #16203a;
+	--secondary: #efe9dc;
+	--secondary-foreground: #16203a;
+	--muted: #efe9dc;
+	--muted-foreground: #5b6680;
+	--accent: #efe9dc;
+	--accent-foreground: #16203a;
+	--destructive: #b5533c;
+	--border: #e4dccb;
+	--input: #d3c8b2;
+	--ring: #c98a22;
+
+	--sunk: #efe9dc;
+	--line-strong: #d3c8b2;
+	--fg-dim: #a8afc0;
+	--proof: #2f7d5b;
+	--proof-text: #2a7253;
+	--seal: #c98a22;
+	--seal-ink: #16203a;
+	--ember: #c2672a;
+	/* --ember is 3.6:1 on paper; ember text uses this darker ink (4.9:1). */
+	--ember-text: #9c4d18;
+	--witness: #2d6bc4;
+	--alert: #b5533c;
+	--alert-text: #a24631;
+	--proof-blend: multiply;
+	--seal-surface: foil;
+	--glow-proof: 0 0 0 1px color-mix(in srgb, var(--proof) 30%, transparent);
+	--glow-seal: 0 1px 0 #ffffff99 inset, 0 6px 16px -8px color-mix(in srgb, var(--seal) 70%, transparent);
+	--card-shadow: 0 1px 0 #ffffff inset, 0 18px 40px -28px #5b4a2a55;
+	--header-bg: color-mix(in srgb, var(--background) 80%, transparent);
+	--foil-angle: 115deg;
+}
+
+.dark {
+	color-scheme: dark;
+	--background: #07090f;
+	--foreground: #e9ecf4;
+	--card: #0e1424;
+	--card-foreground: #e9ecf4;
+	--popover: #0e1424;
+	--popover-foreground: #e9ecf4;
+	--primary: #f2b447;
+	--primary-foreground: #1a1306;
+	--secondary: #0e1424;
+	--secondary-foreground: #e9ecf4;
+	--muted: #0e1424;
+	--muted-foreground: #9aa3b8;
+	--accent: #141b2e;
+	--accent-foreground: #e9ecf4;
+	--destructive: #e07a5f;
+	--border: #ffffff14;
+	--input: #ffffff26;
+	--ring: #f2b447;
+
+	--sunk: #05070b;
+	--line-strong: #ffffff26;
+	--fg-dim: #4a5268;
+	--proof: #5be3a1;
+	--proof-text: #5be3a1;
+	--seal: #f2b447;
+	--seal-ink: #1a1306;
+	--ember: #ff9b54;
+	--ember-text: #ff9b54;
+	--witness: #7fb8ff;
+	--alert: #e07a5f;
+	--alert-text: #e8907a;
+	--proof-blend: screen;
+	--seal-surface: glow;
+	--glow-proof: 0 0 24px color-mix(in srgb, var(--proof) 35%, transparent);
+	--glow-seal: 0 0 28px color-mix(in srgb, var(--seal) 40%, transparent);
+	--card-shadow: 0 1px 0 #ffffff0a inset, 0 20px 60px -30px #000000cc;
+	--header-bg: color-mix(in srgb, var(--background) 72%, transparent);
+}
+
+@theme inline {
+	--font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+	--font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
+	--font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+	--ease-brand: cubic-bezier(0.16, 1, 0.3, 1);
+
+	--radius-sm: calc(var(--radius) - 6px);
+	--radius-md: calc(var(--radius) - 4px);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) + 4px);
+
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+
+	--color-sunk: var(--sunk);
+	--color-line-strong: var(--line-strong);
+	--color-fg-dim: var(--fg-dim);
+	--color-proof: var(--proof);
+	--color-proof-text: var(--proof-text);
+	--color-seal: var(--seal);
+	--color-seal-ink: var(--seal-ink);
+	--color-ember: var(--ember);
+	--color-ember-text: var(--ember-text);
+	--color-witness: var(--witness);
+	--color-alert: var(--alert);
+	--color-alert-text: var(--alert-text);
+
+	--shadow-card: var(--card-shadow);
+	--shadow-glow-proof: var(--glow-proof);
+	--shadow-glow-seal: var(--glow-seal);
+}
+
+/* ---------- Base ---------- */
+
+@layer base {
+	* {
+		@apply border-border;
+	}
+	html {
+		-webkit-text-size-adjust: 100%;
+		scroll-padding-top: 80px;
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		html {
+			scroll-behavior: smooth;
+		}
+	}
+	body {
+		@apply bg-background text-foreground font-sans antialiased;
+		font-size: 17px;
+		line-height: 1.6;
+		font-feature-settings: "cv11", "ss01";
+	}
+	h1,
+	h2,
+	h3,
+	h4 {
+		font-family: var(--font-display);
+		font-weight: 380;
+		font-variation-settings: "opsz" 144, "SOFT" 60;
+		line-height: 1.08;
+		letter-spacing: -0.02em;
+		text-wrap: balance;
+	}
+	p {
+		text-wrap: pretty;
+	}
+	a {
+		text-decoration-color: var(--line-strong);
+		text-underline-offset: 3px;
+	}
+	:focus-visible {
+		outline: 2px solid var(--ring);
+		outline-offset: 3px;
+		border-radius: 4px;
+	}
+	::selection {
+		background: color-mix(in srgb, var(--seal) 35%, transparent);
+	}
+	code,
+	kbd,
+	pre {
+		font-family: var(--font-mono);
+	}
+}
+
+/* ---------- Small custom utilities (Tailwind v4 @utility) ---------- */
+
+@utility container-page {
+	width: 100%;
+	max-width: 1200px;
+	margin-inline: auto;
+	padding-inline: clamp(20px, 4vw, 40px);
+}
+
+/* Mono uppercase labels, tracked 0.12em, tabular figures: `03 · PROOF`. */
+@utility label-mono {
+	font-family: var(--font-mono);
+	font-size: 12px;
+	font-weight: 500;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--muted-foreground);
+	font-feature-settings: "tnum";
+}
+
+@utility num {
+	font-family: var(--font-mono);
+	font-feature-settings: "tnum";
+}
+
+@utility display-1 {
+	font-family: var(--font-display);
+	font-size: clamp(44px, 6.4vw, 88px);
+	font-weight: 340;
+	line-height: 1.02;
+	letter-spacing: -0.03em;
+	font-variation-settings: "opsz" 144, "SOFT" 50;
+	text-wrap: balance;
+}
+
+@utility display-2 {
+	font-family: var(--font-display);
+	font-size: clamp(34px, 4.4vw, 60px);
+	font-weight: 360;
+	line-height: 1.08;
+	letter-spacing: -0.02em;
+	font-variation-settings: "opsz" 144, "SOFT" 60;
+	text-wrap: balance;
+}
+
+@utility display-3 {
+	font-family: var(--font-display);
+	font-size: clamp(26px, 2.8vw, 38px);
+	font-weight: 400;
+	line-height: 1.1;
+	letter-spacing: -0.02em;
+	font-variation-settings: "opsz" 144, "SOFT" 60;
+	text-wrap: balance;
+}
+
+@utility lede {
+	font-size: clamp(18px, 1.6vw, 21px);
+	line-height: 1.55;
+	color: var(--muted-foreground);
+	max-width: 62ch;
+}
+
+@utility link-arrow {
+	font-weight: 600;
+	text-decoration: none;
+	border-bottom: 1px solid var(--line-strong);
+	padding-bottom: 1px;
+	&:hover {
+		border-color: var(--foreground);
+	}
+	&::after {
+		content: " →";
+	}
+}
+
+/* ---------- Effects layer: what utilities can't express ---------- */
+
+/* Seal: a breathing glow in dark mode (radial core plus two blurred layers, 6s), saffron foil in light mode. */
+.seal-surface {
+	position: relative;
+	isolation: isolate;
+}
+.dark .seal-surface::before {
+	content: "";
+	position: absolute;
+	inset: -40%;
+	z-index: -1;
+	border-radius: 50%;
+	background:
+		radial-gradient(circle, color-mix(in srgb, var(--seal) 55%, transparent) 0 18%, transparent 46%),
+		radial-gradient(circle, color-mix(in srgb, var(--seal) 22%, transparent) 0 30%, transparent 66%);
+	filter: blur(18px);
+	animation: seal-breathe 6s ease-in-out infinite;
+	pointer-events: none;
+}
+:root:not(.dark) .seal-foil {
+	background: linear-gradient(var(--foil-angle), #a8701a 0%, #e9c46a 28%, #fff1c4 44%, #d39a32 58%, #b07a22 78%, #e3b552 100%);
+}
+@keyframes seal-breathe {
+	0%,
+	100% {
+		opacity: 0.75;
+		transform: scale(0.96);
+	}
+	50% {
+		opacity: 1;
+		transform: scale(1.04);
+	}
+}
+
+/* Reveal: opacity and 16px only, 60ms stagger; hidden only once JS runs, so the page reads without it. */
+.js [data-reveal] {
+	opacity: 0;
+	transform: translateY(16px);
+	transition:
+		opacity 0.8s var(--ease-brand),
+		transform 0.8s var(--ease-brand);
+	transition-delay: calc(var(--i, 0) * 60ms);
+}
+.js [data-reveal].is-in {
+	opacity: 1;
+	transform: none;
+}
+
+/* The fold line (created by the foldLine action). */
+.fold-track {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: max(14px, calc((100vw - 1200px) / 2 - 10px));
+	width: 1px;
+	background: color-mix(in srgb, var(--seal) 12%, transparent);
+	pointer-events: none;
+}
+.fold-fill {
+	position: absolute;
+	inset: 0;
+	background: var(--seal);
+	transform-origin: top;
+	transform: scaleY(0);
+}
+.fold-crease {
+	position: absolute;
+	left: -5px;
+	width: 11px;
+	height: 7px;
+	border-left: 1px solid var(--line-strong);
+	border-bottom: 1px solid var(--line-strong);
+	transform: rotate(-45deg);
+	background: var(--background);
+	transition: border-color 0.4s var(--ease-brand);
+}
+.fold-crease.lit {
+	border-color: var(--seal);
+}
+
+/* The proof sweep across a receipt while verification runs (1.2s, once). */
+@keyframes sweep {
+	from {
+		transform: translateX(-120%);
+		opacity: 1;
+	}
+	to {
+		transform: translateX(320%);
+		opacity: 1;
+	}
+}
+@keyframes pulse-dot {
+	50% {
+		transform: scale(1.7);
+		opacity: 0.6;
+	}
+}
+@keyframes rise {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+}
+
+/* Markdown pages (mdsvex). */
+.prose {
+	font-size: 18px;
+	line-height: 1.7;
+	max-width: 70ch;
+	& > * + * {
+		margin-top: 1.1em;
+	}
+	& h2 {
+		font-size: clamp(28px, 3vw, 38px);
+		margin-top: 2.2em;
+	}
+	& h3 {
+		font-size: 23px;
+		font-weight: 450;
+		margin-top: 1.8em;
+	}
+	& p,
+	& li {
+		color: color-mix(in srgb, var(--foreground) 86%, var(--muted-foreground));
+	}
+	& ul,
+	& ol {
+		padding-left: 1.2em;
+	}
+	& ul {
+		list-style: disc;
+	}
+	& ol {
+		list-style: decimal;
+	}
+	& li + li {
+		margin-top: 0.4em;
+	}
+	& li::marker {
+		color: var(--muted-foreground);
+	}
+	& strong {
+		color: var(--foreground);
+		font-weight: 600;
+	}
+	& a {
+		text-decoration: underline;
+		text-decoration-color: var(--line-strong);
+	}
+	& a:hover {
+		text-decoration-color: currentColor;
+	}
+	& blockquote {
+		padding: 14px 20px;
+		border-left: 2px solid var(--seal);
+		background: var(--card);
+		border-radius: 0 8px 8px 0;
+		color: var(--muted-foreground);
+	}
+	& code {
+		background: var(--card);
+		border: 1px solid var(--border);
+		padding: 1px 6px;
+		border-radius: 5px;
+		font-size: 0.86em;
+	}
+	& table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 15px;
+		display: block;
+		overflow-x: auto;
+	}
+	& th,
+	& td {
+		text-align: left;
+		padding: 10px 12px;
+		border-bottom: 1px solid var(--border);
+		vertical-align: top;
+	}
+	& th {
+		font-family: var(--font-mono);
+		font-size: 11.5px;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--muted-foreground);
+		font-weight: 500;
+	}
+}
+
+/* ---------- Accessibility preferences ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+	.js [data-reveal] {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+@media (prefers-contrast: more) {
+	:root,
+	.dark {
+		--muted-foreground: var(--foreground);
+		--border: var(--muted-foreground);
+		--line-strong: var(--foreground);
+		--glow-proof: none;
+		--glow-seal: none;
+		--card-shadow: none;
+	}
+	.dark .seal-surface::before {
+		display: none;
+	}
+}

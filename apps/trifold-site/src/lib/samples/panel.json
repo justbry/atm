@@ -1,0 +1,66 @@
+{
+	"school": "sch_juniper",
+	"month": "2026-10",
+	"payments": 214,
+	"total_cents": 17140000,
+	"fee_cents": 503480,
+	"sealed_at": "2026-11-01T15:00:00Z",
+	"rows": [
+		{
+			"event_id": "01M3W1G2C0RFJ7XE15EPCS8301",
+			"date": "2026-10-01",
+			"amount_cents": 80000,
+			"fee_cents": 2350,
+			"stripe_id": "in_1SGvCmwKUsBeCdQRrnpKZSHs5",
+			"key": "family:fam_0xpq"
+		},
+		{
+			"event_id": "01M3W2PGV0KH3YWBBHEVABHYB8",
+			"date": "2026-10-01",
+			"amount_cents": 80000,
+			"fee_cents": 2350,
+			"stripe_id": "in_1SGGEE4Uu0rR5F2wfrCGaWTs7",
+			"key": "family:fam_13tp"
+		},
+		{
+			"event_id": "01M3W49SF0KBG575Q33FMKATEV",
+			"date": "2026-10-01",
+			"amount_cents": 80000,
+			"fee_cents": 2350,
+			"stripe_id": "in_1SGUCdYzhi5v3wmCbHHeDgJ6K",
+			"key": "family:fam_0fdt"
+		},
+		{
+			"event_id": "01M3W6H6M006RJ39144GEZHSR0",
+			"date": "2026-10-01",
+			"amount_cents": 80000,
+			"fee_cents": 2350,
+			"stripe_id": "in_1SGFrNrpr5KLRVUTvfG4Xd1rz",
+			"key": "family:fam_099u"
+		},
+		{
+			"event_id": "01M3WG2ZS0VQ0QJTX5X3PRVAC1",
+			"date": "2026-10-01",
+			"amount_cents": 80000,
+			"fee_cents": 2350,
+			"stripe_id": "in_1SG54d0VNov7XoMxhYqwmy0c3",
+			"key": "family:fam_0lhs"
+		},
+		{
+			"event_id": "01M3WK7PE0CVM4KF18TMDXXF8N",
+			"date": "2026-10-01",
+			"amount_cents": 80000,
+			"fee_cents": 2350,
+			"stripe_id": "in_1SG7qaFQdpNWMvxd7U7U41NhG",
+			"key": "family:fam_0rlr"
+		},
+		{
+			"event_id": "01M3YMR890TKTGQE7JQ0NG8686",
+			"date": "2026-10-02",
+			"amount_cents": 80000,
+			"fee_cents": 2350,
+			"stripe_id": "in_1SGimAs34AaLikwNPar2zuJJZ",
+			"key": "family:fam_1ydk"
+		}
+	]
+}

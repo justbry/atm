@@ -1,0 +1,18 @@
+{
+	"receipt": {
+		"v": 1,
+		"school": "sch_juniper",
+		"key": "family:fam_k3s5",
+		"event_id": "01M41M0YW0JH3ARC874HFM8291",
+		"event_type": "payment.succeeded",
+		"event_time": "2026-10-03T19:32:00Z",
+		"date": "2026-10-03",
+		"amount": 120000,
+		"currency": "usd",
+		"stripe_id": "in_1SGq4m2eZvKYlo2C9bXk3Qa7",
+		"cause": null,
+		"event_hash": "cc2803f877a1ab00d94fc62facaa96aa42c98cd35b154618e1e48ed1ea0bf075"
+	},
+	"key_id": "juniper-demo-2026-10",
+	"sig": "-gNiDOK_Ih--7wLucgGi0TDjA-1rW0xtaTUc8Nq0MF5YyNzb3c_6lV7Hi28Xse64ObPzi7JZZEZVGlCzQheHAw"
+}
