@@ -4,6 +4,7 @@
  * document builder in `atm/worker` imports nothing from the UI package. `gates/oracle.ts` keeps reading the UI's own
  * file; the equality test (`tests/kpi-document-oracle.test.ts`) fails if the two drift.
  */
+import { derivedKpiCatalog } from "./kpi-catalog.js";
 
 export const audiences = [
 	"public",
@@ -104,33 +105,12 @@ export type DisclosureOverride = {
 	rounding?: Partial<Record<SchoolSize, Partial<RoundingUnits>>>;
 };
 
-/** Derived KPIs and their inputs (atm's catalog). A `capped` one sits in a more open class and takes its inputs'
- * rule (spec rule 3); the others must not be more open than their inputs. */
+/** Derived KPIs and their inputs (atm's catalog, generated from the ledger model). A `capped` one sits in a more open
+ * class and takes its inputs' rule (spec rule 3); the others must not be more open than their inputs. */
 export const derivedKpis: Record<
 	string,
 	{ inputs: string[]; capped: boolean }
-> = {
-	net_income: {
-		inputs: [
-			"gross_collected",
-			"refunds",
-			"stripe_fees",
-			"disputes_lost",
-			"dispute_fees",
-		],
-		capped: true,
-	},
-	refund_rate: { inputs: ["refunds", "gross_collected"], capped: false },
-	dispute_rate: {
-		inputs: ["disputes_opened", "payments_count"],
-		capped: false,
-	},
-	arpa: { inputs: ["gross_collected", "paying_members"], capped: true },
-	breakage_rate: {
-		inputs: ["credits_expired", "credits_granted"],
-		capped: false,
-	},
-};
+> = derivedKpiCatalog;
 
 const detailRank = (detail: DetailStep): number => detailSteps.indexOf(detail);
 const grainRank = (grain: DisclosureGrain): number =>

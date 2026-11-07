@@ -80,7 +80,12 @@ export type ModelMeasure = {
 	grain: "month" | "day";
 	rollup: "sum" | "max" | "last" | "recompute";
 	disclosure: { class: MeasureClass; capped?: boolean; ruleOf?: string };
-	document?: { title: string; need?: "categories" | "breakdown" | "spread" };
+	document?: {
+		title: string;
+		need?: "categories" | "breakdown" | "spread";
+		/** The document's order of its measures (the mockup's KPI table); unique. */
+		position?: number;
+	};
 	synonyms?: string[];
 };
 export type LedgerModel = {
@@ -125,6 +130,15 @@ const inputsOfKpi = (kpi: Kpi): string[] =>
 			? kpi.compute.terms.map((term) => term.kpi)
 			: [];
 
+/** ` (measure <id>)` for a schema error under `/measures/<index>`, so a refusal names the term, not only its place. */
+const measureNamed = (raw: unknown, path: string): string => {
+	const index = /^\/measures\/([0-9]+)/.exec(path)?.[1];
+	if (index === undefined) return "";
+	const measures = (raw as { measures?: Array<{ id?: unknown }> }).measures;
+	const id = measures?.[Number(index)]?.id;
+	return typeof id === "string" ? ` (measure ${id})` : "";
+};
+
 let validator: ReturnType<Ajv2020["compile"]> | null = null;
 
 /**
@@ -144,7 +158,10 @@ export const parseLedgerModel = (
 	if (!validator(raw))
 		throw new LedgerModelError(
 			`model does not match schema/model.v1.json: ${(validator.errors ?? [])
-				.map((error) => `${error.instancePath || "/"} ${error.message}`)
+				.map(
+					(error) =>
+						`${error.instancePath || "/"}${measureNamed(raw, error.instancePath)} ${error.message}`,
+				)
 				.join("; ")}`,
 		);
 	const model = raw as LedgerModel;
@@ -172,6 +189,14 @@ export const parseLedgerModel = (
 	unique(
 		"relationship",
 		model.relationships.map((relationship) => relationship.id),
+	);
+	unique(
+		"document position",
+		model.measures.flatMap((measure) =>
+			measure.document?.position === undefined
+				? []
+				: [String(measure.document.position)],
+		),
 	);
 	if (model.prefixes.atm !== model.namespace)
 		problems.push("prefix atm is not the namespace");

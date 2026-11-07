@@ -34,7 +34,7 @@
 		{
 			"id": "Member",
 			"kind": "thing",
-			"description": "A holder of the school's books: a family or a child profile. Every event names one by its envelope `key`; the name, email and roles are buzz-school's members list, joined by that key.",
+			"description": "A holder of the school's books: a family or a child profile. Every event but a payout (`stripe:payouts`) names one by its envelope `key`; the name, email and roles are buzz-school's members list, joined by that key.",
 			"synonyms": ["holder", "family", "payer", "subject", "customer"],
 			"key": {
 				"fields": ["key"],
@@ -384,7 +384,7 @@
 			"grain": "month",
 			"rollup": "sum",
 			"disclosure": { "class": "income" },
-			"document": { "title": "Gross collected" },
+			"document": { "title": "Gross collected", "position": 1 },
 			"synonyms": ["revenue", "income", "collected", "sales"]
 		},
 		{
@@ -396,7 +396,7 @@
 			"grain": "month",
 			"rollup": "sum",
 			"disclosure": { "class": "income" },
-			"document": { "title": "Income by kind" }
+			"document": { "title": "Income by kind", "position": 2 }
 		},
 		{
 			"id": "revenue_by_tier",
@@ -407,7 +407,7 @@
 			"grain": "month",
 			"rollup": "sum",
 			"disclosure": { "class": "income" },
-			"document": { "title": "Income by plan" },
+			"document": { "title": "Income by plan", "position": 3 },
 			"synonyms": ["revenue by plan", "membership revenue"]
 		},
 		{
@@ -419,7 +419,7 @@
 			"grain": "month",
 			"rollup": "sum",
 			"disclosure": { "class": "losses" },
-			"document": { "title": "Refunds" }
+			"document": { "title": "Refunds", "position": 5 }
 		},
 		{
 			"id": "disputes_lost",
@@ -430,7 +430,7 @@
 			"grain": "month",
 			"rollup": "sum",
 			"disclosure": { "class": "losses" },
-			"document": { "title": "Disputes lost" },
+			"document": { "title": "Disputes lost", "position": 6 },
 			"synonyms": ["chargebacks"]
 		},
 		{
@@ -442,7 +442,7 @@
 			"grain": "month",
 			"rollup": "sum",
 			"disclosure": { "class": "losses" },
-			"document": { "title": "Dispute fees" }
+			"document": { "title": "Dispute fees", "position": 7 }
 		},
 		{
 			"id": "stripe_fees",
@@ -453,7 +453,7 @@
 			"grain": "month",
 			"rollup": "sum",
 			"disclosure": { "class": "losses" },
-			"document": { "title": "Payment fees" },
+			"document": { "title": "Payment fees", "position": 9 },
 			"synonyms": ["processing fees", "card fees"]
 		},
 		{
@@ -465,7 +465,7 @@
 			"grain": "month",
 			"rollup": "sum",
 			"disclosure": { "class": "income", "capped": true },
-			"document": { "title": "Net income" },
+			"document": { "title": "Net income", "position": 4 },
 			"synonyms": ["net cash", "profit"]
 		},
 		{
@@ -477,7 +477,7 @@
 			"grain": "month",
 			"rollup": "sum",
 			"disclosure": { "class": "cash" },
-			"document": { "title": "Paid out" }
+			"document": { "title": "Paid out", "position": 12 }
 		},
 		{
 			"id": "payments_count",
@@ -488,7 +488,7 @@
 			"grain": "month",
 			"rollup": "sum",
 			"disclosure": { "class": "activity" },
-			"document": { "title": "Payments" }
+			"document": { "title": "Payments", "position": 16 }
 		},
 		{
 			"id": "refunds_count",
@@ -499,7 +499,7 @@
 			"grain": "month",
 			"rollup": "sum",
 			"disclosure": { "class": "activity" },
-			"document": { "title": "Refunds made" }
+			"document": { "title": "Refunds made", "position": 17 }
 		},
 		{
 			"id": "disputes_opened",
@@ -510,7 +510,7 @@
 			"grain": "month",
 			"rollup": "sum",
 			"disclosure": { "class": "activity" },
-			"document": { "title": "Disputes opened" }
+			"document": { "title": "Disputes opened", "position": 18 }
 		},
 		{
 			"id": "refund_rate",
@@ -521,7 +521,7 @@
 			"grain": "month",
 			"rollup": "recompute",
 			"disclosure": { "class": "losses" },
-			"document": { "title": "Refund rate" }
+			"document": { "title": "Refund rate", "position": 10 }
 		},
 		{
 			"id": "dispute_rate",
@@ -532,7 +532,7 @@
 			"grain": "month",
 			"rollup": "recompute",
 			"disclosure": { "class": "losses" },
-			"document": { "title": "Dispute rate" }
+			"document": { "title": "Dispute rate", "position": 11 }
 		},
 		{
 			"id": "paying_members",
@@ -543,7 +543,7 @@
 			"grain": "month",
 			"rollup": "max",
 			"disclosure": { "class": "people" },
-			"document": { "title": "Paying members" },
+			"document": { "title": "Paying members", "position": 13 },
 			"synonyms": ["active members", "payers", "members"]
 		},
 		{
@@ -555,7 +555,7 @@
 			"grain": "month",
 			"rollup": "sum",
 			"disclosure": { "class": "people" },
-			"document": { "title": "New paying" },
+			"document": { "title": "New paying", "position": 14 },
 			"synonyms": ["new members", "sign-ups"]
 		},
 		{
@@ -567,7 +567,7 @@
 			"grain": "month",
 			"rollup": "recompute",
 			"disclosure": { "class": "people", "capped": true },
-			"document": { "title": "Avg per paying member" },
+			"document": { "title": "Avg per paying member", "position": 15 },
 			"synonyms": ["average revenue per account", "revenue per member", "ARPU"]
 		},
 		{
@@ -579,7 +579,7 @@
 			"grain": "month",
 			"rollup": "sum",
 			"disclosure": { "class": "activity" },
-			"document": { "title": "Granted" }
+			"document": { "title": "Granted", "position": 19 }
 		},
 		{
 			"id": "credits_consumed",
@@ -590,7 +590,7 @@
 			"grain": "month",
 			"rollup": "sum",
 			"disclosure": { "class": "activity" },
-			"document": { "title": "Used" },
+			"document": { "title": "Used", "position": 20 },
 			"synonyms": ["credits used", "credits spent"]
 		},
 		{
@@ -602,7 +602,7 @@
 			"grain": "month",
 			"rollup": "sum",
 			"disclosure": { "class": "activity" },
-			"document": { "title": "Expired" },
+			"document": { "title": "Expired", "position": 21 },
 			"synonyms": ["breakage"]
 		},
 		{
@@ -614,7 +614,7 @@
 			"grain": "month",
 			"rollup": "recompute",
 			"disclosure": { "class": "activity" },
-			"document": { "title": "Breakage rate" }
+			"document": { "title": "Breakage rate", "position": 22 }
 		},
 		{
 			"id": "closing_balance_usd",
@@ -660,7 +660,7 @@
 			"grain": "month",
 			"rollup": "sum",
 			"disclosure": { "class": "losses", "ruleOf": "disputes_lost" },
-			"document": { "title": "Dispute cost" }
+			"document": { "title": "Dispute cost", "position": 8 }
 		},
 		{
 			"id": "donations_by_fund",
@@ -674,7 +674,7 @@
 			"grain": "day",
 			"rollup": "sum",
 			"disclosure": { "class": "income", "ruleOf": "revenue_by_tier" },
-			"document": { "title": "Donations by fund" }
+			"document": { "title": "Donations by fund", "position": 23 }
 		},
 		{
 			"id": "donors_count",
@@ -688,7 +688,7 @@
 			"grain": "day",
 			"rollup": "recompute",
 			"disclosure": { "class": "people", "ruleOf": "paying_members" },
-			"document": { "title": "Donors", "need": "spread" }
+			"document": { "title": "Donors", "need": "spread", "position": 24 }
 		},
 		{
 			"id": "donors_by_size",
@@ -702,7 +702,7 @@
 			"grain": "day",
 			"rollup": "recompute",
 			"disclosure": { "class": "people", "ruleOf": "paying_members" },
-			"document": { "title": "Donors by gift" }
+			"document": { "title": "Donors by gift", "position": 25 }
 		},
 		{
 			"id": "donors_median_gift",
@@ -716,7 +716,7 @@
 			"grain": "day",
 			"rollup": "recompute",
 			"disclosure": { "class": "people", "ruleOf": "paying_members" },
-			"document": { "title": "Median gift", "need": "spread" }
+			"document": { "title": "Median gift", "need": "spread", "position": 26 }
 		}
 	]
 }

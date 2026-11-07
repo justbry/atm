@@ -359,6 +359,11 @@
 						"need": {
 							"enum": ["categories", "breakdown", "spread"],
 							"description": "The detail the figure needs when its dimension does not say."
+						},
+						"position": {
+							"type": "integer",
+							"minimum": 1,
+							"description": "Where the document lists the measure (its catalog, so its `meta` and `series` keys, in this order): the mockup's KPI table, not the spec's order. Unique; a measure without one comes after those with one, in model order."
 						}
 					}
 				},
