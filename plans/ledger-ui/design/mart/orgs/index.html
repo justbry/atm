@@ -1,0 +1,339 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Trifold KPI demos · demo, synthetic data</title><style>
+/* The school dashboard mockup's design (plans/ledger-ui/design/mart/dashboard.html), with a dark theme: ?theme=dark,
+   ?theme=light, or the reader's preference. A host page that inlines the page can set the --tfd-* properties
+   (plans/atm-ontology/dashboards.md, "Theming"). */
+:root {
+	color-scheme: light;
+	--bg: var(--tfd-background, #faf7f1);
+	--fg: var(--tfd-foreground, #1b1a1f);
+	--mu: var(--tfd-muted, #6b655c);
+	--bd: var(--tfd-border, #e6dfd3);
+	--pop: #fff;
+	--c1: var(--tfd-chart-1, #2f6fed);
+	--c2: var(--tfd-chart-2, #e5484d);
+	--c3: var(--tfd-chart-3, #30a46c);
+	--c4: var(--tfd-chart-4, #f5a524);
+	--c5: var(--tfd-chart-5, #8e4ec6);
+	--c6: #12a594;
+	--rad: var(--tfd-radius, 8px);
+	--font: var(--tfd-font, "Figtree", system-ui, sans-serif);
+}
+:root[data-theme="dark"] {
+	color-scheme: dark;
+	--bg: var(--tfd-background, #17161b);
+	--fg: var(--tfd-foreground, #ece8e1);
+	--mu: var(--tfd-muted, #a59f95);
+	--bd: var(--tfd-border, #35323b);
+	--pop: #232129;
+	--c1: var(--tfd-chart-1, #5b8def);
+	--c2: var(--tfd-chart-2, #f2676b);
+	--c3: var(--tfd-chart-3, #3dbf84);
+	--c4: var(--tfd-chart-4, #f7b84b);
+	--c5: var(--tfd-chart-5, #a874d8);
+	--c6: #2cc4b0;
+}
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		color-scheme: dark;
+		--bg: var(--tfd-background, #17161b);
+		--fg: var(--tfd-foreground, #ece8e1);
+		--mu: var(--tfd-muted, #a59f95);
+		--bd: var(--tfd-border, #35323b);
+		--pop: #232129;
+		--c1: var(--tfd-chart-1, #5b8def);
+		--c2: var(--tfd-chart-2, #f2676b);
+		--c3: var(--tfd-chart-3, #3dbf84);
+		--c4: var(--tfd-chart-4, #f7b84b);
+		--c5: var(--tfd-chart-5, #a874d8);
+		--c6: #2cc4b0;
+	}
+}
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+body {
+	margin: 0 auto;
+	max-width: 1100px;
+	padding: 0.75rem 0.5rem 1.5rem;
+	font-family: var(--font);
+	color: var(--fg);
+	background: var(--bg);
+	line-height: 1.5;
+}
+header {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+h1 {
+	margin: 0 0 10px;
+	font:
+		400 1.35rem / 1.2 "Graduate",
+		Georgia,
+		serif;
+}
+h1 span {
+	font: 400 0.75rem var(--font);
+	color: var(--mu);
+}
+a {
+	color: var(--c1);
+}
+.back {
+	font-size: 12px;
+}
+.embed header .back {
+	display: none;
+}
+.vw {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	align-items: center;
+}
+#viewers {
+	display: contents;
+}
+.tile b.h {
+	color: var(--mu);
+}
+.bar {
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+	align-items: center;
+	margin-bottom: 8px;
+}
+.bar label,
+.bar .lbl {
+	font-size: 11px;
+	color: var(--mu);
+	margin-right: 2px;
+}
+.vw .lbl {
+	margin-left: 8px;
+}
+select,
+button {
+	font: inherit;
+	font-size: 12px;
+	padding: 4px 9px;
+	border: 1px solid var(--bd);
+	border-radius: 999px;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+}
+select option {
+	background: var(--bg);
+	color: var(--fg);
+}
+button.on {
+	background: var(--c1);
+	border-color: var(--c1);
+	color: #fff;
+}
+#theme {
+	margin-left: auto;
+}
+.note {
+	font-size: 11px;
+	color: var(--mu);
+	margin: 0 0 8px;
+}
+.tiles {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 6px;
+	margin-bottom: 8px;
+}
+.tile {
+	border: 1px solid var(--bd);
+	border-radius: var(--rad);
+	padding: 6px 9px;
+}
+.tile span {
+	display: block;
+	font-size: 11px;
+	color: var(--mu);
+	line-height: 1.35;
+}
+.tile b {
+	display: block;
+	font-size: 16px;
+	line-height: 1.2;
+	font-variant-numeric: tabular-nums;
+}
+.grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px;
+}
+.box {
+	min-width: 0;
+	border: 1px solid var(--bd);
+	border-radius: var(--rad);
+	padding: 8px 10px;
+}
+.box.wide {
+	grid-column: 1 / -1;
+}
+.box h3 {
+	font-size: 12px;
+	line-height: 1.25;
+	margin: 0;
+	font-weight: 600;
+	display: flex;
+	justify-content: space-between;
+	gap: 6px;
+}
+.src {
+	font-weight: 400;
+	font-size: 10px;
+	color: var(--mu);
+	white-space: nowrap;
+}
+.leg {
+	font-size: 11px;
+	color: var(--mu);
+	margin: 2px 0 4px;
+}
+.leg i {
+	display: inline-block;
+	width: 9px;
+	height: 9px;
+	border-radius: 2px;
+	margin: 0 4px 0 9px;
+	vertical-align: -1px;
+}
+.leg i:first-child {
+	margin-left: 0;
+}
+svg {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+svg text {
+	fill: var(--mu);
+	font-size: 9px;
+	font-variant-numeric: tabular-nums;
+}
+.lock {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 120px;
+	color: var(--mu);
+	font-size: 12px;
+	border: 1px dashed var(--bd);
+	border-radius: 6px;
+}
+.tip {
+	position: fixed;
+	pointer-events: none;
+	background: var(--pop);
+	color: var(--fg);
+	border: 1px solid var(--bd);
+	border-radius: 6px;
+	padding: 5px 8px;
+	font-size: 11px;
+	line-height: 1.45;
+	display: none;
+	z-index: 9;
+	white-space: nowrap;
+}
+footer {
+	font-size: 10px;
+	color: var(--mu);
+	margin-top: 8px;
+	line-height: 1.5;
+}
+footer p {
+	margin: 0 0 4px;
+}
+code {
+	font-size: 10px;
+}
+.cards {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 8px;
+}
+.card {
+	position: relative;
+	border: 1px solid var(--bd);
+	border-radius: var(--rad);
+}
+.card .go {
+	display: block;
+	padding: 10px 12px;
+	color: inherit;
+	text-decoration: none;
+}
+.card .go:hover b,
+.card .go:focus b {
+	text-decoration: underline;
+}
+.card span {
+	display: block;
+	font-size: 11px;
+	color: var(--mu);
+}
+.card b {
+	display: block;
+	font:
+		400 1.1rem / 1.3 "Graduate",
+		Georgia,
+		serif;
+	margin: 2px 0;
+}
+.card.featured {
+	grid-column: 1 / -1;
+	border-color: var(--c1);
+	box-shadow: inset 3px 0 0 var(--c1);
+}
+.card.featured b {
+	font-size: 1.35rem;
+}
+.card .live {
+	position: absolute;
+	top: 10px;
+	right: 12px;
+	font-size: 12px;
+}
+@media (max-width: 600px) {
+	.vw .lbl {
+		flex-basis: 100%;
+		margin-left: 0;
+	}
+	.tiles {
+		grid-template-columns: repeat(2, 1fr);
+	}
+	.grid,
+	.cards {
+		grid-template-columns: 1fr;
+	}
+}
+</style></head><body class="gallery">
+<header><h1>Trifold KPI demos <span>demo, synthetic data</span></h1></header>
+<p class="note">Five invented organizations, each with months of simulated billing run through the Trifold engine. Every dashboard draws atm's KPI document as built from that org's events, with no login. Every name and number is invented.</p>
+<ul class="cards">
+<li class="card featured"><a class="go" href="school.html"><span class="kind">A school</span><b>Honeycomb Hill Academy</b><span class="words">Families, memberships and class credits</span><span class="presets">Monthly members · Growth over 12 months</span></a><a class="live" href="https://staging.b4uni.com/for/schools/dashboard" target="_blank" rel="noopener">Live demo</a></li>
+<li class="card"><a class="go" href="studio.html"><span class="kind">A fitness and membership studio</span><b>Ironbark Studio</b><span class="words">Members, memberships and classes</span><span class="presets">Memberships · Class packs</span></a></li>
+<li class="card"><a class="go" href="church.html"><span class="kind">A church or nonprofit</span><b>Cedar Hill Community Church</b><span class="words">Givers, giving levels and retreat seats</span><span class="presets">A year of giving</span></a></li>
+<li class="card"><a class="go" href="saas.html"><span class="kind">A SaaS or digital product</span><b>Lumen Notes</b><span class="words">Customers, plans and API-call blocks</span><span class="presets">Seats, monthly and annual · Annual prepay</span></a></li>
+<li class="card"><a class="go" href="creator.html"><span class="kind">A creator or online-course business</span><b>Night Kitchen Courses</b><span class="words">Members, memberships and cook-along seats</span><span class="presets">Launch year</span></a></li>
+</ul>
+<footer>Synthetic data. Regenerate with <code>bun run org-demos</code> in packages/atm.</footer>
+<script>
+const theme = new URLSearchParams(location.search).get("theme");
+if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+</script></body></html>

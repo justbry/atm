@@ -1,0 +1,800 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Cedar Hill Community Church KPIs · demo, synthetic data</title><style>
+/* The school dashboard mockup's design (plans/ledger-ui/design/mart/dashboard.html), with a dark theme: ?theme=dark,
+   ?theme=light, or the reader's preference. A host page that inlines the page can set the --tfd-* properties
+   (plans/atm-ontology/dashboards.md, "Theming"). */
+:root {
+	color-scheme: light;
+	--bg: var(--tfd-background, #faf7f1);
+	--fg: var(--tfd-foreground, #1b1a1f);
+	--mu: var(--tfd-muted, #6b655c);
+	--bd: var(--tfd-border, #e6dfd3);
+	--pop: #fff;
+	--c1: var(--tfd-chart-1, #2f6fed);
+	--c2: var(--tfd-chart-2, #e5484d);
+	--c3: var(--tfd-chart-3, #30a46c);
+	--c4: var(--tfd-chart-4, #f5a524);
+	--c5: var(--tfd-chart-5, #8e4ec6);
+	--c6: #12a594;
+	--rad: var(--tfd-radius, 8px);
+	--font: var(--tfd-font, "Figtree", system-ui, sans-serif);
+}
+:root[data-theme="dark"] {
+	color-scheme: dark;
+	--bg: var(--tfd-background, #17161b);
+	--fg: var(--tfd-foreground, #ece8e1);
+	--mu: var(--tfd-muted, #a59f95);
+	--bd: var(--tfd-border, #35323b);
+	--pop: #232129;
+	--c1: var(--tfd-chart-1, #5b8def);
+	--c2: var(--tfd-chart-2, #f2676b);
+	--c3: var(--tfd-chart-3, #3dbf84);
+	--c4: var(--tfd-chart-4, #f7b84b);
+	--c5: var(--tfd-chart-5, #a874d8);
+	--c6: #2cc4b0;
+}
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		color-scheme: dark;
+		--bg: var(--tfd-background, #17161b);
+		--fg: var(--tfd-foreground, #ece8e1);
+		--mu: var(--tfd-muted, #a59f95);
+		--bd: var(--tfd-border, #35323b);
+		--pop: #232129;
+		--c1: var(--tfd-chart-1, #5b8def);
+		--c2: var(--tfd-chart-2, #f2676b);
+		--c3: var(--tfd-chart-3, #3dbf84);
+		--c4: var(--tfd-chart-4, #f7b84b);
+		--c5: var(--tfd-chart-5, #a874d8);
+		--c6: #2cc4b0;
+	}
+}
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+body {
+	margin: 0 auto;
+	max-width: 1100px;
+	padding: 0.75rem 0.5rem 1.5rem;
+	font-family: var(--font);
+	color: var(--fg);
+	background: var(--bg);
+	line-height: 1.5;
+}
+header {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+h1 {
+	margin: 0 0 10px;
+	font:
+		400 1.35rem / 1.2 "Graduate",
+		Georgia,
+		serif;
+}
+h1 span {
+	font: 400 0.75rem var(--font);
+	color: var(--mu);
+}
+a {
+	color: var(--c1);
+}
+.back {
+	font-size: 12px;
+}
+.embed header .back {
+	display: none;
+}
+.vw {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	align-items: center;
+}
+#viewers {
+	display: contents;
+}
+.tile b.h {
+	color: var(--mu);
+}
+.bar {
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+	align-items: center;
+	margin-bottom: 8px;
+}
+.bar label,
+.bar .lbl {
+	font-size: 11px;
+	color: var(--mu);
+	margin-right: 2px;
+}
+.vw .lbl {
+	margin-left: 8px;
+}
+select,
+button {
+	font: inherit;
+	font-size: 12px;
+	padding: 4px 9px;
+	border: 1px solid var(--bd);
+	border-radius: 999px;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+}
+select option {
+	background: var(--bg);
+	color: var(--fg);
+}
+button.on {
+	background: var(--c1);
+	border-color: var(--c1);
+	color: #fff;
+}
+#theme {
+	margin-left: auto;
+}
+.note {
+	font-size: 11px;
+	color: var(--mu);
+	margin: 0 0 8px;
+}
+.tiles {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 6px;
+	margin-bottom: 8px;
+}
+.tile {
+	border: 1px solid var(--bd);
+	border-radius: var(--rad);
+	padding: 6px 9px;
+}
+.tile span {
+	display: block;
+	font-size: 11px;
+	color: var(--mu);
+	line-height: 1.35;
+}
+.tile b {
+	display: block;
+	font-size: 16px;
+	line-height: 1.2;
+	font-variant-numeric: tabular-nums;
+}
+.grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px;
+}
+.box {
+	min-width: 0;
+	border: 1px solid var(--bd);
+	border-radius: var(--rad);
+	padding: 8px 10px;
+}
+.box.wide {
+	grid-column: 1 / -1;
+}
+.box h3 {
+	font-size: 12px;
+	line-height: 1.25;
+	margin: 0;
+	font-weight: 600;
+	display: flex;
+	justify-content: space-between;
+	gap: 6px;
+}
+.src {
+	font-weight: 400;
+	font-size: 10px;
+	color: var(--mu);
+	white-space: nowrap;
+}
+.leg {
+	font-size: 11px;
+	color: var(--mu);
+	margin: 2px 0 4px;
+}
+.leg i {
+	display: inline-block;
+	width: 9px;
+	height: 9px;
+	border-radius: 2px;
+	margin: 0 4px 0 9px;
+	vertical-align: -1px;
+}
+.leg i:first-child {
+	margin-left: 0;
+}
+svg {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+svg text {
+	fill: var(--mu);
+	font-size: 9px;
+	font-variant-numeric: tabular-nums;
+}
+.lock {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 120px;
+	color: var(--mu);
+	font-size: 12px;
+	border: 1px dashed var(--bd);
+	border-radius: 6px;
+}
+.tip {
+	position: fixed;
+	pointer-events: none;
+	background: var(--pop);
+	color: var(--fg);
+	border: 1px solid var(--bd);
+	border-radius: 6px;
+	padding: 5px 8px;
+	font-size: 11px;
+	line-height: 1.45;
+	display: none;
+	z-index: 9;
+	white-space: nowrap;
+}
+footer {
+	font-size: 10px;
+	color: var(--mu);
+	margin-top: 8px;
+	line-height: 1.5;
+}
+footer p {
+	margin: 0 0 4px;
+}
+code {
+	font-size: 10px;
+}
+.cards {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 8px;
+}
+.card {
+	position: relative;
+	border: 1px solid var(--bd);
+	border-radius: var(--rad);
+}
+.card .go {
+	display: block;
+	padding: 10px 12px;
+	color: inherit;
+	text-decoration: none;
+}
+.card .go:hover b,
+.card .go:focus b {
+	text-decoration: underline;
+}
+.card span {
+	display: block;
+	font-size: 11px;
+	color: var(--mu);
+}
+.card b {
+	display: block;
+	font:
+		400 1.1rem / 1.3 "Graduate",
+		Georgia,
+		serif;
+	margin: 2px 0;
+}
+.card.featured {
+	grid-column: 1 / -1;
+	border-color: var(--c1);
+	box-shadow: inset 3px 0 0 var(--c1);
+}
+.card.featured b {
+	font-size: 1.35rem;
+}
+.card .live {
+	position: absolute;
+	top: 10px;
+	right: 12px;
+	font-size: 12px;
+}
+@media (max-width: 600px) {
+	.vw .lbl {
+		flex-basis: 100%;
+		margin-left: 0;
+	}
+	.tiles {
+		grid-template-columns: repeat(2, 1fr);
+	}
+	.grid,
+	.cards {
+		grid-template-columns: 1fr;
+	}
+}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><pattern id="hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="transparent"/><line x1="0" y1="0" x2="0" y2="5" stroke="var(--mu)" stroke-width="1.2" opacity=".55"/></pattern></defs></svg>
+<header><h1>Cedar Hill Community Church <span>KPIs · demo, synthetic data</span></h1><a class="back" href="index.html">All demos</a></header>
+<div class="bar"><label for="prof">Preset</label><select id="prof"></select><select id="year" aria-label="Year"></select><span class="vw"><span class="lbl">Viewer</span><span id="viewers"></span></span><button id="theme" type="button"></button></div>
+<div class="bar" id="tabs"></div>
+<p class="note" id="note"></p>
+<div class="tiles" id="tiles"></div><div class="grid" id="grid"></div>
+<footer id="foot"></footer><div class="tip" id="tip"></div>
+<script type="application/json" id="tfd-data">{"kind":"church","name":"Cedar Hill Community Church","label":"a church or nonprofit","words":{"holder":{"one":"giver","other":"givers"},"plan":{"one":"giving level","other":"giving levels"},"credit":{"one":"retreat seat","other":"retreat seats"}},"titles":{"paying_members":"Paying givers","new_paying_members":"New paying givers","arpa":"Avg per paying giver","revenue_by_kind:membership":"Giving","credits_granted":"Retreat seats granted","credits_consumed":"Retreat seats used","credits_expired":"Retreat seats expired","revenue_by_tier:give-25":"Recurring gift, $25","revenue_by_tier:give-50":"Recurring gift, $50","revenue_by_tier:give-100":"Recurring gift, $100","revenue_by_tier:give-250":"Recurring gift, $250"},"presets":[{"name":"church-giving","label":"A year of giving","seed":301,"members":82,"fixtureHash":"b9fc0dfc0320dcf37d51fca7789837279222ee4bfbc7b956b455aa0b607b37a5","kpisHash":"b87fa3cb33ffc7eb954a0b8d503c94fb4579ef913db89b15af8e6ceec9517904","years":[{"year":2026,"documents":{"owner":{"hash":"93f1f769f87d2eaae28e15e930a72ac42a3df68ea7513d579ebe91c23ad00302","document":{"school":"org_cedar_hill_church","source":{"kind":"mart","preset":"church-giving"},"dataSource":"fixture","audience":"owner","pinLocked":false,"year":2026,"basis":"cash","currency":"usd","symbol":"$","kpiSpecVersion":"school.v1","asOf":"2026-12-31T12:00","size":"small","roundTo":0,"live":true,"cellRules":"off","grain":"month","periods":[{"period":"2026-01","label":"Jan 2026","from":"2026-01-01","to":"2026-01-31","state":"shown","title":null,"open":false,"invented":false},{"period":"2026-02","label":"Feb 2026","from":"2026-02-01","to":"2026-02-28","state":"shown","title":null,"open":false,"invented":false},{"period":"2026-03","label":"Mar 2026","from":"2026-03-01","to":"2026-03-31","state":"shown","title":null,"open":false,"invented":false},{"period":"2026-04","label":"Apr 2026","from":"2026-04-01","to":"2026-04-30","state":"shown","title":null,"open":false,"invented":false},{"period":"2026-05","label":"May 2026","from":"2026-05-01","to":"2026-05-31","state":"shown","title":null,"open":false,"invented":false},{"period":"2026-06","label":"Jun 2026","from":"2026-06-01","to":"2026-06-30","state":"shown","title":null,"open":false,"invented":false},{"period":"2026-07","label":"Jul 2026","from":"2026-07-01","to":"2026-07-31","state":"shown","title":null,"open":false,"invented":false},{"period":"2026-08","label":"Aug 2026","from":"2026-08-01","to":"2026-08-31","state":"shown","title":null,"open":false,"invented":false},{"period":"2026-09","label":"Sep 2026","from":"2026-09-01","to":"2026-09-30","state":"shown","title":null,"open":false,"invented":false},{"period":"2026-10","label":"Oct 2026","from":"2026-10-01","to":"2026-10-31","state":"shown","title":null,"open":false,"invented":false},{"period":"2026-11","label":"Nov 2026","from":"2026-11-01","to":"2026-11-30","state":"shown","title":null,"open":false,"invented":false},{"period":"2026-12","label":"Dec 2026","from":"2026-12-01","to":"2026-12-31","state":"shown","title":null,"open":true,"invented":false}],"captions":{"2026":"Owner sees everything, live: months and days, the open month included, names included. Cell rules are off, so no figure is hidden or banded. Owner-only actions (refunds, roles, publishing) stay on their own tabs. Anonymous donors' names show to the owner only. Every identified read is audited."},"empty":false,"tables":{"month":{"periods":["2026-01","2026-02","2026-03","2026-04","2026-05","2026-06","2026-07","2026-08","2026-09","2026-10","2026-11","2026-12"],"series":{"gross_collected":[1685500,383500,405500,413500,463500,476000,561000,451000,560000,448000,462500,495000],"revenue_by_kind:membership":[1685500,383500,405500,413500,463500,476000,561000,451000,560000,448000,462500,495000],"revenue_by_tier:give-25":[444500,34500,34500,34500,84500,37000,37000,37000,91000,32000,39500,84000],"revenue_by_tier:give-50":[619000,74000,96000,79000,84000,144000,109000,94000,159000,96000,103000,91000],"revenue_by_tier:give-100":[406000,100000,100000,125000,120000,120000,240000,120000,110000,120000,120000,120000],"revenue_by_tier:give-250":[216000,175000,175000,175000,175000,175000,175000,200000,200000,200000,200000,200000],"net_income":[1581559,373743,395199,402993,446833,464028,542128,439518,546090,411644,450765,481300],"refunds":[65000,0,0,0,5000,0,5000,0,0,25000,0,1250],"disputes_lost":[0,0,0,0,0,0,0,0,0,0,0,0],"dispute_fees":[0,0,0,0,0,0,0,0,0,0,0,0],"dispute_cost":[0,0,0,0,0,0,0,0,0,0,0,0],"stripe_fees":[38941,9757,10301,10507,11667,11972,13872,11482,13910,11356,11735,12450],"refund_rate":[0.0386,0,0,0,0.0108,0,0.0089,0,0,0.0558,0,0.0025],"dispute_rate":[0,0,0,0,0,0,0,0,0,0,0,0],"payouts":[0,1668940,373743,395199,402993,446833,464028,542128,439518,546090,411644,450765],"paying_members":[62,44,46,47,49,50,51,52,53,50,52,52],"new_paying_members":[62,0,2,2,2,2,2,2,2,2,2,2],"arpa":[27185.48,8715.91,8815.22,8797.87,9459.18,9520,11000,8673.08,10566.04,8960,8894.23,9519.23],"payments_count":[62,44,46,47,49,50,51,52,53,50,52,52],"refunds_count":[1,0,0,0,1,0,1,0,0,1,0,1],"disputes_opened":[0,0,0,0,0,0,0,0,0,0,0,0],"credits_granted":[8,0,1,0,0,0,0,0,0,0,0,1],"credits_consumed":[2,6,0,1,0,0,0,0,0,0,0,1],"credits_expired":[0,0,0,0,0,0,0,0,0,0,0,0],"breakage_rate":[0,{"hidden":"not_computed","text":"Not computed"},0,{"hidden":"not_computed","text":"Not computed"},{"hidden":"not_computed","text":"Not computed"},{"hidden":"not_computed","text":"Not computed"},{"hidden":"not_computed","text":"Not computed"},{"hidden":"not_computed","text":"Not computed"},{"hidden":"not_computed","text":"Not computed"},{"hidden":"not_computed","text":"Not computed"},{"hidden":"not_computed","text":"Not computed"},0]},"order":{"revenue_by_tier":[["revenue_by_tier:give-25","revenue_by_tier:give-50","revenue_by_tier:give-100","revenue_by_tier:give-250"],["revenue_by_tier:give-25","revenue_by_tier:give-50","revenue_by_tier:give-100","revenue_by_tier:give-250"],["revenue_by_tier:give-25","revenue_by_tier:give-50","revenue_by_tier:give-100","revenue_by_tier:give-250"],["revenue_by_tier:give-25","revenue_by_tier:give-50","revenue_by_tier:give-100","revenue_by_tier:give-250"],["revenue_by_tier:give-25","revenue_by_tier:give-50","revenue_by_tier:give-100","revenue_by_tier:give-250"],["revenue_by_tier:give-25","revenue_by_tier:give-50","revenue_by_tier:give-100","revenue_by_tier:give-250"],["revenue_by_tier:give-25","revenue_by_tier:give-50","revenue_by_tier:give-100","revenue_by_tier:give-250"],["revenue_by_tier:give-25","revenue_by_tier:give-50","revenue_by_tier:give-100","revenue_by_tier:give-250"],["revenue_by_tier:give-25","revenue_by_tier:give-50","revenue_by_tier:give-100","revenue_by_tier:give-250"],["revenue_by_tier:give-25","revenue_by_tier:give-50","revenue_by_tier:give-100","revenue_by_tier:give-250"],["revenue_by_tier:give-25","revenue_by_tier:give-50","revenue_by_tier:give-100","revenue_by_tier:give-250"],["revenue_by_tier:give-25","revenue_by_tier:give-50","revenue_by_tier:give-100","revenue_by_tier:give-250"]]},"changes":{"gross_collected":[null,-1302000,22000,8000,50000,12500,85000,-110000,109000,-112000,14500,32500],"revenue_by_kind:membership":[null,-1302000,22000,8000,50000,12500,85000,-110000,109000,-112000,14500,32500],"revenue_by_tier:give-25":[null,-410000,0,0,50000,-47500,0,0,54000,-59000,7500,44500],"revenue_by_tier:give-50":[null,-545000,22000,-17000,5000,60000,-35000,-15000,65000,-63000,7000,-12000],"revenue_by_tier:give-100":[null,-306000,0,25000,-5000,0,120000,-120000,-10000,10000,0,0],"revenue_by_tier:give-250":[null,-41000,0,0,0,0,0,25000,0,0,0,0],"net_income":[null,-1207816,21456,7794,43840,17195,78100,-102610,106572,-134446,39121,30535],"refunds":[null,-65000,0,0,5000,-5000,5000,-5000,0,25000,-25000,1250],"disputes_lost":[null,0,0,0,0,0,0,0,0,0,0,0],"dispute_fees":[null,0,0,0,0,0,0,0,0,0,0,0],"dispute_cost":[null,0,0,0,0,0,0,0,0,0,0,0],"stripe_fees":[null,-29184,544,206,1160,305,1900,-2390,2428,-2554,379,715],"payouts":[null,1668940,-1295197,21456,7794,43840,17195,78100,-102610,106572,-134446,39121],"paying_members":[null,-18,2,1,2,1,1,1,1,-3,2,0],"new_paying_members":[null,-62,2,0,0,0,0,0,0,0,0,0],"arpa":[null,-18469.57,99.30999999999949,-17.349999999998545,661.3099999999995,60.81999999999971,1480,-2326.92,1892.960000000001,-1606.0400000000009,-65.77000000000044,625],"payments_count":[null,-18,2,1,2,1,1,1,1,-3,2,0],"refunds_count":[null,-1,0,0,1,-1,1,-1,0,1,-1,1],"disputes_opened":[null,0,0,0,0,0,0,0,0,0,0,0],"credits_granted":[null,-8,1,-1,0,0,0,0,0,0,0,1],"credits_consumed":[null,4,-6,1,-1,0,0,0,0,0,0,1],"credits_expired":[null,0,0,0,0,0,0,0,0,0,0,0]}},"day":{"periods":["2026-01-01","2026-01-02","2026-01-03","2026-01-04","2026-01-05","2026-01-06","2026-01-07","2026-01-08","2026-01-09","2026-01-10","2026-01-11","2026-01-12","2026-01-13","2026-01-14","2026-01-15","2026-01-16","2026-01-17","2026-01-18","2026-01-19","2026-01-20","2026-01-21","2026-01-22","2026-01-23","2026-01-24","2026-01-25","2026-01-26","2026-01-27","2026-01-28","2026-01-29","2026-01-30","2026-01-31","2026-02-01","2026-02-02","2026-02-03","2026-02-04","2026-02-05","2026-02-06","2026-02-07","2026-02-08","2026-02-09","2026-02-10","2026-02-11","2026-02-12","2026-02-13","2026-02-14","2026-02-15","2026-02-16","2026-02-17","2026-02-18","2026-02-19","2026-02-20","2026-02-21","2026-02-22","2026-02-23","2026-02-24","2026-02-25","2026-02-26","2026-02-27","2026-02-28","2026-03-01","2026-03-02","2026-03-03","2026-03-04","2026-03-05","2026-03-06","2026-03-07","2026-03-08","2026-03-09","2026-03-10","2026-03-11","2026-03-12","2026-03-13","2026-03-14","2026-03-15","2026-03-16","2026-03-17","2026-03-18","2026-03-19","2026-03-20","2026-03-21","2026-03-22","2026-03-23","2026-03-24","2026-03-25","2026-03-26","2026-03-27","2026-03-28","2026-03-29","2026-03-30","2026-03-31","2026-04-01","2026-04-02","2026-04-03","2026-04-04","2026-04-05","2026-04-06","2026-04-07","2026-04-08","2026-04-09","2026-04-10","2026-04-11","2026-04-12","2026-04-13","2026-04-14","2026-04-15","2026-04-16","2026-04-17","2026-04-18","2026-04-19","2026-04-20","2026-04-21","2026-04-22","2026-04-23","2026-04-24","2026-04-25","2026-04-26","2026-04-27","2026-04-28","2026-04-29","2026-04-30","2026-05-01","2026-05-02","2026-05-03","2026-05-04","2026-05-05","2026-05-06","2026-05-07","2026-05-08","2026-05-09","2026-05-10","2026-05-11","2026-05-12","2026-05-13","2026-05-14","2026-05-15","2026-05-16","2026-05-17","2026-05-18","2026-05-19","2026-05-20","2026-05-21","2026-05-22","2026-05-23","2026-05-24","2026-05-25","2026-05-26","2026-05-27","2026-05-28","2026-05-29","2026-05-30","2026-05-31","2026-06-01","2026-06-02","2026-06-03","2026-06-04","2026-06-05","2026-06-06","2026-06-07","2026-06-08","2026-06-09","2026-06-10","2026-06-11","2026-06-12","2026-06-13","2026-06-14","2026-06-15","2026-06-16","2026-06-17","2026-06-18","2026-06-19","2026-06-20","2026-06-21","2026-06-22","2026-06-23","2026-06-24","2026-06-25","2026-06-26","2026-06-27","2026-06-28","2026-06-29","2026-06-30","2026-07-01","2026-07-02","2026-07-03","2026-07-04","2026-07-05","2026-07-06","2026-07-07","2026-07-08","2026-07-09","2026-07-10","2026-07-11","2026-07-12","2026-07-13","2026-07-14","2026-07-15","2026-07-16","2026-07-17","2026-07-18","2026-07-19","2026-07-20","2026-07-21","2026-07-22","2026-07-23","2026-07-24","2026-07-25","2026-07-26","2026-07-27","2026-07-28","2026-07-29","2026-07-30","2026-07-31","2026-08-01","2026-08-02","2026-08-03","2026-08-04","2026-08-05","2026-08-06","2026-08-07","2026-08-08","2026-08-09","2026-08-10","2026-08-11","2026-08-12","2026-08-13","2026-08-14","2026-08-15","2026-08-16","2026-08-17","2026-08-18","2026-08-19","2026-08-20","2026-08-21","2026-08-22","2026-08-23","2026-08-24","2026-08-25","2026-08-26","2026-08-27","2026-08-28","2026-08-29","2026-08-30","2026-08-31","2026-09-01","2026-09-02","2026-09-03","2026-09-04","2026-09-05","2026-09-06","2026-09-07","2026-09-08","2026-09-09","2026-09-10","2026-09-11","2026-09-12","2026-09-13","2026-09-14","2026-09-15","2026-09-16","2026-09-17","2026-09-18","2026-09-19","2026-09-20","2026-09-21","2026-09-22","2026-09-23","2026-09-24","2026-09-25","2026-09-26","2026-09-27","2026-09-28","2026-09-29","2026-09-30","2026-10-01","2026-10-02","2026-10-03","2026-10-04","2026-10-05","2026-10-06","2026-10-07","2026-10-08","2026-10-09","2026-10-10","2026-10-11","2026-10-12","2026-10-13","2026-10-14","2026-10-15","2026-10-16","2026-10-17","2026-10-18","2026-10-19","2026-10-20","2026-10-21","2026-10-22","2026-10-23","2026-10-24","2026-10-25","2026-10-26","2026-10-27","2026-10-28","2026-10-29","2026-10-30","2026-10-31","2026-11-01","2026-11-02","2026-11-03","2026-11-04","2026-11-05","2026-11-06","2026-11-07","2026-11-08","2026-11-09","2026-11-10","2026-11-11","2026-11-12","2026-11-13","2026-11-14","2026-11-15","2026-11-16","2026-11-17","2026-11-18","2026-11-19","2026-11-20","2026-11-21","2026-11-22","2026-11-23","2026-11-24","2026-11-25","2026-11-26","2026-11-27","2026-11-28","2026-11-29","2026-11-30","2026-12-01","2026-12-02","2026-12-03","2026-12-04","2026-12-05","2026-12-06","2026-12-07","2026-12-08","2026-12-09","2026-12-10","2026-12-11","2026-12-12","2026-12-13","2026-12-14","2026-12-15","2026-12-16","2026-12-17","2026-12-18","2026-12-19","2026-12-20","2026-12-21","2026-12-22","2026-12-23","2026-12-24","2026-12-25","2026-12-26","2026-12-27","2026-12-28","2026-12-29","2026-12-30","2026-12-31"],"series":{"gross_collected":[18522,55566,92610,37044,74088,18522,55566,92610,37044,74088,18522,55566,92610,37044,74088,18522,55566,92610,37044,74088,18522,55566,92610,37044,74088,18522,55566,92610,37044,74088,18520,18482,4620,13861,23102,9241,18482,4620,13861,23102,9241,18482,4620,13861,23102,9241,18482,4620,13861,23102,9241,18482,4620,13861,23102,9241,18482,4620,13868,8815,17630,4408,13223,22038,8815,17630,4408,13223,22038,8815,17630,4408,13223,22038,8815,17630,4408,13223,22038,8815,17630,4408,13223,22038,8815,17630,4408,13223,22038,8816,22972,9189,18378,4594,13783,22972,9189,18378,4594,13783,22972,9189,18378,4594,13783,22972,9189,18378,4594,13783,22972,9189,18378,4594,13783,22972,9189,18378,4594,13787,14952,24919,9968,19935,4984,14952,24919,9968,19935,4984,14952,24919,9968,19935,4984,14952,24919,9968,19935,4984,14952,24919,9968,19935,4984,14952,24919,9968,19935,4984,14952,5289,15867,26444,10578,21156,5289,15867,26444,10578,21156,5289,15867,26444,10578,21156,5289,15867,26444,10578,21156,5289,15867,26444,10578,21156,5289,15867,26444,10578,21152,23872,5968,17904,29840,11936,23872,5968,17904,29840,11936,23872,5968,17904,29840,11936,23872,5968,17904,29840,11936,23872,5968,17904,29840,11936,23872,5968,17904,29840,11936,23880,9804,19609,4902,14707,24511,9804,19609,4902,14707,24511,9804,19609,4902,14707,24511,9804,19609,4902,14707,24511,9804,19609,4902,14707,24511,9804,19609,4902,14707,24511,9802,31111,12444,24889,6222,18667,31111,12444,24889,6222,18667,31111,12444,24889,6222,18667,31111,12444,24889,6222,18667,31111,12444,24889,6222,18667,31111,12444,24889,6222,18669,14452,24086,9634,19269,4817,14452,24086,9634,19269,4817,14452,24086,9634,19269,4817,14452,24086,9634,19269,4817,14452,24086,9634,19269,4817,14452,24086,9634,19269,4817,14452,5139,15417,25694,10278,20556,5139,15417,25694,10278,20556,5139,15417,25694,10278,20556,5139,15417,25694,10278,20556,5139,15417,25694,10278,20556,5139,15417,25694,10278,20552,21064,5266,15798,26330,10532,21064,5266,15798,26330,10532,21064,5266,15798,26330,10532,21064,5266,15798,26330,10532,21064,5266,15798,26330,10532,21064,5266,15798,26330,10532,21060]}}},"meta":{"gross_collected":{"title":"Gross collected","kind":"money","format":"money","kpiClass":"income","every":"day","detail":"names","invented":false},"revenue_by_kind:membership":{"title":"Memberships","kind":"money","format":"money","kpiClass":"income","every":"day","detail":"names","invented":false},"revenue_by_tier:give-25":{"title":"Give-25","kind":"money","format":"money0","kpiClass":"income","every":"day","detail":"names","invented":false},"revenue_by_tier:give-50":{"title":"Give-50","kind":"money","format":"money0","kpiClass":"income","every":"day","detail":"names","invented":false},"revenue_by_tier:give-100":{"title":"Give-100","kind":"money","format":"money0","kpiClass":"income","every":"day","detail":"names","invented":false},"revenue_by_tier:give-250":{"title":"Give-250","kind":"money","format":"money0","kpiClass":"income","every":"day","detail":"names","invented":false},"net_income":{"title":"Net income","kind":"money","format":"money","kpiClass":"income","every":"day","detail":"names","invented":false},"refunds":{"title":"Refunds","kind":"money","format":"money","kpiClass":"losses","every":"day","detail":"names","invented":false},"disputes_lost":{"title":"Disputes lost","kind":"money","format":"money","kpiClass":"losses","every":"day","detail":"names","invented":false},"dispute_fees":{"title":"Dispute fees","kind":"money","format":"money","kpiClass":"losses","every":"day","detail":"names","invented":false},"dispute_cost":{"title":"Dispute cost","kind":"money","format":"money","kpiClass":"losses","every":"day","detail":"names","invented":false},"stripe_fees":{"title":"Payment fees","kind":"money","format":"money","kpiClass":"losses","every":"day","detail":"names","invented":false},"refund_rate":{"title":"Refund rate","kind":"rate","format":"percent1","kpiClass":"losses","every":"day","detail":"names","invented":false},"dispute_rate":{"title":"Dispute rate","kind":"rate","format":"percent1","kpiClass":"losses","every":"day","detail":"names","invented":false},"payouts":{"title":"Paid out","kind":"money","format":"money","kpiClass":"cash","every":"day","detail":"names","invented":false},"paying_members":{"title":"Paying members","kind":"count","format":"integer","kpiClass":"people","every":"day","detail":"names","invented":false},"new_paying_members":{"title":"New paying","kind":"count","format":"integer","kpiClass":"people","every":"day","detail":"names","invented":false},"arpa":{"title":"Avg per paying member","kind":"money","format":"money","kpiClass":"people","every":"day","detail":"names","invented":false},"payments_count":{"title":"Payments","kind":"count","format":"integer","kpiClass":"activity","every":"day","detail":"names","invented":false},"refunds_count":{"title":"Refunds made","kind":"count","format":"integer","kpiClass":"activity","every":"day","detail":"names","invented":false},"disputes_opened":{"title":"Disputes opened","kind":"count","format":"integer","kpiClass":"activity","every":"day","detail":"names","invented":false},"credits_granted":{"title":"Granted","kind":"count","format":"integer","kpiClass":"activity","every":"day","detail":"names","invented":false},"credits_consumed":{"title":"Used","kind":"count","format":"integer","kpiClass":"activity","every":"day","detail":"names","invented":false},"credits_expired":{"title":"Expired","kind":"count","format":"integer","kpiClass":"activity","every":"day","detail":"names","invented":false},"breakage_rate":{"title":"Breakage rate","kind":"rate","format":"percent1","kpiClass":"activity","every":"day","detail":"names","invented":false}},"notComputed":[{"id":"mrr","reason":"MRR is not computed: cash basis, a yearly payer counts in the month paid"},{"id":"churned_members","reason":"Churn is not computed: cash basis"}],"notes":["Days split each month's gross by the mockup's weights (bkDays)."],"verified":true}},"governance":{"hash":"3ca32558b7532b06a093e2b26ff378003b6dddb89612e00e3330f68f65697475","document":{"school":"org_cedar_hill_church","source":{"kind":"mart","preset":"church-giving"},"dataSource":"fixture","audience":"governance","pinLocked":false,"year":2026,"basis":"cash","currency":"usd","symbol":"$","kpiSpecVersion":"school.v1","asOf":"2026-12-31T12:00","size":"small","roundTo":0,"live":false,"cellRules":"breakdown and spread","grain":"month","periods":[{"period":"2026-01","label":"Jan 2026","from":"2026-01-01","to":"2026-01-31","state":"shown","title":null,"open":false,"invented":false},{"period":"2026-02","label":"Feb 2026","from":"2026-02-01","to":"2026-02-28","state":"shown","title":null,"open":false,"invented":false},{"period":"2026-03","label":"Mar 2026","from":"2026-03-01","to":"2026-03-31","state":"shown","title":null,"open":false,"invented":false},{"period":"2026-04","label":"Apr 2026","from":"2026-04-01","to":"2026-04-30","state":"shown","title":null,"open":false,"invented":false},{"period":"2026-05","label":"May 2026","from":"2026-05-01","to":"2026-05-31","state":"shown","title":null,"open":false,"invented":false},{"period":"2026-06","label":"Jun 2026","from":"2026-06-01","to":"2026-06-30","state":"shown","title":null,"open":false,"invented":false},{"period":"2026-07","label":"Jul 2026","from":"2026-07-01","to":"2026-07-31","state":"shown","title":null,"open":false,"invented":false},{"period":"2026-08","label":"Aug 2026","from":"2026-08-01","to":"2026-08-31","state":"shown","title":null,"open":false,"invented":false},{"period":"2026-09","label":"Sep 2026","from":"2026-09-01","to":"2026-09-30","state":"shown","title":null,"open":false,"invented":false},{"period":"2026-10","label":"Oct 2026","from":"2026-10-01","to":"2026-10-31","state":"shown","title":null,"open":false,"invented":false},{"period":"2026-11","label":"Nov 2026","from":"2026-11-01","to":"2026-11-30","state":"shown","title":null,"open":false,"invented":false},{"period":"2026-12","label":"Dec 2026","from":"2026-12-01","to":"2026-12-31","state":"embargoed","title":"Published after 7 Jan 2027","open":false,"invented":false}],"captions":{"2026":"Governance document · Income: breakdown by month · Losses: breakdown by month · Cash: categories by month · People: spread by month · Activity: breakdown by month. Money exact. Cell rules on for breakdowns and spreads. No names, emails or per-person rows. Dec: published after 7 Jan 2027."},"empty":false,"tables":{"month":{"periods":["2026-01","2026-02","2026-03","2026-04","2026-05","2026-06","2026-07","2026-08","2026-09","2026-10","2026-11","2026-12"],"series":{"gross_collected":[1685500,383500,405500,413500,463500,476000,561000,451000,560000,448000,462500,{"hidden":"embargoed","text":"Published after 7 Jan 2027"}],"revenue_by_kind:membership":[1685500,383500,405500,413500,463500,476000,561000,451000,560000,448000,462500,{"hidden":"embargoed","text":"Published after 7 Jan 2027"}],"revenue_by_tier:give-25":[444500,{"hidden":"suppressed","text":"Hidden: fewer than 5 payers"},{"hidden":"suppressed","text":"Hidden: fewer than 5 payers"},{"hidden":"suppressed","text":"Hidden: fewer than 5 payers"},84500,{"hidden":"suppressed","text":"Hidden: fewer than 5 payers"},{"hidden":"suppressed","text":"Hidden: fewer than 5 payers"},{"hidden":"suppressed","text":"Hidden: fewer than 5 payers"},91000,{"hidden":"suppressed","text":"Hidden: fewer than 5 payers"},{"hidden":"suppressed","text":"Hidden: fewer than 5 payers"},{"hidden":"embargoed","text":"Published after 7 Jan 2027"}],"revenue_by_tier:give-50":[619000,{"hidden":"suppressed","text":"Hidden: hidden so the cell beside it can't be worked out from the total"},{"hidden":"suppressed","text":"Hidden: hidden so the cell beside it can't be worked out from the total"},{"hidden":"suppressed","text":"Hidden: hidden so the cell beside it can't be worked out from the total"},84000,144000,{"hidden":"suppressed","text":"Hidden: hidden so the cell beside it can't be worked out from the total"},{"hidden":"suppressed","text":"Hidden: hidden so the cell beside it can't be worked out from the total"},159000,{"hidden":"suppressed","text":"Hidden: hidden so the cell beside it can't be worked out from the total"},{"hidden":"suppressed","text":"Hidden: hidden so the cell beside it can't be worked out from the total"},{"hidden":"embargoed","text":"Published after 7 Jan 2027"}],"revenue_by_tier:give-100":[406000,100000,100000,125000,120000,{"hidden":"suppressed","text":"Hidden: hidden so the cell beside it can't be worked out from the total"},240000,120000,110000,120000,120000,{"hidden":"embargoed","text":"Published after 7 Jan 2027"}],"revenue_by_tier:give-250":[216000,175000,175000,175000,175000,175000,175000,200000,200000,200000,200000,{"hidden":"embargoed","text":"Published after 7 Jan 2027"}],"net_income":[1581559,373743,395199,402993,446833,464028,542128,439518,546090,411644,450765,{"hidden":"embargoed","text":"Published after 7 Jan 2027"}],"refunds":[65000,0,0,0,5000,0,5000,0,0,25000,0,{"hidden":"embargoed","text":"Published after 7 Jan 2027"}],"disputes_lost":[0,0,0,0,0,0,0,0,0,0,0,{"hidden":"embargoed","text":"Published after 7 Jan 2027"}],"dispute_fees":[0,0,0,0,0,0,0,0,0,0,0,{"hidden":"embargoed","text":"Published after 7 Jan 2027"}],"dispute_cost":[0,0,0,0,0,0,0,0,0,0,0,{"hidden":"embargoed","text":"Published after 7 Jan 2027"}],"stripe_fees":[38941,9757,10301,10507,11667,11972,13872,11482,13910,11356,11735,{"hidden":"embargoed","text":"Published after 7 Jan 2027"}],"refund_rate":[0.0386,0,0,0,0.0108,0,0.0089,0,0,0.0558,0,{"hidden":"embargoed","text":"Published after 7 Jan 2027"}],"dispute_rate":[0,0,0,0,0,0,0,0,0,0,0,{"hidden":"embargoed","text":"Published after 7 Jan 2027"}],"payouts":[0,1668940,373743,395199,402993,446833,464028,542128,439518,546090,411644,{"hidden":"embargoed","text":"Published after 7 Jan 2027"}],"paying_members":[62,44,46,47,49,50,51,52,53,50,52,{"hidden":"embargoed","text":"Published after 7 Jan 2027"}],"new_paying_members":[62,0,2,2,2,2,2,2,2,2,2,{"hidden":"embargoed","text":"Published after 7 Jan 2027"}],"arpa":[27185.48,8715.91,8815.22,8797.87,9459.18,9520,11000,8673.08,10566.04,8960,8894.23,{"hidden":"embargoed","text":"Published after 7 Jan 2027"}],"payments_count":[62,44,46,47,49,50,51,52,53,50,52,{"hidden":"embargoed","text":"Published after 7 Jan 2027"}],"refunds_count":[1,0,0,0,1,0,1,0,0,1,0,{"hidden":"embargoed","text":"Published after 7 Jan 2027"}],"disputes_opened":[0,0,0,0,0,0,0,0,0,0,0,{"hidden":"embargoed","text":"Published after 7 Jan 2027"}],"credits_granted":[8,0,1,0,0,0,0,0,0,0,0,{"hidden":"embargoed","text":"Published after 7 Jan 2027"}],"credits_consumed":[2,6,0,1,0,0,0,0,0,0,0,{"hidden":"embargoed","text":"Published after 7 Jan 2027"}],"credits_expired":[0,0,0,0,0,0,0,0,0,0,0,{"hidden":"embargoed","text":"Published after 7 Jan 2027"}],"breakage_rate":[0,{"hidden":"not_computed","text":"Not computed"},0,{"hidden":"not_computed","text":"Not computed"},{"hidden":"not_computed","text":"Not computed"},{"hidden":"not_computed","text":"Not computed"},{"hidden":"not_computed","text":"Not computed"},{"hidden":"not_computed","text":"Not computed"},{"hidden":"not_computed","text":"Not computed"},{"hidden":"not_computed","text":"Not computed"},{"hidden":"not_computed","text":"Not computed"},{"hidden":"embargoed","text":"Published after 7 Jan 2027"}]},"order":{"revenue_by_tier":[["revenue_by_tier:give-25","revenue_by_tier:give-50","revenue_by_tier:give-100","revenue_by_tier:give-250"],["revenue_by_tier:give-25","revenue_by_tier:give-50","revenue_by_tier:give-100","revenue_by_tier:give-250"],["revenue_by_tier:give-25","revenue_by_tier:give-50","revenue_by_tier:give-100","revenue_by_tier:give-250"],["revenue_by_tier:give-25","revenue_by_tier:give-50","revenue_by_tier:give-100","revenue_by_tier:give-250"],["revenue_by_tier:give-25","revenue_by_tier:give-50","revenue_by_tier:give-100","revenue_by_tier:give-250"],["revenue_by_tier:give-25","revenue_by_tier:give-50","revenue_by_tier:give-100","revenue_by_tier:give-250"],["revenue_by_tier:give-25","revenue_by_tier:give-50","revenue_by_tier:give-100","revenue_by_tier:give-250"],["revenue_by_tier:give-25","revenue_by_tier:give-50","revenue_by_tier:give-100","revenue_by_tier:give-250"],["revenue_by_tier:give-25","revenue_by_tier:give-50","revenue_by_tier:give-100","revenue_by_tier:give-250"],["revenue_by_tier:give-25","revenue_by_tier:give-50","revenue_by_tier:give-100","revenue_by_tier:give-250"],["revenue_by_tier:give-25","revenue_by_tier:give-50","revenue_by_tier:give-100","revenue_by_tier:give-250"],["revenue_by_tier:give-25","revenue_by_tier:give-50","revenue_by_tier:give-100","revenue_by_tier:give-250"]]},"changes":{"gross_collected":[null,-1302000,22000,8000,50000,12500,85000,-110000,109000,-112000,14500,null],"revenue_by_kind:membership":[null,-1302000,22000,8000,50000,12500,85000,-110000,109000,-112000,14500,null],"revenue_by_tier:give-25":[null,null,null,null,null,null,null,null,null,null,null,null],"revenue_by_tier:give-50":[null,null,null,null,null,60000,null,null,null,null,null,null],"revenue_by_tier:give-100":[null,-306000,0,25000,-5000,null,null,-120000,-10000,10000,0,null],"revenue_by_tier:give-250":[null,-41000,0,0,0,0,0,25000,0,0,0,null],"net_income":[null,-1207816,21456,7794,43840,17195,78100,-102610,106572,-134446,39121,null],"refunds":[null,-65000,0,0,5000,-5000,5000,-5000,0,25000,-25000,null],"disputes_lost":[null,0,0,0,0,0,0,0,0,0,0,null],"dispute_fees":[null,0,0,0,0,0,0,0,0,0,0,null],"dispute_cost":[null,0,0,0,0,0,0,0,0,0,0,null],"stripe_fees":[null,-29184,544,206,1160,305,1900,-2390,2428,-2554,379,null],"payouts":[null,1668940,-1295197,21456,7794,43840,17195,78100,-102610,106572,-134446,null],"paying_members":[null,-18,2,1,2,1,1,1,1,-3,2,null],"new_paying_members":[null,-62,2,0,0,0,0,0,0,0,0,null],"arpa":[null,-18469.57,99.30999999999949,-17.349999999998545,661.3099999999995,60.81999999999971,1480,-2326.92,1892.960000000001,-1606.0400000000009,-65.77000000000044,null],"payments_count":[null,-18,2,1,2,1,1,1,1,-3,2,null],"refunds_count":[null,-1,0,0,1,-1,1,-1,0,1,-1,null],"disputes_opened":[null,0,0,0,0,0,0,0,0,0,0,null],"credits_granted":[null,-8,1,-1,0,0,0,0,0,0,0,null],"credits_consumed":[null,4,-6,1,-1,0,0,0,0,0,0,null],"credits_expired":[null,0,0,0,0,0,0,0,0,0,0,null]}}},"meta":{"gross_collected":{"title":"Gross collected","kind":"money","format":"money","kpiClass":"income","every":"month","detail":"breakdown","invented":false},"revenue_by_kind:membership":{"title":"Memberships","kind":"money","format":"money","kpiClass":"income","every":"month","detail":"breakdown","invented":false},"revenue_by_tier:give-25":{"title":"Give-25","kind":"money","format":"money0","kpiClass":"income","every":"month","detail":"breakdown","invented":false},"revenue_by_tier:give-50":{"title":"Give-50","kind":"money","format":"money0","kpiClass":"income","every":"month","detail":"breakdown","invented":false},"revenue_by_tier:give-100":{"title":"Give-100","kind":"money","format":"money0","kpiClass":"income","every":"month","detail":"breakdown","invented":false},"revenue_by_tier:give-250":{"title":"Give-250","kind":"money","format":"money0","kpiClass":"income","every":"month","detail":"breakdown","invented":false},"net_income":{"title":"Net income","kind":"money","format":"money","kpiClass":"income","every":"month","detail":"breakdown","invented":false},"refunds":{"title":"Refunds","kind":"money","format":"money","kpiClass":"losses","every":"month","detail":"breakdown","invented":false},"disputes_lost":{"title":"Disputes lost","kind":"money","format":"money","kpiClass":"losses","every":"month","detail":"breakdown","invented":false},"dispute_fees":{"title":"Dispute fees","kind":"money","format":"money","kpiClass":"losses","every":"month","detail":"breakdown","invented":false},"dispute_cost":{"title":"Dispute cost","kind":"money","format":"money","kpiClass":"losses","every":"month","detail":"breakdown","invented":false},"stripe_fees":{"title":"Payment fees","kind":"money","format":"money","kpiClass":"losses","every":"month","detail":"breakdown","invented":false},"refund_rate":{"title":"Refund rate","kind":"rate","format":"percent1","kpiClass":"losses","every":"month","detail":"breakdown","invented":false},"dispute_rate":{"title":"Dispute rate","kind":"rate","format":"percent1","kpiClass":"losses","every":"month","detail":"breakdown","invented":false},"payouts":{"title":"Paid out","kind":"money","format":"money","kpiClass":"cash","every":"month","detail":"categories","invented":false},"paying_members":{"title":"Paying members","kind":"count","format":"integer","kpiClass":"people","every":"month","detail":"spread","invented":false},"new_paying_members":{"title":"New paying","kind":"count","format":"integer","kpiClass":"people","every":"month","detail":"spread","invented":false},"arpa":{"title":"Avg per paying member","kind":"money","format":"money","kpiClass":"people","every":"month","detail":"breakdown","invented":false},"payments_count":{"title":"Payments","kind":"count","format":"integer","kpiClass":"activity","every":"month","detail":"breakdown","invented":false},"refunds_count":{"title":"Refunds made","kind":"count","format":"integer","kpiClass":"activity","every":"month","detail":"breakdown","invented":false},"disputes_opened":{"title":"Disputes opened","kind":"count","format":"integer","kpiClass":"activity","every":"month","detail":"breakdown","invented":false},"credits_granted":{"title":"Granted","kind":"count","format":"integer","kpiClass":"activity","every":"month","detail":"breakdown","invented":false},"credits_consumed":{"title":"Used","kind":"count","format":"integer","kpiClass":"activity","every":"month","detail":"breakdown","invented":false},"credits_expired":{"title":"Expired","kind":"count","format":"integer","kpiClass":"activity","every":"month","detail":"breakdown","invented":false},"breakage_rate":{"title":"Breakage rate","kind":"rate","format":"percent1","kpiClass":"activity","every":"month","detail":"breakdown","invented":false}},"notComputed":[{"id":"mrr","reason":"MRR is not computed: cash basis, a yearly payer counts in the month paid"},{"id":"churned_members","reason":"Churn is not computed: cash basis"}],"notes":[],"verified":true}}}}]}]}</script>
+<script>
+// Draws an org's KPI documents (the JSON in #tfd-data) in the school mockup's layout. It derives no figure: a tile is a
+// cell of the document, its change line the document's `changes`, and a cell that is not a number is shown by its own
+// text. Tabs come from each KPI's disclosure class, so a KPI the document gains shows up in its class's tab.
+// Query: ?preset=, ?year=, ?viewer=owner|governance, ?tab=, ?theme=light|dark, ?embed=1 (no "All demos" link).
+const DATA = JSON.parse(document.getElementById("tfd-data").textContent);
+const query = new URLSearchParams(location.search);
+const root = document.documentElement;
+const VIEWERS = { owner: "Owner", governance: "Governance" };
+const capitalized = (text) => text.charAt(0).toUpperCase() + text.slice(1);
+const TABS = [
+	{ id: "money", classes: ["income", "cash"], title: "Money" },
+	{
+		id: "people",
+		classes: ["people"],
+		title: capitalized(DATA.words.holder.other),
+	},
+	{ id: "risk", classes: ["losses"], title: "Risk" },
+	{
+		id: "activity",
+		classes: ["activity"],
+		title: `Payments and ${DATA.words.credit.other}`,
+	},
+];
+/** Dimension groups: a measure split by a dimension is one stacked chart. */
+const GROUPS = {
+	revenue_by_tier: `Gross collected by ${DATA.words.plan.one}`,
+	revenue_by_kind: "Gross collected by kind",
+	donations_by_fund: "Donations by fund",
+	donors_by_size: "Donors by size",
+};
+const COLORS = [
+	"var(--c1)",
+	"var(--c2)",
+	"var(--c3)",
+	"var(--c4)",
+	"var(--c5)",
+	"var(--c6)",
+];
+const HATCHED = new Set([
+	"suppressed",
+	"embargoed",
+	"members_only",
+	"no_grant",
+	"locked",
+]);
+
+const pick = (value, allowed, fallback) =>
+	allowed.includes(value) ? value : fallback;
+let preset = pick(
+	query.get("preset"),
+	DATA.presets.map((p) => p.name),
+	DATA.presets[0].name,
+);
+let year = Number(query.get("year")) || null;
+let viewer = pick(query.get("viewer"), Object.keys(VIEWERS), "owner");
+let tab = query.get("tab");
+let theme = pick(query.get("theme"), ["light", "dark"], null);
+if (query.has("embed")) root.classList.add("embed");
+
+const esc = (text) =>
+	String(text)
+		.replaceAll("&", "&amp;")
+		.replaceAll("<", "&lt;")
+		.replaceAll(">", "&gt;")
+		.replaceAll('"', "&quot;");
+const titleOf = (doc, id) =>
+	DATA.titles[id] ?? doc.meta[id]?.title ?? id.replaceAll("_", " ");
+
+// ---- Figures, as the document's KpiFormat says (kpi-document-types.ts)
+const units = (cents, decimals) =>
+	(Math.abs(cents) / 100).toLocaleString("en-US", {
+		minimumFractionDigits: decimals,
+		maximumFractionDigits: decimals,
+	});
+const money = (cents, symbol, decimals) =>
+	`${cents < 0 ? "−" : ""}${symbol}${decimals ? units(cents, 2) : Math.round(Math.abs(cents) / 100).toLocaleString("en-US")}`;
+const numberText = (value, meta, symbol) => {
+	if (meta.format === "money") return money(value, symbol, 2);
+	if (meta.format === "money0") return money(value, symbol, 0);
+	if (meta.format === "percent1") return `${(value * 100).toFixed(1)}%`;
+	return value.toLocaleString("en-US");
+};
+const cellText = (cell, meta, symbol) => {
+	if (typeof cell === "number") return numberText(cell, meta, symbol);
+	if (cell == null) return "Not computed";
+	if ("lt" in cell)
+		return meta.kind === "count"
+			? `<${cell.lt}`
+			: `under ${money(cell.lt, symbol, 0)}`;
+	if ("approx" in cell) return `about ${cell.approx}`;
+	return cell.text;
+};
+const cellWhy = (cell) =>
+	cell && typeof cell === "object" ? (cell.why ?? "") : "";
+const axisText = (value, kind, symbol) => {
+	if (kind === "rate") return `${Math.round(value * 100)}%`;
+	if (kind !== "money") return value.toLocaleString("en-US");
+	const whole = Math.abs(value) / 100;
+	const short =
+		whole >= 1000
+			? `${(whole / 1000).toLocaleString("en-US", { maximumFractionDigits: 1 })}k`
+			: Math.round(whole).toLocaleString("en-US");
+	return `${value < 0 ? "−" : ""}${symbol}${short}`;
+};
+
+// ---- Charts: the mockup's SVG bars and lines; a cell that is not a number is not drawn, and a hidden one is hatched
+const tip = document.getElementById("tip");
+const hook = (container) => {
+	for (const target of container.querySelectorAll("[data-h]")) {
+		target.onmousemove = (event) => {
+			tip.innerHTML = target.dataset.h;
+			tip.style.display = "block";
+			const box = tip.getBoundingClientRect();
+			let x = event.clientX + 12;
+			let y = event.clientY + 12;
+			if (x + box.width > innerWidth) x = event.clientX - box.width - 12;
+			if (y + box.height > innerHeight) y = event.clientY - box.height - 12;
+			tip.style.left = `${x}px`;
+			tip.style.top = `${y}px`;
+		};
+		target.onmouseleave = () => {
+			tip.style.display = "none";
+		};
+	}
+};
+const nice = (span) => {
+	if (span <= 0) return 1;
+	const exponent = 10 ** Math.floor(Math.log10(span));
+	const fraction = span / exponent;
+	return (
+		(fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 5 ? 5 : 10) * exponent
+	);
+};
+const chart = ({ labels, series, stack, line, kind, symbol, label }) => {
+	const width = 340;
+	const height = 140;
+	const left = 40;
+	const right = 4;
+	const top = 6;
+	const bottom = 16;
+	const count = labels.length;
+	const value = (s, i) => (typeof s.cells[i] === "number" ? s.cells[i] : null);
+	let high = 0;
+	let low = 0;
+	labels.forEach((_, i) => {
+		let up = 0;
+		let down = 0;
+		for (const s of series) {
+			const v = value(s, i) ?? 0;
+			if (stack) {
+				if (v > 0) up += v;
+				else down += v;
+			} else {
+				up = Math.max(up, v);
+				down = Math.min(down, v);
+			}
+		}
+		high = Math.max(high, up);
+		low = Math.min(low, down);
+	});
+	const step = nice((high - low) / 3 || (kind === "rate" ? 0.01 : 1));
+	high = Math.ceil(high / step) * step || step;
+	low = Math.floor(low / step) * step;
+	const y = (v) => top + ((high - v) / (high - low)) * (height - top - bottom);
+	const band = (width - left - right) / count;
+	const x = (i) => left + (i + 0.5) * band;
+	let out = "";
+	for (let v = low; v <= high + step / 1e6; v += step)
+		out += `<line x1="${left}" x2="${width - right}" y1="${y(v)}" y2="${y(v)}" stroke="var(--bd)" ${Math.abs(v) < step / 1e6 ? "" : 'stroke-dasharray="2 3"'}/><text x="${left - 4}" y="${y(v) + 3}" text-anchor="end">${esc(axisText(v, kind, symbol))}</text>`;
+	const every = Math.ceil(count / 7);
+	labels.forEach((text, i) => {
+		if (i % every === 0)
+			out += `<text x="${x(i)}" y="${height - 3}" text-anchor="middle">${esc(text)}</text>`;
+	});
+	labels.forEach((_, i) => {
+		const hidden = series.some((s) => {
+			const cell = s.cells[i];
+			return (
+				cell &&
+				typeof cell === "object" &&
+				(HATCHED.has(cell.hidden) || "lt" in cell || "approx" in cell)
+			);
+		});
+		if (hidden)
+			out += `<rect x="${x(i) - band * 0.35}" y="${top}" width="${band * 0.7}" height="${y(low) - top}" fill="url(#hatch)" rx="2"/>`;
+	});
+	if (line)
+		for (const s of series) {
+			let points = [];
+			const flush = () => {
+				if (points.length > 1)
+					out += `<polyline fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" points="${points.join(" ")}"/>`;
+				else if (points.length === 1) {
+					const [cx, cy] = points[0].split(",");
+					out += `<circle cx="${cx}" cy="${cy}" r="2.5" fill="${s.color}"/>`;
+				}
+				points = [];
+			};
+			labels.forEach((_, i) => {
+				const v = value(s, i);
+				if (v === null) flush();
+				else points.push(`${x(i)},${y(v)}`);
+			});
+			flush();
+		}
+	else
+		labels.forEach((_, i) => {
+			let up = 0;
+			let down = 0;
+			const barWidth = band * (stack ? 0.62 : 0.7 / series.length);
+			series.forEach((s, j) => {
+				const v = value(s, i);
+				if (v === null || v === 0) return;
+				const bx = stack
+					? x(i) - barWidth / 2
+					: x(i) - band * 0.35 + j * barWidth;
+				if (!stack) {
+					out += `<rect x="${bx}" y="${Math.min(y(v), y(0))}" width="${barWidth * 0.9}" height="${Math.abs(y(v) - y(0))}" fill="${s.color}" rx="1.5"/>`;
+				} else if (v > 0) {
+					out += `<rect x="${bx}" y="${y(up + v)}" width="${barWidth}" height="${Math.max(0, y(up) - y(up + v) - (up > 0 ? 1.5 : 0))}" fill="${s.color}" rx="1.5"/>`;
+					up += v;
+				} else {
+					out += `<rect x="${bx}" y="${y(down) + (down < 0 ? 1.5 : 0)}" width="${barWidth}" height="${Math.max(0, y(down + v) - y(down) - (down < 0 ? 1.5 : 0))}" fill="${s.color}" rx="1.5"/>`;
+					down += v;
+				}
+			});
+		});
+	labels.forEach((text, i) => {
+		const lines = series
+			.map((s) => {
+				const why = cellWhy(s.cells[i]);
+				return `${esc(s.name)}: ${esc(cellText(s.cells[i], s.meta, symbol))}${why ? ` (${esc(why)})` : ""}`;
+			})
+			.join("<br>");
+		out += `<rect x="${x(i) - band / 2}" y="${top}" width="${band}" height="${height - top - bottom}" fill="transparent" data-h="${esc(`<b>${esc(text)}</b><br>${lines}`)}"/>`;
+	});
+	const legend =
+		series.length > 1
+			? series
+					.map((s) => `<i style="background:${s.color}"></i>${esc(s.name)}`)
+					.join("")
+			: "";
+	return `<div class="leg">${legend}</div><svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(label)}">${out}</svg>`;
+};
+const box = (title, source, body) =>
+	`<div class="box"><h3>${esc(title)}<span class="src">${esc(source)}</span></h3>${body}</div>`;
+
+// ---- One tab of one document
+const tabOf = (meta) =>
+	TABS.find((t) => t.classes.includes(meta.kpiClass))?.id ?? "other";
+const render = () => {
+	const current = DATA.presets.find((p) => p.name === preset);
+	const years = current.years.map((y) => y.year);
+	if (!years.includes(year)) year = years.at(-1);
+	const entry = current.years.find((y) => y.year === year).documents[viewer];
+	const doc = entry.document;
+	const table = doc.tables[doc.grain];
+	// A period that has not begun at the document's clock is left out (governance marks it embargoed, owner future).
+	const today = doc.asOf.slice(0, 10);
+	const shown = table.periods.flatMap((period, index) => {
+		const info = doc.periods.find((p) => p.period === period);
+		const begun = info && info.state !== "future" && info.from <= today;
+		return begun || !info ? [{ index, info, period }] : [];
+	});
+	const labels = shown.map(({ info, period }) =>
+		info ? info.label.replace(/ \d{4}$/, "") : period,
+	);
+	const symbol = doc.symbol;
+	const ids = Object.keys(doc.meta).filter((id) => table.series[id]);
+	const tabs = [...TABS];
+	if (ids.some((id) => tabOf(doc.meta[id]) === "other"))
+		tabs.push({ id: "other", title: "Other" });
+	if (!tabs.some((t) => t.id === tab)) tab = tabs[0].id;
+	const inTab = ids.filter((id) => tabOf(doc.meta[id]) === tab);
+	const cellsOf = (id) => shown.map(({ index }) => table.series[id][index]);
+	const seriesOf = (id, color) => ({
+		name: titleOf(doc, id),
+		meta: doc.meta[id],
+		cells: cellsOf(id),
+		color,
+	});
+	// The headline period: the last one shown and closed, else the last one shown.
+	const head =
+		[...shown]
+			.reverse()
+			.find(({ info }) => info?.state === "shown" && !info.open) ??
+		shown.at(-1);
+	const headLabel = head?.info?.label ?? head?.period ?? "";
+	const before = shown[shown.indexOf(head) - 1];
+	const beforeLabel = before?.info?.label.replace(/ \d{4}$/, "") ?? "";
+
+	const singles = inTab.filter((id) => !id.includes(":"));
+	const tiles = singles.slice(0, 4).map((id) => {
+		const meta = doc.meta[id];
+		const cell = head ? table.series[id][head.index] : null;
+		const change = head ? table.changes?.[id]?.[head.index] : null;
+		let sub = headLabel;
+		if (typeof cell === "number" && typeof change === "number" && beforeLabel)
+			sub =
+				change === 0
+					? `${headLabel} · same as ${beforeLabel}`
+					: `${headLabel} · ${change > 0 ? "▲" : "▼"} ${numberText(Math.abs(change), meta, symbol)} vs ${beforeLabel}`;
+		else if (cellWhy(cell)) sub = `${headLabel} · ${cellWhy(cell)}`;
+		const plain = typeof cell === "number";
+		return `<div class="tile"><span>${esc(titleOf(doc, id))}</span><b class="${plain ? "" : "h"}">${esc(cellText(cell, meta, symbol))}</b><span>${esc(sub)}</span></div>`;
+	});
+
+	const source = "atm KPI document";
+	const range = `${labels[0] ?? ""} to ${labels.at(-1) ?? ""} ${year}`;
+	const boxes = [];
+	const rates = singles.filter((id) => doc.meta[id].kind === "rate");
+	for (const id of singles.filter((id) => doc.meta[id].kind !== "rate")) {
+		const meta = doc.meta[id];
+		const title = titleOf(doc, id);
+		boxes.push(
+			box(
+				title,
+				source,
+				chart({
+					labels,
+					line: meta.kpiClass === "people" && meta.kind === "count",
+					kind: meta.kind,
+					symbol,
+					label: `${title}, ${range}`,
+					series: [seriesOf(id, COLORS[boxes.length % COLORS.length])],
+				}),
+			),
+		);
+	}
+	const groups = [
+		...new Set(
+			inTab.filter((id) => id.includes(":")).map((id) => id.split(":")[0]),
+		),
+	];
+	for (const group of groups) {
+		const members = inTab.filter((id) => id.startsWith(`${group}:`));
+		// One kind of income is the org's own word for it ("Giving" for the church), not a split.
+		const title =
+			members.length === 1
+				? titleOf(doc, members[0])
+				: (GROUPS[group] ?? group.replaceAll("_", " "));
+		boxes.push(
+			box(
+				title,
+				source,
+				chart({
+					labels,
+					stack: true,
+					kind: doc.meta[members[0]].kind,
+					symbol,
+					label: `${title}, ${range}`,
+					series: members.map((id, i) =>
+						seriesOf(id, COLORS[i % COLORS.length]),
+					),
+				}),
+			),
+		);
+	}
+	if (rates.length) {
+		const title = rates.map((id) => titleOf(doc, id)).join(" and ");
+		boxes.push(
+			box(
+				title,
+				source,
+				chart({
+					labels,
+					line: true,
+					kind: "rate",
+					symbol,
+					label: `${title}, ${range}`,
+					series: rates.map((id, i) => seriesOf(id, COLORS[i % COLORS.length])),
+				}),
+			),
+		);
+	}
+
+	document.getElementById("note").textContent = [
+		`${labels[0] ?? ""} to ${labels.at(-1) ?? ""} ${year}`,
+		`${current.members.toLocaleString("en-US")} ${DATA.words.holder.other} simulated`,
+		`${doc.basis} basis`,
+		`${VIEWERS[viewer]} view`,
+		`as of ${doc.asOf.slice(0, 10)}`,
+	].join(" · ");
+	document.getElementById("tiles").innerHTML = tiles.join("");
+	const grid = document.getElementById("grid");
+	grid.innerHTML = boxes.length
+		? boxes.join("")
+		: `<div class="box wide"><div class="lock">Nothing in this tab for this viewer.</div></div>`;
+	hook(grid);
+
+	const notComputed = doc.notComputed
+		.map((item) => `${esc(item.reason)}.`)
+		.join(" ");
+	document.getElementById("foot").innerHTML = [
+		`<p><b>Demo, synthetic data.</b> ${esc(DATA.name)} is invented (${esc(DATA.label)}); every name and number is generated. Figures are atm's KPI document for this viewer, built from the simulated events; hatched means hidden for this viewer.</p>`,
+		`<p>${esc(doc.captions[String(year)] ?? "")}</p>`,
+		notComputed ? `<p>Not computed yet: ${notComputed}</p>` : "",
+		`<p>Preset <code>${esc(current.name)}</code>, seed ${current.seed} · kpis hash <code>${current.kpisHash.slice(0, 12)}</code> · fixture hash <code>${current.fixtureHash.slice(0, 12)}</code> · document sha256 <code>${entry.hash.slice(0, 12)}</code></p>`,
+	].join("");
+
+	const presetSelect = document.getElementById("prof");
+	presetSelect.innerHTML = DATA.presets
+		.map(
+			(p) =>
+				`<option value="${esc(p.name)}"${p.name === preset ? " selected" : ""}>${esc(p.label)}</option>`,
+		)
+		.join("");
+	presetSelect.disabled = DATA.presets.length < 2;
+	const yearSelect = document.getElementById("year");
+	yearSelect.style.display = years.length > 1 ? "" : "none";
+	yearSelect.innerHTML = years
+		.map((y) => `<option${y === year ? " selected" : ""}>${y}</option>`)
+		.join("");
+	document.getElementById("viewers").innerHTML = Object.entries(VIEWERS)
+		.map(
+			([id, name]) =>
+				`<button type="button" data-v="${id}" class="${id === viewer ? "on" : ""}" aria-pressed="${id === viewer}">${name}</button>`,
+		)
+		.join(" ");
+	document.getElementById("tabs").innerHTML = tabs
+		.map(
+			(t) =>
+				`<button type="button" data-t="${t.id}" class="${t.id === tab ? "on" : ""}" aria-pressed="${t.id === tab}">${esc(t.title)}</button>`,
+		)
+		.join(" ");
+	for (const button of document.querySelectorAll("#viewers button"))
+		button.onclick = () => {
+			viewer = button.dataset.v;
+			render();
+		};
+	for (const button of document.querySelectorAll("#tabs button"))
+		button.onclick = () => {
+			tab = button.dataset.t;
+			render();
+		};
+	if (parent !== window)
+		parent.postMessage(
+			{ type: "tfd-demo:height", height: root.scrollHeight },
+			"*",
+		);
+};
+
+// ---- Theme: ?theme=, else the reader's preference; the button flips it
+const dark = () =>
+	theme ? theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+const paintTheme = () => {
+	if (theme) root.dataset.theme = theme;
+	const button = document.getElementById("theme");
+	button.textContent = dark() ? "Light theme" : "Dark theme";
+};
+document.getElementById("theme").onclick = () => {
+	theme = dark() ? "light" : "dark";
+	paintTheme();
+};
+document.getElementById("prof").onchange = (event) => {
+	preset = event.target.value;
+	year = null;
+	render();
+};
+document.getElementById("year").onchange = (event) => {
+	year = Number(event.target.value);
+	render();
+};
+paintTheme();
+render();
+</script></body></html>
