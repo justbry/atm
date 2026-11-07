@@ -32,6 +32,7 @@
 		"ts": "tsc --noEmit",
 		"fixtures": "bun ./fixtures/generate.ts",
 		"schema": "bun ./schema/build.ts",
+		"model": "bun ./model/build.ts",
 		"stripe-spec": "bun ./schema/stripe/build.ts",
 		"scenarios": "bun ./src/bin.ts scenarios",
 		"bundles:gaps": "bun ./tests/author-gap-bundles.ts",

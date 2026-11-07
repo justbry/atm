@@ -1,0 +1,722 @@
+{
+	"$schema": "../schema/model.v1.json",
+	"version": 1,
+	"id": "ledger.v1",
+	"namespace": "https://b4uni.com/_model/ledger.v1#",
+	"kpiSpec": "school.v1",
+	"prefixes": {
+		"atm": "https://b4uni.com/_model/ledger.v1#",
+		"fibo-fnd-acc-cur": "https://spec.edmcouncil.org/fibo/ontology/FND/Accounting/CurrencyAmount/",
+		"schema": "https://schema.org/",
+		"skos": "http://www.w3.org/2004/02/skos/core#"
+	},
+	"external": {
+		"fibo": {
+			"release": "2026Q3",
+			"checked": "2026-11-06",
+			"note": "fibo-fnd-acc-cur:MonetaryAmount and fibo-fnd-acc-cur:Currency are owl:Class in FND/Accounting/CurrencyAmount (versionIRI .../master/2026Q3/FND/Accounting/CurrencyAmount/). Linked by IRI only; the OWL is not imported (it has no memberships, credits, bookings or audiences)."
+		},
+		"schema.org": {
+			"release": "current",
+			"checked": "2026-11-06",
+			"note": "Every schema: term used resolves at https://schema.org/<term>."
+		}
+	},
+	"entities": [
+		{
+			"id": "School",
+			"kind": "thing",
+			"description": "A school whose books atm keeps: one ledger, one menu, one disclosure.",
+			"synonyms": ["organisation", "org", "group"],
+			"key": { "fields": ["school"], "example": "sch_before_university" },
+			"links": { "closeMatch": ["schema:EducationalOrganization"] }
+		},
+		{
+			"id": "Member",
+			"kind": "thing",
+			"description": "A holder of the school's books: a family or a child profile. Every event but a payout (`stripe:payouts`) names one by its envelope `key`; the name, email and roles are buzz-school's members list, joined by that key.",
+			"synonyms": ["holder", "family", "payer", "subject", "customer"],
+			"key": {
+				"fields": ["key"],
+				"pattern": "^((family|profile):[^:]+)$",
+				"example": "family:fam_015"
+			},
+			"source": "buzz-school members list, by key"
+		},
+		{
+			"id": "Tier",
+			"kind": "thing",
+			"description": "A membership tier of the school's menu. Its id is the tail of the membership income account; a credit event names the plan version as `<tier>@v<n>`.",
+			"synonyms": ["plan", "membership tier", "membership"],
+			"key": {
+				"eventTypes": ["payment.succeeded"],
+				"fields": ["posting.account"],
+				"pattern": "^income:billing:membership:([^:]+)$",
+				"example": "scholar"
+			},
+			"source": "the school's menu (buzz-school)",
+			"links": { "closeMatch": ["schema:ProgramMembership"] }
+		},
+		{
+			"id": "Account",
+			"kind": "thing",
+			"description": "A ledger account (hledger name): `assets:`, `income:`, `expenses:` in USD; `credits:` in credit units.",
+			"synonyms": ["ledger account", "GL account"],
+			"key": {
+				"fields": ["posting.account"],
+				"pattern": "^(.+)$",
+				"example": "income:billing:membership:scholar"
+			}
+		},
+		{
+			"id": "Payment",
+			"kind": "thing",
+			"description": "A paid invoice or a paid booking: money in, booked when paid (cash basis). An invoice payment's id is the invoice (`in_...`); a booking's is its payment intent (`pi_...`), and it carries the caller's booking id.",
+			"synonyms": ["charge", "paid invoice", "collection"],
+			"key": {
+				"eventTypes": ["payment.succeeded"],
+				"fields": ["payload.id"],
+				"example": "in_fam_023_0"
+			},
+			"eventTypes": ["payment.succeeded"],
+			"links": { "closeMatch": ["schema:PayAction"] }
+		},
+		{
+			"id": "Refund",
+			"kind": "thing",
+			"description": "Money handed back on a payment's charge.",
+			"synonyms": ["refund line", "money back"],
+			"key": {
+				"eventTypes": ["payment.refunded"],
+				"fields": ["payload.id"],
+				"example": "evt_re_in_fam_009_0"
+			},
+			"eventTypes": ["payment.refunded"],
+			"links": { "closeMatch": ["schema:RefundAction"] }
+		},
+		{
+			"id": "Dispute",
+			"kind": "thing",
+			"description": "A chargeback on a payment's charge: opened (money and Stripe's fee withdrawn), then closed won or lost.",
+			"synonyms": ["chargeback"],
+			"key": {
+				"eventTypes": ["payment.disputed", "dispute.closed"],
+				"fields": ["payload.id"],
+				"example": "dp_in_fam_016_10"
+			},
+			"eventTypes": ["payment.disputed", "dispute.closed"]
+		},
+		{
+			"id": "Payout",
+			"kind": "thing",
+			"description": "Money Stripe moved to the school's bank. A payout names no payment, so it joins nothing but the school.",
+			"synonyms": ["transfer", "bank deposit"],
+			"key": {
+				"eventTypes": ["payout.paid"],
+				"fields": ["payload.id"],
+				"example": "po_1"
+			},
+			"eventTypes": ["payout.paid"]
+		},
+		{
+			"id": "Booking",
+			"kind": "thing",
+			"description": "A member's booking of a service, paid in credits: held, then spent (finalized) or released. The booking itself is the caller's (buzz-school); the books know it by its id, which is unique per holder only, so the key is the holder and the id together.",
+			"synonyms": ["reservation", "class booking", "session"],
+			"key": {
+				"eventTypes": ["credit.held"],
+				"fields": ["key", "labels.booking"],
+				"example": "family:fam_015 bk_1"
+			},
+			"eventTypes": ["credit.held", "credit.spent", "credit.released"],
+			"source": "buzz-school bookings, by holder and booking id",
+			"links": { "closeMatch": ["schema:Reservation"] }
+		},
+		{
+			"id": "CreditLot",
+			"kind": "thing",
+			"description": "A holder's balance of one credit feature, granted by a plan or a gift and drawn down by bookings: `credits:avail:<holder>:<feature>`, with `credits:held:` while a booking holds it. The caller's lot row (`school_credit_lots`) is the engine's customer entitlement.",
+			"synonyms": ["credit balance", "allowance", "entitlement", "credits"],
+			"key": {
+				"fields": ["posting.account"],
+				"pattern": "^credits:(?:avail|held):((?:family|profile):[^:]+:[^:]+)$",
+				"example": "family:fam_015:class"
+			},
+			"eventTypes": [
+				"credit.granted",
+				"credit.held",
+				"credit.spent",
+				"credit.released",
+				"credit.refunded",
+				"credit.expired",
+				"credit.adjusted",
+				"credit.forfeited"
+			]
+		},
+		{
+			"id": "Campaign",
+			"kind": "thing",
+			"description": "A fundraising campaign (Zeffy): donations are booked to `income:fundraising:<campaign>`. The KPI document's donor fixtures call it a fund.",
+			"synonyms": ["fund", "appeal", "drive"],
+			"key": {
+				"eventTypes": ["fundraise.received"],
+				"fields": ["payload.campaign"],
+				"example": "spring-appeal"
+			},
+			"source": "Zeffy"
+		},
+		{
+			"id": "Donation",
+			"kind": "thing",
+			"description": "A gift to a campaign. atm books Zeffy donations (`fundraise.received`); the KPI document's donor figures are the mockup's fixture gifts until a school's events carry them.",
+			"synonyms": ["gift", "donor gift", "contribution"],
+			"key": {
+				"eventTypes": ["fundraise.received"],
+				"fields": ["payload.id"]
+			},
+			"eventTypes": ["fundraise.received"],
+			"links": { "closeMatch": ["schema:DonateAction"] }
+		},
+		{
+			"id": "Audience",
+			"kind": "report",
+			"description": "Who reads a KPI document: public, member, governance, finance, owner. Each includes those before it; finance and owner see everything, live.",
+			"synonyms": ["reader", "viewer role"],
+			"source": "the disclosure file (buzz-school disclosure.v1.json)"
+		},
+		{
+			"id": "DisclosureClass",
+			"kind": "report",
+			"description": "The class a KPI is disclosed by: income, losses, cash, people, activity, personal. A class has a rule per audience (detail, grain, delay).",
+			"synonyms": ["KPI class"],
+			"source": "the disclosure file (buzz-school disclosure.v1.json)"
+		},
+		{
+			"id": "KpiDocument",
+			"kind": "report",
+			"description": "The one document of a school's KPIs for an audience and PIN state, with the disclosure already applied (`kpiDocument`).",
+			"synonyms": ["dashboard document", "books document"]
+		},
+		{
+			"id": "KpiCell",
+			"kind": "report",
+			"description": "One figure of a measure for one period of a document: a number, or why it is not one (rounded, approximate, hidden).",
+			"synonyms": ["cell", "figure"]
+		},
+		{
+			"id": "Period",
+			"kind": "report",
+			"description": "A period of a document: a year, quarter, month or day of the school's local calendar.",
+			"synonyms": ["month", "quarter", "year"]
+		},
+		{
+			"id": "MonetaryAmount",
+			"kind": "value",
+			"description": "An amount of money in minor units of a currency (cents for USD).",
+			"synonyms": ["amount", "money"],
+			"links": {
+				"exactMatch": ["fibo-fnd-acc-cur:MonetaryAmount"],
+				"closeMatch": ["schema:MonetaryAmount"]
+			}
+		},
+		{
+			"id": "Currency",
+			"kind": "value",
+			"description": "An ISO 4217 currency, lower case in the books (`usd`).",
+			"synonyms": ["commodity"],
+			"links": { "exactMatch": ["fibo-fnd-acc-cur:Currency"] }
+		}
+	],
+	"relationships": [
+		{
+			"id": "refund_payment",
+			"from": "Refund",
+			"to": "Payment",
+			"cardinality": "many-to-one",
+			"description": "A refund is of one payment, by the same holder: an invoice payment by `invoice` (the payment's id), a booking payment by `payment_intent`. An invoice payment carries no payment intent, so `payment_intent` alone resolves only a booking's refund.",
+			"fromEvents": ["payment.refunded"],
+			"toEvents": ["payment.succeeded"],
+			"joins": [
+				{
+					"when": "payload.invoice",
+					"from": ["key", "payload.invoice"],
+					"to": ["key", "payload.id"]
+				},
+				{
+					"when": "payload.payment_intent",
+					"from": ["key", "payload.payment_intent"],
+					"to": ["key", "payload.payment_intent"]
+				}
+			],
+			"certifiedBy": "presets"
+		},
+		{
+			"id": "dispute_payment",
+			"from": "Dispute",
+			"to": "Payment",
+			"cardinality": "many-to-one",
+			"description": "A dispute is on one payment's charge, by the same holder, joined as a refund is.",
+			"fromEvents": ["payment.disputed"],
+			"toEvents": ["payment.succeeded"],
+			"joins": [
+				{
+					"when": "payload.invoice",
+					"from": ["key", "payload.invoice"],
+					"to": ["key", "payload.id"]
+				},
+				{
+					"when": "payload.payment_intent",
+					"from": ["key", "payload.payment_intent"],
+					"to": ["key", "payload.payment_intent"]
+				}
+			],
+			"certifiedBy": "presets"
+		},
+		{
+			"id": "dispute_closure",
+			"from": "Dispute",
+			"to": "Dispute",
+			"cardinality": "one-to-one",
+			"description": "A closed dispute is one opened dispute, by its id.",
+			"fromEvents": ["dispute.closed"],
+			"toEvents": ["payment.disputed"],
+			"joins": [
+				{
+					"from": ["key", "payload.id"],
+					"to": ["key", "payload.id"]
+				}
+			],
+			"certifiedBy": "presets"
+		},
+		{
+			"id": "booking_hold",
+			"from": "Booking",
+			"to": "Booking",
+			"cardinality": "many-to-one",
+			"description": "A booking's spend or release settles the hold `credit.held` made for it: same holder, same booking id. Every hold names its booking, and a holder's booking id is held once.",
+			"fromEvents": ["credit.spent", "credit.released"],
+			"toEvents": ["credit.held"],
+			"joins": [
+				{
+					"when": "labels.booking",
+					"from": ["key", "labels.booking"],
+					"to": ["key", "labels.booking"]
+				}
+			],
+			"certifiedBy": "presets"
+		},
+		{
+			"id": "hold_booking",
+			"from": "Booking",
+			"to": "Booking",
+			"cardinality": "one-to-one",
+			"description": "A hold's booking id is the caller's booking (buzz-school's bookings), for the same holder.",
+			"certifiedBy": "external"
+		},
+		{
+			"id": "member_members_list",
+			"from": "Member",
+			"to": "Member",
+			"cardinality": "one-to-one",
+			"description": "The member key is the key of buzz-school's members list, which holds the name, email and roles. atm's events hold no name.",
+			"certifiedBy": "external"
+		},
+		{
+			"id": "payment_tier",
+			"from": "Payment",
+			"to": "Tier",
+			"cardinality": "many-to-one",
+			"description": "A membership payment is for the tier its membership income posting names (at most one per payment); the tier is the menu's.",
+			"certifiedBy": "external"
+		},
+		{
+			"id": "donation_campaign",
+			"from": "Donation",
+			"to": "Campaign",
+			"cardinality": "many-to-one",
+			"description": "A donation is to the campaign its payload names; the campaign itself is Zeffy's.",
+			"certifiedBy": "external"
+		}
+	],
+	"dimensions": [
+		{
+			"id": "kind",
+			"values": ["membership", "addon", "booking"],
+			"description": "The kind of income: the second part of `income:billing:<kind>`.",
+			"synonyms": ["income kind", "revenue type"],
+			"need": "categories"
+		},
+		{
+			"id": "tier",
+			"entity": "Tier",
+			"description": "A membership tier id.",
+			"synonyms": ["plan"],
+			"need": "breakdown"
+		},
+		{
+			"id": "account",
+			"entity": "Account",
+			"description": "A ledger account.",
+			"need": "rows"
+		},
+		{
+			"id": "campaign",
+			"entity": "Campaign",
+			"description": "A fundraising campaign (a fund, in the document).",
+			"synonyms": ["fund"],
+			"need": "breakdown"
+		},
+		{
+			"id": "gift_size",
+			"values": ["under-100", "100-999", "1000-plus"],
+			"description": "A gift's size bucket, in dollars.",
+			"synonyms": ["donor bucket"],
+			"need": "spread"
+		}
+	],
+	"measures": [
+		{
+			"id": "gross_collected",
+			"source": "kpiSpec",
+			"entity": "Payment",
+			"dimensions": [],
+			"format": "money",
+			"grain": "month",
+			"rollup": "sum",
+			"disclosure": { "class": "income" },
+			"document": { "title": "Gross collected", "position": 1 },
+			"synonyms": ["revenue", "income", "collected", "sales"]
+		},
+		{
+			"id": "revenue_by_kind",
+			"source": "kpiSpec",
+			"entity": "Payment",
+			"dimensions": ["kind"],
+			"format": "money",
+			"grain": "month",
+			"rollup": "sum",
+			"disclosure": { "class": "income" },
+			"document": { "title": "Income by kind", "position": 2 }
+		},
+		{
+			"id": "revenue_by_tier",
+			"source": "kpiSpec",
+			"entity": "Payment",
+			"dimensions": ["tier"],
+			"format": "money0",
+			"grain": "month",
+			"rollup": "sum",
+			"disclosure": { "class": "income" },
+			"document": { "title": "Income by plan", "position": 3 },
+			"synonyms": ["revenue by plan", "membership revenue"]
+		},
+		{
+			"id": "refunds",
+			"source": "kpiSpec",
+			"entity": "Refund",
+			"dimensions": [],
+			"format": "money",
+			"grain": "month",
+			"rollup": "sum",
+			"disclosure": { "class": "losses" },
+			"document": { "title": "Refunds", "position": 5 }
+		},
+		{
+			"id": "disputes_lost",
+			"source": "kpiSpec",
+			"entity": "Dispute",
+			"dimensions": [],
+			"format": "money",
+			"grain": "month",
+			"rollup": "sum",
+			"disclosure": { "class": "losses" },
+			"document": { "title": "Disputes lost", "position": 6 },
+			"synonyms": ["chargebacks"]
+		},
+		{
+			"id": "dispute_fees",
+			"source": "kpiSpec",
+			"entity": "Dispute",
+			"dimensions": [],
+			"format": "money",
+			"grain": "month",
+			"rollup": "sum",
+			"disclosure": { "class": "losses" },
+			"document": { "title": "Dispute fees", "position": 7 }
+		},
+		{
+			"id": "stripe_fees",
+			"source": "kpiSpec",
+			"entity": "Payment",
+			"dimensions": [],
+			"format": "money",
+			"grain": "month",
+			"rollup": "sum",
+			"disclosure": { "class": "losses" },
+			"document": { "title": "Payment fees", "position": 9 },
+			"synonyms": ["processing fees", "card fees"]
+		},
+		{
+			"id": "net_income",
+			"source": "kpiSpec",
+			"entity": "School",
+			"dimensions": [],
+			"format": "money",
+			"grain": "month",
+			"rollup": "sum",
+			"disclosure": { "class": "income", "capped": true },
+			"document": { "title": "Net income", "position": 4 },
+			"synonyms": ["net cash", "profit"]
+		},
+		{
+			"id": "payouts",
+			"source": "kpiSpec",
+			"entity": "Payout",
+			"dimensions": [],
+			"format": "money",
+			"grain": "month",
+			"rollup": "sum",
+			"disclosure": { "class": "cash" },
+			"document": { "title": "Paid out", "position": 12 }
+		},
+		{
+			"id": "payments_count",
+			"source": "kpiSpec",
+			"entity": "Payment",
+			"dimensions": [],
+			"format": "integer",
+			"grain": "month",
+			"rollup": "sum",
+			"disclosure": { "class": "activity" },
+			"document": { "title": "Payments", "position": 16 }
+		},
+		{
+			"id": "refunds_count",
+			"source": "kpiSpec",
+			"entity": "Refund",
+			"dimensions": [],
+			"format": "integer",
+			"grain": "month",
+			"rollup": "sum",
+			"disclosure": { "class": "activity" },
+			"document": { "title": "Refunds made", "position": 17 }
+		},
+		{
+			"id": "disputes_opened",
+			"source": "kpiSpec",
+			"entity": "Dispute",
+			"dimensions": [],
+			"format": "integer",
+			"grain": "month",
+			"rollup": "sum",
+			"disclosure": { "class": "activity" },
+			"document": { "title": "Disputes opened", "position": 18 }
+		},
+		{
+			"id": "refund_rate",
+			"source": "kpiSpec",
+			"entity": "Refund",
+			"dimensions": [],
+			"format": "percent1",
+			"grain": "month",
+			"rollup": "recompute",
+			"disclosure": { "class": "losses" },
+			"document": { "title": "Refund rate", "position": 10 }
+		},
+		{
+			"id": "dispute_rate",
+			"source": "kpiSpec",
+			"entity": "Dispute",
+			"dimensions": [],
+			"format": "percent1",
+			"grain": "month",
+			"rollup": "recompute",
+			"disclosure": { "class": "losses" },
+			"document": { "title": "Dispute rate", "position": 11 }
+		},
+		{
+			"id": "paying_members",
+			"source": "kpiSpec",
+			"entity": "Member",
+			"dimensions": [],
+			"format": "integer",
+			"grain": "month",
+			"rollup": "max",
+			"disclosure": { "class": "people" },
+			"document": { "title": "Paying members", "position": 13 },
+			"synonyms": ["active members", "payers", "members"]
+		},
+		{
+			"id": "new_paying_members",
+			"source": "kpiSpec",
+			"entity": "Member",
+			"dimensions": [],
+			"format": "integer",
+			"grain": "month",
+			"rollup": "sum",
+			"disclosure": { "class": "people" },
+			"document": { "title": "New paying", "position": 14 },
+			"synonyms": ["new members", "sign-ups"]
+		},
+		{
+			"id": "arpa",
+			"source": "kpiSpec",
+			"entity": "Member",
+			"dimensions": [],
+			"format": "money",
+			"grain": "month",
+			"rollup": "recompute",
+			"disclosure": { "class": "people", "capped": true },
+			"document": { "title": "Avg per paying member", "position": 15 },
+			"synonyms": ["average revenue per account", "revenue per member", "ARPU"]
+		},
+		{
+			"id": "credits_granted",
+			"source": "kpiSpec",
+			"entity": "CreditLot",
+			"dimensions": [],
+			"format": "integer",
+			"grain": "month",
+			"rollup": "sum",
+			"disclosure": { "class": "activity" },
+			"document": { "title": "Granted", "position": 19 }
+		},
+		{
+			"id": "credits_consumed",
+			"source": "kpiSpec",
+			"entity": "CreditLot",
+			"dimensions": [],
+			"format": "integer",
+			"grain": "month",
+			"rollup": "sum",
+			"disclosure": { "class": "activity" },
+			"document": { "title": "Used", "position": 20 },
+			"synonyms": ["credits used", "credits spent"]
+		},
+		{
+			"id": "credits_expired",
+			"source": "kpiSpec",
+			"entity": "CreditLot",
+			"dimensions": [],
+			"format": "integer",
+			"grain": "month",
+			"rollup": "sum",
+			"disclosure": { "class": "activity" },
+			"document": { "title": "Expired", "position": 21 },
+			"synonyms": ["breakage"]
+		},
+		{
+			"id": "breakage_rate",
+			"source": "kpiSpec",
+			"entity": "CreditLot",
+			"dimensions": [],
+			"format": "percent1",
+			"grain": "month",
+			"rollup": "recompute",
+			"disclosure": { "class": "activity" },
+			"document": { "title": "Breakage rate", "position": 22 }
+		},
+		{
+			"id": "closing_balance_usd",
+			"source": "kpiSpec",
+			"entity": "Account",
+			"dimensions": ["account"],
+			"format": "money",
+			"grain": "month",
+			"rollup": "last",
+			"disclosure": { "class": "cash" }
+		},
+		{
+			"id": "closing_balance_credits",
+			"source": "kpiSpec",
+			"entity": "Account",
+			"dimensions": ["account"],
+			"format": "integer",
+			"grain": "month",
+			"rollup": "last",
+			"disclosure": { "class": "personal" }
+		},
+		{
+			"id": "credits_outstanding",
+			"source": "kpiSpec",
+			"entity": "CreditLot",
+			"dimensions": [],
+			"format": "integer",
+			"grain": "month",
+			"rollup": "last",
+			"disclosure": { "class": "cash" },
+			"synonyms": ["credit liability", "deferred credits"]
+		},
+		{
+			"id": "dispute_cost",
+			"source": "document",
+			"title": "Dispute cost",
+			"unit": "cents",
+			"definition": "Disputes lost plus dispute fees, in the period: the mockup's Dispute cost card, under the disputes_lost rule.",
+			"inputs": ["disputes_lost", "dispute_fees"],
+			"entity": "Dispute",
+			"dimensions": [],
+			"format": "money",
+			"grain": "month",
+			"rollup": "sum",
+			"disclosure": { "class": "losses", "ruleOf": "disputes_lost" },
+			"document": { "title": "Dispute cost", "position": 8 }
+		},
+		{
+			"id": "donations_by_fund",
+			"source": "fixture",
+			"title": "Donations by fund",
+			"unit": "cents",
+			"definition": "Gifts received, split by the fund (campaign) they went to. The mockup's fixture gifts; under the revenue_by_tier rule.",
+			"entity": "Donation",
+			"dimensions": ["campaign"],
+			"format": "money0",
+			"grain": "day",
+			"rollup": "sum",
+			"disclosure": { "class": "income", "ruleOf": "revenue_by_tier" },
+			"document": { "title": "Donations by fund", "position": 23 }
+		},
+		{
+			"id": "donors_count",
+			"source": "fixture",
+			"title": "Donors",
+			"unit": "count",
+			"definition": "Gifts in the period (the mockup counts a gift as a donor). Under the paying_members rule.",
+			"entity": "Donation",
+			"dimensions": [],
+			"format": "integer",
+			"grain": "day",
+			"rollup": "recompute",
+			"disclosure": { "class": "people", "ruleOf": "paying_members" },
+			"document": { "title": "Donors", "need": "spread", "position": 24 }
+		},
+		{
+			"id": "donors_by_size",
+			"source": "fixture",
+			"title": "Donors by gift",
+			"unit": "count",
+			"definition": "Gifts in the period by size bucket. Under the paying_members rule.",
+			"entity": "Donation",
+			"dimensions": ["gift_size"],
+			"format": "integer",
+			"grain": "day",
+			"rollup": "recompute",
+			"disclosure": { "class": "people", "ruleOf": "paying_members" },
+			"document": { "title": "Donors by gift", "position": 25 }
+		},
+		{
+			"id": "donors_median_gift",
+			"source": "fixture",
+			"title": "Median gift",
+			"unit": "cents",
+			"definition": "The median gift in the period. Under the paying_members rule.",
+			"entity": "Donation",
+			"dimensions": [],
+			"format": "money0",
+			"grain": "day",
+			"rollup": "recompute",
+			"disclosure": { "class": "people", "ruleOf": "paying_members" },
+			"document": { "title": "Median gift", "need": "spread", "position": 26 }
+		}
+	]
+}
