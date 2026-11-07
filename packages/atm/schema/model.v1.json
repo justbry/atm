@@ -1,0 +1,394 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://b4uni.com/_schema/model.v1.json",
+	"title": "Ledger model v1",
+	"description": "The semantic model of a school's books: what the ledger's things are (entities), how they join (relationships), how a KPI's rows are split (dimensions) and what each KPI means (measures). It does not restate the KPI spec (`kpis/school.v1.json`): a measure of `source: kpiSpec` takes its title, unit, precision, definition and formula from the spec by id, and adds only what the spec does not say. The Worker computes the KPI document's catalog from this file at load (`src/ledger/kpi-catalog.ts`); the disclosure class table, the OpenAPI components and the JSON-LD context are computed from it too, and `bun model/build.ts` writes all four on demand (to `dist/model/`, not committed).",
+	"type": "object",
+	"required": [
+		"version",
+		"id",
+		"namespace",
+		"kpiSpec",
+		"prefixes",
+		"entities",
+		"relationships",
+		"dimensions",
+		"measures"
+	],
+	"additionalProperties": false,
+	"properties": {
+		"$schema": { "type": "string" },
+		"version": { "const": 1 },
+		"id": { "const": "ledger.v1" },
+		"namespace": {
+			"type": "string",
+			"pattern": "^https://[^ ]+#$",
+			"description": "The IRI every model term is minted under: `<namespace><Entity>`, `<namespace>measure/<id>`, `<namespace>dimension/<id>`."
+		},
+		"kpiSpec": {
+			"const": "school.v1",
+			"description": "The KPI spec the measures of `source: kpiSpec` resolve in."
+		},
+		"prefixes": {
+			"type": "object",
+			"description": "CURIE prefixes for external IRIs. `atm` is the namespace.",
+			"required": ["atm"],
+			"additionalProperties": {
+				"type": "string",
+				"pattern": "^https?://[^ ]+[/#]$"
+			}
+		},
+		"external": {
+			"type": "object",
+			"description": "The release each external vocabulary was checked against. Its OWL is never imported: the model links single terms.",
+			"additionalProperties": {
+				"type": "object",
+				"required": ["release", "checked"],
+				"additionalProperties": false,
+				"properties": {
+					"release": { "type": "string", "minLength": 1 },
+					"checked": {
+						"type": "string",
+						"pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+					},
+					"note": { "type": "string" }
+				}
+			}
+		},
+		"entities": {
+			"type": "array",
+			"minItems": 1,
+			"items": { "$ref": "#/$defs/entity" }
+		},
+		"relationships": {
+			"type": "array",
+			"items": { "$ref": "#/$defs/relationship" }
+		},
+		"dimensions": {
+			"type": "array",
+			"items": { "$ref": "#/$defs/dimension" }
+		},
+		"measures": {
+			"type": "array",
+			"minItems": 1,
+			"items": { "$ref": "#/$defs/measure" }
+		}
+	},
+	"$defs": {
+		"termId": { "type": "string", "pattern": "^[A-Z][A-Za-z]{1,39}$" },
+		"snakeId": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,59}$" },
+		"curie": {
+			"type": "string",
+			"pattern": "^[a-z][a-z0-9-]*:[A-Za-z][A-Za-z0-9_]*$",
+			"description": "`prefix:Local`; the prefix is one of `prefixes`."
+		},
+		"fieldPath": {
+			"type": "string",
+			"pattern": "^(school|key|date|event_type|id|labels\\.[a-z_]+|payload\\.[a-z_]+|posting\\.account)$",
+			"description": "Where a value is read from an event: an envelope field, a label, a payload field, or a posting's account (`posting.account`, with the `pattern`'s capture group)."
+		},
+		"regex": {
+			"type": "string",
+			"minLength": 1,
+			"description": "One capture group when it reads a value out of a field."
+		},
+		"key": {
+			"type": "object",
+			"required": ["fields"],
+			"additionalProperties": false,
+			"properties": {
+				"eventTypes": {
+					"type": "array",
+					"items": { "type": "string", "minLength": 1 },
+					"description": "The events the key is read from; absent, every event."
+				},
+				"fields": {
+					"type": "array",
+					"minItems": 1,
+					"items": { "$ref": "#/$defs/fieldPath" },
+					"description": "One field, or several for a composite key (a booking id is unique per holder only)."
+				},
+				"pattern": {
+					"$ref": "#/$defs/regex",
+					"description": "For a single field: the value matches, and the first capture group (if any) is the key."
+				},
+				"example": { "type": "string" }
+			}
+		},
+		"links": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"exactMatch": {
+					"type": "array",
+					"items": { "$ref": "#/$defs/curie" },
+					"description": "skos:exactMatch: the same concept."
+				},
+				"closeMatch": {
+					"type": "array",
+					"items": { "$ref": "#/$defs/curie" },
+					"description": "skos:closeMatch: near enough to map, not to reason over as equal."
+				}
+			}
+		},
+		"entity": {
+			"type": "object",
+			"required": ["id", "kind", "description"],
+			"additionalProperties": false,
+			"properties": {
+				"id": { "$ref": "#/$defs/termId" },
+				"kind": {
+					"enum": ["thing", "value", "report"],
+					"description": "thing: something the books record (a payment, a member); value: a value type (an amount, a currency); report: a term of the KPI document."
+				},
+				"description": { "type": "string", "minLength": 1 },
+				"synonyms": {
+					"type": "array",
+					"items": { "type": "string", "minLength": 1 },
+					"uniqueItems": true
+				},
+				"key": { "$ref": "#/$defs/key" },
+				"eventTypes": {
+					"type": "array",
+					"items": { "type": "string", "minLength": 1 },
+					"description": "The events that record this entity, by `schema/payload/<type>.v1.json`."
+				},
+				"source": {
+					"type": "string",
+					"description": "Where the entity lives when not in atm's events (buzz-school's members list, the disclosure file)."
+				},
+				"links": { "$ref": "#/$defs/links" }
+			}
+		},
+		"join": {
+			"type": "object",
+			"required": ["from", "to"],
+			"additionalProperties": false,
+			"properties": {
+				"from": {
+					"type": "array",
+					"minItems": 1,
+					"items": { "$ref": "#/$defs/fieldPath" }
+				},
+				"to": {
+					"type": "array",
+					"minItems": 1,
+					"items": { "$ref": "#/$defs/fieldPath" }
+				},
+				"when": {
+					"$ref": "#/$defs/fieldPath",
+					"description": "This join applies to the rows where this field is present."
+				}
+			}
+		},
+		"relationship": {
+			"type": "object",
+			"required": [
+				"id",
+				"from",
+				"to",
+				"cardinality",
+				"description",
+				"certifiedBy"
+			],
+			"additionalProperties": false,
+			"properties": {
+				"id": { "$ref": "#/$defs/snakeId" },
+				"from": { "$ref": "#/$defs/termId" },
+				"to": { "$ref": "#/$defs/termId" },
+				"cardinality": {
+					"enum": ["many-to-one", "one-to-one"],
+					"description": "From each `from` row: one `to` row (the key resolves)."
+				},
+				"description": { "type": "string", "minLength": 1 },
+				"fromEvents": {
+					"type": "array",
+					"items": { "type": "string", "minLength": 1 }
+				},
+				"toEvents": {
+					"type": "array",
+					"items": { "type": "string", "minLength": 1 }
+				},
+				"joins": {
+					"type": "array",
+					"minItems": 1,
+					"items": { "$ref": "#/$defs/join" },
+					"description": "Tried in order; the first whose `when` field the row has must resolve. Fields pair up by position."
+				},
+				"certifiedBy": {
+					"enum": ["presets", "presets-vacuous", "external"],
+					"description": "presets: the join holds on every scenario preset and at least one preset has such a row (tests/model.test.ts); presets-vacuous: it is checked, but no preset has such an event yet; external: the other side is outside atm's events (buzz-school), not checked here."
+				}
+			},
+			"allOf": [
+				{
+					"if": { "properties": { "certifiedBy": { "const": "external" } } },
+					"then": {},
+					"else": { "required": ["fromEvents", "toEvents", "joins"] }
+				}
+			]
+		},
+		"dimension": {
+			"type": "object",
+			"required": ["id", "description", "need"],
+			"additionalProperties": false,
+			"properties": {
+				"id": { "$ref": "#/$defs/snakeId" },
+				"entity": {
+					"$ref": "#/$defs/termId",
+					"description": "The entity a value names (a tier id names a Tier); absent for a closed list of values."
+				},
+				"values": {
+					"type": "array",
+					"items": { "type": "string" },
+					"description": "A closed list of values (income kinds, gift sizes)."
+				},
+				"description": { "type": "string", "minLength": 1 },
+				"synonyms": {
+					"type": "array",
+					"items": { "type": "string", "minLength": 1 },
+					"uniqueItems": true
+				},
+				"need": {
+					"enum": [
+						"total",
+						"categories",
+						"breakdown",
+						"spread",
+						"rows",
+						"names"
+					],
+					"description": "The disclosure detail step a split by this dimension needs: an audience whose rule's detail is coarser sees the total only."
+				}
+			}
+		},
+		"measure": {
+			"type": "object",
+			"required": [
+				"id",
+				"source",
+				"entity",
+				"dimensions",
+				"format",
+				"grain",
+				"rollup",
+				"disclosure"
+			],
+			"additionalProperties": false,
+			"properties": {
+				"id": { "$ref": "#/$defs/snakeId" },
+				"source": {
+					"enum": ["kpiSpec", "document", "fixture"],
+					"description": "kpiSpec: a KPI of the spec, by the same id (its title, unit, precision, definition and compute are the spec's); document: worked out by the KPI document from other measures; fixture: invented by the mockup's fixtures, atm books none yet."
+				},
+				"title": {
+					"type": "string",
+					"description": "Only when not `kpiSpec` (the spec has the title)."
+				},
+				"unit": {
+					"enum": ["cents", "count", "ratio"],
+					"description": "Only when not `kpiSpec`."
+				},
+				"definition": {
+					"type": "string",
+					"description": "Only when not `kpiSpec`."
+				},
+				"inputs": {
+					"type": "array",
+					"items": { "$ref": "#/$defs/snakeId" },
+					"description": "Only when not `kpiSpec` (a spec KPI's inputs are its ratio or combine terms): the measures it is worked out from."
+				},
+				"entity": {
+					"$ref": "#/$defs/termId",
+					"description": "What is added up or counted."
+				},
+				"dimensions": {
+					"type": "array",
+					"maxItems": 1,
+					"items": { "$ref": "#/$defs/snakeId" },
+					"description": "The dimension the measure's rows are split by (`<id>:<value>`); a spec KPI has one exactly when its compute has `by`."
+				},
+				"format": {
+					"enum": ["money", "money0", "integer", "percent1"],
+					"description": "How a figure is written when the audience does not round: money (two decimals), money0 (whole units always), integer, percent1. A rounded audience writes every money figure as money0."
+				},
+				"grain": {
+					"enum": ["month", "day"],
+					"description": "The finest period a value exists for: a spec KPI's month; a gift's day."
+				},
+				"rollup": {
+					"enum": ["sum", "max", "last", "recompute"],
+					"description": "How months make a quarter or a year: sum (a flow); max (the most in one month: paying members); last (a closing balance); recompute (a ratio or a distinct count, from the inputs over the whole period)."
+				},
+				"disclosure": {
+					"type": "object",
+					"required": ["class"],
+					"additionalProperties": false,
+					"properties": {
+						"class": {
+							"enum": [
+								"income",
+								"losses",
+								"cash",
+								"people",
+								"activity",
+								"personal"
+							]
+						},
+						"capped": {
+							"type": "boolean",
+							"description": "A derived measure in a more open class than an input: it takes the strictest of its inputs' rules (spec rule 3)."
+						},
+						"ruleOf": {
+							"$ref": "#/$defs/snakeId",
+							"description": "Not its own class's rule but this measure's (a measure the disclosure file does not list)."
+						}
+					}
+				},
+				"document": {
+					"type": "object",
+					"required": ["title"],
+					"additionalProperties": false,
+					"description": "Present when the KPI document carries the measure.",
+					"properties": {
+						"title": {
+							"type": "string",
+							"minLength": 1,
+							"description": "The document's label (`KpiMeta.title`, the mockup's KPI table)."
+						},
+						"need": {
+							"enum": ["categories", "breakdown", "spread"],
+							"description": "The detail the figure needs when its dimension does not say."
+						},
+						"position": {
+							"type": "integer",
+							"minimum": 1,
+							"description": "Where the document lists the measure (its catalog, so its `meta` and `series` keys, in this order): the mockup's KPI table, not the spec's order. Unique; a measure without one comes after those with one, in model order."
+						}
+					}
+				},
+				"synonyms": {
+					"type": "array",
+					"items": { "type": "string", "minLength": 1 },
+					"uniqueItems": true
+				}
+			},
+			"allOf": [
+				{
+					"if": { "properties": { "source": { "const": "kpiSpec" } } },
+					"then": {
+						"not": {
+							"anyOf": [
+								{ "required": ["title"] },
+								{ "required": ["unit"] },
+								{ "required": ["definition"] },
+								{ "required": ["inputs"] }
+							]
+						}
+					},
+					"else": { "required": ["title", "unit", "definition"] }
+				}
+			]
+		}
+	}
+}
