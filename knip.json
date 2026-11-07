@@ -110,14 +110,27 @@
 			"project": ["src/**/*.ts", "tests/**/*.ts"]
 		},
 		"packages/atm": {
-			"entry": ["tests/gap/*.ts", "tests/worker-fixture/worker.ts"]
+			"entry": [
+				"tests/gap/*.ts",
+				"tests/worker-fixture/worker.ts",
+				"scripts/org-demos/dashboard.client.js"
+			]
 		},
 		"packages/ksuid": {
 			"project": ["src/**/*.ts"]
 		},
 		"packages/billing": {
-			"entry": ["config/autumn.config.ts", "scripts/**/*.ts", "tests/**/*.test.ts"],
-			"project": ["src/**/*.ts", "config/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts"]
+			"entry": [
+				"config/autumn.config.ts",
+				"scripts/**/*.ts",
+				"tests/**/*.test.ts"
+			],
+			"project": [
+				"src/**/*.ts",
+				"config/**/*.ts",
+				"scripts/**/*.ts",
+				"tests/**/*.ts"
+			]
 		},
 		"packages/stripe-sync": {
 			"entry": ["scripts/**/*.ts"],

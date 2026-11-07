@@ -41,7 +41,8 @@
 		"suppression-report": "bun ./fixtures/suppression-report.ts",
 		"golden-e2e": "bun test --timeout 600000 tests/golden-e2e-check.test.ts",
 		"golden-e2e:scale": "bun ./scripts/golden-e2e-scale.ts",
-		"golden-e2e:kill": "bun ./scripts/golden-e2e-kill.ts"
+		"golden-e2e:kill": "bun ./scripts/golden-e2e-kill.ts",
+		"org-demos": "bun ./scripts/org-demos/build.ts"
 	},
 	"dependencies": {
 		"@autumn/balance-engine": "workspace:*",
