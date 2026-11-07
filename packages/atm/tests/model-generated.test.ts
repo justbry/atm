@@ -596,7 +596,7 @@ describe("the JSON-LD context", () => {
 	test("the included links are the model's, by IRI", () => {
 		const linked = model.entities.filter((entity) => entity.links);
 		expect(document["@included"].map((node) => node["@id"])).toEqual(
-			linked.map((entity) => `atm:${entity.id}`),
+			linked.map((entity) => `ledger:${entity.id}`),
 		);
 		for (const node of document["@included"]) {
 			const entity = linked.find(

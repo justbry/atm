@@ -747,4 +747,28 @@ describe("parseLedgerModel refuses a broken model", () => {
 		expect(message).toContain("nonesuch:Thing");
 		expect(message).toContain("prefix nonesuch");
 	});
+
+	test("no prefix mapping to the namespace", () => {
+		const clone = cloneModel();
+		const { ledger: _ledger, ...others } = clone.prefixes;
+		clone.prefixes = others;
+		const message = refusalMessage(clone);
+		expect(message).toContain(`namespace ${modelJson.namespace}`);
+		expect(message).toContain("0 prefixes map to it (none)");
+	});
+
+	test("two prefixes mapping to the namespace", () => {
+		const clone = cloneModel();
+		clone.prefixes.books = modelJson.namespace;
+		const message = refusalMessage(clone);
+		expect(message).toContain(`namespace ${modelJson.namespace}`);
+		expect(message).toContain("2 prefixes map to it (ledger, books)");
+	});
+
+	test("the namespace's prefix may have any name", () => {
+		const clone = cloneModel();
+		const { ledger, ...others } = clone.prefixes;
+		clone.prefixes = { ...others, books: ledger as string };
+		expect(() => parseLedgerModel(clone)).not.toThrow();
+	});
 });
