@@ -668,7 +668,7 @@ const render = () => {
 	];
 	for (const group of groups) {
 		const members = inTab.filter((id) => id.startsWith(`${group}:`));
-		// One kind of income is the org's own word for it ("Recurring giving"), not a split.
+		// One kind of income is the org's own word for it ("Giving" for the church), not a split.
 		const title =
 			members.length === 1
 				? titleOf(doc, members[0])

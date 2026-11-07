@@ -51,7 +51,7 @@ export const ORG_LABELS: Record<OrgKind, OrgLabels> = {
 		holder: { one: "giver", other: "givers" },
 		plan: { one: "giving level", other: "giving levels" },
 		credit: { one: "retreat seat", other: "retreat seats" },
-		income: "Recurring giving",
+		income: "Giving",
 		presets: [{ name: "church-giving", label: "A year of giving" }],
 	},
 	saas: {
