@@ -1,6 +1,7 @@
 /**
  * Certifies the ledger model (`model/ledger.v1.json`) against what atm generates: every relationship the model says holds
- * is read back from the 15 scenario presets' events, every entity key is present on its events, every measure resolves
+ * is read back from every scenario preset's events (the 15 school presets and the 6 org presets beside them, which reuse
+ * the school's billing shape, atm identifiers and `school.v1` KPI spec), every entity key is present on its events, every measure resolves
  * to the KPI spec and to the rows the evaluator produces, the `capped` flag agrees with the disclosure file, and a model
  * that names a term that does not exist is refused.
  */
@@ -32,7 +33,8 @@ import { atmChannel } from "../src/scenario/channels/atm.js";
 import { buildFixture, type Fixture } from "../src/scenario/fixture.js";
 import { evaluateKpis, kpiRootId } from "../src/scenario/kpi-evaluate.js";
 import { SCHOOL_KPIS } from "../src/scenario/kpis.js";
-import { PROFILE_NAMES } from "../src/scenario/profiles.js";
+import { DEFAULT_ORG, ORG_KINDS } from "../src/scenario/orgs.js";
+import { PROFILE_NAMES, PROFILES } from "../src/scenario/profiles.js";
 import type { AtmEvent } from "../src/types.js";
 
 const UI_DISCLOSURE_PATH = join(
@@ -210,9 +212,21 @@ const joinResults = new Map(
 	}),
 );
 
-describe("relationship joins on the 15 presets", () => {
-	test("there are 15 presets", () => {
-		expect(PROFILE_NAMES).toHaveLength(15);
+const orgOfPreset = (name: string): string =>
+	PROFILES.find((profile) => profile.name === name)?.org ?? DEFAULT_ORG;
+
+describe("relationship joins on every preset", () => {
+	test("there are 21 presets: 15 of the school, 6 of the other orgs, every org with at least one", () => {
+		expect(PROFILE_NAMES).toHaveLength(21);
+		const schoolPresets = PROFILE_NAMES.filter(
+			(name) => orgOfPreset(name) === DEFAULT_ORG,
+		);
+		expect(schoolPresets).toHaveLength(15);
+		expect(PROFILE_NAMES.length - schoolPresets.length).toBe(6);
+		for (const kind of ORG_KINDS)
+			expect(PROFILE_NAMES.some((name) => orgOfPreset(name) === kind)).toBe(
+				true,
+			);
 	});
 
 	for (const relationship of certifiedRelationships) {
@@ -332,7 +346,7 @@ const accountPrefixesOfEntity: Record<string, string[]> = {
 	CreditLot: ["credits:avail:", "credits:held:"],
 };
 
-describe("entity keys on the 15 presets", () => {
+describe("entity keys on every preset", () => {
 	for (const entity of keyedEntities) {
 		const key = entity.key as NonNullable<ModelEntity["key"]>;
 		const eventTypes = key.eventTypes ?? entity.eventTypes;

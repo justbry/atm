@@ -25,7 +25,8 @@ import {
 	kpiHash,
 	SCHOOL_KPIS,
 } from "../../packages/atm/src/scenario/kpis.js";
-import { PROFILE_NAMES } from "../../packages/atm/src/scenario/profiles.js";
+import { DEFAULT_ORG } from "../../packages/atm/src/scenario/orgs.js";
+import { PROFILES } from "../../packages/atm/src/scenario/profiles.js";
 import type { AtmEvent } from "../../packages/atm/src/types.js";
 import {
 	type Audience,
@@ -772,10 +773,18 @@ const printVerdict = (verdict: Verdict): void => {
 // ---- Facts about the presets the design relies on
 
 heading("0. Inputs and the facts the design relies on");
+/** The school's presets (no `org`): the mart snapshot holds these 15; the org presets beside them have no snapshot. */
+const schoolPresetNames = PROFILES.filter(
+	(profile) => (profile.org ?? DEFAULT_ORG) === DEFAULT_ORG,
+).map((profile) => profile.name);
+if (schoolPresetNames.length !== 15)
+	throw new Error(
+		`expected the 15 school presets of the mart snapshot, found ${schoolPresetNames.length}`,
+	);
 const presets = new Map<string, Preset>();
-for (const name of PROFILE_NAMES) presets.set(name, presetOf(name));
+for (const name of schoolPresetNames) presets.set(name, presetOf(name));
 out(
-	`${presets.size} presets rebuilt with buildFixture and the atm fold; each fixture hash and KPI hash equals the mart snapshot's.`,
+	`${presets.size} school presets rebuilt with buildFixture and the atm fold; each fixture hash and KPI hash equals the mart snapshot's.`,
 );
 let membershipPayments = 0;
 let morePostings = 0;
@@ -830,7 +839,7 @@ for (const preset of presets.values()) {
 	}
 }
 out(
-	`membership payments on the 15 presets: ${membershipPayments}; with more than one membership posting: ${morePostings}`,
+	`membership payments on the 15 school presets: ${membershipPayments}; with more than one membership posting: ${morePostings}`,
 );
 out(
 	`preset months where sum(revenue_by_kind:*) = gross_collected and sum(revenue_by_tier:*) = revenue_by_kind:membership: ${partitionMonths - partitionMisses} of ${partitionMonths}`,
