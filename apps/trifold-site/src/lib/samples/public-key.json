@@ -1,0 +1,8 @@
+{
+	"demo": true,
+	"note": "DEMO KEY for the Trifold website's sample receipts. It belongs to no real school; its private half was discarded when the samples were made.",
+	"school": "sch_juniper",
+	"keys": {
+		"juniper-demo-2026-10": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAvc6uDHv2G5kXYMJdKRCGqxDA6zy0YiA0irXY5OhkGxw=\n-----END PUBLIC KEY-----\n"
+	}
+}
