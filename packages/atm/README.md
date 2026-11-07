@@ -208,7 +208,7 @@ What the caller has to store and handle, with the order of calls and every refus
 
 A school that pays B4 Uni a share of what it collects sets `revenueShare: { "percent": 2.5 }` in its `catalog/policy.json` (`null`, the default, is none). `handleStripeEvent` then books a `share.accrued` after each payment it books (an invoice's or a paid booking's, on the amount collected before Stripe's fee) and a `share.reversed` after each refund, in the school's ledger (`expenses:billing:b4uni-share`, `liabilities:b4uni`); the caller records a payment to B4 Uni as a `share.settled` event. `shareStatement({ events, school, month })`, or `tfd share --root <folder> --school <id> --month YYYY-MM`, is the month's statement (rows per payment, totals, what is owed), which B4 Uni invoices from outside the Trifold engine. A school with no rate makes none of it. Detail: `docs/financial-reports.md`, "Revenue share".
 
-### Stored inputs (Unreleased, on `dev` since 0.9.0)
+### Stored inputs (new in 0.10.0)
 
 The reference handler (`handleStripeWebhook`) now keeps what it needs to decide each Stripe event again, so that a later what-if can replay the grant rules (`tfd simulate --inputs`, below; the design is `docs/simulate-from-inputs.md`). Nothing changes for a caller except four more tables.
 
@@ -218,7 +218,7 @@ The reference handler (`handleStripeWebhook`) now keeps what it needs to decide 
 - **Erasure.** When you book `subject.erased` for a holder, call `eraseStoredInputs(db, { env, school, subjectKey, nowMs })` in the same transaction (the Trifold engine books no `subject.erased` itself). Every stored input of the holder becomes a tombstone (`body`, `subject_key`, `payment_refs`, `booking_refs`, `fee` and `raw_sha256` cleared, `erased_at` set), its seed is deleted, and the shipped objects that held its facts are queued in `atm_input_erasures` for the shipper to rewrite. Other holders' inputs and the ledger's money events stay. It returns `{ inputs, seeds, queued }` and is idempotent.
 - **A booking's events** are decided and stored by your own endpoint, because the reference handler never sees them. After its rows and `appendToOutbox`, in the same transaction, the endpoint calls the exported `recordInput(db, args)`; it answers `"stored"` or `"existing"`. The recipe is in `UPGRADING.md`, "Storing the inputs of a booking".
 
-### Shipping the stored inputs (Unreleased, on `dev` since 0.9.0)
+### Shipping the stored inputs (new in 0.10.0)
 
 `tfd inputs ship` copies the stored inputs off the handler's disk to a folder (or, by the same library call, an R2 bucket), the way `tfd ship` copies the outbox. The design and its reasons are `docs/simulate-from-inputs.md`, "Shipping the inputs".
 
@@ -235,7 +235,7 @@ tfd inputs ship --db <handler.sqlite> --school <id> --env live|test --r2-bucket 
 - **Exit codes.** 0 done (also with nothing to ship), 1 a conflict (a `conflict <key>: ...` line on stderr) or an erasure still pending, 2 any other error (one line on stderr, no stack trace). `--json` prints one line: `{ok, school, env, batches, shipped, contexts, seeds, conflicts: [{key, message}], erasuresSettled, erasuresPending, unshipped, oldestUnshippedAgeMs}`.
 - **Library.** `shipInputs({ db, store, school, env, nowMs })` for any `Store`, `settleInputErasures`, `inputsShipStatus`, the pure `planInputs` and `inputObjectKey`, and the readers `folderInputsSource(root)` and `storeInputsSource(store)`, which return the same `InputsRead` as `sqliteInputsSource` (a tombstone line beats a fact line for the same input; ordered by `applied_order`); `inputOrderGaps(read)` lists the missing orders (a refusal takes an order and is not shipped, so a gap is not always a loss).
 
-### Receipts and seals (Unreleased, on `dev` since 0.9.0)
+### Receipts and seals (new in 0.10.0)
 
 A family has no proof of a payment that survives an edit to the school's books, and a closed month can be changed without a trace. The Trifold engine now gives each paid or refunded payment a receipt signed with Ed25519 that the family keeps and anyone can check, and each closed month a signed seal chained to the one before it. A receipt is a pure function of its event and Ed25519 is deterministic, so nothing is stored: the books make the family's copy again byte for byte, and an edited or deleted event no longer makes it. No table, no worker, no change to the webhook transaction.
 

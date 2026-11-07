@@ -20,6 +20,7 @@ import {
 } from "./handler/schema.js";
 import * as signature from "./handler/stripe-signature.js";
 import * as webhook from "./handler/stripe-webhook.js";
+import { catalogPublishedEvent as catalogPublishedEventImpl } from "./ledger/catalog.js";
 import * as checkpoints from "./ledger/checkpoints.js";
 import { duckdbDdl as duckdbDdlImpl } from "./ledger/duckdb.js";
 import {
@@ -133,6 +134,7 @@ import type {
 	BookingResult,
 	CallerRowsImport,
 	CallerRowsInput,
+	CatalogPublishedInput,
 	ChannelReport,
 	CheckoutInput,
 	CheckoutParams,
@@ -277,6 +279,14 @@ export const mutationToEvents = ({
 /** An event that is not an engine mutation: a payment, payout, plan change or other bookkeeping line. Pure. */
 export const ledgerEvent = (input: AtmLedgerEventInput): AtmEvent =>
 	ledgerEventImpl(input);
+
+/**
+ * The `catalog.published` event for a menu (what a family service writes when a school publishes it): type
+ * `catalog.published`, key the school id, idem `settings:catalog:<version>`, no postings. Throws on a menu with no tier
+ * or add-on to publish. Also in `atm/worker`. Pure.
+ */
+export const catalogPublishedEvent = (input: CatalogPublishedInput): AtmEvent =>
+	catalogPublishedEventImpl(input);
 
 /** Rows of `feature` past their expiry at `atMs` that still hold a balance (the cron books them as `credit.expired`). */
 export const lapsedRows = ({

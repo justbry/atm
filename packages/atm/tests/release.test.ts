@@ -130,6 +130,10 @@ describe("the publish package.json", () => {
 			types: "./dist/index.d.ts",
 			exports: {
 				".": { types: "./dist/index.d.ts", default: "./dist/index.js" },
+				"./worker": {
+					types: "./dist/worker.d.ts",
+					default: "./dist/worker.js",
+				},
 			},
 			files: ["dist"],
 			sideEffects: false,
@@ -157,7 +161,7 @@ describe("the publish package.json", () => {
 });
 
 describe("the tarball", () => {
-	test("holds exactly the six files, and the LICENSE is the repo's", () => {
+	test("holds exactly the eight files, and the LICENSE is the repo's", () => {
 		expect(listTarball(tarball)).toEqual([...PACKAGE_FILES]);
 		const license = Bun.spawnSync(
 			["tar", "-xzOf", tarball, "package/LICENSE"],
@@ -203,6 +207,58 @@ describe("the tarball", () => {
 		});
 		expect(digests(packed).sha256).not.toBe(digests(tarball).sha256);
 	});
+
+	test("installed into an empty directory it exports what the ledger emission pins, from `atm` and `atm/worker`, under Bun and Node", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "atm-install-exports-"));
+		await writeFile(
+			join(dir, "package.json"),
+			JSON.stringify({ name: "consumer", private: true, type: "module" }),
+		);
+		const env = { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? dir };
+		const add = Bun.spawnSync(["bun", "add", tarball], { cwd: dir, env });
+		if (add.exitCode !== 0) throw new Error(add.stderr.toString());
+		const rootNames = [
+			"appendToOutbox",
+			"catalogPublishedEvent",
+			"HANDLER_DDL",
+			"ledgerEvent",
+			"migrateHandlerSchema",
+			"planOutbox",
+			"shipOutbox",
+		];
+		const workerNames = [
+			"catalogPublishedEvent",
+			"incomeStatement",
+			"kpiDocument",
+			"ledgerRows",
+			"runViews",
+		];
+		await writeFile(
+			join(dir, "exports.mjs"),
+			[
+				'import * as root from "atm";',
+				'import * as worker from "atm/worker";',
+				"const kinds = (module, names) => Object.fromEntries(names.map((name) => [name, typeof module[name]]));",
+				`console.log(JSON.stringify({ root: kinds(root, ${JSON.stringify(rootNames)}), worker: kinds(worker, ${JSON.stringify(workerNames)}) }));`,
+			].join("\n"),
+		);
+		for (const runtime of ["bun", "node"]) {
+			const out = Bun.spawnSync([runtime, "exports.mjs"], { cwd: dir, env });
+			if (out.exitCode !== 0) throw new Error(out.stderr.toString());
+			const kinds = JSON.parse(out.stdout.toString());
+			expect(kinds.root).toEqual(
+				Object.fromEntries(
+					rootNames.map((name) => [
+						name,
+						name === "HANDLER_DDL" ? "string" : "function",
+					]),
+				),
+			);
+			expect(kinds.worker).toEqual(
+				Object.fromEntries(workerNames.map((name) => [name, "function"])),
+			);
+		}
+	}, 60_000);
 
 	test("installed into an empty directory it runs the engine, validateMenu and invoice -> runOnState, under Bun and Node", async () => {
 		const dir = mkdtempSync(join(tmpdir(), "atm-install-"));

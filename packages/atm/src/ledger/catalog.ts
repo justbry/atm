@@ -4,22 +4,10 @@
  * generic `ledgerEvent` builds it, with the payload (`plans`, `menu`, `version`) and the idempotency key that the
  * schema and the readers expect.
  */
-import type { AtmEvent, Menu } from "../types.js";
+import type { AtmEvent, CatalogPublishedInput, Menu } from "../types.js";
 import { ledgerEvent } from "./postings.js";
 
-export type CatalogPublishedInput = {
-	school: string;
-	menu: Menu;
-	/** The menu's version: the `@v<version>` of every plan it publishes, and the idempotency key's tail. */
-	version: number | string;
-	/** UTC instant (ISO) or epoch ms of the publish. */
-	eventTime: string | number;
-	/** Default: the menu's own time zone. */
-	tz?: string;
-	/** Who wrote it; default `family`. */
-	source?: string;
-	ingestTime?: string | number;
-};
+export type { CatalogPublishedInput };
 
 /**
  * The plans a menu publishes at `version`, as `<id>@v<version>`: its tiers and its recurring or one-time add-ons. A gift

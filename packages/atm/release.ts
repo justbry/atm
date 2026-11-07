@@ -46,6 +46,8 @@ export const PACKAGE_FILES = [
 	"package/dist/index.d.ts",
 	"package/dist/index.js",
 	"package/dist/types.d.ts",
+	"package/dist/worker.d.ts",
+	"package/dist/worker.js",
 	"package/package.json",
 ] as const;
 
@@ -64,6 +66,7 @@ export const publishManifest = (version: string) => ({
 	types: "./dist/index.d.ts",
 	exports: {
 		".": { types: "./dist/index.d.ts", default: "./dist/index.js" },
+		"./worker": { types: "./dist/worker.d.ts", default: "./dist/worker.js" },
 	},
 	files: ["dist"],
 	sideEffects: false,
@@ -98,7 +101,13 @@ export const stage = ({
 	commit: string;
 }): void => {
 	mkdirSync(join(stageDir, "dist"), { recursive: true });
-	for (const file of ["index.js", "index.d.ts", "types.d.ts"])
+	for (const file of [
+		"index.js",
+		"index.d.ts",
+		"types.d.ts",
+		"worker.js",
+		"worker.d.ts",
+	])
 		cpSync(join(distDir, file), join(stageDir, "dist", file));
 	cpSync(join(repoRoot, "LICENSE"), join(stageDir, "LICENSE"));
 	writeFileSync(
