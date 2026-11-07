@@ -71,6 +71,8 @@ Whatever the choice, S8d delivers:
 
 `shipOutbox` has no env filter and the log has no env: a test-mode and a live event with one idem would collide. D2 (one bucket and one shipper per env) is what keeps them apart.
 
+**Spike result (buzz-school PR #1350, merged; `docs/superpowers/specs/2026-11-06-ledger-event-emission.md`).** The spike departs from the default above, because it found worse. Phase 1 is option (b) for **money and catalog events only**: buzz-school's own webhook and publish code build `payment.succeeded`, `payment.refunded`, `payment.disputed`, `dispute.closed`, `money.skipped` and `catalog.published` with atm's `ledgerEvent` and `catalogPublishedEvent`, in the same SQLite transaction as the lots, into atm's `ledger_outbox` (buzz-school migration `0138`), shipped from the family service, one bucket per environment (`b4uni-<env>-ledger`) with a shipper guard that refuses a row whose `env` is not the service's `billingKeyMode`. It is proven identical to atm's handler for `payment.succeeded` and, bar one field, `payment.refunded`. **Credit events are not in phase 1**: `recordEngineCommand` over buzz-school's lots gives a log that cannot be replayed (`no subject yet: attach a plan first`), and then atm's views job writes nothing, finance views included. Credits need atm's own handler as a shadow, or replacing buzz-school's grant engine: a separate, later decision (D12). Consequences for the UI: balances, `granted`/`rolledOver`/`used`, `Booking.billing` and the audit have no atm source in phase 1 (balances still come from members-list, which reads the live lots); `S8-ui-needs.md` rows that name atm credit events stay `not available`. Production stays off until the E2 and E11 decisions: family-keyed rows must not leave SQLite there today, so S8f is **staging only** until D13 is answered.
+
 ## 6. Slices
 
 | Slice | Repo | Delivers | Depends on |
@@ -92,7 +94,8 @@ S8a, S8b and S8d-bz can run in parallel.
 | S8b | atm #138 | built, mergeable, checked. `kpiDocument(rows, contributions, disclosure, audience, pinLocked, context)`: a sixth `context` argument (`school`, `currency`, `clock`, `preset?`, `plans?`, `donors?`, `days?`, `invented?`). `contributions` is accepted but not read yet: the oracle counts the period's paying members, not per-cell holders (D9, decided 2026-11-06: the paying-member count stays). |
 | S8a | atm #139 (stacked on #138) | built, mergeable, checked. Removes `MonthView.money` from `views/months/`, so month objects and every manifest change bytes: the orchestrator regenerates the mart snapshots and goldens in the PR that merges it (`S8a-hash-changes.md`). Finance month objects carry `grossByDay` and `income.planOrder`; contributions use the `KpiContributions` object form. |
 | S8d-bz | buzz-school #1348 | built and self-reviewed: `LEDGER_ROUTES` additions, `GET .../ledger/school`, `capabilities` fix, and `docs/features/ledger-ui-gaps.md` (the plan for every other buzz-school gap). |
-| S8d, S8c, S8e, S8f | | not started. S8c waits on #138 and #139 merging. |
+| S8d | buzz-school | spike done and merged (#1350). Build plan: spike section 9, PRs 0 to 5 (atm release, `ledger_outbox` and shipper with migration `0138`, `catalog.published`, money events, staging, production switch). Not started. |
+| S8c, S8e, S8f | | not started. S8c is unblocked (#138 and #139 are in `dev`). S8f is staging only (D13). |
 
 ## 7. Corrections to `S8-ui-needs.md` (checked 2026-11-06)
 
@@ -128,6 +131,10 @@ S8a, S8b and S8d-bz can run in parallel.
 | D9 | KPI cell rules: per-cell holders (spec) or the period's paying members (oracle `bkFig`, G1g) | **Decided (owner, 2026-11-06): the period's paying members.** A figure below the live audiences hides when the period has fewer than 5 paying members, as the oracle and the mockup do. `kpiDocument` keeps not reading `contributions` for this rule. |
 | D10 | Refund permission | **Decided (owner, 2026-11-06): the owner or any admin.** The finance grant is not needed. buzz-school splits refund from Cedar `MoneyWrite` (invoice and adjust keep their current rule) and `capabilities` answers `refund: allowed` for an admin. The ledger UI follows `capabilities` (ledger-ui PR for D10). |
 | D11 | `bookingRules` / `schoolRules` | No source (buzz-school has a per-event cutoff only; credit hold and spend wait for atm 0.8.0). Answer `null`; the UI contract allows it. |
+| D12 | Credit events in the log | Not in phase 1 (spike D-1). Decide later between atm's handler as a shadow and replacing buzz-school's grant engine; both need an owner decision and a separate design. Credits screens answer "not available". |
+| D13 | May events keyed `family:<id>` reach a production bucket (spike D-3, the E2 question) | No. Staging only; production stays off until the owner and counsel answer. Ties to D4. |
+| D14 | Which atm release buzz-school pins for `appendToOutbox`, `catalogPublishedEvent`, `ledgerEvent`, `shipOutbox` (spike D-2) | An atm release cut from `dev` after S8a. The repo's GitHub home is now justbry/tfd (default branch `dev`); the release tarballs buzz-school pins are still on justbry/atm, so where the next one is published is an owner decision. |
+| D15 | Backfill (spike D-5) and payouts (D-6) | No backfill: the log starts at switch-on and the UI says "from <date>"; a catalog backfill is still needed. Payout events are out of S8d. |
 
 ## 9. Open risks
 
