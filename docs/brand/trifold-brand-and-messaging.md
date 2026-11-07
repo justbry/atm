@@ -1,12 +1,12 @@
 # Trifold: brand kit and messaging
 
-Status: draft, 2026-11-05. Names, domains and trademarks were checked on that date and must be checked again before anything is bought or filed.
+Status: draft, 2026-11-05; names and licensing updated 2026-11-06. Names, domains and trademarks were checked on that date and must be checked again before anything is bought or filed.
 
 ## What Trifold is
 
 **For customers:** Trifold runs your memberships, bookings and books, and an AI agent keeps them closed and tax-ready.
 
-**For technical readers:** Trifold is an agentic financial data mart. Every payment, credit and booking lands in one triple-entry ledger that can be replayed and checked, and an AI agent reads it, reconciles it and reports on it.
+**For technical readers:** Trifold is an agentic financial data mart. Every payment, credit and booking lands in one ledger that can be replayed and checked, and an AI agent reads it, reconciles it and reports on it.
 
 **What "three sides" means:** every dollar is recorded three ways. The business's books, the customer's signed receipt and the payment processor's record all agree, and anyone can check that they do. We explain this in plain words and never call it a blockchain.
 
@@ -15,8 +15,7 @@ Status: draft, 2026-11-05. Names, domains and trademarks were checked on that da
 | Layer | Name | Where it appears |
 |---|---|---|
 | Company, customer brand and managed service | **Trifold** | Website, app, emails, receipts, contracts; the legal name |
-| Engine | **atm** | The engine Trifold maintains and runs as a managed service: "built on atm" on developer, accountant and trust pages; self-hosters run it directly |
-| Command-line tool | **`tfd`** | Docs, terminal, npm package `@trifold/cli` |
+| Engine and command-line tool | **tfd** | The engine Trifold provides and runs as a managed service: "Trifold provides tfd, the engine behind it" on developer, accountant and trust pages; self-hosters run it directly. Docs, terminal, npm package `@trifold/cli`. The code rename is phased: the CLI answers to `tfd` and to `atm` (the `atm` command until the rename lands); the package and directory rename comes once open PRs land |
 | AI agent | **Rifo** (`@rifo`) | In the app, chat and `tfd ask`; it always cites the ledger behind each answer |
 
 ### The agent: Rifo
@@ -33,14 +32,14 @@ Rifo is the middle of tRIFOld, so the agent sounds like part of the brand. Say i
 $ tfd ask "which members renew next week?"
 ```
 
-Why Trifold leads: it is warm, a real word, and speech-to-text hears it correctly. atm is the engine's plain product name; it is too generic to register as a trademark, so the trademark protection sits on Trifold. (An earlier draft named the engine "Trivalance"; that name was dropped on 2026-11-06.)
+Why Trifold leads: it is warm, a real word, and speech-to-text hears it correctly. The engine's old name, atm, was too generic to register as a trademark, so the trademark protection sits on Trifold. (An earlier draft named the engine "Trivalance"; that name was dropped on 2026-11-06.)
 
 ### What `tfd` stands for
 
 | Layer | Meaning | Use |
 |---|---|---|
 | Official | **TriFolD** | `tfd --help`, docs |
-| Brand promise | **Trusted Financial Data** | Trust page, accountant pitch, the triple-entry story |
+| Brand promise | **Trusted Financial Data** | Trust page, accountant pitch, the three-records story |
 | Marketing line | **tfd: Taxes, Finally Done.** | Homepage, ads, the tax-season campaign |
 | Easter egg | **Totally Freaking Done** | `tfd --why`, the month-close success message, stickers. Not on formal pages |
 
@@ -130,7 +129,7 @@ Yoga, light therapy, sauna or Pilates; 50 to 500 members.
 
 - **Message:** Sell packs and memberships your way. Know who has visits left. Never do the books again.
 - **Cares about:** members running out of visits, failed payments, time at month-end, simple pricing changes (1, 2 or 4 sessions a month), looking professional.
-- **Doesn't care about:** ledgers, triple-entry, APIs, how the data is stored.
+- **Doesn't care about:** ledgers, APIs, how the data is stored.
 - **Proof:** the Vibes of Light case study, "N visits left" alerts, no spreadsheets at year-end.
 - **Objection and answer:** "I already use Mindbody." Keep booking where you like and let Trifold close the books, or switch fully for less.
 - **Channels:** studio-owner communities, Instagram, referrals from bookkeepers.
@@ -173,13 +172,13 @@ SaaS founders and platform teams.
 - **Message:** Credits, plans and a provable ledger as an API, with an agent that answers finance questions.
 - **Cares about:** a deterministic engine (same input, same result), idempotent webhooks, Stripe-native billing, a good CLI, MCP, self-hosting, no lock-in.
 - **Doesn't care about:** studio-specific features, marketing polish.
-- **Proof:** the open-source engine, the `tfd` CLI, replay tests, export to Parquet and DuckDB.
+- **Proof:** the source-available engine (free to self-host), the `tfd` CLI, replay tests, export to Parquet and DuckDB.
 - **Objection and answer:** "Why not Stripe Billing, Orb or Metronome?" Trifold puts credits, rollovers and a provable ledger in one engine, not only invoices.
 - **Channels:** GitHub, Hacker News, developer content, the Autumn community.
 
-## The triple-entry story
+## The three records story
 
-The idea comes from Ian Grigg (2005): every transaction gets a third record, a receipt signed with public-key cryptography that both parties hold, so neither side can quietly change its own books.
+The idea comes from Ian Grigg's 2005 work on triple-entry bookkeeping: every transaction gets a third record, a receipt signed with public-key cryptography that both parties hold, so neither side can quietly change its own books. We use the idea but not the label. Never call Trifold "triple-entry".
 
 | Record | Whose | In Trifold |
 |---|---|---|
@@ -216,20 +215,32 @@ To build:
 4. Signed customer receipts (`receiptOf`), with a verify page and `tfd verify receipt`. This also needs the open receipt decisions in `packages/atm/ROADMAP.md`.
 5. Match every event daily against Stripe's balance transactions and payouts.
 6. Optional: publish each day's summary hash to a public transparency log.
-7. An open-source `tfd verify` that checks the chain, signatures, balances, replay, the Stripe matches and receipts.
+7. An open `tfd verify` (Apache-2.0) that checks the chain, signatures, balances, replay, the Stripe matches and receipts.
 
-Where the code goes: atm stays pure. `receiptOf`, the canonical receipt bytes and `verifyReceipt` live in atm. Signing with a stored key and delivering receipts belong to the caller.
+Where the code goes: tfd stays pure. `receiptOf`, the canonical receipt bytes and `verifyReceipt` live in tfd. Signing with a stored key and delivering receipts belong to the caller.
 
 ## Claim rules
 
-What we may say depends on what has shipped.
+What we may say depends on what has shipped. The license wording rules are in the table below the ladder.
 
 | After | We may say |
 |---|---|
 | Today | "Double-entry, append-only, replayable books" |
 | Steps 1 to 3 | "Tamper-evident books" |
-| Steps 4 and 5 | "Triple-entry accounting: your books, your customer's receipt and Stripe's record, signed and matched" |
+| Steps 4 and 5 | "Three records that agree: your books, your customer's receipt and Stripe's record, signed and matched" |
 | Steps 6 and 7 | "Independently verifiable: check our math yourself with `tfd verify`" |
+
+### License wording
+
+| Say | Never say |
+|---|---|
+| "Source-available", "Fair Source", "free to self-host" for the engine | "Open source" for tfd. FSL is not OSI-approved |
+| "Open format", "open spec", "open standard", "open verifier" | "Open source" for the whole product |
+| "The verifier and receipt format are Apache-2.0" | "Anyone can run a hosted service on tfd" |
+| "Every tfd release becomes Apache-2.0 two years after it ships" | "Not even Trifold can quietly change your books" |
+| "Even if Trifold disappears, the code becomes Apache-2.0" | "Triple-entry" for Trifold, or any speed numbers |
+
+Open formats and an open verifier are fine to say because those parts are Apache-2.0 (the vectors are CC0). Keep the claim to the parts that carry that license.
 
 We never claim that Trifold files taxes. Filing needs an authorised e-file provider and a human who signs, and who is liable when an AI makes a filing error is unsettled. "Taxes, Finally Done" always comes with "tax-ready" or "CPA-signed" on first use, because the FTC treats an implied claim like an explicit one.
 
@@ -252,3 +263,19 @@ Next steps:
 1. Register gettrifold.com (and usetrifold.com to redirect).
 2. Claim the npm scope `@trifold`, the GitHub organisation and the main social handles.
 3. Get a trademark clearance search for TRIFOLD in classes 9, 36 and 42.
+
+## Licensing summary
+
+Decided by the owner on 2026-11-06.
+
+| Part | License |
+|---|---|
+| tfd engine and CLI (`packages/atm`, except the parts below) | **FSL-1.1-ALv2**. Source-available: free to use, modify and self-host for your own books, for non-commercial education and research, and for professional services to a licensee (for example an accountant working on a client's own install). Not allowed: offering it to others as a commercial product or service that competes with Trifold. Each release becomes Apache-2.0 two years after it ships |
+| Receipt and seal format, spec and verifier (schemas, `docs/receipts.md`, receipt, seal, sign and canonicalisation code, the website's in-browser verifier) | **Apache-2.0** |
+| Test vectors (golden receipt files) | **CC0-1.0** (public domain) |
+| Autumn code this repo forks (`balance-engine`, `shared`, and so on) | **Apache-2.0** (upstream license, unchanged) |
+| Hosted Trifold service, Rifo, the witness | Proprietary |
+
+**Why.** "Anyone can check, forever" needs checking (verifier, format, vectors) to be unrestrictable. The engine is protected from a hosted clone, but each release becomes fully open after two years, so even if Trifold disappears, the code becomes Apache-2.0.
+
+**Open items:** the licensor's legal entity name (the LICENSE says "Trifold" until a company is formed); whether accounting firms hosting tfd for many clients need a grant beyond FSL's professional-services clause (decide before the accountant partner program); contributor terms (DCO or CLA) before accepting outside contributions; whether the event envelope schema should also be Apache-2.0 so other ledgers can adopt the full standard.
