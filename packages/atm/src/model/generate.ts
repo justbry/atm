@@ -14,6 +14,7 @@ import {
 	kpiCatalogOf,
 	type LedgerModel,
 	type ModelDimension,
+	namespacePrefix,
 	type ResolvedMeasure,
 	type ResolvedModel,
 	termIri,
@@ -96,11 +97,11 @@ const dimensionValuePattern = (
 	const captured = keyPattern ? captureGroup.exec(keyPattern)?.[1] : undefined;
 	return captured ? `(?:${captured})` : ".+";
 };
-/** A model IRI as an `atm:` CURIE. */
-const atmCurie = (model: LedgerModel, iri: string): string => {
+/** A model IRI as a CURIE under the model's own prefix (`ledger:`). */
+const modelCurie = (model: LedgerModel, iri: string): string => {
 	if (!iri.startsWith(model.namespace))
 		throw new Error(`${iri} is not under ${model.namespace}`);
-	return `atm:${iri.slice(model.namespace.length)}`;
+	return `${namespacePrefix(model)}:${iri.slice(model.namespace.length)}`;
 };
 /** The IRI of an entity, checked to name one. */
 const entityIri = (model: LedgerModel, id: string): string => {
@@ -108,9 +109,9 @@ const entityIri = (model: LedgerModel, id: string): string => {
 		throw new Error(`${id} is not an entity of ${model.id}`);
 	return termIri.entity(model, id);
 };
-/** The CURIE of an entity, for the JSON-LD context (which declares the `atm` prefix). */
+/** The CURIE of an entity, for the JSON-LD context (which declares the model's prefix). */
 const entityCurie = (model: LedgerModel, id: string): string =>
-	atmCurie(model, entityIri(model, id));
+	modelCurie(model, entityIri(model, id));
 
 export const kpiDocumentOpenApiOf = (resolved: ResolvedModel): unknown => {
 	const { model } = resolved;
@@ -451,7 +452,7 @@ export const kpiDocumentOpenApiOf = (resolved: ResolvedModel): unknown => {
 	return {
 		openapi: "3.1.0",
 		info: {
-			title: "atm KPI document",
+			title: "Trifold KPI document",
 			version: model.id,
 			description:
 				"The KPI document's components. The Worker read API (S8c) is not built, so there are no paths yet.",
@@ -464,16 +465,21 @@ export const kpiDocumentOpenApiOf = (resolved: ResolvedModel): unknown => {
 
 // ---- ledger.v1.context.jsonld
 /** The KPI document and KPI row keys that carry meaning, as JSON-LD terms. `kpiId` values are measure terms. */
-const documentTerms: Record<string, string | Record<string, string>> = {
-	school: "atm:school",
-	audience: "atm:audience",
-	period: "atm:period",
-	kpiId: { "@id": "atm:kpiId", "@type": "@vocab" },
-	kpiClass: "atm:kpiClass",
-	title: "skos:prefLabel",
-	value: "schema:value",
-	unit: "schema:unitText",
-	currency: "schema:currency",
+const documentTermsOf = (
+	model: LedgerModel,
+): Record<string, string | Record<string, string>> => {
+	const prefix = namespacePrefix(model);
+	return {
+		school: `${prefix}:school`,
+		audience: `${prefix}:audience`,
+		period: `${prefix}:period`,
+		kpiId: { "@id": `${prefix}:kpiId`, "@type": "@vocab" },
+		kpiClass: `${prefix}:kpiClass`,
+		title: "skos:prefLabel",
+		value: "schema:value",
+		unit: "schema:unitText",
+		currency: "schema:currency",
+	};
 };
 /** A dimension's term: `dimension_<id>`, so `kind` stays free for the document's own `kind` keys. */
 export const dimensionTerm = (id: string): string => `dimension_${id}`;
@@ -498,16 +504,16 @@ export const jsonLdContextOf = ({
 			...Object.fromEntries(
 				measures.map((measure) => [
 					measure.id,
-					atmCurie(model, termIri.measure(model, measure.id)),
+					modelCurie(model, termIri.measure(model, measure.id)),
 				]),
 			),
 			...Object.fromEntries(
 				model.dimensions.map((dimension) => [
 					dimensionTerm(dimension.id),
-					atmCurie(model, termIri.dimension(model, dimension.id)),
+					modelCurie(model, termIri.dimension(model, dimension.id)),
 				]),
 			),
-			...documentTerms,
+			...documentTermsOf(model),
 			exactMatch: {
 				"@id": "skos:exactMatch",
 				"@type": "@id",
@@ -519,7 +525,7 @@ export const jsonLdContextOf = ({
 				"@container": "@set",
 			},
 		},
-		"@id": "atm:",
+		"@id": `${namespacePrefix(model)}:`,
 		"skos:note": generatedNote,
 		"@included": linked.map((entity) => ({
 			"@id": entityCurie(model, entity.id),

@@ -135,9 +135,9 @@ const inputsOfKpi = (kpi: Kpi): string[] =>
 
 /**
  * The model resolved against the KPI spec, its shape taken as given. Throws `LedgerModelError` with every problem: an id
- * used twice, a term that names nothing (entity, dimension, measure, CURIE prefix), a spec KPI with no measure or a
- * measure with no spec KPI, a dimension the spec's `by` does not have, a format the unit cannot take, a `ruleOf` in
- * another class, a `capped` measure that is not derived.
+ * used twice, a namespace that not exactly one prefix maps to, a term that names nothing (entity, dimension, measure,
+ * CURIE prefix), a spec KPI with no measure or a measure with no spec KPI, a dimension the spec's `by` does not have, a
+ * format the unit cannot take, a `ruleOf` in another class, a `capped` measure that is not derived.
  */
 export const resolveLedgerModel = (
 	model: LedgerModel,
@@ -176,8 +176,11 @@ export const resolveLedgerModel = (
 				: [String(measure.document.position)],
 		),
 	);
-	if (model.prefixes.atm !== model.namespace)
-		problems.push("prefix atm is not the namespace");
+	const namespacePrefixes = prefixesOfNamespace(model);
+	if (namespacePrefixes.length !== 1)
+		problems.push(
+			`namespace ${model.namespace}: ${namespacePrefixes.length} prefixes map to it (${namespacePrefixes.join(", ") || "none"}), not exactly one`,
+		);
 
 	const curie = (where: string, value: string) => {
 		const prefix = value.split(":")[0] as string;
@@ -266,6 +269,22 @@ export const resolveLedgerModel = (
 	}
 	if (problems.length > 0) throw new LedgerModelError(problems.join("; "));
 	return { model, measures };
+};
+
+/** The prefixes whose IRI is the model's namespace; a valid model has exactly one. */
+const prefixesOfNamespace = (model: LedgerModel): string[] =>
+	Object.keys(model.prefixes).filter(
+		(prefix) => model.prefixes[prefix] === model.namespace,
+	);
+
+/** The CURIE prefix of the model's own terms: the one prefix that maps to the namespace, whatever its name. */
+export const namespacePrefix = (model: LedgerModel): string => {
+	const [prefix, ...others] = prefixesOfNamespace(model);
+	if (prefix === undefined || others.length > 0)
+		throw new LedgerModelError(
+			`namespace ${model.namespace}: not exactly one prefix maps to it`,
+		);
+	return prefix;
 };
 
 /** The IRI of a model term: an entity `<namespace><Id>`, a measure `<namespace>measure/<id>`, a dimension

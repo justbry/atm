@@ -23,7 +23,7 @@
 		"namespace": {
 			"type": "string",
 			"pattern": "^https://[^ ]+#$",
-			"description": "The IRI every model term is minted under: `<namespace><Entity>`, `<namespace>measure/<id>`, `<namespace>dimension/<id>`."
+			"description": "The IRI every model term is minted under: `<namespace><Entity>`, `<namespace>measure/<id>`, `<namespace>dimension/<id>`. It carries no version: the model's version is `version` and `id`."
 		},
 		"kpiSpec": {
 			"const": "school.v1",
@@ -31,8 +31,7 @@
 		},
 		"prefixes": {
 			"type": "object",
-			"description": "CURIE prefixes for external IRIs. `atm` is the namespace.",
-			"required": ["atm"],
+			"description": "CURIE prefixes: the model's own (exactly one prefix maps to `namespace`; its name is free) and the external vocabularies'.",
 			"additionalProperties": {
 				"type": "string",
 				"pattern": "^https?://[^ ]+[/#]$"

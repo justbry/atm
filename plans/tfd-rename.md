@@ -24,8 +24,8 @@ Some names that contain "atm" never change, because they are stored, hashed or s
 
 ## Step 2: the ledger model's namespace and prefix (before anything reads the model)
 
-- [ ] The namespace moves from `https://b4uni.com/_model/ledger.v1#` to `https://b4uni.com/_model/ledger#`. The model's version stays in `version` and `id`, not in each IRI. The domain stays b4uni.com until Trifold registers one; a later move changes one constant.
-- [ ] The CURIE prefix `atm:` becomes `ledger:`, and the schema stops requiring a prefix by name.
+- [x] The namespace moves from `https://b4uni.com/_model/ledger.v1#` to `https://b4uni.com/_model/ledger#`. The model's version stays in `version` and `id`, not in each IRI. The domain stays b4uni.com until Trifold registers one; a later move changes one constant. Done: `model/ledger.v1.json` carries the new namespace, so every generated IRI (the OpenAPI `x-jsonld-type`s, the JSON-LD context's terms) drops the `.v1`; `version` and `id` still say `ledger.v1`.
+- [x] The CURIE prefix `atm:` becomes `ledger:`, and the schema stops requiring a prefix by name. Done: `schema/model.v1.json` no longer requires `prefixes.atm`; instead the loader (`src/model/resolve.ts`) refuses a model unless exactly one prefix maps to the namespace, whatever its name, and the generator writes the model's CURIEs (`ledger:school`, `"@id": "ledger:"`) under that prefix. The OpenAPI title is "Trifold KPI document". The KPI documents are byte-identical.
 
 ## Step 3: a compatibility window for callers (with buzz-school)
 

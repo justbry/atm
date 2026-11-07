@@ -2,10 +2,10 @@
 	"$schema": "../schema/model.v1.json",
 	"version": 1,
 	"id": "ledger.v1",
-	"namespace": "https://b4uni.com/_model/ledger.v1#",
+	"namespace": "https://b4uni.com/_model/ledger#",
 	"kpiSpec": "school.v1",
 	"prefixes": {
-		"atm": "https://b4uni.com/_model/ledger.v1#",
+		"ledger": "https://b4uni.com/_model/ledger#",
 		"fibo-fnd-acc-cur": "https://spec.edmcouncil.org/fibo/ontology/FND/Accounting/CurrencyAmount/",
 		"schema": "https://schema.org/",
 		"skos": "http://www.w3.org/2004/02/skos/core#"
