@@ -1,14 +1,18 @@
-/** Named, seeded scenarios: each is a seed and knobs over `DEFAULT_PARAMS`, nothing written by hand. */
+/** Named, seeded scenarios: each is an org, a seed and knobs over the org's defaults (`defaultParamsOf`), nothing written by hand. */
+import { DEFAULT_ORG, type OrgKind, tierIdsOf } from "./orgs.js";
 import {
 	checkResolvedParams,
 	checkScenarioInput,
-	DEFAULT_PARAMS,
+	defaultParamsOf,
+	OPTIONAL_KNOBS,
 	type ScenarioInput,
 	type ScenarioParams,
 } from "./params.js";
 
 export type Profile = {
 	name: string;
+	/** The org it simulates; absent: the school. */
+	org?: OrgKind;
 	summary: string;
 	seed: number;
 	params: Partial<ScenarioParams>;
@@ -155,6 +159,113 @@ export const PROFILES: readonly Profile[] = [
 		seed: 115,
 		params: { members: 12, months: 6, childShare: 1 },
 	},
+	{
+		name: "studio-members",
+		org: "studio",
+		summary:
+			"Ironbark Studio's year: forty founding members and three new ones a month across off-peak, core, class-pack and all-access memberships, some paid annually; drop-ins, ten-class packs and PT intros as add-ons; unused classes roll over or expire; one member in sixteen cancels each month.",
+		seed: 201,
+		params: {
+			members: 40,
+			newMembersPerMonth: 3,
+			yearlyShare: 0.15,
+			addonRate: 0.45,
+			churnRate: 0.06,
+			usageRate: 0.85,
+			refundRate: 0.015,
+			disputeRate: 0.004,
+		},
+	},
+	{
+		name: "studio-class-packs",
+		org: "studio",
+		summary:
+			"Ironbark Studio sells mostly class packs (five classes each, bought one or two at a time, rolling over for two months before they expire), with ten-class packs and drop-ins on top; some buy a second pack mid-month, some drop back to one at renewal, and members come and go faster than on a membership.",
+		seed: 202,
+		params: {
+			members: 24,
+			newMembersPerMonth: 2,
+			months: 9,
+			tierMix: { "off-peak": 1, core: 1, "class-pack": 6 },
+			addonRate: 0.6,
+			churnRate: 0.1,
+			usageRate: 0.7,
+			seatChangeRate: 0.2,
+		},
+	},
+	{
+		name: "church-giving",
+		org: "church",
+		summary:
+			"Cedar Hill Community Church's giving: sixty households give monthly or yearly at $25, $50, $100 or $250, with one-time gifts, the new roof campaign and family retreat registrations on top; a few mistaken gifts are refunded, disputes are rare, and the nonprofit card rate applies.",
+		seed: 301,
+		params: {
+			members: 60,
+			newMembersPerMonth: 2,
+			yearlyShare: 0.25,
+			addonRate: 0.5,
+			churnRate: 0.015,
+			refundRate: 0.012,
+			partialRefundShare: 0.3,
+			disputeRate: 0.001,
+			usageRate: 0.9,
+			feePercent: 2.2,
+		},
+	},
+	{
+		name: "saas-seats",
+		org: "saas",
+		summary:
+			"Lumen Notes over a year: solo plans and per-seat team and business plans, a third prepaid annually; teams add seats mid-month (prorated at once) or drop them at renewal, some customers move up a plan, and API-call credits are used each month with boost packs on top.",
+		seed: 401,
+		params: {
+			members: 45,
+			newMembersPerMonth: 4,
+			yearlyShare: 0.3,
+			addonRate: 0.3,
+			churnRate: 0.03,
+			refundRate: 0.01,
+			disputeRate: 0.003,
+			usageRate: 0.9,
+			seatChangeRate: 0.12,
+			upgradeRate: 0.04,
+		},
+	},
+	{
+		name: "saas-annual",
+		org: "saas",
+		summary:
+			"Lumen Notes sold annually: every customer prepays a year on a solo, team or business plan, over 24 months so the renewals show; API-call credits are used each month, and little churn.",
+		seed: 402,
+		params: {
+			months: 24,
+			members: 20,
+			yearlyShare: 1,
+			tierMix: { solo: 2, team: 3, business: 2 },
+			addonRate: 0.25,
+			churnRate: 0.01,
+			refundRate: 0.01,
+			disputeRate: 0,
+		},
+	},
+	{
+		name: "creator-launch",
+		org: "creator",
+		summary:
+			"Night Kitchen Courses launches: ninety members join the paid community in the launch month, then four a month; many buy a course or the recipe pack at sign-up, refunds run high, and one member in twelve leaves each month.",
+		seed: 501,
+		params: {
+			members: 90,
+			newMembersPerMonth: 4,
+			yearlyShare: 0.1,
+			addonRate: 0.55,
+			churnRate: 0.08,
+			refundRate: 0.07,
+			partialRefundShare: 0.2,
+			disputeRate: 0.006,
+			usageRate: 0.5,
+		},
+	},
 ];
 
 export const PROFILE_NAMES = PROFILES.map((p) => p.name);
@@ -168,6 +279,8 @@ export const profileByName = (name: string): Profile => {
 
 /** A scenario with every knob and the seed filled in. This, not the input, is what is hashed and generated from. */
 export type ResolvedScenario = {
+	/** The org simulated; absent for the school (so a school scenario hashes as it did before orgs). */
+	org?: OrgKind;
 	profile: string | null;
 	name: string;
 	seed: number;
@@ -176,16 +289,26 @@ export type ResolvedScenario = {
 
 /** Preset knobs, then the input's over them; `seed` of the input wins over the preset's. An ad-hoc scenario with no preset starts from `DEFAULT_PARAMS` and seed 1. */
 export const resolveScenario = (raw: unknown): ResolvedScenario => {
-	const input: ScenarioInput = checkScenarioInput(raw, PROFILE_NAMES);
+	const input: ScenarioInput = checkScenarioInput(
+		raw,
+		PROFILE_NAMES,
+		(name) => profileByName(name).org ?? DEFAULT_ORG,
+	);
 	const preset = input.profile ? profileByName(input.profile) : null;
+	const org = input.org ?? preset?.org ?? DEFAULT_ORG;
 	const params = {
-		...DEFAULT_PARAMS,
+		...defaultParamsOf(org),
 		...(preset?.params ?? {}),
 		...(input.params ?? {}),
 	} as ScenarioParams;
+	// a knob added after the goldens is left out at its default, so the scenarios before it hash as they did
+	for (const [knob, value] of Object.entries(OPTIONAL_KNOBS))
+		if (params[knob as keyof typeof OPTIONAL_KNOBS] === value)
+			delete params[knob as keyof typeof OPTIONAL_KNOBS];
 	// a tier mix named in part replaces the preset's whole (a missing tier has weight 0)
-	checkResolvedParams(params);
+	checkResolvedParams(params, tierIdsOf(org));
 	return {
+		...(org === DEFAULT_ORG ? {} : { org }),
 		profile: input.profile ?? null,
 		name: input.name ?? input.profile ?? "ad-hoc",
 		seed: input.seed ?? preset?.seed ?? 1,

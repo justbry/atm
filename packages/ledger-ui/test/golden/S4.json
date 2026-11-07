@@ -793,7 +793,7 @@
 					"[data-test=member-drawer] [data-test=role-chip]": "Admin",
 					"[data-test=member-drawer] [data-test=finance-chip]": "Finance",
 					"[data-test=capability-line][data-line=sees]": "Sees: every member, dashboard, bookings",
-					"[data-test=capability-line][data-line=money]": "Money: yes · refunds are owner only",
+					"[data-test=capability-line][data-line=money]": "Money: yes",
 					"[data-test=capability-line][data-line=audience]": "Audience: Finance admin · Admin with the finance grant",
 					"[data-test=history-empty]": "No activity yet."
 				},
@@ -815,7 +815,7 @@
 				"text": {
 					"[data-test=drawer-name] [data-test=you-tag]": "(you)",
 					"[data-test=capability-line][data-line=sees]": "Sees: every member, dashboard, bookings (you)",
-					"[data-test=capability-line][data-line=money]": "Money: yes (owner) · refunds are owner only",
+					"[data-test=capability-line][data-line=money]": "Money: yes (owner)",
 					"[data-test=capability-line][data-line=audience]": "Audience: Owner · Owner on the roster"
 				}
 			}
@@ -861,19 +861,19 @@
 		},
 		{
 			"id": "drawer-non-owner",
-			"source": "mockup open('s_22') at B4 Uni, Jo A. (admin with the finance grant) signed in: Refund is the owner's, with the reason under the actions",
+			"source": "mockup open('s_22') at B4 Uni, Jo A. (admin with the finance grant) signed in: Refund is open to every admin (owner ruling D10, 2026-11-06; the mockup keeps it the owner's), so no reason shows under the actions",
 			"route": "#/b4u/members?member=s_22&theme=light",
 			"expect": {
 				"text": {
 					"[data-test=drawer-head]": "s_22 · B4 Uni",
 					"[data-test=drawer-action][data-action=adjust]": "Adjust credits",
-					"[data-test=drawer-note]": "Refunds need the owner role in B4 Uni.",
 					"[data-test=drawer-balance]": "1 available of 8 · 1 held for bookings · expire Dec 1 · rollover 0"
 				},
 				"count": {
-					"[data-test=drawer-action][data-action=refund][disabled][title=\"Refunds need the owner role in this school\"]": 1,
+					"[data-test=drawer-action][data-action=refund]:not([disabled])": 1,
 					"[data-test=drawer-action][data-action=invoice][disabled]": 0,
-					"[data-test=drawer-action][data-action=adjust][disabled]": 0
+					"[data-test=drawer-action][data-action=adjust][disabled]": 0,
+					"[data-test=drawer-note]": 0
 				},
 				"contains": {
 					"[data-test=drawer-payments]": [
@@ -1075,7 +1075,7 @@
 		},
 		{
 			"id": "menu-non-owner",
-			"source": "mockup kMenuHtml at B4 Uni (Jo A. is an admin): role actions and refunds are the owner's; plans/ledger-ui/design/smoke.mjs 'non-owner: make admin disabled with owner-needed title', 'gate: menu Download CSV disabled with the title, refund says owner role' (refund half)",
+			"source": "mockup kMenuHtml at B4 Uni (Jo A. is an admin): role actions are the owner's; refunds are open to every admin (owner ruling D10, 2026-11-06; the mockup keeps them the owner's); plans/ledger-ui/design/smoke.mjs 'non-owner: make admin disabled with owner-needed title', 'gate: menu Download CSV disabled with the title, refund says owner role' (refund half)",
 			"route": "#/b4u/members?theme=light",
 			"steps": [
 				{
@@ -1088,7 +1088,7 @@
 				},
 				"count": {
 					"[data-test=member-menu-item][data-action=make-admin][disabled][title=\"Owner role needed\"]": 1,
-					"[data-test=member-menu-item][data-action=refund][disabled][title=\"Owner role needed\"]": 1,
+					"[data-test=member-menu-item][data-action=refund]:not([disabled])": 1,
 					"[data-test=member-menu-item][data-action=invoice]:not([disabled])": 1,
 					"[data-test=member-menu-item][data-action=adjust]:not([disabled])": 1,
 					"[data-test=member-menu-item][data-action=csv]:not([disabled])": 1
@@ -1310,7 +1310,7 @@
 					"expect": {
 						"text": {
 							"[data-test=modal-title]": "Grant finance to Ana P.?",
-							"[data-test=modal-body]": "Ana P. will see money in the dashboard and ledger. Refunds stay owner only.",
+							"[data-test=modal-body]": "Ana P. will see money in the dashboard and ledger.",
 							"[data-test=modal-note]": "This applies at Ana P.'s next sign-in refresh. Their access token lasts 5 minutes, so it can take up to 5 minutes to show.",
 							"[data-test=modal-confirm]": "Confirm",
 							"[data-test=modal-cancel]": "Cancel"
@@ -2968,7 +2968,7 @@
 		},
 		{
 			"id": "as-owner-not-held",
-			"source": "mockup vaAllowed: a finance admin cannot preview the owner; as=owner at B4 Uni falls back to Jo A.'s own view (Finance admin), so refunds and roles stay the owner's",
+			"source": "mockup vaAllowed: a finance admin cannot preview the owner; as=owner at B4 Uni falls back to Jo A.'s own view (Finance admin), so roles stay the owner's (refunds are open to every admin, owner ruling D10)",
 			"route": "#/b4u/members?as=owner&theme=light",
 			"steps": [
 				{
@@ -2978,7 +2978,7 @@
 			"expect": {
 				"count": {
 					"[data-test=member-row]": 10,
-					"[data-test=member-menu-item][data-action=refund][disabled][title=\"Owner role needed\"]": 1,
+					"[data-test=member-menu-item][data-action=refund]:not([disabled])": 1,
 					"[data-test=member-menu-item][data-action=invoice]:not([disabled])": 1
 				}
 			}
@@ -3073,7 +3073,7 @@
 		},
 		{
 			"id": "member-money-har-no-grant",
-			"source": "mockup open('h_32') and kMenuHtml at Harbor Arts Academy for Rosa T. (admin, no finance grant): money per person shows 'Finance only' (title 'Finance admins and the owner see money per person') in the payments and the history; Send invoice and Adjust are 'Finance only', Refund and roles are the owner's, Download CSV is for finance admins; the first step (a release with nothing pending) checks the drawer before the menu opens; plans/ledger-ui/design/smoke.mjs 'gate: drawer Download CSV disabled with the title', 'gate: menu Download CSV disabled with the title, refund says owner role'",
+			"source": "mockup open('h_32') and kMenuHtml at Harbor Arts Academy for Rosa T. (admin, no finance grant): money per person shows 'Finance only' (title 'Finance admins and the owner see money per person') in the payments and the history; Send invoice and Adjust are 'Finance only', roles are the owner's and Refund is open to every admin (owner ruling D10, 2026-11-06; the mockup keeps it the owner's), Download CSV is for finance admins; the first step (a release with nothing pending) checks the drawer before the menu opens; plans/ledger-ui/design/smoke.mjs 'gate: drawer Download CSV disabled with the title', 'gate: menu Download CSV disabled with the title, refund says owner role'",
 			"route": "#/har/members?member=h_32&theme=light",
 			"steps": [
 				{
@@ -3089,7 +3089,6 @@
 								"text": "9 available of 16 · 2 held for bookings · expire Dec 1 · rollover 0",
 								"moves": true
 							},
-							"[data-test=drawer-note]": "Refunds need the owner role in Harbor Arts Academy.",
 							"[data-test=capability-line][data-line=audience]": "Audience: Member · Adult with a live Ensemble membership: that tier names Member."
 						},
 						"contains": {
@@ -3117,10 +3116,11 @@
 						"count": {
 							"[data-test=drawer-action][data-action=invoice][disabled][title=\"Finance only\"]": 1,
 							"[data-test=drawer-action][data-action=adjust][disabled][title=\"Finance only\"]": 1,
-							"[data-test=drawer-action][data-action=refund][disabled][title=\"Refunds need the owner role in this school\"]": 1,
+							"[data-test=drawer-action][data-action=refund]:not([disabled])": 1,
 							"[data-test=drawer-action][data-action=view-as-member]:not([disabled])": 1,
 							"[data-test=payments-csv][disabled][title=\"Finance admins only\"]": 1,
-							"[data-test=payment-row]:nth-child(1) [data-hid=no_grant][title=\"Finance admins and the owner see money per person\"]": 1
+							"[data-test=payment-row]:nth-child(1) [data-hid=no_grant][title=\"Finance admins and the owner see money per person\"]": 1,
+							"[data-test=drawer-note]": 0
 						},
 						"absent": [
 							"$240.00",
@@ -3136,7 +3136,7 @@
 				"count": {
 					"[data-test=member-menu-item][data-action=invoice][disabled][title=\"Finance only\"]": 1,
 					"[data-test=member-menu-item][data-action=adjust][disabled][title=\"Finance only\"]": 1,
-					"[data-test=member-menu-item][data-action=refund][disabled][title=\"Owner role needed\"]": 1,
+					"[data-test=member-menu-item][data-action=refund]:not([disabled])": 1,
 					"[data-test=member-menu-item][data-action=make-admin][disabled][title=\"Owner role needed\"]": 1,
 					"[data-test=member-menu-item][data-action=csv][disabled][title=\"Finance admins only\"]": 1,
 					"[data-test=member-menu-item][data-action=release]:not([disabled])": 1,

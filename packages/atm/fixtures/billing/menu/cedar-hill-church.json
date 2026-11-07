@@ -1,0 +1,89 @@
+{
+	"currency": "usd",
+	"timeZone": "America/New_York",
+	"features": [
+		{
+			"id": "retreat-seat",
+			"name": "Retreat seat",
+			"unit": { "one": "retreat seat", "other": "retreat seats" }
+		}
+	],
+	"tiers": [
+		{
+			"id": "give-25",
+			"name": "Recurring gift, $25",
+			"blurb": "A recurring gift of $25 a month, or $300 a year",
+			"public": true,
+			"prices": [
+				{ "interval": "month", "amount": 2500 },
+				{ "interval": "year", "amount": 30000 }
+			],
+			"grants": []
+		},
+		{
+			"id": "give-50",
+			"name": "Recurring gift, $50",
+			"blurb": "A recurring gift of $50 a month, or $600 a year",
+			"public": true,
+			"prices": [
+				{ "interval": "month", "amount": 5000 },
+				{ "interval": "year", "amount": 60000 }
+			],
+			"grants": []
+		},
+		{
+			"id": "give-100",
+			"name": "Recurring gift, $100",
+			"blurb": "A recurring gift of $100 a month, or $1,200 a year",
+			"public": true,
+			"prices": [
+				{ "interval": "month", "amount": 10000 },
+				{ "interval": "year", "amount": 120000 }
+			],
+			"grants": []
+		},
+		{
+			"id": "give-250",
+			"name": "Recurring gift, $250",
+			"blurb": "A recurring gift of $250 a month, or $3,000 a year",
+			"public": true,
+			"prices": [
+				{ "interval": "month", "amount": 25000 },
+				{ "interval": "year", "amount": 300000 }
+			],
+			"grants": []
+		}
+	],
+	"addons": [
+		{
+			"id": "gift-50",
+			"name": "One-time gift, $50",
+			"price": { "amount": 5000, "every": "once" },
+			"grants": []
+		},
+		{
+			"id": "gift-200",
+			"name": "One-time gift, $200",
+			"price": { "amount": 20000, "every": "once" },
+			"grants": []
+		},
+		{
+			"id": "building-fund",
+			"name": "New roof campaign, monthly",
+			"price": { "amount": 2000, "every": "month" },
+			"grants": []
+		},
+		{
+			"id": "building-fund-year",
+			"name": "New roof campaign, yearly",
+			"price": { "amount": 24000, "every": "year" },
+			"grants": []
+		},
+		{
+			"id": "family-retreat",
+			"name": "Family retreat registration",
+			"price": { "amount": 12000, "every": "once" },
+			"grants": [{ "featureId": "retreat-seat", "amount": 1, "every": "month" }]
+		}
+	]
+}

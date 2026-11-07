@@ -15,8 +15,9 @@ import { checkBundle, formatCheck } from "./bundle-check.js";
 import { duckdbAvailable, writeKpiParquet } from "./channels/duckdb.js";
 import { buildFixture } from "./fixture.js";
 import { type KpiRow, kpiHash } from "./kpis.js";
+import { DEFAULT_ORG, ORGS, tierIdsOf } from "./orgs.js";
 import {
-	DEFAULT_PARAMS,
+	defaultParamsOf,
 	PARAMS,
 	parseSets,
 	ScenarioInputError,
@@ -171,6 +172,8 @@ const describeRun = ({ fixture, parity, rows }: ScenarioRun) => ({
 	ok: true as const,
 	profile: fixture.scenario.profile,
 	name: fixture.scenario.name,
+	// absent for the school, as in the resolved scenario
+	...(fixture.scenario.org ? { org: fixture.scenario.org } : {}),
 	seed: fixture.scenario.seed,
 	params: fixture.scenario.params,
 	fixtureHash: fixture.hash,
@@ -241,7 +244,7 @@ export const addScenarioCommands = (program: Command, kit: CliKit): void => {
 		.command("scenarios")
 		.alias("scenario")
 		.description(
-			"seeded school scenarios for the financial reports: presets (Before University, a demo school), ad-hoc knobs, a content hash of the fixture, and the same KPIs computed by the atm fold, hledger and DuckDB and compared",
+			"seeded scenarios for the financial reports: presets for a demo school (Before University) and four demo orgs (a studio, a church, a SaaS product, a course creator), ad-hoc knobs, a content hash of the fixture, and the same KPIs computed by the atm fold, hledger and DuckDB and compared",
 		);
 	kit.exitTwoOnUsageError(scenarios);
 
@@ -255,15 +258,16 @@ export const addScenarioCommands = (program: Command, kit: CliKit): void => {
 					if (opts.json)
 						kit.writeJson({
 							ok: true,
-							profiles: PROFILES.map(({ name, summary, seed }) => ({
+							profiles: PROFILES.map(({ name, org, summary, seed }) => ({
 								name,
+								org: org ?? DEFAULT_ORG,
 								summary,
 								seed,
 							})),
 						});
 					else
 						process.stdout.write(
-							`${PROFILES.map((p) => `${p.name.padEnd(16)} seed ${String(p.seed).padEnd(4)} ${p.summary}`).join("\n")}\n\nmore: atm scenarios describe <name>\n`,
+							`${PROFILES.map((p) => `${p.name.padEnd(20)} ${(p.org ?? DEFAULT_ORG).padEnd(8)} seed ${String(p.seed).padEnd(4)} ${p.summary}`).join("\n")}\n\nmore: atm scenarios describe <name>\n`,
 						);
 				}),
 			),
@@ -287,7 +291,9 @@ export const addScenarioCommands = (program: Command, kit: CliKit): void => {
 							`no preset ${JSON.stringify(name)}; presets: ${PROFILE_NAMES.join(", ")}`,
 						]);
 					}
-					const params = { ...DEFAULT_PARAMS, ...profile.params };
+					const org = ORGS[profile.org ?? DEFAULT_ORG];
+					const defaults = defaultParamsOf(org.kind);
+					const params = { ...defaults, ...profile.params };
 					const examples = [
 						`atm simulate --profile ${profile.name} --json`,
 						`atm simulate --profile ${profile.name} --seed 7 --set refundRate=0.1 --json`,
@@ -298,22 +304,27 @@ export const addScenarioCommands = (program: Command, kit: CliKit): void => {
 							ok: true,
 							...profile,
 							params,
-							defaults: DEFAULT_PARAMS,
-							knobs: PARAMS,
+							org: org.kind,
+							orgName: org.name,
+							defaults,
+							knobs: {
+								...PARAMS,
+								tierMix: { ...PARAMS.tierMix, keys: tierIdsOf(org.kind) },
+								tierCounts: { ...PARAMS.tierCounts, keys: tierIdsOf(org.kind) },
+							},
 							examples,
 						});
 					else
 						process.stdout.write(
 							[
 								`${profile.name}: ${profile.summary}`,
+								`org ${org.kind}: ${org.name}, ${org.label}`,
 								`seed ${profile.seed}`,
 								"knobs (* = differs from the default):",
 								...Object.entries(params).map(([k, v]) => {
 									const differs =
 										JSON.stringify(v) !==
-										JSON.stringify(
-											(DEFAULT_PARAMS as Record<string, unknown>)[k],
-										);
+										JSON.stringify((defaults as Record<string, unknown>)[k]);
 									return `  ${differs ? "*" : " "} ${k} = ${JSON.stringify(v)}  (${PARAMS[k as keyof typeof PARAMS].doc})`;
 								}),
 								"",

@@ -1,0 +1,52 @@
+{
+  "profile": "creator-launch",
+  "seed": 501,
+  "params": {
+    "months": 12,
+    "start": "2026-01",
+    "members": 90,
+    "newMembersPerMonth": 4,
+    "tierMix": {
+      "community": 4,
+      "kitchen-table": 1
+    },
+    "yearlyShare": 0.1,
+    "addonRate": 0.55,
+    "freeShare": 0,
+    "churnRate": 0.08,
+    "refundRate": 0.07,
+    "partialRefundShare": 0.2,
+    "disputeRate": 0.006,
+    "disputeLostShare": 0.6,
+    "usageRate": 0.5,
+    "currency": "usd",
+    "feePercent": 2.9,
+    "feeFixedCents": 30,
+    "childShare": 0,
+    "tierCounts": {},
+    "yearlyCount": 0,
+    "refundCount": 0
+  },
+  "fixtureHash": "43c4046f2b7c96b8f7667e8871a54e53d0b80507f1be18957dd6aeedae4c8434",
+  "kpisHash": "38e8325cb9510ddfaabd090aaeb83bd0f29e1d1620c9816e34d1898ad062b4ad",
+  "events": 4666,
+  "periods": 12,
+  "summary": {
+    "gross_collected": 2529700,
+    "refunds": 117250,
+    "disputes_lost": 4500,
+    "dispute_fees": 9000,
+    "stripe_fees": 99303,
+    "net_income": 2299647,
+    "payouts": 2130485,
+    "payments_count": 851,
+    "refunds_count": 61,
+    "disputes_opened": 6,
+    "new_paying_members": 134,
+    "credits_granted": 2481,
+    "credits_consumed": 696,
+    "credits_expired": 858,
+    "paying_members_last_period": 66
+  },
+  "skippedNonUsd": 0
+}

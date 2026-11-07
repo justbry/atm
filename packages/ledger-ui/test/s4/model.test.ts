@@ -227,10 +227,9 @@ test("role guards and capability reasons", () => {
 	expect(roleGuard(admin, b4u.people, person("s_21", b4u.people), "make")).toBe(
 		"Owner role needed",
 	);
-	expect(capabilityReason(admin, "refund", "menu")).toBe("Owner role needed");
-	expect(capabilityReason(admin, "refund", "drawer")).toBe(
-		"Refunds need the owner role in this school",
-	);
+	// Owner ruling D10 (2026-11-06): refunds are open to every admin.
+	expect(capabilityReason(admin, "refund", "menu")).toBe("");
+	expect(capabilityReason(admin, "refund", "drawer")).toBe("");
 	const map = membersFixtures.map;
 	if (!map) throw new Error("no map");
 	expect(capabilityReason(map.capabilities, "invoice", "menu")).toBe(
