@@ -1,24 +1,24 @@
 # Trifold financial model
 
-Status: draft, 2026-11-06. Every number in the worked example is an assumption to test, not a forecast. Code references are to `packages/atm` on `dev` (atm 0.9.0) unless a path says otherwise.
+Status: draft, 2026-11-06. Every number in the worked example is an assumption to test, not a forecast. Code references are to `packages/atm` on `dev` (tfd 0.9.0) unless a path says otherwise. tfd is the engine and CLI (the `atm` command until the rename lands, so a command such as `tfd scenario kpis` runs as `atm scenario kpis` today).
 
 This doc answers four questions:
-1. Can atm's scenario generator model Trifold's own business for 1–3 years today?
+1. Can tfd's scenario generator model Trifold's own business for 1–3 years today?
 2. What blocks it, ranked?
-3. How should expenses get into atm?
+3. How should expenses get into tfd?
 4. What is the plan, step by step, and what would a 36-month Trifold run look like?
 
 Companion docs: `business-plan.md` (section 8, the outlook this model should reproduce) and `pricing-strategy.md` (tiers, credits, overage).
 
 ## 1. Short answer
 
-Not yet. The generator's engine is the right one: it runs every invoice, credit grant, spend, rollover, refund, dispute and payout through atm's real billing rules, reads no clock, and checks its KPIs in three channels (the atm fold, hledger, DuckDB). But it only knows the demo school's menu, it caps the population far below Trifold's, it has no growth curve, conversion or tier changes, it has no expenses beyond Stripe and disputes, and it has no MRR because a payment does not say whether it is monthly or yearly.
+Not yet. The generator's engine is the right one: it runs every invoice, credit grant, spend, rollover, refund, dispute and payout through tfd's real billing rules, reads no clock, and checks its KPIs in three channels (the tfd fold, hledger, DuckDB). But it only knows the demo school's menu, it caps the population far below Trifold's, it has no growth curve, conversion or tier changes, it has no expenses beyond Stripe and disputes, and it has no MRR because a payment does not say whether it is monthly or yearly.
 
-Three changes would make it usable: pass in a menu (section 4, phase 1), add growth and lifecycle knobs (phases 2 and 3), and add an expense event (phase 5). Until then, the outlook belongs in a notebook outside atm (phase 0).
+Three changes would make it usable: pass in a menu (section 4, phase 1), add growth and lifecycle knobs (phases 2 and 3), and add an expense event (phase 5). Until then, the outlook belongs in a notebook outside tfd (phase 0).
 
-## 2. Mapping Trifold onto atm
+## 2. Mapping Trifold onto tfd
 
-| Trifold | atm concept | Where | Fits today? |
+| Trifold | tfd concept | Where | Fits today? |
 |---|---|---|---|
 | Trifold itself | The school (`SCHOOL_ID`) | `src/scenario/school.ts:10` | Name only: hard-coded to `sch_before_university` |
 | A customer business | A member ("family"), one in-memory subject each | `src/scenario/generate.ts:176-218` | Yes, as a concept |
@@ -26,7 +26,7 @@ Three changes would make it usable: pass in a menu (section 4, phase 1), add gro
 | Free (cloud) | A tier at $0 | `schema/catalog/menu.v1.json` `amount` minimum 50 cents | No: a tier price must be at least 50 cents. Closest today: `freeShare`, a 100%-discounted invoice, drawn across all tiers |
 | Witnessed + Bookkeeper (~$349) | Witnessed plus a monthly add-on, with the partner's part as a cost | Add-ons; `share.*` postings as the pattern for the partner's part (`src/ledger/postings.ts:255-277`) | Partly: the add-on fits, the passthrough does not exist |
 | Credits (1 credit = $0.01, one month rollover) | A credit feature granted monthly with `rollover: { months: 1 }` | `menu.v1.json` `grant` and `rollover` (grant up to 100,000 units, rollover 1–24 months) | The menu can say it. The generator cannot spend it (gap 6) |
-| Ledger events per month (the tier limit) | A second credit feature, or a cap outside atm | — | Not as a limit: atm has credit balances, not usage caps on a non-credit metric |
+| Ledger events per month (the tier limit) | A second credit feature, or a cap outside tfd | — | Not as a limit: tfd has credit balances, not usage caps on a non-credit metric |
 | Compliance packs ($15–30 per state program) | Recurring add-ons | `menu.v1.json` up to 6 add-ons | The menu fits. The generator buys at most one add-on per member, at sign-up, and only the first recurring add-on of an interval (`generate.ts:160-162`, `:198-203`) |
 | Credit top-ups, event overage ($2 per 10,000) | One-time add-ons that grant credits | `menu.v1.json` add-on `every: "once"` | Menu yes, generator only at sign-up |
 | Witness API (500 free, then $0.03–0.05 each) | Metered usage | `docs/usage-metering.md`: metered pricing is out of scope | No. Prepaid packs are the closest fit |
@@ -43,7 +43,7 @@ What works now, with no change: 36 months; monthly and yearly payments; refunds,
 | # | Gap | Why it matters | Evidence | Smallest fix |
 |---|---|---|---|---|
 | 1 | **The generator is tied to the demo menu.** No menu can be passed in. Tier ids, the knob schema, credit spending and expiry all come from Before University | Every revenue number would be at Before University's prices ($12, $29, $9 a seat, $59), not Trifold's | `generate.ts:104` copies `BEFORE_UNIVERSITY_MENU`; `params.ts:40` builds `TIER_IDS` from it, and `tierMix` and `tierCounts` accept only those keys; usage spends only the `class` feature (`generate.ts:410-425`); expiry runs only the demo features (`generate.ts:538`, `FEATURES` from `school.ts:15`); the CLI has no `--menu` (`src/scenario/cli.ts:58-82`) | `generateScenario(scenario, { menu })`, a `menu` field in the scenario input (or `--menu <file>`), checked by `validateMenu`; derive `TIER_IDS` and the feature list from the menu; put the menu (or its hash) in the fixture hash (`src/scenario/fixture.ts:17-20`). Code, medium |
-| 2 | **Population caps and run time.** `members` ≤ 200, `newMembersPerMonth` ≤ 50, so at most 1,950 members in 36 months. The plan has 1,000 paying and 8,000 free by year 3 | Free schools carry cost (hosting, AI credits) and are the conversion pool; they can't be left out of a P&L | `params.ts:55-66`; the count caps of `tierCounts`, `yearlyCount`, `refundCount` are also 200 (`:152`, `:158`, `:164`). Measured on this machine, 36 months, default knobs, `--channels atm`: 24 members 2.7 s, 100 members 31 s, 200 members 159 s. For 100 members, generation took 1.0 s and the atm KPI fold 0.06 s; 28 s was the write-path round trip (`src/scenario/roundtrip.ts`: outbox, ship, read). Another run shared the machine, so treat these as indicative | Raise the caps (say 20,000 members, 2,000 a month) and add a planning mode that skips the round trip (the round trip proves the write path, which a business forecast doesn't need). Code, small. Fallback: a scale factor applied outside atm (one simulated member = k schools), which makes small counts lumpy |
+| 2 | **Population caps and run time.** `members` ≤ 200, `newMembersPerMonth` ≤ 50, so at most 1,950 members in 36 months. The plan has 1,000 paying and 8,000 free by year 3 | Free schools carry cost (hosting, AI credits) and are the conversion pool; they can't be left out of a P&L | `params.ts:55-66`; the count caps of `tierCounts`, `yearlyCount`, `refundCount` are also 200 (`:152`, `:158`, `:164`). Measured on this machine, 36 months, default knobs, `--channels atm`: 24 members 2.7 s, 100 members 31 s, 200 members 159 s. For 100 members, generation took 1.0 s and the tfd KPI fold 0.06 s; 28 s was the write-path round trip (`src/scenario/roundtrip.ts`: outbox, ship, read). Another run shared the machine, so treat these as indicative | Raise the caps (say 20,000 members, 2,000 a month) and add a planning mode that skips the round trip (the round trip proves the write path, which a business forecast doesn't need). Code, small. Fallback: a scale factor applied outside tfd (one simulated member = k schools), which makes small counts lumpy |
 | 3 | **Constant growth.** One `newMembersPerMonth` for every month: no ramp, no S-curve, no school-year seasonality | Section 8 grows paying schools 50 → 300 → 1,000. A constant rate that ends at 1,000 in month 36 puts about 360 paying schools at month 12, seven times the plan (worked in section 5) | `params.ts:61-66`; `generate.ts:164-167` | A `joinsByMonth` series knob (up to 36 whole numbers, overriding `newMembersPerMonth`). A new knob kind, `series`, in `PARAMS`. Code, small |
 | 4 | **No free-to-paid conversion and no upgrades or downgrades.** A member keeps its first tier for life | The plan's biggest unknown is "how many free schools convert to paid" (`business-plan.md` section 8). Net revenue retention above 110% (phase 3 of the plan) needs expansion | `FamilyPlan` is fixed before the run (`generate.ts:88-100`, `:320-519`). The engine already handles an upgrade (`subscription_update` with a proration line) and a downgrade at renewal (`src/billing/grants.ts:788-800`); `invoicePaid` already accepts `subscription_update` (`src/scenario/stripe-events.ts:68-72`). Only the generator never sends one | Knobs `freeTier` (members on it get zero invoices), `conversionRate` (monthly chance a free member moves to a paid tier, drawn from `tierMix`), `upgradeRate`, `downgradeRate`. The generator emits the upgrade invoice; the engine is unchanged. Code, medium |
 | 5 | **Constant churn.** One `churnRate` for all months, tiers and ages | Churn is usually higher in the first months and differs by tier; a single rate hides that | `params.ts:90-95`; `generate.ts:362-363` | `churnByTier` weights and, optionally, `firstYearChurnRate`. Code, small |
@@ -51,8 +51,8 @@ What works now, with no change: 36 months; monthly and yearly payments; refunds,
 | 7 | **Cash basis only: no MRR, ARR or deferred revenue.** | Investors and pricing decisions read MRR, ARR, expansion and churned MRR. On cash basis a yearly payment is a spike; `paying_members` falls to 0 in months with no yearly renewal | `docs/scenarios.md`, "Dropped, and why"; `ROADMAP.md:146` (owner decision open); `payment.succeeded`'s payload has no interval (`src/billing/money.ts:198-210`), although the invoice line has one (`generate.ts:344`) | The fix `docs/scenarios.md` proposes: `interval` and `period_end` labels on `payment.succeeded`, from the invoice line. Then MRR is a KPI spec entry (a yearly payment counted as amount / 12 in each month to `period_end`) — but that spread is a new spec operation, not a `sum`. Code in the production write path, plus a payload schema change and every golden. Needs the owner's decision |
 | 8 | **No expenses beyond Stripe and disputes.** | Without COGS and opex there is no gross margin, operating income, burn or runway | The only expense accounts are `expenses:billing:stripe-fees`, `:disputes`, `:dispute-fees` and `:b4uni-share` (`src/ledger/postings.ts:197-277`) | Section 4. Code, medium |
 | 9 | **Partner passthrough (the bundle).** | The plan counts only Trifold's ~$149 of the ~$349 bundle. Booked as one income line, gross collected overstates revenue by about $200 per bundle | No partner account exists. `share.accrued` is the shape to copy: `expenses:billing:b4uni-share` + / `liabilities:b4uni` − (`postings.ts:255-264`) | Model the bundle as Witnessed plus a `bookkeeper` add-on; book the partner's part as `expenses:billing:partner-share` against `liabilities:partners:<partner>`; add a `net_revenue` KPI (gross less refunds and partner share). Part of the expense work |
-| 10 | **No metered revenue.** Event overage and Witness API receipts are post-paid usage | Small in years 1–2 (section 8 says "small"); 10–20% on top in year 3 | `docs/usage-metering.md`: metered pricing is out of scope; an invoice line the menu doesn't know refuses the invoice (`ROADMAP.md:152`) | Model as prepaid packs (one-time add-ons that grant credits), which is what `pricing-strategy.md` already sells through credits. Post-paid metering: outside atm |
-| 11 | **No cohorts.** | Net revenue retention, payback by cohort and conversion curves are cohort views | The KPI spec has `sum`, `count`, `distinct` (with `first`), `ratio`, `combine` (`schema/kpis.v1.json`); nothing groups holders by first-payment month | Outside atm: DuckDB over the event Parquet, grouping by each holder's first `payment.succeeded`. A spec operation only if this becomes a dashboard |
+| 10 | **No metered revenue.** Event overage and Witness API receipts are post-paid usage | Small in years 1–2 (section 8 says "small"); 10–20% on top in year 3 | `docs/usage-metering.md`: metered pricing is out of scope; an invoice line the menu doesn't know refuses the invoice (`ROADMAP.md:152`) | Model as prepaid packs (one-time add-ons that grant credits), which is what `pricing-strategy.md` already sells through credits. Post-paid metering: outside tfd |
+| 11 | **No cohorts.** | Net revenue retention, payback by cohort and conversion curves are cohort views | The KPI spec has `sum`, `count`, `distinct` (with `first`), `ratio`, `combine` (`schema/kpis.v1.json`); nothing groups holders by first-payment month | Outside tfd: DuckDB over the event Parquet, grouping by each holder's first `payment.succeeded`. A spec operation only if this becomes a dashboard |
 | 12 | **SaaS KPIs missing.** MRR, ARR, NRR, logo churn, CAC, payback, gross margin, burn, runway | They are the outputs a 1–3 year plan is read by | `kpis/school.v1.json` has money, counts, rates, members, credits and balances only | Most become spec entries once gaps 7 and 8 are closed (table below). One file, `kpis/saas.v1.json`, and a `--kpis <file>` option (`runParity` already takes a `spec`, `src/scenario/parity.ts:73-86`; the CLI always passes the default) |
 | 13 | **The Free tier can't be priced at $0, and the menu holds 4 tiers.** | Free, Starter, Pro, Witnessed and the bundle are five offers | `menu.v1.json`: `amount` minimum 50, `tiers` `maxItems` 4 | Four tiers: free (a nominal price, always invoiced at zero via `freeTier`), starter, pro, witnessed. The bundle is witnessed plus the `bookkeeper` add-on. No schema change |
 | 14 | **Zero invoices leave no ledger event after the first month.** | Free schools can't be counted from the books month by month | `docs/scenarios.md`, "A renewal that moves nothing leaves no credit event"; `paying_members` counts payments only | Count active free schools from `credit.spent` (distinct holders with no membership payment), or report them from the generator's `stats`. A KPI entry or a stat |
@@ -63,13 +63,13 @@ What works now, with no change: 36 months; monthly and yearly payments; refunds,
 |---|---|---|
 | Gross margin | `combine`: net revenue less Stripe fees, COGS and partner share, then `ratio` over net revenue | Gap 8 |
 | Operating income, burn | `combine` of revenue and every `expenses:` sum | Gap 8 |
-| Cash on hand | Cumulative `sum` over `^assets:` with no dimension (as `credits_outstanding` is over credits) | An opening balance: a knob outside atm, or an equity event later |
-| Runway | Cash / burn | Outside atm until there is an opening balance (a ratio of a cumulative and a monthly KPI is legal in the spec, but the opening cash isn't in the books) |
+| Cash on hand | Cumulative `sum` over `^assets:` with no dimension (as `credits_outstanding` is over credits) | An opening balance: a knob outside tfd, or an equity event later |
+| Runway | Cash / burn | Outside tfd until there is an opening balance (a ratio of a cumulative and a monthly KPI is legal in the spec, but the opening cash isn't in the books) |
 | CAC | `ratio`: `expenses:opex:marketing` / `new_paying_members` | Gap 8 |
 | Payback (months) | CAC / (ARPA × gross margin) | Gaps 7 and 8 |
 | MRR, ARR, new / expansion / contraction / churned MRR | Spread of each payment over its period | Gap 7 and a new spec operation |
 | Logo churn | Holders paying last month and not this month | Gap 7 (yearly payers look churned otherwise); `plan.canceled` has no postings, so hledger can't count it (`docs/scenarios.md`, "Channel discrepancies found") |
-| Net revenue retention | Cohort revenue now / the same cohort 12 months ago | Gap 11: outside atm |
+| Net revenue retention | Cohort revenue now / the same cohort 12 months ago | Gap 11: outside tfd |
 | Credits outstanding, breakage | Already in the spec | — |
 
 ## 4. Expenses
@@ -95,11 +95,11 @@ Naming: the existing payment-processing costs live under `expenses:billing:`; ke
 
 The money side: today the cash accounts are `assets:stripe` and `assets:clearing:stripe-payouts`. Real bills are paid from a bank account, which needs a new `assets:bank` (or `assets:bank:<name>`). In a simulation, paying from `assets:clearing:stripe-payouts` is a reasonable stand-in.
 
-### Option A: a layer outside atm
+### Option A: a layer outside tfd
 
-A marimo notebook (or a DuckDB SQL file) reads `kpis.parquet` from `atm scenario kpis` and adds COGS and opex from rate tables and a schedule.
+A marimo notebook (or a DuckDB SQL file) reads `kpis.parquet` from `tfd scenario kpis` and adds COGS and opex from rate tables and a schedule.
 
-- For: no atm code at all; usable today; fast to change assumptions; fixed costs (payroll, legal) are naturally a schedule, not events.
+- For: no tfd code at all; usable today; fast to change assumptions; fixed costs (payroll, legal) are naturally a schedule, not events.
 - Against: the costs never reach the ledger, so hledger and the three-channel parity don't check them; per-credit and per-event costs have to be multiplied from monthly KPI totals, which loses the link to which member caused them; the result can't be a real P&L for a real business.
 
 ### Option B: cost drivers inside the scenario generator
@@ -113,12 +113,12 @@ The generator already knows every payment, credit spent and bundle. New knobs gi
 
 Costs below a cent (a credit's tokens, an event's hosting) are summed per month and rounded once, half away from zero, then booked as one event per line per month. Postings are two-place USD, and the usage spike found that rounding per event loses about a quarter of the total (`docs/usage-metering.md`, "Rating").
 
-- For: costs go through the ledger, so hledger, DuckDB and the atm fold check them like revenue; gross margin, burn and CAC become spec entries; stays pure (rates are knobs, counts are what the run already made, no clock, no I/O).
+- For: costs go through the ledger, so hledger, DuckDB and the tfd fold check them like revenue; gross margin, burn and CAC become spec entries; stays pure (rates are knobs, counts are what the run already made, no clock, no I/O).
 - Against: needs an event type that can carry an expense (none of today's can, see below); one more set of goldens.
 
 ### Option C: an expense event type for real operating expenses
 
-None of today's event types can book an arbitrary expense: `moneyPostings` has a fixed `switch` and throws on anything else (`src/ledger/postings.ts:189-292`), and `share.*` is fixed to `expenses:billing:b4uni-share` and `liabilities:b4uni`. A new type makes atm's books able to hold a real P&L for any business, Trifold included:
+None of today's event types can book an arbitrary expense: `moneyPostings` has a fixed `switch` and throws on anything else (`src/ledger/postings.ts:189-292`), and `share.*` is fixed to `expenses:billing:b4uni-share` and `liabilities:b4uni`. A new type makes tfd's books able to hold a real P&L for any business, Trifold included:
 
 - `expense.paid` (cash basis, like the rest of the books): `expenses:<tail>` + amount, `<paidFrom>` − amount. Payload: `account` (the tail, checked against `^(cogs|opex|billing):[a-z0-9-]+(:[a-z0-9-]+)?$`), `paid_from` (an `assets:` account), `amount` in cents, `vendor` as a category, never a person's name, `driver` label (`credit`, `event`, `payment`, `bundle`, `fixed`), `period` (`YYYY-MM`) for costs booked in arrears.
 - Later, if the owner chooses accrual: `expense.accrued` / `expense.settled` against `liabilities:payable:<vendor>`, copying `share.accrued` / `share.settled` exactly.
@@ -126,13 +126,13 @@ None of today's event types can book an arbitrary expense: `moneyPostings` has a
 
 Edits needed, the same list the usage spike found for a new type (`docs/usage-metering.md`, "Envelope fit"): the `event_type` enum in `schema/envelope.v1.json`; `AtmEventType` in `src/types.ts:92-129`; a `case` in `moneyPostings`; `schema/payload/expense.paid.v1.json` and `bun schema/build.ts`; the source in `defaultSource` (`postings.ts:294-304`). The KPI channels need nothing: none of them names an event type in code (`src/scenario/channels/*.ts`), they read postings.
 
-How a real expense arrives stays outside the library: a CLI command (`atm expense add --account opex:legal --amount 150000 --date 2027-02-03 --vendor law-firm`) or the family service writing to the outbox as it writes its own commands. The library only builds the event with `ledgerEvent`, a pure function. A later step could map Stripe's own invoices for Trifold's vendors, but that is not needed for a plan.
+How a real expense arrives stays outside the library: a CLI command (`tfd expense add --account opex:legal --amount 150000 --date 2027-02-03 --vendor law-firm`) or the family service writing to the outbox as it writes its own commands. The library only builds the event with `ledgerEvent`, a pure function. A later step could map Stripe's own invoices for Trifold's vendors, but that is not needed for a plan.
 
 ### Comparison
 
 | | A: notebook | B: generator drivers | C: expense event |
 |---|---|---|---|
-| atm code | none | knobs + generator, needs C's event | event type, schema, CLI |
+| tfd code | none | knobs + generator, needs C's event | event type, schema, CLI |
 | Costs checked by three-channel parity | no | yes | yes |
 | Real P&L for a real business | no | no (simulation only) | yes |
 | Fixed opex | easy | as a schedule knob | as real bills |
@@ -142,7 +142,7 @@ How a real expense arrives stays outside the library: a CLI command (`atm expens
 ### Recommendation
 
 Do all three, in this order, because each is small and the later ones reuse the earlier:
-1. **A now** (phase 0): the notebook gives the section 8 outlook with costs in a day, with no atm change, and becomes the check for B later.
+1. **A now** (phase 0): the notebook gives the section 8 outlook with costs in a day, with no tfd change, and becomes the check for B later.
 2. **C next, minimal** (phase 5a): `expense.paid` only, cash basis. It's the one piece that also serves real businesses, and B needs it.
 3. **B on top** (phase 5b): the generator emits `expense.paid` for its drivers; the notebook's cost lines move into the ledger one by one and must match.
 
@@ -154,12 +154,12 @@ Scope, honestly: this section is a plan. Nothing in it is built.
 
 | Phase | What | Files | Rough size |
 |---|---|---|---|
-| 0 | Notebook model outside atm: section 8's counts, prices and costs as tables; monthly revenue, COGS, opex, burn, runway | New notebook outside `packages/atm` (for example `docs/business/model.py`, marimo) | 1 day, no atm code |
+| 0 | Notebook model outside tfd: section 8's counts, prices and costs as tables; monthly revenue, COGS, opex, burn, runway | New notebook outside `packages/atm` (for example `docs/business/model.py`, marimo) | 1 day, no tfd code |
 | 1 | Pass a menu in. Menu-derived `tierMix` and `tierCounts` keys, features for usage and expiry. A Trifold menu fixture | `src/scenario/generate.ts`, `params.ts`, `profiles.ts`, `fixture.ts`, `cli.ts`, `school.ts`; `fixtures/billing/menu/trifold.json`; tests | ~250 lines + tests; every golden's `fixtureHash` moves if the menu enters the hash |
 | 2 | Scale and growth: raise the caps; `joinsByMonth`; a planning mode with no round trip; `churnByTier` | `params.ts`, `generate.ts`, `cli.ts`, `src/scenario/roundtrip.ts` (skip), tests | ~150 lines |
 | 3 | Lifecycle and usage: `freeTier`, `conversionRate`, `upgradeRate`, `downgradeRate`; credit consumption per feature with `value` > 1; top-ups when a balance runs out | `generate.ts`, `store.ts`, `params.ts`, tests | ~300 lines |
 | 4 | `interval` and `period_end` labels on `payment.succeeded`; MRR, ARR, logo churn KPIs (a spread operation in the spec) | `src/billing/money.ts`, `schema/payload/payment.succeeded.v1.json`, `schema/kpis.v1.json`, the three channels, `kpis/` | ~300 lines; every golden moves. **Owner decision first** |
-| 5a | `expense.paid` event type; `atm expense add` | `schema/envelope.v1.json`, `src/types.ts`, `src/ledger/postings.ts`, `schema/payload/expense.paid.v1.json`, CLI, tests | ~200 lines |
+| 5a | `expense.paid` event type; `tfd expense add` | `schema/envelope.v1.json`, `src/types.ts`, `src/ledger/postings.ts`, `schema/payload/expense.paid.v1.json`, CLI, tests | ~200 lines |
 | 5b | Cost drivers in the generator (`aiCostPerCreditMicros`, hosting, witness, `partnerShare`, `opex` schedule) | `params.ts`, `generate.ts`, tests | ~200 lines |
 | 6 | `kpis/saas.v1.json` (net revenue, COGS, gross margin, opex, operating income, cash, CAC, active free schools) and `--kpis <file>` | `kpis/saas.v1.json`, `cli.ts`, parity tests | ~150 lines, mostly JSON |
 
@@ -219,7 +219,7 @@ Rough check of the year-end counts with these knobs (hand arithmetic, to tune ag
 
 ## 6. What this doesn't cover
 
-- Self-hosted (Community) schools: they never touch Trifold's Stripe account, so no ledger can see them. Count them, if at all, from verifier traffic or downloads, outside atm.
+- Self-hosted (Community) schools: they never touch Trifold's Stripe account, so no ledger can see them. Count them, if at all, from verifier traffic or downloads, outside tfd.
 - Taxes, sales tax on SaaS by state, and income tax.
-- Fundraising and equity. atm has `fundraise.*` for Zeffy donations, which is not equity.
+- Fundraising and equity. tfd has `fundraise.*` for Zeffy donations, which is not equity.
 - Price response (how conversion changes when a price changes). That is Pricing Lab's forward forecast (`pricing-strategy.md` section 7), which would build on phases 1–4.

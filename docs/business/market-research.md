@@ -11,7 +11,7 @@ Trifold sits between four groups. None of them offers books a third party can ve
 | Group | What customers buy it for | How it prices | Where Trifold fits |
 |---|---|---|---|
 | General accounting software | Books, invoices, tax-time reports | Flat tiers capped by users or features | Replace it for Stripe-native businesses (Pro), or feed it (Starter) |
-| AI-native accounting | Books kept automatically, few seats | Flat tiers, no per-user fee | Same buyers. Trifold adds an open core and provable books |
+| AI-native accounting | Books kept automatically, few seats | Flat tiers, no per-user fee | Same buyers. Trifold adds a source-available engine (free to self-host) and provable books |
 | Bookkeeping services | Someone else closes the month | Monthly fee that rises with expenses | Witnessed + Bookkeeper bundle, sold through partners |
 | Vertical software for schools and studios | Scheduling, enrollment, billing | Per student, or tiers | Partner and embed (Witness API). They run operations; Trifold keeps the books |
 
