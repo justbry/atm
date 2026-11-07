@@ -5,7 +5,7 @@
 	"type": "module",
 	"description": "The Trifold engine, built on Autumn's balance engine: a local CLI (tfd, also atm) and a TypeScript library that run engine commands against a subject; next, build, check and replay a school's ledger.",
 	"bin": {
-		"atm": "./src/bin.ts",
+		"atm": "./src/atm.ts",
 		"tfd": "./src/bin.ts"
 	},
 	"exports": {
@@ -26,7 +26,7 @@
 		"fixtures/scenarios"
 	],
 	"scripts": {
-		"atm": "bun ./src/bin.ts",
+		"atm": "bun ./src/atm.ts",
 		"tfd": "bun ./src/bin.ts",
 		"build": "bun ./build.ts",
 		"release": "bun ./release.ts",

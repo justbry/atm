@@ -16,7 +16,7 @@ import packageJson from "../package.json";
 import { validateMenu } from "./billing/menu.js";
 import { resolvePolicy } from "./billing/policy.js";
 import type { BillingPolicy, Menu } from "./billing/types.js";
-import { commandName } from "./command-name.js";
+import { commandName, otherCommandName } from "./command-name.js";
 import { engineCommandTypes, runEngineCommand } from "./engine.js";
 import { bunSqlite } from "./handler/bun-sqlite.js";
 import { inputsStatus, sqliteInputsSource } from "./handler/inputs.js";
@@ -101,7 +101,7 @@ const readJson = async (path: string) =>
 export const program = new Command()
 	.name(commandName)
 	.description(
-		"The Trifold engine as a local CLI (Autumn's balance rules inside); `atm` is the same command",
+		`The Trifold engine as a local CLI (Autumn's balance rules inside); \`${otherCommandName}\` is the same command`,
 	)
 	.version(packageJson.version);
 
@@ -321,7 +321,7 @@ const ship = async (opts: ShipOptions): Promise<void> => {
 	const root = await stat(opts.root).catch(() => null);
 	if (!root?.isDirectory())
 		throw new InputError(
-			`--root ${opts.root} is not an existing folder; create it first (atm ship does not create the root, so that a typo in it ships nothing)`,
+			`--root ${opts.root} is not an existing folder; create it first (${commandName} ship does not create the root, so that a typo in it ships nothing)`,
 		);
 	const database = new Database(opts.db, { readwrite: true });
 	try {
@@ -425,7 +425,7 @@ const inputsStore = async (opts: InputsShipOptions) => {
 	const root = await stat(destination.root).catch(() => null);
 	if (!root?.isDirectory())
 		throw new InputError(
-			`--root ${destination.root} is not an existing folder; create it first (atm inputs ship does not create the root, so that a typo in it ships nothing)`,
+			`--root ${destination.root} is not an existing folder; create it first (${commandName} inputs ship does not create the root, so that a typo in it ships nothing)`,
 		);
 	return new FolderStore({ root: destination.root });
 };
@@ -461,7 +461,7 @@ const inputsShip = async (opts: InputsShipOptions): Promise<void> => {
 			process.stderr.write(`conflict ${conflict.key}: ${conflict.message}\n`);
 		if (result.erasures.pending > 0)
 			process.stderr.write(
-				`erasure pending: ${result.erasures.pending} shipped object(s) of an erased holder are not rewritten or deleted yet; run atm inputs ship again\n`,
+				`erasure pending: ${result.erasures.pending} shipped object(s) of an erased holder are not rewritten or deleted yet; run ${commandName} inputs ship again\n`,
 			);
 		const status = inputsShipStatus({
 			db,
@@ -770,7 +770,7 @@ const readStoredInputs = async (path: string, env: AtmEnv, school: string) => {
 		const read = await folderInputsSource(path).read({ env, school });
 		if (read.inputs.length === 0 && read.refused.length === 0)
 			throw new InputError(
-				`no inputs under ${path}/schools/${school}/inputs/${env}: run atm inputs ship, or point --inputs at the handler's database`,
+				`no inputs under ${path}/schools/${school}/inputs/${env}: run ${commandName} inputs ship, or point --inputs at the handler's database`,
 			);
 		return read;
 	}
@@ -794,7 +794,7 @@ const readStoredInputs = async (path: string, env: AtmEnv, school: string) => {
 		}
 		if (!status.available)
 			throw new InputError(
-				`${path} holds no stored inputs for school ${school} (${env}): the handler stores them from atm 0.9.0, so a what-if on the grant rules covers only the history after that; run atm simulate without --inputs for the command-level what-if on the whole log`,
+				`${path} holds no stored inputs for school ${school} (${env}): the handler stores them from atm 0.9.0, so a what-if on the grant rules covers only the history after that; run ${commandName} simulate without --inputs for the command-level what-if on the whole log`,
 			);
 		return await sqliteInputsSource(db, path).read({ env, school });
 	} finally {
@@ -891,7 +891,7 @@ const runSimulate = async (opts: SimulateOptions): Promise<void> => {
 	}
 	if (!(opts.root && opts.school))
 		throw new InputError(
-			"give --root and --school to replay a log, or --profile <name> (atm scenarios list) to simulate a scenario",
+			`give --root and --school to replay a log, or --profile <name> (${commandName} scenarios list) to simulate a scenario`,
 		);
 	if (opts.inputs !== undefined)
 		return runSimulateFromInputs({
@@ -1049,7 +1049,7 @@ const keysFrom = async (path: string): Promise<AtmPublicKeys> => {
 		!Object.values(keys).every((pem) => typeof pem === "string")
 	)
 		throw new InputError(
-			`--keys ${path} is not a keys.json ({ key_id: public PEM }), as atm keys new writes`,
+			`--keys ${path} is not a keys.json ({ key_id: public PEM }), as ${commandName} keys new writes`,
 		);
 	return keys as AtmPublicKeys;
 };
@@ -1120,7 +1120,7 @@ const keysNewCommand = keysCommand
 			for (const [name] of keyFiles)
 				if (await stat(join(opts.out, name)).catch(() => null))
 					throw new InputError(
-						`${join(opts.out, name)} already exists; atm keys new overwrites nothing`,
+						`${join(opts.out, name)} already exists; ${commandName} keys new overwrites nothing`,
 					);
 			// A rotation adds its key beside the old ones, which still check the receipts and seals they signed.
 			const known = (await stat(keysPath).catch(() => null))
@@ -1128,7 +1128,7 @@ const keysNewCommand = keysCommand
 				: {};
 			if (Object.hasOwn(known, keyId))
 				throw new InputError(
-					`${keysPath} already has a key ${keyId}; atm keys new overwrites nothing`,
+					`${keysPath} already has a key ${keyId}; ${commandName} keys new overwrites nothing`,
 				);
 			for (const [name, text, mode] of keyFiles)
 				await writeFile(join(opts.out, name), text, { flag: "wx", mode });
@@ -1222,7 +1222,7 @@ const sealCommand = program
 				(error: unknown) => {
 					throw new InputError(
 						hasErrorCode(error, "EEXIST")
-							? `${lock} exists: another atm seal is running, or one stopped without removing it`
+							? `${lock} exists: another ${commandName} seal is running, or one stopped without removing it`
 							: `${lock} cannot be written: ${oneLine(error)}`,
 					);
 				},
@@ -1232,7 +1232,7 @@ const sealCommand = program
 				const previous = (await readSeals(path))?.at(-1) ?? null;
 				if (previous !== null && typeof previous !== "object")
 					throw new InputError(
-						`the last line of ${path} is not a signed seal; run atm verify seals`,
+						`the last line of ${path} is not a signed seal; run ${commandName} verify seals`,
 					);
 				const seal = sealOf({
 					school: opts.school,
@@ -1315,7 +1315,9 @@ const verifySealsCommand = verifyCommand
 			const path = join(opts.root, "schools", opts.school, SEALS_FILE);
 			const seals = await readSeals(path);
 			if (seals === null)
-				throw new InputError(`no seals at ${path}; atm seal makes them`);
+				throw new InputError(
+					`no seals at ${path}; ${commandName} seal makes them`,
+				);
 			const report = verifySeals(seals, events, keys);
 			writeJson(report);
 			if (!report.ok) process.exitCode = EXIT_INVALID;

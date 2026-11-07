@@ -395,7 +395,7 @@
       "name": "atm",
       "version": "0.9.0",
       "bin": {
-        "atm": "./src/bin.ts",
+        "atm": "./src/atm.ts",
         "tfd": "./src/bin.ts",
       },
       "dependencies": {
