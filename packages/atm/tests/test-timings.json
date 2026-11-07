@@ -92,6 +92,7 @@
 		"tests/scenario-cli.test.ts": 30626,
 		"tests/scenario-fixtures.test.ts": 26796,
 		"tests/scenario-order.test.ts": 152646,
+		"tests/scenario-orgs.test.ts": 3300,
 		"tests/scenario-parity.test.ts": 108950,
 		"tests/scenario-presets.test.ts": 4354,
 		"tests/scenario-rebuild.test.ts": 5955,

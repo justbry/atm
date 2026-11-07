@@ -1,0 +1,115 @@
+{
+	"currency": "usd",
+	"timeZone": "America/Chicago",
+	"features": [
+		{
+			"id": "class",
+			"name": "Group class",
+			"unit": { "one": "class", "other": "classes" }
+		},
+		{
+			"id": "pt-session",
+			"name": "Personal training session",
+			"unit": { "one": "session", "other": "sessions" }
+		},
+		{
+			"id": "guest-pass",
+			"name": "Guest pass",
+			"unit": { "one": "guest pass", "other": "guest passes" }
+		}
+	],
+	"tiers": [
+		{
+			"id": "off-peak",
+			"name": "Off-peak",
+			"blurb": "Four daytime classes a month",
+			"public": true,
+			"prices": [
+				{ "interval": "month", "amount": 3900 },
+				{ "interval": "year", "amount": 39000 }
+			],
+			"grants": [{ "featureId": "class", "amount": 4, "every": "month" }]
+		},
+		{
+			"id": "core",
+			"name": "Core",
+			"blurb": "Twelve classes a month; up to four unused carry into next month",
+			"public": true,
+			"prices": [
+				{ "interval": "month", "amount": 8900 },
+				{ "interval": "year", "amount": 89000 }
+			],
+			"grants": [
+				{
+					"featureId": "class",
+					"amount": 12,
+					"every": "month",
+					"rollover": { "max": 4, "months": 1 }
+				}
+			]
+		},
+		{
+			"id": "class-pack",
+			"name": "Class pack",
+			"blurb": "Packs of five classes, bought one or two at a time; unused classes roll over for two months, then expire",
+			"public": true,
+			"prices": [{ "interval": "month", "amount": 6000 }],
+			"grants": [
+				{
+					"featureId": "class",
+					"amount": 5,
+					"every": "month",
+					"rollover": { "max": 5, "months": 2 }
+				}
+			],
+			"quantities": [1, 2]
+		},
+		{
+			"id": "all-access",
+			"name": "All access",
+			"blurb": "Thirty classes, two personal training sessions and a guest pass a month",
+			"public": true,
+			"prices": [
+				{ "interval": "month", "amount": 16900 },
+				{ "interval": "year", "amount": 169000 }
+			],
+			"grants": [
+				{ "featureId": "class", "amount": 30, "every": "month" },
+				{ "featureId": "pt-session", "amount": 2, "every": "month" },
+				{ "featureId": "guest-pass", "amount": 1, "every": "month" }
+			]
+		}
+	],
+	"addons": [
+		{
+			"id": "drop-in",
+			"name": "Drop-in class",
+			"price": { "amount": 2200, "every": "once" },
+			"grants": [{ "featureId": "class", "amount": 1, "every": "month" }]
+		},
+		{
+			"id": "ten-class-pack",
+			"name": "Ten-class pack",
+			"price": { "amount": 16000, "every": "once" },
+			"grants": [{ "featureId": "class", "amount": 10, "every": "month" }]
+		},
+		{
+			"id": "pt-intro",
+			"name": "Personal training intro session",
+			"price": { "amount": 7500, "every": "once" },
+			"grants": [{ "featureId": "pt-session", "amount": 1, "every": "month" }]
+		},
+		{
+			"id": "locker",
+			"name": "Locker and towel service",
+			"price": { "amount": 1500, "every": "month" },
+			"grants": [{ "featureId": "guest-pass", "amount": 1, "every": "month" }]
+		},
+		{
+			"id": "locker-year",
+			"name": "Locker and towel service, yearly",
+			"price": { "amount": 15000, "every": "year" },
+			"grants": [{ "featureId": "guest-pass", "amount": 12, "every": "year" }]
+		}
+	]
+}

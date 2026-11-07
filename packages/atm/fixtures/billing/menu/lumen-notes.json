@@ -1,0 +1,101 @@
+{
+	"currency": "usd",
+	"timeZone": "America/Los_Angeles",
+	"features": [
+		{
+			"id": "api-calls",
+			"name": "API calls",
+			"unit": {
+				"one": "block of 1,000 calls",
+				"other": "blocks of 1,000 calls"
+			}
+		},
+		{
+			"id": "priority-support",
+			"name": "Priority support ticket",
+			"unit": { "one": "ticket", "other": "tickets" }
+		}
+	],
+	"tiers": [
+		{
+			"id": "solo",
+			"name": "Solo",
+			"blurb": "One seat and 5,000 API calls a month",
+			"public": true,
+			"prices": [
+				{ "interval": "month", "amount": 1200 },
+				{ "interval": "year", "amount": 12000 }
+			],
+			"grants": [{ "featureId": "api-calls", "amount": 5, "every": "month" }]
+		},
+		{
+			"id": "team",
+			"name": "Team",
+			"blurb": "Per seat, 3 to 10 seats: 10,000 API calls a seat a month",
+			"public": true,
+			"prices": [
+				{ "interval": "month", "amount": 1000 },
+				{ "interval": "year", "amount": 10000 }
+			],
+			"grants": [
+				{
+					"featureId": "api-calls",
+					"amount": 10,
+					"every": "month"
+				}
+			],
+			"quantities": [3, 5, 10]
+		},
+		{
+			"id": "business",
+			"name": "Business",
+			"blurb": "Per seat, 10 to 50 seats: 25,000 API calls a seat a month and a priority ticket a seat",
+			"public": true,
+			"prices": [
+				{ "interval": "month", "amount": 1800 },
+				{ "interval": "year", "amount": 18000 }
+			],
+			"grants": [
+				{
+					"featureId": "api-calls",
+					"amount": 25,
+					"every": "month"
+				},
+				{ "featureId": "priority-support", "amount": 1, "every": "month" }
+			],
+			"quantities": [10, 25, 50]
+		}
+	],
+	"addons": [
+		{
+			"id": "api-boost",
+			"name": "API boost, 50,000 calls",
+			"price": { "amount": 2500, "every": "once" },
+			"grants": [{ "featureId": "api-calls", "amount": 50, "every": "month" }]
+		},
+		{
+			"id": "support-plus",
+			"name": "Support plus",
+			"price": { "amount": 2900, "every": "month" },
+			"grants": [
+				{ "featureId": "priority-support", "amount": 2, "every": "month" }
+			]
+		},
+		{
+			"id": "support-plus-year",
+			"name": "Support plus, yearly",
+			"price": { "amount": 29000, "every": "year" },
+			"grants": [
+				{ "featureId": "priority-support", "amount": 24, "every": "year" }
+			]
+		},
+		{
+			"id": "onboarding",
+			"name": "Guided onboarding",
+			"price": { "amount": 49900, "every": "once" },
+			"grants": [
+				{ "featureId": "priority-support", "amount": 3, "every": "month" }
+			]
+		}
+	]
+}
