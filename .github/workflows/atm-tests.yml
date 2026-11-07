@@ -3,6 +3,16 @@ name: atm tests
 # Tests, typecheck, lint and build of packages/atm on a pull request. Nothing else in this repository runs atm's tests:
 # knip.yml and the inherited Autumn workflows do not, and release-atm.yml only builds a tag.
 #
+# Five jobs run side by side. `test` is a matrix of four: two shards of the test files and two of the golden end-to-end
+# check (tests/golden-e2e-check.test.ts, its own file of about five minutes, split with ATM_GOLDEN_E2E_SHARD). `checks`
+# runs the typecheck, lint and build. All of them restore Bun's install cache, keyed on bun.lock and .bun-version.
+#
+# The test shards are balanced with tests/test-timings.json, each file's serial time on a hosted runner: a file left out of
+# it (a new one, or one that skips on a runner) still runs, in whichever shard bun puts it. To refresh it, run every file
+# at once (not a shard: a shard writes only its own files) and format it after, as bun writes it with spaces:
+#   bun test --timeout 60000 --timings=tests/test-timings.json --update-timings tests
+#   ../../node_modules/.bin/biome check --write tests/test-timings.json
+#
 # Where it runs follows B4 Uni's CI (buzz-school docs/ci-and-deploy.md): the repository variable CI_RUNNER, a JSON
 # runner label list, sends the job to a self-hosted Sprite box (for example '["self-hosted","b4u-sprite"]'); unset, it
 # runs on a GitHub-hosted runner. A box has to be registered to THIS repository first (runners are not shared across
@@ -19,6 +29,8 @@ on:
       - "packages/atm/**"
       - "packages/balance-engine/**"
       - "packages/ksuid/**"
+      - "packages/ledger-ui/src/fixtures/disclosure.json"
+      - "packages/ledger-ui/src/data/disclosure.ts"
       - "shared/**"
       - "package.json"
       - "biome.json"
@@ -31,6 +43,8 @@ on:
       - "packages/atm/**"
       - "packages/balance-engine/**"
       - "packages/ksuid/**"
+      - "packages/ledger-ui/src/fixtures/disclosure.json"
+      - "packages/ledger-ui/src/data/disclosure.ts"
       - "shared/**"
       - "package.json"
       - "biome.json"
@@ -47,11 +61,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  atm:
-    name: atm (tests, tsc, lint, build)
+  test:
+    name: atm (${{ matrix.part }})
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-latest"') }}
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - part: tests 1/2
+            shard: 1/2
+          - part: tests 2/2
+            shard: 2/2
+          - part: golden 1/2
+            golden: 1/2
+          - part: golden 2/2
+            golden: 2/2
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -60,6 +86,14 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version
+
+      - name: Cache Bun install cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.bun-version', 'bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -91,10 +125,46 @@ jobs:
           "$dir/hledger" --version
 
       # The journal tests that spawn atm's CLI take about 0.6 s per spawn, so the default 5 s test timeout is too short on
-      # a slow box.
+      # a slow box. --parallel runs the shard's files in one worker process per CPU core, each file in its own global scope,
+      # the slowest first.
       - name: Test
+        if: matrix.shard
         working-directory: packages/atm
-        run: bun test --timeout 60000 tests
+        run: >-
+          bun test --timeout 60000 --parallel --shard=${{ matrix.shard }} --timings=tests/test-timings.json
+          --path-ignore-patterns='**/golden-e2e-check.test.ts' tests
+
+      - name: Golden end-to-end check
+        if: matrix.golden
+        working-directory: packages/atm
+        env:
+          ATM_GOLDEN_E2E_SHARD: ${{ matrix.golden }}
+        run: bun test --timeout 60000 tests/golden-e2e-check.test.ts
+
+  checks:
+    name: atm (tsc, lint, build)
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ${{ fromJSON(vars.CI_RUNNER || '"ubuntu-latest"') }}
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Cache Bun install cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.bun-version', 'bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
 
       - name: Typecheck
         working-directory: packages/atm

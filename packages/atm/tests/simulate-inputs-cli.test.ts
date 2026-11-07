@@ -425,7 +425,7 @@ describe("atm simulate --inputs: input it cannot use is exit 2 with one line", (
 			"a database with no inputs table",
 			() =>
 				base().map((a) => (a === databaseFile ? (files.noTable as string) : a)),
-			/holds no stored inputs for school sch_vol \(live\).*run atm simulate without --inputs/,
+			/holds no stored inputs for school sch_vol \(live\).*run tfd simulate without --inputs/,
 		],
 		[
 			"a database that does not exist",
@@ -436,7 +436,7 @@ describe("atm simulate --inputs: input it cannot use is exit 2 with one line", (
 		[
 			"a folder with no shipped inputs",
 			() => base().map((a) => (a === databaseFile ? (root as string) : a)),
-			/no inputs under .*schools\/sch_vol\/inputs\/live: run atm inputs ship, or point --inputs at the handler's database/,
+			/no inputs under .*schools\/sch_vol\/inputs\/live: run tfd inputs ship, or point --inputs at the handler's database/,
 		],
 		[
 			"stored inputs of another env",

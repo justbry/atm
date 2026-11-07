@@ -1,0 +1,20 @@
+# Machine-readable license map for this package (REUSE 3.2). LICENSING.md explains it in prose.
+version = 1
+
+[[annotations]]
+path = "**"
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 Trifold"
+SPDX-License-Identifier = "FSL-1.1-ALv2"
+
+[[annotations]]
+path = ["schema/receipt.v1.json", "schema/seal.v1.json", "docs/receipts.md"]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Trifold"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "tests/golden/receipt/**"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Trifold"
+SPDX-License-Identifier = "CC0-1.0"

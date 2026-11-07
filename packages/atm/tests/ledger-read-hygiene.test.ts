@@ -109,16 +109,19 @@ describe("the Worker read path's import graph", () => {
 			expect(files.has(`src/ledger/${module}.ts`)).toBe(true);
 	});
 
-	test("worker.ts reaches the KPI document and the suppression rules, and not the Ajv-backed spec loader", () => {
+	test("worker.ts reaches the KPI document, the suppression rules and the model's resolution, and not the Ajv-backed spec and model loaders", () => {
 		const { files } = reachFrom("src/worker.ts");
 		for (const file of [
 			"src/ledger/kpi-document.ts",
 			"src/scenario/suppress-core.ts",
 			"src/scenario/kpi-evaluate.ts",
+			"src/model/resolve.ts",
 		])
 			expect(files.has(file)).toBe(true);
 		for (const file of [
 			"src/scenario/kpis.ts",
+			"src/model/ledger-model.ts",
+			"src/model/generate.ts",
 			"src/scenario/suppress.ts",
 			"src/ledger/report.ts",
 			"src/ledger/files.ts",

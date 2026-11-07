@@ -10,6 +10,7 @@
  * members (the most in one month of it) as the mockup's `bkFig` does, and a plan's payers as its share of gross over the
  * average per paying member (`dashFull`); a donor bucket or fund counts its gifts.
  */
+import { type KpiCatalogKind, kpiCatalog } from "./kpi-catalog.js";
 import {
 	type Audience,
 	applyOverride,
@@ -115,168 +116,9 @@ const monthNames = [
 	"Dec",
 ];
 
-type Kind = "money" | "count" | "rate";
-type Catalog = {
-	title: string;
-	kind: Kind;
-	/** The KPI whose disclosure rule it follows (a dimension's catalog id, or the donors' class proxies). */
-	ruleOf: string;
-	/** The detail the figure needs (mockup bkFig `need`). */
-	need?: DetailStep;
-	inputs?: string[];
-};
-/** atm's catalog facts the documents need, with the mockup's labels (its `KPI` table). */
-const catalog: Record<string, Catalog> = {
-	gross_collected: {
-		title: "Gross collected",
-		kind: "money",
-		ruleOf: "gross_collected",
-	},
-	"revenue_by_kind:*": {
-		title: "Income by kind",
-		kind: "money",
-		ruleOf: "revenue_by_kind",
-		need: "categories",
-	},
-	"revenue_by_tier:*": {
-		title: "Income by plan",
-		kind: "money",
-		ruleOf: "revenue_by_tier",
-		need: "breakdown",
-	},
-	net_income: {
-		title: "Net income",
-		kind: "money",
-		ruleOf: "net_income",
-		inputs: [
-			"gross_collected",
-			"refunds",
-			"stripe_fees",
-			"disputes_lost",
-			"dispute_fees",
-		],
-	},
-	refunds: {
-		title: "Refunds",
-		kind: "money",
-		ruleOf: "refunds",
-	},
-	disputes_lost: {
-		title: "Disputes lost",
-		kind: "money",
-		ruleOf: "disputes_lost",
-	},
-	dispute_fees: {
-		title: "Dispute fees",
-		kind: "money",
-		ruleOf: "dispute_fees",
-	},
-	/** The mockup's Dispute cost card: one figure, lost plus fees, under the disputes_lost rule. */
-	dispute_cost: {
-		title: "Dispute cost",
-		kind: "money",
-		ruleOf: "disputes_lost",
-		inputs: ["disputes_lost", "dispute_fees"],
-	},
-	stripe_fees: {
-		title: "Payment fees",
-		kind: "money",
-		ruleOf: "stripe_fees",
-	},
-	refund_rate: {
-		title: "Refund rate",
-		kind: "rate",
-		ruleOf: "refund_rate",
-		inputs: ["refunds", "gross_collected"],
-	},
-	dispute_rate: {
-		title: "Dispute rate",
-		kind: "rate",
-		ruleOf: "dispute_rate",
-		inputs: ["disputes_opened", "payments_count"],
-	},
-	payouts: {
-		title: "Paid out",
-		kind: "money",
-		ruleOf: "payouts",
-	},
-	paying_members: {
-		title: "Paying members",
-		kind: "count",
-		ruleOf: "paying_members",
-	},
-	new_paying_members: {
-		title: "New paying",
-		kind: "count",
-		ruleOf: "new_paying_members",
-	},
-	arpa: {
-		title: "Avg per paying member",
-		kind: "money",
-		ruleOf: "arpa",
-		inputs: ["gross_collected", "paying_members"],
-	},
-	payments_count: {
-		title: "Payments",
-		kind: "count",
-		ruleOf: "payments_count",
-	},
-	refunds_count: {
-		title: "Refunds made",
-		kind: "count",
-		ruleOf: "refunds_count",
-	},
-	disputes_opened: {
-		title: "Disputes opened",
-		kind: "count",
-		ruleOf: "disputes_opened",
-	},
-	credits_granted: {
-		title: "Granted",
-		kind: "count",
-		ruleOf: "credits_granted",
-	},
-	credits_consumed: {
-		title: "Used",
-		kind: "count",
-		ruleOf: "credits_consumed",
-	},
-	credits_expired: {
-		title: "Expired",
-		kind: "count",
-		ruleOf: "credits_expired",
-	},
-	breakage_rate: {
-		title: "Breakage rate",
-		kind: "rate",
-		ruleOf: "breakage_rate",
-		inputs: ["credits_expired", "credits_granted"],
-	},
-	"donations_by_fund:*": {
-		title: "Donations by fund",
-		kind: "money",
-		ruleOf: "revenue_by_tier",
-		need: "breakdown",
-	},
-	donors_count: {
-		title: "Donors",
-		kind: "count",
-		ruleOf: "paying_members",
-		need: "spread",
-	},
-	"donors_by_size:*": {
-		title: "Donors by gift",
-		kind: "count",
-		ruleOf: "paying_members",
-		need: "spread",
-	},
-	donors_median_gift: {
-		title: "Median gift",
-		kind: "money",
-		ruleOf: "paying_members",
-		need: "spread",
-	},
-};
+/** A catalog entry's kind. The catalog (`kpiCatalog`) is atm's catalog facts the documents need, with the mockup's
+ * labels (its `KPI` table), in the document's order: computed from the ledger model at load (`kpi-catalog.ts`). */
+type Kind = KpiCatalogKind;
 /** The mockup's donor buckets (`bkBuckets`), in cents. */
 const donorBuckets: Array<Dimension & { below: number | null }> = [
 	{ id: "under-100", title: "under $100", below: 10000 },
@@ -330,7 +172,7 @@ const sourceOf = (
 				.map((row) => row.kpiId)
 				.filter(
 					(id) =>
-						Object.hasOwn(catalog, id) ||
+						Object.hasOwn(kpiCatalog, id) ||
 						id.startsWith("revenue_by_tier:") ||
 						id.startsWith("revenue_by_kind:"),
 				),
@@ -562,7 +404,7 @@ export function kpiDocument(
 	};
 	const governanceUp =
 		audiences.indexOf(audience) >= audiences.indexOf("governance");
-	const kpis = Object.entries(catalog).flatMap(([key, entry]) => {
+	const kpis = Object.entries(kpiCatalog).flatMap(([key, entry]) => {
 		const donorKpi = key.startsWith("donor") || key.startsWith("donations");
 		if ((donorKpi || key.startsWith("revenue_by_tier")) && !governanceUp)
 			return [];
@@ -605,7 +447,7 @@ export function kpiDocument(
 				.filter((value): value is number => value !== null);
 			return found.length ? Math.max(...found) : null;
 		}
-		const entry = catalogOf.get(id)?.entry ?? catalog[id];
+		const entry = catalogOf.get(id)?.entry ?? kpiCatalog[id];
 		if (entry?.kind === "rate") {
 			const [numerator, denominator] = entry.inputs ?? [];
 			const top = numerator ? sumOf(numerator, period) : null;
@@ -1093,10 +935,7 @@ export function kpiDocument(
 		const rule = policy.rule(entry.ruleOf);
 		const wholeUnits =
 			entry.kind === "money" &&
-			(policy.roundTo > 0 ||
-				id.startsWith("revenue_by_tier:") ||
-				id.startsWith("donations_by_fund:") ||
-				id === "donors_median_gift");
+			(policy.roundTo > 0 || entry.format === "money0");
 		const format: KpiFormat =
 			entry.kind === "count"
 				? "integer"

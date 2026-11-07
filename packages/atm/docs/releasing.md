@@ -1,6 +1,8 @@
-# Releasing atm
+# Releasing the Trifold engine
 
 How a release of `packages/atm` is made and checked. Written from the header of `release.ts`, the recipes in `justfile`, the workflow `.github/workflows/release-atm.yml` and what the release records in `CHANGELOG.md` say. The records of each release (tag, commit, tarball URL, sha256 and sha512) are in `CHANGELOG.md`; what a caller must change per release is in `UPGRADING.md`. Related: `docs/README.md`, `docs/financial-reports.md`.
+
+The package, the tag and the tarball are still named `atm` (`atm-v<version>`, `atm-<version>.tgz`), and so is the workflow; they move only in a later rename step, with a window for buzz-school (`docs/frozen-identifiers.md`).
 
 ## What a release is
 

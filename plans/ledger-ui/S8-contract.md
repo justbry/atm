@@ -89,7 +89,7 @@ S8a, S8b and S8d-bz can run in parallel.
 
 | Slice | PR | State |
 | --- | --- | --- |
-| S8b | atm #138 | built, mergeable, checked. `kpiDocument(rows, contributions, disclosure, audience, pinLocked, context)`: a sixth `context` argument (`school`, `currency`, `clock`, `preset?`, `plans?`, `donors?`, `days?`, `invented?`). `contributions` is accepted but not read yet: the oracle counts the period's paying members, not per-cell holders (open question for the ledger-ui orchestrator, D9). |
+| S8b | atm #138 | built, mergeable, checked. `kpiDocument(rows, contributions, disclosure, audience, pinLocked, context)`: a sixth `context` argument (`school`, `currency`, `clock`, `preset?`, `plans?`, `donors?`, `days?`, `invented?`). `contributions` is accepted but not read yet: the oracle counts the period's paying members, not per-cell holders (D9, decided 2026-11-06: the paying-member count stays). |
 | S8a | atm #139 (stacked on #138) | built, mergeable, checked. Removes `MonthView.money` from `views/months/`, so month objects and every manifest change bytes: the orchestrator regenerates the mart snapshots and goldens in the PR that merges it (`S8a-hash-changes.md`). Finance month objects carry `grossByDay` and `income.planOrder`; contributions use the `KpiContributions` object form. |
 | S8d-bz | buzz-school #1348 | built and self-reviewed: `LEDGER_ROUTES` additions, `GET .../ledger/school`, `capabilities` fix, and `docs/features/ledger-ui-gaps.md` (the plan for every other buzz-school gap). |
 | S8d, S8c, S8e, S8f | | not started. S8c waits on #138 and #139 merging. |
@@ -125,8 +125,8 @@ S8a, S8b and S8d-bz can run in parallel.
 | D6 | Member portal | Read-only preview in S8; portal writes stay on fixtures. The member routes are deliberately outside `LEDGER_ROUTES`. |
 | D7 | Admin without the finance grant | Public audience (spec rule). The orchestrator confirms what the UI expects. |
 | D8 | Promos, remindHost, changeRole, switchTier, cancel/resume membership, resendReceipt, audit | Stay on fixtures behind `not_built` capabilities until a route exists. |
-| D9 | KPI cell rules: per-cell holders (spec) or the period's paying members (oracle `bkFig`, G1g) | Open. Until the ledger-ui orchestrator answers, the oracle rules. If the spec rule wins, the oracle changes first, then `kpiDocument` reads `contributions`. |
-| D10 | Refund permission | Open. Briefs B and C say owner only (Cedar `MoneyWrite` covers refund, invoice and adjust as one action); the mockup lets a finance admin refund. Options in `ledger-ui-gaps.md`: keep it, open it to finance admins, or split a `Refund` action. Default: keep owner only. |
+| D9 | KPI cell rules: per-cell holders (spec) or the period's paying members (oracle `bkFig`, G1g) | **Decided (owner, 2026-11-06): the period's paying members.** A figure below the live audiences hides when the period has fewer than 5 paying members, as the oracle and the mockup do. `kpiDocument` keeps not reading `contributions` for this rule. |
+| D10 | Refund permission | **Decided (owner, 2026-11-06): the owner or any admin.** The finance grant is not needed. buzz-school splits refund from Cedar `MoneyWrite` (invoice and adjust keep their current rule) and `capabilities` answers `refund: allowed` for an admin. The ledger UI follows `capabilities` (ledger-ui PR for D10). |
 | D11 | `bookingRules` / `schoolRules` | No source (buzz-school has a per-event cutoff only; credit hold and spend wait for atm 0.8.0). Answer `null`; the UI contract allows it. |
 
 ## 9. Open risks

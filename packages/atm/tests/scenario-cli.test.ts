@@ -39,7 +39,7 @@ describe("atm scenarios", () => {
 		const run = atm(["scenario", "describe", "heavy-refunds"]);
 		expect(run.code).toBe(0);
 		expect(run.out).toContain("* refundRate = 0.2");
-		expect(run.out).toContain("atm simulate --profile heavy-refunds");
+		expect(run.out).toContain("tfd simulate --profile heavy-refunds");
 	});
 
 	test("describe of an unknown preset exits 2 and suggests the list", () => {
