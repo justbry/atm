@@ -54,7 +54,7 @@ Input to `plans/ledger-ui/S8-contract.md`, the S8 interface between the two repo
 | --- | --- | --- | --- | --- |
 | `recordOutcome`, `cancelBooking` (Bookings) | `bookings.ts` | brief D admin outcome and admin cancel | exists | `waiveCutoff` only after the dialog, inside the cutoff, when `lateCancel` is `spend`. |
 | `remindHost` | `bookings.ts` | — | **gap** | UI toasts only after the server accepts. |
-| `refund`, `adjustCredits`, `sendInvoice` | `members.ts` | brief C money writes | exists | Refund is owner-only per briefs B and C; the mockup lets a finance admin refund (open ruling, S4). |
+| `refund`, `adjustCredits`, `sendInvoice` | `members.ts` | brief C money writes | exists | Refund: the owner or any admin (owner ruling D10, 2026-11-06); the briefs' owner-only rule changes in buzz-school. |
 | `cancelBooking`, `recordOutcome` (Members) | `members.ts` | brief D | exists | Same routes as Bookings. |
 | `grantFinance`, `revokeFinance` | `members.ts` | brief B4 | exists | — |
 | `changeRole` | `members.ts` | — (not in the briefs) | **gap** | Make or remove admin, remove owner role. |
