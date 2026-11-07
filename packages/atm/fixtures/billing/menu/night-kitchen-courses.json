@@ -1,0 +1,70 @@
+{
+	"currency": "usd",
+	"timeZone": "Europe/London",
+	"features": [
+		{
+			"id": "live-session",
+			"name": "Live cook-along",
+			"unit": { "one": "cook-along", "other": "cook-alongs" }
+		},
+		{
+			"id": "course",
+			"name": "Course enrolment",
+			"unit": { "one": "course", "other": "courses" }
+		}
+	],
+	"tiers": [
+		{
+			"id": "community",
+			"name": "Community",
+			"blurb": "The members' forum and two live cook-alongs a month; one unused carries over",
+			"public": true,
+			"prices": [
+				{ "interval": "month", "amount": 1500 },
+				{ "interval": "year", "amount": 15000 }
+			],
+			"grants": [
+				{
+					"featureId": "live-session",
+					"amount": 2,
+					"every": "month",
+					"rollover": { "max": 1, "months": 1 }
+				}
+			]
+		},
+		{
+			"id": "kitchen-table",
+			"name": "Kitchen table",
+			"blurb": "Community, plus four live cook-alongs a month and a course a year",
+			"public": true,
+			"prices": [
+				{ "interval": "month", "amount": 3500 },
+				{ "interval": "year", "amount": 35000 }
+			],
+			"grants": [
+				{ "featureId": "live-session", "amount": 4, "every": "month" },
+				{ "featureId": "course", "amount": 1, "every": "year" }
+			]
+		}
+	],
+	"addons": [
+		{
+			"id": "sourdough-course",
+			"name": "Sourdough from scratch (course)",
+			"price": { "amount": 14900, "every": "once" },
+			"grants": [{ "featureId": "course", "amount": 1, "every": "month" }]
+		},
+		{
+			"id": "knife-skills-course",
+			"name": "Knife skills (course)",
+			"price": { "amount": 9900, "every": "once" },
+			"grants": [{ "featureId": "course", "amount": 1, "every": "month" }]
+		},
+		{
+			"id": "recipe-pack",
+			"name": "Weeknight recipe pack (download)",
+			"price": { "amount": 2900, "every": "once" },
+			"grants": []
+		}
+	]
+}

@@ -144,7 +144,6 @@ function BookingRow({
 	const needsOutcome = reasons.some(({ kind }) => kind === "needs_outcome");
 	const inside = reasons.some(({ kind }) => kind === "inside_cutoff");
 	const locked = viewer.preview;
-	const own = capabilities.role === "owner";
 	const refundReason = capabilityReason(capabilities, "refund", "drawer");
 	const button = (
 		action: BookingAction,
@@ -228,14 +227,7 @@ function BookingRow({
 						)}
 					</>
 				) : booking.paidCents !== null ? (
-					button(
-						"refund",
-						"undo",
-						"Cancel and refund",
-						own && refundReason === ""
-							? ""
-							: "Refunds need the owner role and a Stripe key with refund permission",
-					)
+					button("refund", "undo", "Cancel and refund", refundReason)
 				) : booking.creditsHeld > 0 ? (
 					button(
 						"release",
@@ -357,7 +349,6 @@ export function MemberDrawer({
 						<div data-test="capability-line" data-line="money">
 							<b>Money:</b> {hasFinance ? "yes" : "no"}
 							{person.role === "owner" ? " (owner)" : ""}
-							{hasFinance ? " · refunds are owner only" : ""}
 						</div>
 					</>
 				)}
@@ -428,10 +419,9 @@ export function MemberDrawer({
 				)}
 				<MenuButton name="" expanded={menuOpen} onOpen={onMenu} />
 			</div>
-			{!owner && (
+			{!owner && !member && (
 				<div class="mut drawer-note" data-test="drawer-note">
-					{member ? "Refunds need" : "Changing roles needs"} the owner role in{" "}
-					{school.name}.
+					Changing roles needs the owner role in {school.name}.
 				</div>
 			)}
 			{member && balance && projection && (

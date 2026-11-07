@@ -43,7 +43,9 @@ Exit codes: 0 every channel that ran agrees, 1 they differ (a per-KPI diff follo
 | `seminar-quantities` | 114 | everyone on `seminar`, sold in 1, 2 and 4 seats: payments of three sizes (a subset-sum case) |
 | `child-only` | 115 | every membership is a child's own profile: holder `profile:prof_NNN`, never `family:`, across all four tiers |
 
-The last seven exist so the dashboard export's privacy suppression has a small-cell case that exists exactly, not by luck of a seed. Each promise is asserted from the generated events in `tests/scenario-presets.test.ts` (payers per tier, refund events, payment amounts, holder keys), not from the knobs.
+Six more presets simulate four other demo orgs: a studio, a church, a SaaS product and a course creator (`studio-members`, `studio-class-packs`, `church-giving`, `saas-seats`, `saas-annual`, `creator-launch`). They are in `docs/scenario-orgs.md`, with the two knobs they add (`seatChangeRate`, `upgradeRate`) and where each org is approximated.
+
+The last seven school presets exist so the dashboard export's privacy suppression has a small-cell case that exists exactly, not by luck of a seed. Each promise is asserted from the generated events in `tests/scenario-presets.test.ts` (payers per tier, refund events, payment amounts, holder keys), not from the knobs.
 
 A preset is a seed and knobs over the defaults (`src/scenario/profiles.ts`); nothing is written by hand. The knobs are `months`, `start`, `members`, `newMembersPerMonth`, `tierMix`, `yearlyShare`, `addonRate`, `freeShare`, `churnRate`, `refundRate`, `partialRefundShare`, `disputeRate`, `disputeLostShare`, `usageRate`, `currency`, `feePercent`, `feeFixedCents`, `childShare`, `tierCounts`, `yearlyCount`, `refundCount`; `tfd scenarios describe <preset>` lists each with its range and meaning.
 

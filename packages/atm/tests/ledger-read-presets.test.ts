@@ -27,7 +27,7 @@ import { sha256Hex } from "../src/store/store.js";
 import type { AtmEvent } from "../src/types.js";
 
 const GOLDEN = join(import.meta.dir, "golden/scenarios");
-const PRESET_COUNT = 15;
+const PRESET_COUNT = 21;
 
 const presetLog = (profile: string) => {
 	const scenario = resolveScenario({ profile });
@@ -52,7 +52,7 @@ const presetLog = (profile: string) => {
 };
 
 describe("the read slice replays every scenario preset", () => {
-	test("there are fifteen presets", () => {
+	test("there are twenty-one presets", () => {
 		expect(PROFILES.length).toBe(PRESET_COUNT);
 	});
 

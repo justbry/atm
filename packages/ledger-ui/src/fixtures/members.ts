@@ -4,7 +4,9 @@ import type { MembersFixture } from "../data/members.ts";
  * `plans/ledger-ui/design/mockup.html`) as the `MembersReader` returns them, generated from the mockup run headless on
  * 2026-11-05 at atm dev 742105b64 (its `M`, `R`, `fam`, `B`, `E`, `reasons`, `audOf`, `kHist` and `calc`). Dates are unix seconds at
  * local midnight in each school's time zone; money is in minor units. The invoice items are the mockup's three fixed
- * options (the third is not a published add-on). Regenerate rather than edit by hand. */
+ * options (the third is not a published add-on). Regenerate rather than edit by hand. One owner ruling departs from the
+ * mockup: D10 (2026-11-06) opens refunds to every admin, so an admin's `refund` capability is allowed where the mockup
+ * has `owner_only`. */
 export const membersFixtures: Record<string, MembersFixture> = {
 	vol: {
 		page: {
@@ -2686,8 +2688,7 @@ export const membersFixtures: Record<string, MembersFixture> = {
 			stripeConnected: true,
 			actions: {
 				refund: {
-					allowed: false,
-					reason: "owner_only",
+					allowed: true,
 				},
 				invoice: {
 					allowed: true,
@@ -6144,8 +6145,7 @@ export const membersFixtures: Record<string, MembersFixture> = {
 			stripeConnected: true,
 			actions: {
 				refund: {
-					allowed: false,
-					reason: "owner_only",
+					allowed: true,
 				},
 				invoice: {
 					allowed: true,

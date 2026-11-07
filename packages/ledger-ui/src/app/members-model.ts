@@ -403,7 +403,7 @@ export function roleTexts(
 		},
 		grant: {
 			title: `Grant finance to ${name}?`,
-			body: `${name} will see money in the dashboard and ledger. Refunds stay owner only.`,
+			body: `${name} will see money in the dashboard and ledger.`,
 			done: `${name} has finance access`,
 		},
 		revoke: {
