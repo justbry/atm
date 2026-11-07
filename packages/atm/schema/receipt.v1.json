@@ -1,0 +1,90 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://b4uni.com/_schema/receipt.v1.json",
+	"title": "Signed receipt v1",
+	"description": "A paid or refunded payment's receipt, made from its event by receiptOf, and an Ed25519 signature over its canonical form (keys sorted, JSON). The family keeps it; the school's books make the same receipt again from the same event.",
+	"type": "object",
+	"additionalProperties": false,
+	"required": ["receipt", "key_id", "sig"],
+	"properties": {
+		"receipt": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": [
+				"v",
+				"school",
+				"key",
+				"event_id",
+				"event_type",
+				"event_time",
+				"date",
+				"amount",
+				"currency",
+				"stripe_id",
+				"cause",
+				"event_hash"
+			],
+			"properties": {
+				"v": {
+					"const": 1
+				},
+				"school": {
+					"type": "string",
+					"minLength": 1
+				},
+				"key": {
+					"type": "string",
+					"minLength": 1,
+					"description": "The family's timeline, e.g. family:fam_8k2. No name or email."
+				},
+				"event_id": {
+					"type": "string",
+					"pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+				},
+				"event_type": {
+					"enum": ["payment.succeeded", "payment.refunded"]
+				},
+				"event_time": {
+					"type": "string",
+					"pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z$"
+				},
+				"date": {
+					"type": "string",
+					"pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+				},
+				"amount": {
+					"type": "integer",
+					"minimum": 1,
+					"description": "Cents: amount_paid on a payment, amount on a refund."
+				},
+				"currency": {
+					"type": "string",
+					"minLength": 1
+				},
+				"stripe_id": {
+					"type": "string",
+					"minLength": 1,
+					"description": "The invoice id (a booking's payment intent) on a payment, the payload's id on a refund."
+				},
+				"cause": {
+					"type": ["string", "null"],
+					"minLength": 1
+				},
+				"event_hash": {
+					"type": "string",
+					"pattern": "^[0-9a-f]{64}$",
+					"description": "sha256 (hex) of the event's canonical form."
+				}
+			}
+		},
+		"key_id": {
+			"type": "string",
+			"minLength": 1
+		},
+		"sig": {
+			"type": "string",
+			"pattern": "^[A-Za-z0-9_-]{86}$",
+			"description": "Ed25519 over the receipt's canonical form, base64url without padding."
+		}
+	}
+}

@@ -1,0 +1,25 @@
+{
+	"scores": {
+		"testability": 7,
+		"convergence": 7,
+		"antiGaming": 8,
+		"simplicity": 8,
+		"cost": 7
+	},
+	"overall": 7,
+	"blockers": [
+		"shot caps 53>50, 77>74: formula only or extras 4",
+		"moving-data holdout false reds on zeros, ratios, dates, n-of-m, bands: mark moves:true texts only"
+	],
+	"mustFix": [
+		"C3 owner x month vs cell-rules overrides",
+		"shared slice budget kills attempts; attempt starts only if >=2 panels remain",
+		"waived regressed blocks pass; pass on no unwaived regressed; regressed items to builder",
+		"imagesViewed: nonce in corner of each shot quoted in evidence"
+	],
+	"wouldChange": [
+		"one evidence per full-shot entry not per pair",
+		"drop L-hashing ritual",
+		"name snapshot files as they exist; C4 count measured"
+	]
+}

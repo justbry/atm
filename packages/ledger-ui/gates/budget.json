@@ -1,0 +1,16 @@
+{
+	"S0Ceiling": 30720,
+	"growth": 1.1,
+	"sizes": {
+		"S0": 18626,
+		"S1": 19525,
+		"S2": 22256,
+		"S3": 22256,
+		"S4": 22256,
+		"S5": 22256,
+		"S6": 22256,
+		"S7": 22256
+	},
+	"measure": "first load: entry chunk, its static imports and their CSS (owner default 2026-11-06; reversible)",
+	"note": "sizes are first-load gzip bytes recorded at each slice's merge (S0 18626 at #112, S1 19525 at #118)"
+}

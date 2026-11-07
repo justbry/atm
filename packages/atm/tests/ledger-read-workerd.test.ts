@@ -10,6 +10,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Miniflare } from "miniflare";
 import { readEvents } from "../src/ledger/files.js";
+import { financeMonthsFor, incomeStatement } from "../src/ledger/finance.js";
+import { ledgerRows } from "../src/ledger/ledger-rows.js";
 import { membersOf } from "../src/ledger/summary.js";
 import { buildViews, writeViews } from "../src/ledger/views.js";
 import { FolderStore } from "../src/store/folder-store.js";
@@ -20,6 +22,7 @@ import {
 	seedBucket,
 	workerOptions,
 } from "./worker-fixture/miniflare.js";
+import { LEDGER_FILTER, LEDGER_PAGE } from "./worker-fixture/range.js";
 
 const ROOT = join(import.meta.dir, "../fixtures/vibes-year");
 const SCHOOL = "sch_vol";
@@ -80,6 +83,24 @@ describe("the read path in workerd", () => {
 			checked: nodeWritten.created.length - 1,
 			failures: [],
 		});
+		// the income statement and the ledger page workerd answers are the ones Node computes from the same views
+		const finance = built.views.finance.months;
+		const months = financeMonthsFor(
+			LEDGER_FILTER.from,
+			LEDGER_FILTER.to,
+			true,
+		).flatMap((month) =>
+			finance[month] ? [{ school: SCHOOL, month, ...finance[month] }] : [],
+		);
+		const statement = incomeStatement(months, {
+			...LEDGER_FILTER,
+			compare: true,
+		});
+		expect(statement.figures.income).toBeGreaterThan(0);
+		expect(body.statement).toEqual(JSON.parse(JSON.stringify(statement)));
+		const page = ledgerRows(events, LEDGER_FILTER, null, LEDGER_PAGE);
+		expect(page.rows.length).toBe(LEDGER_PAGE);
+		expect(body.ledger).toEqual(JSON.parse(JSON.stringify(page)));
 		const bucket = await bucketOf(miniflare);
 		for (const key of nodeWritten.created) {
 			const stored = await bucket.get(key);

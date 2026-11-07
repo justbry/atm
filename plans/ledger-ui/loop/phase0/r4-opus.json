@@ -1,0 +1,25 @@
+{
+	"scores": {
+		"testability": 7,
+		"convergence": 7,
+		"antiGaming": 8,
+		"simplicity": 8,
+		"cost": 8
+	},
+	"overall": 7,
+	"blockers": [
+		"shot caps below max allowed set (53>50, 77>74); per round vs slice unclear; cap hit should shoot fewer extras"
+	],
+	"mustFix": [
+		"6 panels/12 builders cannot fund 3 attempts x 4 rounds; restart machinery dead",
+		"src may import gates/oracle.ts; forbid imports outside src",
+		"C3 owner x month 'equals row' contradicts cell-rules overrides",
+		"preset set undefined: contrib for 8 vs 15 exports; C2 covers 5",
+		"imagesViewed self-reported"
+	],
+	"wouldChange": [
+		"C2 measured before G1; mismatch = outside blocker",
+		"periods after clock month rule; bound C4 mounts",
+		"moving-data holdout limited to [data-value] nodes"
+	]
+}

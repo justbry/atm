@@ -1,0 +1,31 @@
+// The mockup's Dashboard per school and View as row, headless (the smoke.mjs pattern), for test/golden/S1.json
+// (disclosure v2, atm dev 742105b64). Run from a directory with happy-dom installed: node s1-text.mjs <mockup.html>
+import {Window} from "happy-dom";
+import {readFileSync} from "node:fs";
+const html=readFileSync(process.argv[2],"utf8"),m=html.match(/<script>([\s\S]*)<\/script>/);
+const win=new Window({url:"https://localhost/",console:{log(){},warn(){},info(){},debug(){},error(){}}});
+win.document.write(html.replace(m[0],""));await win.happyDOM.waitUntilComplete();win.eval(`${m[1]}\n;window.__x={get P(){return P},get dm(){return dm},get dv(){return dv},get dsc(){return dsc}}`);
+const d=win.document,n=s=>(s||"").replace(/\s+/g," ").trim(),all=s=>[...d.querySelectorAll(s)],$=s=>d.querySelector(s);
+const sc=id=>{$("#sw").click();$(`[data-sc=${id}]`).click()};
+const as=k=>{$("#kview").click();$(`#kvp [data-bv=${k}]`)?.click()};
+const fig=b=>{const h=b.querySelector("[data-hid],.kcutv,.kapprox");return n(b.textContent)+(h?` {${h.className}${h.dataset.hid?":"+h.dataset.hid:""}|${h.title}}`:"")};
+const dump=()=>({state:{P:win.__x.P,dm:win.__x.dm,dv:win.__x.dv,dsc:win.__x.dsc},view:n($("#kview")?.textContent),kt:all("#dash .kt .badge").map(b=>n(b.textContent)),pin:all("#dash [data-blk]").map(b=>n(b.textContent)),presets:all("#dash [data-dsc]").length,strip:all("#dash .kmonths button").map(b=>(b.dataset.dpk??b.dataset.dm??b.dataset.dstep)+"="+n(b.textContent)+(b.classList.contains("on")?"*":"")+(b.classList.contains("kwait")?"~wait":"")+(b.classList.contains("kopen")?"~open":"")+(b.disabled?"~disabled":"")+(b.title?"|"+b.title:"")),caption:all("#dash .kcaption").map(x=>n(x.textContent)),note:all("#dash .note").map(x=>n(x.textContent)),wait:all("#dash .kwaitbox").map(x=>n(x.textContent)),lock:all("#dash .klock").map(x=>x.dataset.lock+"|"+n(x.textContent)),cards:all("#dash .kcard").map(c=>`${n(c.querySelector("small").textContent)} | ${fig(c.querySelector("b"))} | ${n(c.querySelector("i").textContent)}`),boxes:all("#dash .kbox").map(b=>n(b.querySelector("h6")?.textContent)+" :: "+[...b.querySelectorAll(".krow")].map(fig).join(" / ")+" :: "+[...b.querySelectorAll(".kdistline,.kwhy,.mut,.kempty")].map(r=>n(r.textContent)).join(" / ")),bars:all("#dash svg.kc").length,cols:all("#dash svg.kc rect.col").length,flags:all("#dash .kflag").map(f=>n(f.textContent))});
+const out={};
+const go=(id,label,steps=()=>{})=>{sc(id);$(".tab[data-p=dash]").click();steps();out[label]=dump()};
+for(const id of ["b4u","vol","map","nw","har"])go(id,`${id}.default`);
+for(const k of ["public","member","governance","admin","finance","owner"])go("b4u",`b4u.as.${k}`,()=>as(k));
+for(const k of ["public","member","governance","owner"])go("vol",`vol.as.${k}`,()=>as(k));
+go("har","har.public",()=>{$("#kview").click();$("#kvp [data-bv=public]")?.click()});
+for(const v of ["members","risk"])go("b4u",`b4u.finance.${v}`,()=>$(`#dash [data-dv=${v}]`).click());
+go("b4u","b4u.finance.nov",()=>$('#dash .kmonths [data-dm="10"]').click());
+go("b4u","b4u.finance.dec",()=>$('#dash .kmonths [data-dm="11"]').click());
+for(const v of ["money","members","risk"])go("b4u",`b4u.governance.${v}`,()=>{as("governance");$(`#dash [data-dv=${v}]`).click()});
+go("b4u","b4u.governance.sep.members",()=>{as("governance");$('#dash .kmonths [data-dm="8"]').click();$("#dash [data-dv=members]").click()});
+for(const v of ["money","members","risk"])go("b4u",`b4u.public.${v}`,()=>{as("public");$(`#dash [data-dv=${v}]`).click()});
+go("b4u","b4u.public.2025",()=>{as("public");$('#dash [data-dpk="2025"]').click()});
+for(const v of ["money","members","risk"])go("b4u",`b4u.member.${v}`,()=>{as("member");$(`#dash [data-dv=${v}]`).click()});
+go("b4u","b4u.governance.pin",()=>{as("governance");$("#dash [data-blk]").click()});
+go("b4u","b4u.disputes.risk",()=>{$("#dash [data-dsc=disputes]").click();$("#dash [data-dv=risk]").click()});
+go("b4u","b4u.annual",()=>{$("#dash [data-dsc=annual-prepay]").click();$('#dash .kmonths [data-dm="0"]').click()});
+go("vol","vol.switch.b4u",()=>{as("public");sc("b4u");$(".tab[data-p=dash]").click()});
+console.log(JSON.stringify(out,null,1));

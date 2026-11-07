@@ -1,0 +1,53 @@
+{
+  "profile": "saas-annual",
+  "seed": 402,
+  "params": {
+    "months": 24,
+    "start": "2026-01",
+    "members": 20,
+    "newMembersPerMonth": 0,
+    "tierMix": {
+      "solo": 2,
+      "team": 3,
+      "business": 2
+    },
+    "yearlyShare": 1,
+    "addonRate": 0.25,
+    "freeShare": 0,
+    "churnRate": 0.01,
+    "refundRate": 0.01,
+    "partialRefundShare": 0.5,
+    "disputeRate": 0,
+    "disputeLostShare": 0.6,
+    "usageRate": 0.6,
+    "currency": "usd",
+    "feePercent": 2.9,
+    "feeFixedCents": 30,
+    "childShare": 0,
+    "tierCounts": {},
+    "yearlyCount": 0,
+    "refundCount": 0
+  },
+  "fixtureHash": "3dbaeb9b63250f652ae4fa97de6edbb2309759d2c7e906e807ca0ca6aa7bbfcb",
+  "kpisHash": "84d6c33ce7f5f60bfe720e628fe8ae17e735ce85e8308c449b3a5222dc1a3f36",
+  "events": 1178,
+  "periods": 24,
+  "summary": {
+    "gross_collected": 5299300,
+    "refunds": 0,
+    "disputes_lost": 0,
+    "dispute_fees": 0,
+    "stripe_fees": 154821,
+    "net_income": 5144479,
+    "payouts": 5144479,
+    "payments_count": 38,
+    "refunds_count": 0,
+    "disputes_opened": 0,
+    "new_paying_members": 20,
+    "credits_granted": 78228,
+    "credits_consumed": 514,
+    "credits_expired": 40903,
+    "paying_members_last_period": 0
+  },
+  "skippedNonUsd": 0
+}

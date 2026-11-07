@@ -1,0 +1,81 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://b4uni.com/_schema/seal.v1.json",
+	"title": "Signed month seal v1",
+	"description": "One month's events as they stood when it was sealed, named by id, made by sealOf, chained to the school's previous seal, and an Ed25519 signature over its canonical form. One per line in schools/<id>/ledger/seals.jsonl, append-only.",
+	"type": "object",
+	"additionalProperties": false,
+	"required": ["seal", "key_id", "sig"],
+	"properties": {
+		"seal": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": [
+				"v",
+				"school",
+				"month",
+				"events",
+				"event_ids",
+				"transactions",
+				"events_hash",
+				"sealed_at",
+				"prev_seal_hash"
+			],
+			"properties": {
+				"v": {
+					"const": 1
+				},
+				"school": {
+					"type": "string",
+					"minLength": 1
+				},
+				"month": {
+					"type": "string",
+					"pattern": "^\\d{4}-\\d{2}$"
+				},
+				"events": {
+					"type": "integer",
+					"minimum": 0,
+					"description": "The month's events in the folder when it was sealed."
+				},
+				"event_ids": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"minLength": 1
+					},
+					"uniqueItems": true,
+					"description": "The covered events' ids, sorted, as many as events. Membership is by id, not by ingest_time."
+				},
+				"transactions": {
+					"type": "integer",
+					"minimum": 0,
+					"description": "Events among them with postings."
+				},
+				"events_hash": {
+					"type": "string",
+					"pattern": "^[0-9a-f]{64}$",
+					"description": "sha256 of the covered events' canonical forms, sorted by id and joined by a newline."
+				},
+				"sealed_at": {
+					"type": "string",
+					"pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z$"
+				},
+				"prev_seal_hash": {
+					"type": ["string", "null"],
+					"pattern": "^[0-9a-f]{64}$",
+					"description": "sha256 of the canonical form of the school's previous signed seal; null on its first."
+				}
+			}
+		},
+		"key_id": {
+			"type": "string",
+			"minLength": 1
+		},
+		"sig": {
+			"type": "string",
+			"pattern": "^[A-Za-z0-9_-]{86}$",
+			"description": "Ed25519 over the seal's canonical form, base64url without padding."
+		}
+	}
+}

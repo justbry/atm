@@ -1,12 +1,22 @@
 import { Database } from "bun:sqlite";
-import { readFile, stat } from "node:fs/promises";
-import { basename } from "node:path";
+import { generateKeyPairSync } from "node:crypto";
+import {
+	appendFile,
+	mkdir,
+	readFile,
+	rename,
+	rm,
+	stat,
+	writeFile,
+} from "node:fs/promises";
+import { basename, dirname, join } from "node:path";
 import type { WorkerFullSubject } from "@autumn/balance-engine";
 import { Command } from "commander";
 import packageJson from "../package.json";
 import { validateMenu } from "./billing/menu.js";
 import { resolvePolicy } from "./billing/policy.js";
 import type { BillingPolicy, Menu } from "./billing/types.js";
+import { commandName, otherCommandName } from "./command-name.js";
 import { engineCommandTypes, runEngineCommand } from "./engine.js";
 import { bunSqlite } from "./handler/bun-sqlite.js";
 import { inputsStatus, sqliteInputsSource } from "./handler/inputs.js";
@@ -17,6 +27,12 @@ import {
 	R2_ENV,
 	resolveInputsDestination,
 } from "./ledger/inputs-destination.js";
+import {
+	checkReceiptAgainstEvents,
+	receiptOf,
+	signReceipt,
+	verifyReceipt,
+} from "./ledger/receipt.js";
 import { ReconcileInputError } from "./ledger/reconcile.js";
 import {
 	formatReconcile,
@@ -32,6 +48,7 @@ import {
 	reportMonth,
 	skippedNote,
 } from "./ledger/report.js";
+import { sealOf, signSeal, verifySeals } from "./ledger/seal.js";
 import {
 	formatShareStatement,
 	shareStatement,
@@ -48,10 +65,20 @@ import {
 	simulateFromInputs,
 } from "./ledger/simulate-inputs.js";
 import { outboxStatus } from "./ledger/status.js";
+import { canonicalize, isoInstant } from "./ledger/util.js";
 import { addScenarioCommands, runScenarioSimulate } from "./scenario/cli.js";
-import { FolderStore } from "./store/folder-store.js";
+import { FolderStore, hasErrorCode } from "./store/folder-store.js";
 import { R2Store } from "./store/r2-store.js";
-import type { AtmCatalogRow, AtmEnv } from "./types.js";
+import type {
+	AtmCatalogRow,
+	AtmEnv,
+	AtmPublicKeys,
+	AtmSignedReceipt,
+	AtmSignedSeal,
+	AtmSigner,
+	LedgerVerdict,
+	ReceiptVerdict,
+} from "./types.js";
 
 /** How long `atm ship` waits for the handler's write lock on a busy database. */
 const BUSY_TIMEOUT_MS = 5000;
@@ -72,8 +99,10 @@ const readJson = async (path: string) =>
 	);
 
 export const program = new Command()
-	.name("atm")
-	.description("Autumn's balance engine as a local CLI")
+	.name(commandName)
+	.description(
+		`The Trifold engine as a local CLI (Autumn's balance rules inside); \`${otherCommandName}\` is the same command`,
+	)
 	.version(packageJson.version);
 
 program
@@ -188,7 +217,7 @@ exitTwoOnUsageError(journalCommand);
 const reportCommand = program
 	.command("report")
 	.description(
-		`build a school's journal for one month (as atm journal does), then print hledger's income statement, balance sheet and credit balances from its main.journal, to date over every month journaled so far; needs hledger on PATH and exits 2 saying so when it is missing`,
+		`build a school's journal for one month (as ${commandName} journal does), then print hledger's income statement, balance sheet and credit balances from its main.journal, to date over every month journaled so far; needs hledger on PATH and exits 2 saying so when it is missing`,
 	)
 	.requiredOption("--root <folder>", "the folder that holds schools/<id>/")
 	.requiredOption("--school <id>", "school id, as in schools/<id>/")
@@ -292,7 +321,7 @@ const ship = async (opts: ShipOptions): Promise<void> => {
 	const root = await stat(opts.root).catch(() => null);
 	if (!root?.isDirectory())
 		throw new InputError(
-			`--root ${opts.root} is not an existing folder; create it first (atm ship does not create the root, so that a typo in it ships nothing)`,
+			`--root ${opts.root} is not an existing folder; create it first (${commandName} ship does not create the root, so that a typo in it ships nothing)`,
 		);
 	const database = new Database(opts.db, { readwrite: true });
 	try {
@@ -396,7 +425,7 @@ const inputsStore = async (opts: InputsShipOptions) => {
 	const root = await stat(destination.root).catch(() => null);
 	if (!root?.isDirectory())
 		throw new InputError(
-			`--root ${destination.root} is not an existing folder; create it first (atm inputs ship does not create the root, so that a typo in it ships nothing)`,
+			`--root ${destination.root} is not an existing folder; create it first (${commandName} inputs ship does not create the root, so that a typo in it ships nothing)`,
 		);
 	return new FolderStore({ root: destination.root });
 };
@@ -432,7 +461,7 @@ const inputsShip = async (opts: InputsShipOptions): Promise<void> => {
 			process.stderr.write(`conflict ${conflict.key}: ${conflict.message}\n`);
 		if (result.erasures.pending > 0)
 			process.stderr.write(
-				`erasure pending: ${result.erasures.pending} shipped object(s) of an erased holder are not rewritten or deleted yet; run atm inputs ship again\n`,
+				`erasure pending: ${result.erasures.pending} shipped object(s) of an erased holder are not rewritten or deleted yet; run ${commandName} inputs ship again\n`,
 			);
 		const status = inputsShipStatus({
 			db,
@@ -495,7 +524,7 @@ exitTwoOnUsageError(inputsCommand);
 const inputsShipCommand = inputsCommand
 	.command("ship")
 	.description(
-		`ship a school's unshipped stored inputs (atm_event_inputs) from the handler's SQLite file to <root>/schools/<id>/inputs/<env>/date=YYYY-MM-DD/batch-*.jsonl (UTC commit day), with the contexts/ and seeds/ they refer to, create-only, safe to rerun, run it from cron before \`atm ship\`. First settles the erasure queue: a shipped batch that held an erased holder's facts is rewritten under a new key with the tombstone and the old object deleted. Exits 0 when done (also when there was nothing to ship), 1 when a key already holds different bytes (conflict lines on stderr) or an erasure is still pending, 2 on any other error (one line on stderr). R2 credentials are read from the environment only (${R2_ENV.accessKeyId}, ${R2_ENV.secretAccessKey}, optional ${R2_ENV.sessionToken}); the R2 path has not been run against R2`,
+		`ship a school's unshipped stored inputs (atm_event_inputs) from the handler's SQLite file to <root>/schools/<id>/inputs/<env>/date=YYYY-MM-DD/batch-*.jsonl (UTC commit day), with the contexts/ and seeds/ they refer to, create-only, safe to rerun, run it from cron before \`${commandName} ship\`. First settles the erasure queue: a shipped batch that held an erased holder's facts is rewritten under a new key with the tombstone and the old object deleted. Exits 0 when done (also when there was nothing to ship), 1 when a key already holds different bytes (conflict lines on stderr) or an erasure is still pending, 2 on any other error (one line on stderr). R2 credentials are read from the environment only (${R2_ENV.accessKeyId}, ${R2_ENV.secretAccessKey}, optional ${R2_ENV.sessionToken}); the R2 path has not been run against R2`,
 	)
 	.requiredOption("--db <file>", "the SQLite file the webhook handler writes")
 	.requiredOption("--school <id>", "school id, as in schools/<id>/")
@@ -704,7 +733,35 @@ const assertSchoolFolder = (school: string): void => {
 		);
 };
 
-/** The handler's SQLite, opened read-only, behind the `InputsSource` the replay reads through. Nothing is written. */
+/** Bytes 18 and 19 of a SQLite database header, its file format's read and write versions: 2 is WAL, 1 rollback. */
+const FILE_FORMAT_OFFSET = 18;
+const WAL_FORMAT = 2;
+const ROLLBACK_FORMAT = 1;
+
+/**
+ * The handler's SQLite, opened so that no file changes. With no `-wal` (or `-journal`) beside it, the file holds every
+ * committed row, so it is read whole into memory: on Linux even a read-only connection to a WAL database would create the
+ * `-wal` and `-shm` and, unable to checkpoint, leave them behind (`immutable=1` would avoid it, but Bun's bundled SQLite
+ * takes no URI filenames). With a `-wal` there, a read-only connection reads it without checkpointing, so the database and
+ * its `-wal` keep their bytes; only the shared `-shm` index moves, and a copied `-wal` without its `-shm` gets one. A
+ * read-write connection is never used: closing last, it would checkpoint the handler's `-wal` into the database.
+ */
+const openWithoutWriting = async (path: string): Promise<Database> => {
+	const live =
+		(await stat(`${path}-wal`).catch(() => null)) ??
+		(await stat(`${path}-journal`).catch(() => null));
+	const bytes = live ? null : await readFile(path);
+	// An empty file is an empty database to SQLite, and has no header to read into memory.
+	if (!bytes?.length) return new Database(path, { readonly: true });
+	// A WAL database read from memory has no `-wal` to use: the rollback format reads the same pages.
+	if (bytes[FILE_FORMAT_OFFSET] === WAL_FORMAT) {
+		bytes[FILE_FORMAT_OFFSET] = ROLLBACK_FORMAT;
+		bytes[FILE_FORMAT_OFFSET + 1] = ROLLBACK_FORMAT;
+	}
+	return Database.deserialize(bytes, true);
+};
+
+/** The handler's SQLite, opened without writing (`openWithoutWriting`), behind the `InputsSource` the replay reads through. */
 const readStoredInputs = async (path: string, env: AtmEnv, school: string) => {
 	const found = await stat(path).catch(() => null);
 	if (!found) throw new InputError(`--inputs ${path} does not exist`);
@@ -713,13 +770,13 @@ const readStoredInputs = async (path: string, env: AtmEnv, school: string) => {
 		const read = await folderInputsSource(path).read({ env, school });
 		if (read.inputs.length === 0 && read.refused.length === 0)
 			throw new InputError(
-				`no inputs under ${path}/schools/${school}/inputs/${env}: run atm inputs ship, or point --inputs at the handler's database`,
+				`no inputs under ${path}/schools/${school}/inputs/${env}: run ${commandName} inputs ship, or point --inputs at the handler's database`,
 			);
 		return read;
 	}
 	let database: Database;
 	try {
-		database = new Database(path, { readonly: true });
+		database = await openWithoutWriting(path);
 	} catch (error) {
 		throw new InputError(
 			`--inputs ${path} cannot be opened as SQLite: ${oneLine(error)}`,
@@ -737,7 +794,7 @@ const readStoredInputs = async (path: string, env: AtmEnv, school: string) => {
 		}
 		if (!status.available)
 			throw new InputError(
-				`${path} holds no stored inputs for school ${school} (${env}): the handler stores them from atm 0.9.0, so a what-if on the grant rules covers only the history after that; run atm simulate without --inputs for the command-level what-if on the whole log`,
+				`${path} holds no stored inputs for school ${school} (${env}): the handler stores them from atm 0.9.0, so a what-if on the grant rules covers only the history after that; run ${commandName} simulate without --inputs for the command-level what-if on the whole log`,
 			);
 		return await sqliteInputsSource(db, path).read({ env, school });
 	} finally {
@@ -834,7 +891,7 @@ const runSimulate = async (opts: SimulateOptions): Promise<void> => {
 	}
 	if (!(opts.root && opts.school))
 		throw new InputError(
-			"give --root and --school to replay a log, or --profile <name> (atm scenarios list) to simulate a scenario",
+			`give --root and --school to replay a log, or --profile <name> (${commandName} scenarios list) to simulate a scenario`,
 		);
 	if (opts.inputs !== undefined)
 		return runSimulateFromInputs({
@@ -904,7 +961,7 @@ const simulateCommand = program
 	.option("--school <id>", "school id, as in schools/<id>/")
 	.option(
 		"--profile <name>",
-		"instead of a log: simulate a seeded scenario of the demo school Before University (presets: atm scenarios list), replay it through the atm, hledger and DuckDB KPI channels and compare their hashes",
+		`instead of a log: simulate a seeded scenario of the demo school Before University (presets: ${commandName} scenarios list), replay it through the atm, hledger and DuckDB KPI channels and compare their hashes`,
 	)
 	.option(
 		"--scenario <file>",
@@ -940,7 +997,7 @@ const simulateCommand = program
 	)
 	.option(
 		"--inputs <sqlite file | folder>",
-		"the handler's SQLite database, or a folder `atm inputs ship` shipped them to: decide the stored Stripe inputs again (the grant rules: upgradeGrant, what an invoice grants, a menu's prices and tiers) with the recorded menu and policy, which must reproduce the log, and then with the candidate. Opened read-only; writes nothing. Needs --env. --menu and --policy are optional (none is the identity); --current-menu and --current-policy replace the recorded ones; --catalog and --current-catalog are not used",
+		`the handler's SQLite database, or a folder \`${commandName} inputs ship\` shipped them to: decide the stored Stripe inputs again (the grant rules: upgradeGrant, what an invoice grants, a menu's prices and tiers) with the recorded menu and policy, which must reproduce the log, and then with the candidate. Opened read-only; writes nothing. Needs --env. --menu and --policy are optional (none is the identity); --current-menu and --current-policy replace the recorded ones; --catalog and --current-catalog are not used`,
 	)
 	.option("--env <live|test>", "with --inputs: the Stripe mode of the inputs")
 	.option(
@@ -964,3 +1021,306 @@ const simulateCommand = program
 	);
 exitTwoOnUsageError(simulateCommand);
 addScenarioCommands(program, scenarioKit);
+
+// ---- atm keys new, receipt, seal, verify (signed receipts and sealed months) ----
+
+/** Exit status of `atm verify` when the receipt or a seal does not verify; 2 stays for input it cannot use. */
+const EXIT_INVALID = 1;
+
+/** A key id names files in `atm keys new --out`, so it is one plain file-name part. */
+const KEY_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
+/** Where `atm seal` keeps a school's chain, beside `ledger/build.json`: one signed seal per line, append-only. */
+const SEALS_FILE = "ledger/seals.jsonl";
+
+const signerFrom = async (path: string, keyId: string): Promise<AtmSigner> => {
+	const privateKeyPem = await readFile(path, "utf8").catch((error) => {
+		throw new InputError(`--key ${path} cannot be read: ${oneLine(error)}`);
+	});
+	return { keyId, privateKeyPem };
+};
+
+const keysFrom = async (path: string): Promise<AtmPublicKeys> => {
+	const keys = await readInputFile("--keys", path);
+	if (
+		typeof keys !== "object" ||
+		keys === null ||
+		Array.isArray(keys) ||
+		!Object.values(keys).every((pem) => typeof pem === "string")
+	)
+		throw new InputError(
+			`--keys ${path} is not a keys.json ({ key_id: public PEM }), as ${commandName} keys new writes`,
+		);
+	return keys as AtmPublicKeys;
+};
+
+const schoolEvents = async (root: string, school: string) => {
+	assertSchoolFolder(school);
+	return (await readEvents(root, school)).events;
+};
+
+/**
+ * The chain in `seals.jsonl`, in the order made; null when there is no file. Any other read error is an error, not an
+ * empty chain, so a file atm cannot read never starts a second chain. A line that is not JSON stays as its text, so
+ * `verifySeals` calls it malformed.
+ */
+const readSeals = async (path: string): Promise<unknown[] | null> => {
+	const text = await readFile(path, "utf8").catch((error: unknown) => {
+		if (hasErrorCode(error, "ENOENT")) return null;
+		throw new InputError(`${path} cannot be read: ${oneLine(error)}`);
+	});
+	if (text === null) return null;
+	return text
+		.split("\n")
+		.filter((line) => line.length > 0)
+		.map((line) => {
+			try {
+				return JSON.parse(line) as unknown;
+			} catch {
+				return line;
+			}
+		});
+};
+
+const keysCommand = program
+	.command("keys")
+	.description("the Ed25519 keys receipts and seals are signed with");
+const keysNewCommand = keysCommand
+	.command("new")
+	.description(
+		"write a new Ed25519 key pair into --out: <key_id>.private.pem (mode 0600; keep it in a secret store), <key_id>.public.pem, and its public key into keys.json ({ key_id: public PEM }, what --keys reads), beside any keys already there; refuses to overwrite a key file or a key id",
+	)
+	.requiredOption("--out <dir>", "the folder to write the three files into")
+	.option(
+		"--id <key_id>",
+		"the key id receipts and seals name (default trifold-YYYY-MM, the UTC month now)",
+	)
+	.action((opts: { out: string; id?: string }) =>
+		unattended("keys new", false, async () => {
+			const keyId =
+				opts.id ?? `trifold-${new Date().toISOString().slice(0, 7)}`;
+			if (!KEY_ID.test(keyId))
+				throw new InputError(
+					`--id ${JSON.stringify(keyId)} must be letters, digits, ".", "_" or "-"`,
+				);
+			const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+			const publicPem = String(
+				publicKey.export({ format: "pem", type: "spki" }),
+			);
+			const keyFiles: [string, string, number][] = [
+				[
+					`${keyId}.private.pem`,
+					String(privateKey.export({ format: "pem", type: "pkcs8" })),
+					0o600,
+				],
+				[`${keyId}.public.pem`, publicPem, 0o644],
+			];
+			const keysPath = join(opts.out, "keys.json");
+			await mkdir(opts.out, { recursive: true });
+			for (const [name] of keyFiles)
+				if (await stat(join(opts.out, name)).catch(() => null))
+					throw new InputError(
+						`${join(opts.out, name)} already exists; ${commandName} keys new overwrites nothing`,
+					);
+			// A rotation adds its key beside the old ones, which still check the receipts and seals they signed.
+			const known = (await stat(keysPath).catch(() => null))
+				? await keysFrom(keysPath)
+				: {};
+			if (Object.hasOwn(known, keyId))
+				throw new InputError(
+					`${keysPath} already has a key ${keyId}; ${commandName} keys new overwrites nothing`,
+				);
+			for (const [name, text, mode] of keyFiles)
+				await writeFile(join(opts.out, name), text, { flag: "wx", mode });
+			// Written beside and renamed over, so a crash mid-write never truncates the old keys out of keys.json.
+			const keysTemp = `${keysPath}.${process.pid}.tmp`;
+			await writeFile(
+				keysTemp,
+				`${JSON.stringify({ ...known, [keyId]: publicPem }, null, 2)}\n`,
+				{ flag: "wx", mode: 0o644 },
+			);
+			await rename(keysTemp, keysPath);
+			process.stdout.write(
+				`wrote ${[...keyFiles.map(([name]) => join(opts.out, name)), keysPath].join(", ")}\n`,
+			);
+		}),
+	);
+exitTwoOnUsageError(keysNewCommand);
+
+type ReceiptOptions = {
+	root: string;
+	school: string;
+	key: string;
+	keyId: string;
+	event?: string;
+};
+
+const receiptCommand = program
+	.command("receipt")
+	.description(
+		"print signed receipts as JSON lines, one per payment.succeeded or payment.refunded event of the school (or the one --event); writes nothing; an error is one line on stderr and exit 2",
+	)
+	.requiredOption("--root <folder>", "the folder that holds schools/<id>/")
+	.requiredOption("--school <id>", "school id, as in schools/<id>/")
+	.requiredOption("--key <private.pem>", "the Ed25519 private key (PKCS#8 PEM)")
+	.requiredOption("--key-id <id>", "the id its public key is published under")
+	.option("--event <event_id>", "only this event's receipt")
+	.action((opts: ReceiptOptions) =>
+		unattended("receipt", false, async () => {
+			const signer = await signerFrom(opts.key, opts.keyId);
+			const events = (await schoolEvents(opts.root, opts.school)).filter(
+				(event) => opts.event === undefined || event.id === opts.event,
+			);
+			if (opts.event !== undefined && events.length === 0)
+				throw new InputError(
+					`--event ${opts.event} is not an event of school ${opts.school}`,
+				);
+			const receipts = events
+				.map(receiptOf)
+				.filter((receipt) => receipt !== null);
+			if (opts.event !== undefined && receipts.length === 0)
+				throw new InputError(
+					`--event ${opts.event} is a ${events[0]?.event_type}, which gets no receipt`,
+				);
+			for (const receipt of receipts) writeJson(signReceipt(receipt, signer));
+		}),
+	);
+exitTwoOnUsageError(receiptCommand);
+
+type SealOptions = {
+	root: string;
+	school: string;
+	month: string;
+	key: string;
+	keyId: string;
+};
+
+const sealCommand = program
+	.command("seal")
+	.description(
+		`seal a school's month: sign the ids, count and hash of the month's events in the folder now, chained to the last seal in schools/<id>/${SEALS_FILE}, append it there and print it as one JSON line; a month may be sealed again to cover events that arrived later; an error is one line on stderr and exit 2`,
+	)
+	.requiredOption("--root <folder>", "the folder that holds schools/<id>/")
+	.requiredOption("--school <id>", "school id, as in schools/<id>/")
+	.requiredOption(
+		"--month <YYYY-MM>",
+		"month, by the events' school-local date",
+	)
+	.requiredOption("--key <private.pem>", "the Ed25519 private key (PKCS#8 PEM)")
+	.requiredOption("--key-id <id>", "the id its public key is published under")
+	.action((opts: SealOptions) =>
+		unattended("seal", false, async () => {
+			if (!SIMULATE_MONTH.test(opts.month))
+				throw new InputError(`--month must be YYYY-MM, got ${opts.month}`);
+			const signer = await signerFrom(opts.key, opts.keyId);
+			const path = join(opts.root, "schools", opts.school, SEALS_FILE);
+			assertSchoolFolder(opts.school);
+			await mkdir(dirname(path), { recursive: true });
+			// Two seals made at once would both chain to the same last seal and fork the chain; the second is refused.
+			const lock = `${path}.lock`;
+			await writeFile(lock, `${process.pid}\n`, { flag: "wx" }).catch(
+				(error: unknown) => {
+					throw new InputError(
+						hasErrorCode(error, "EEXIST")
+							? `${lock} exists: another ${commandName} seal is running, or one stopped without removing it`
+							: `${lock} cannot be written: ${oneLine(error)}`,
+					);
+				},
+			);
+			try {
+				const events = await schoolEvents(opts.root, opts.school);
+				const previous = (await readSeals(path))?.at(-1) ?? null;
+				if (previous !== null && typeof previous !== "object")
+					throw new InputError(
+						`the last line of ${path} is not a signed seal; run ${commandName} verify seals`,
+					);
+				const seal = sealOf({
+					school: opts.school,
+					month: opts.month,
+					events,
+					// The CLI's clock, not atm's: the library reads none.
+					sealedAt: isoInstant(Date.now()),
+					previous: previous as AtmSignedSeal | null,
+				});
+				const signed = signSeal(seal, signer);
+				await appendFile(path, `${canonicalize(signed)}\n`);
+				writeJson(signed);
+			} finally {
+				await rm(lock, { force: true });
+			}
+		}),
+	);
+exitTwoOnUsageError(sealCommand);
+
+const verifyCommand = program
+	.command("verify")
+	.description("check a signed receipt, or a school's seal chain");
+
+const verifyReceiptCommand = verifyCommand
+	.command("receipt")
+	.description(
+		"check a signed receipt's shape, key id and signature; with --root and --school also make it again from the school's books and compare. Prints {ok} or {ok, reason} as one JSON line; exits 0 valid, 1 not, 2 for input it cannot use",
+	)
+	.argument("<file>", "the signed receipt JSON, or - for stdin")
+	.requiredOption("--keys <keys.json>", "{ key_id: public PEM }")
+	.option("--root <folder>", "the folder that holds schools/<id>/")
+	.option("--school <id>", "school id, as in schools/<id>/")
+	.action(
+		(file: string, opts: { keys: string; root?: string; school?: string }) =>
+			unattended("verify receipt", false, async () => {
+				if ((opts.root === undefined) !== (opts.school === undefined))
+					throw new InputError("--root and --school go together");
+				const keys = await keysFrom(opts.keys);
+				const text =
+					file === "-"
+						? await Bun.stdin.text()
+						: await readFile(file, "utf8").catch((error) => {
+								throw new InputError(
+									`${file} cannot be read: ${oneLine(error)}`,
+								);
+							});
+				let signed: unknown = text;
+				try {
+					signed = JSON.parse(text);
+				} catch {
+					// not JSON: verifyReceipt calls it malformed
+				}
+				let verdict: ReceiptVerdict | LedgerVerdict = verifyReceipt(
+					signed,
+					keys,
+				);
+				if (verdict.ok && opts.root !== undefined && opts.school !== undefined)
+					verdict = checkReceiptAgainstEvents(
+						signed as AtmSignedReceipt,
+						await schoolEvents(opts.root, opts.school),
+					);
+				writeJson(verdict);
+				if (!verdict.ok) process.exitCode = EXIT_INVALID;
+			}),
+	);
+exitTwoOnUsageError(verifyReceiptCommand);
+
+const verifySealsCommand = verifyCommand
+	.command("seals")
+	.description(
+		`check a school's seal chain (schools/<id>/${SEALS_FILE}) against its events and print the report ({ok, seals: [{month, sealed_at, verdict}], unsealedLate}) as one JSON line; exits 1 when a seal fails, 0 otherwise (events that arrived after their month's last seal are not a failure), 2 for input it cannot use`,
+	)
+	.requiredOption("--root <folder>", "the folder that holds schools/<id>/")
+	.requiredOption("--school <id>", "school id, as in schools/<id>/")
+	.requiredOption("--keys <keys.json>", "{ key_id: public PEM }")
+	.action((opts: { root: string; school: string; keys: string }) =>
+		unattended("verify seals", false, async () => {
+			const keys = await keysFrom(opts.keys);
+			const events = await schoolEvents(opts.root, opts.school);
+			const path = join(opts.root, "schools", opts.school, SEALS_FILE);
+			const seals = await readSeals(path);
+			if (seals === null)
+				throw new InputError(
+					`no seals at ${path}; ${commandName} seal makes them`,
+				);
+			const report = verifySeals(seals, events, keys);
+			writeJson(report);
+			if (!report.ok) process.exitCode = EXIT_INVALID;
+		}),
+	);
+exitTwoOnUsageError(verifySealsCommand);

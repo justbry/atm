@@ -1,5 +1,5 @@
 /**
- * The Worker read path (`worker.ts`, `read.ts`, `summary.ts`, `views.ts`) must not reach what a Cloudflare Worker cannot
+ * The Worker read path (`worker.ts`, `read.ts`, `summary.ts`, `views.ts`, `kpi-document.ts`, `suppress-core.ts`) must not reach what a Cloudflare Worker cannot
  * run: the file system, child processes, DuckDB, and Ajv (which compiles schemas with `new Function`). This walks atm's
  * own static import graph from each entry and fails on a forbidden module, with no exception: `billing/grants.ts` takes
  * `commodityProblems` from `billing/commodity.ts`, not from `billing/menu.ts` (which imports Ajv for `validateMenu`).
@@ -20,6 +20,13 @@ const ENTRIES = [
 	"src/ledger/read.ts",
 	"src/ledger/summary.ts",
 	"src/ledger/views.ts",
+	"src/ledger/kpi-document.ts",
+	"src/scenario/suppress-core.ts",
+	"src/ledger/finance.ts",
+	"src/ledger/contributions.ts",
+	"src/ledger/ledger-rows.ts",
+	"src/ledger/catalog.ts",
+	"src/ledger/run-views.ts",
 ];
 
 const FORBIDDEN = [
@@ -100,6 +107,48 @@ describe("the Worker read path's import graph", () => {
 		const { files } = reachFrom("src/worker.ts");
 		for (const module of ["read", "summary", "views"])
 			expect(files.has(`src/ledger/${module}.ts`)).toBe(true);
+	});
+
+	test("worker.ts reaches the KPI document, the suppression rules and the model's resolution, and not the Ajv-backed spec and model loaders", () => {
+		const { files } = reachFrom("src/worker.ts");
+		for (const file of [
+			"src/ledger/kpi-document.ts",
+			"src/scenario/suppress-core.ts",
+			"src/scenario/kpi-evaluate.ts",
+			"src/model/resolve.ts",
+		])
+			expect(files.has(file)).toBe(true);
+		for (const file of [
+			"src/scenario/kpis.ts",
+			"src/model/ledger-model.ts",
+			"src/model/generate.ts",
+			"src/scenario/suppress.ts",
+			"src/ledger/report.ts",
+			"src/ledger/files.ts",
+		])
+			expect(files.has(file), file).toBe(false);
+		// of the KPI channels only the atm fold (the contributions view runs it), which is plain TypeScript; the hledger and DuckDB ones spawn or load binaries
+		expect(
+			[...files].filter((file) => file.startsWith("src/scenario/channels/")),
+		).toEqual(["src/scenario/channels/atm.ts"]);
+	});
+
+	test("worker.ts reaches the finance, contributions, ledger-rows, catalog and run-views modules", () => {
+		const { files } = reachFrom("src/worker.ts");
+		for (const module of [
+			"finance",
+			"contributions",
+			"ledger-rows",
+			"catalog",
+			"run-views",
+		])
+			expect(files.has(`src/ledger/${module}.ts`)).toBe(true);
+	});
+
+	test("kpi-document.ts imports nothing from the UI package", () => {
+		const { files, external } = reachFrom("src/ledger/kpi-document.ts");
+		expect([...files].filter((file) => file.includes("ledger-ui"))).toEqual([]);
+		expect(external).toEqual([]);
 	});
 
 	test("read.ts imports nothing at run time but order.ts, which imports nothing", () => {

@@ -1,0 +1,2860 @@
+{
+	"slice": "S7",
+	"source": "The mockup's schools (plans/ledger-ui/design/mockup.html at atm dev 742105b64, SC vol, b4u, map, nw, har), as src/fixtures/disclosure.json and src/fixtures/settings.json carry them; headless texts from the mockup with happy-dom on 2026-11-05",
+	"notes": [
+		"Data: src/data/disclosure.ts (Disclosure, Audience, ViewAs, the spec's rules) with src/fixtures/disclosure.json, and src/data/settings.ts (SchoolSettings, SettingsWriter) with src/fixtures/settings.json. The Reader gives disclosure(school) and settings(school); the Writer gives saveAccountingBasis, createKey, revokeKey, saveStripeKey, removeStripeKey, saveZeffyKey, removeZeffyKey, saveDisclosure and confirmDisclosureStepUp. The fixture saveDisclosure answers { status: 'step_up', expiresInMinutes: 15 } when checkOverride(file, saved, draft).change is public_open and { status: 'saved' } otherwise; confirmDisclosureStepUp answers saved. The fixture createKey returns the key with used 'never'.",
+		"Route (the shared hash grammar of S2's notes): as=owner|finance|admin|governance|member|public (mockup SUBS); absent, the signed-in person's own row (Vibes of Light, Maple Pilates, Lotus Lane Yoga: the owner; B4 Uni: Jo A., finance; Harbor Arts Academy: Rosa T., admin); a value the person may not preview (ViewAsOption.held false, mockup vaAllowed) is ignored (resolveViewAs); preview when it is not their own. admin maps onto the audiences as the mockup's VW does (ViewAsOption.audience). The money period is S0's month= (YYYY-MM or YYYY-MM-DD..YYYY-MM-DD); on Bookings the control writes range= and offset= instead (S2). Switching school drops as=. A tab change keeps it. When the route's period is not one the viewed audience may pick, the shown period is the last pickable one that ends on or before it, else the first (mockup snapP); picking an option of View as also navigates to that period (month=<from>..<to>) and toasts 'Period changed to <label>: <views[audience].sees>'.",
+		"Top bar: view-as is the mockup's #kview button (eye icon, 'View as <name>', aria-haspopup listbox, title 'View as <name>. You are <own name> in <school>. Owners and admins own the dashboard and see everyone's data. Members see only themselves and their family.'). Its popover holds view-as-note data-note=top, six view-as-option rows (data-as, aria-selected, view-as-name with ' (you)' on the viewer's own row, view-as-summary; a row not held is disabled with title 'You do not hold this audience'), the disabled view-as-later row (title 'Custom audiences are not accepted in the first release') and view-as-note data-note=portal. Choosing a row closes the popover. preview-banner is the mockup's #vab ('Preview: this is what <name> sees. You are <own name>.[ Their books follow their own membership: shown as <audience name>.] Writes are off.') with preview-exit ('Exit preview', removes as=). While previewing every write control is disabled with title 'Exit preview to act'.",
+		"Period control: period-button shows the period's word only (Month, Quarter, Year or Custom) with aria-label 'Period: <label>'; its popover has period-label (the period's label), period-note (views[audience].periodNote, after 'Previewing ' in a preview), the presets as period-option (the mockup's eight, PresetGate by label; a hidden or embargoed preset is disabled with its PresetGate title), period-chip per PeriodGate (data-period, disabled with its title unless shown, class 'on' when chosen), and the custom range (also period-option) with views[audience].customRangeNote instead of the dates when it is set. period-prev and period-next are disabled with the neighbouring period's title when it is not pickable.",
+		"Lock panels: lock-panel carries data-surface (a GatedSurface) and data-lock (the reason); lock-who is its heading, lock-when the line under it, from the viewed option's locks. dashboard-plan replaces the Dashboard's 'By plan or fund' row, plans-revenue the Plans tab's per-plan members and monthly revenue (and its strip), settings-books the drawer's School books section below the heading.",
+		"Settings drawer: settings-section is each h5 heading (data-section appearance, basis, books, keys, connections; its text includes the muted part); settings-readonly is the owners-only line; books-readonly 'Owners change the disclosure. You can read it.'. disclosure-row per class (data-class), disclosure-kpis and disclosure-cell (data-class, data-audience public|member|governance|finance; finance is the Finance · Owner column) inside it, texts from disclosureCell. override-field are the editor's eight selects (data-field kpi, class, rule-class, rule-audience, detail, every, after, round) reacting to input, each edit applied with editOverride and checked with checkOverride; override-label their labels; override-message the validator line (each error as '400 <code>: <text>', else disclosureMessages). disclosure-reset and disclosure-save ('Check and save') are disabled until the draft differs (save also while it has errors or no change); admins get neither. key-row per key (data-key) with key-label and key-detail ('<prefix>… · used <used>') and key-revoke (data-key); key-create opens key-create-option (data-kind). connection-row (data-connection stripe|zeffy|bucket) with connection-detail; stripe-connect is Connect or Replace, zeffy-connect likewise.",
+		"Dialogs: dialog is the modal (mockup #md) with dialog-title, dialog-confirm (the primary button), dialog-cancel, dialog-field (data-field label, key, pin, apiKey), dialog-message (the restricted-key line, restrictedKeyMessage) and permission-item (data-permission, data-ok). A write's dialog stays open while the write is pending: dialog-confirm (or basis-save) carries aria-busy='true' and is disabled, and no toast shows until the Writer answers. toast is the shell's toast.",
+		"Not mapped: removeZeffyKey has no entry (no fixture school pairs a connected Zeffy with an owner viewer; its disabled button is checked for the admin); the mockup's 'Owners only. You are an admin here' line while an owner previews a lower audience is a mockup quirk and is not checked; the bar's layout at 390/360/320 px (help and gear pinned on row one) is checked by the shots, not here. S0.json follows the frozen top bar since G7b (no scope-note; the period button shows its word; Harbor Arts Academy in the switcher)."
+	],
+	"hooks": [
+		"settings-subtitle",
+		"settings-school",
+		"settings-section",
+		"settings-readonly",
+		"settings-all-note",
+		"basis-option",
+		"basis-note",
+		"basis-from",
+		"basis-save",
+		"books-intro",
+		"disclosure-row",
+		"disclosure-kpis",
+		"disclosure-cell",
+		"rounding-note",
+		"books-readonly",
+		"override-field",
+		"override-label",
+		"override-message",
+		"custom-audiences",
+		"disclosure-change-row",
+		"disclosure-reset",
+		"disclosure-save",
+		"key-row",
+		"key-label",
+		"key-detail",
+		"key-revoke",
+		"keys-empty",
+		"key-create",
+		"key-create-option",
+		"connection-row",
+		"connection-detail",
+		"stripe-check",
+		"stripe-connect",
+		"stripe-remove",
+		"zeffy-connect",
+		"zeffy-remove",
+		"bucket-setup",
+		"dialog",
+		"dialog-title",
+		"dialog-confirm",
+		"dialog-cancel",
+		"dialog-field",
+		"dialog-message",
+		"permission-item",
+		"toast",
+		"lock-panel",
+		"lock-who",
+		"lock-when",
+		"view-as",
+		"view-as-option",
+		"view-as-name",
+		"view-as-summary",
+		"view-as-later",
+		"view-as-note",
+		"preview-banner",
+		"preview-exit",
+		"period-label",
+		"period-note",
+		"period-chip"
+	],
+	"matrix": {
+		"surface": [
+			"settings-books",
+			"dashboard-plan",
+			"plans-revenue"
+		],
+		"as": [
+			"public",
+			"member",
+			"governance",
+			"finance",
+			"owner"
+		]
+	},
+	"moves": {
+		"fields": [
+			"schools[].name",
+			"settings.stripe.account",
+			"settings.keys[].label",
+			"disclosure.file.rounding.small.public",
+			"disclosure.file.rounding.small.member",
+			"disclosure.file.rounding.large.public",
+			"disclosure.file.rounding.large.member",
+			"disclosure.file.rounding.largeFrom"
+		]
+	},
+	"entries": [
+		{
+			"id": "settings-owner",
+			"source": "mockup settings() as the owner of Vibes of Light: header 'You and Vibes of Light', Appearance, the school's section head, Accounting basis (Cash on, note, From, Save), School books, Keys and access (3 rows), Connections (Stripe connected live, Zeffy not connected, bucket Later); smoke 'settings: the six classes with their KPIs and what each audience sees'",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=settings-subtitle]": {
+						"text": "You and Vibes of Light",
+						"moves": true
+					},
+					"[data-test=settings-school]": "Vibes of Light school settings",
+					"[data-test=settings-section][data-section=appearance]": "Appearance just for you",
+					"[data-test=settings-section][data-section=basis]": "Accounting basis",
+					"[data-test=settings-section][data-section=books]": "School books who sees what, how fine, how soon",
+					"[data-test=settings-section][data-section=keys]": "Keys and access we give you",
+					"[data-test=settings-section][data-section=connections]": "Connections you give us",
+					"[data-test=basis-note]": "Income counts when the money arrives. A $780 yearly plan counts $780 at once.",
+					"[data-test=basis-save]": "Save",
+					"[data-test=key-row][data-key=k1] [data-test=key-label]": {
+						"text": "Website",
+						"moves": true
+					},
+					"[data-test=key-row][data-key=k1] [data-test=key-detail]": "b4u_pk_live_Xk3… · used 2 min ago",
+					"[data-test=key-row][data-key=k2] [data-test=key-detail]": "b4u_sk_live_Qm8… · used yesterday",
+					"[data-test=key-row][data-key=k3] [data-test=key-detail]": "ro_41… · used Nov 3",
+					"[data-test=connection-row][data-connection=stripe] [data-test=connection-detail]": {
+						"text": "Vibes of Light LLC · key ending k3Qm",
+						"moves": true
+					},
+					"[data-test=connection-row][data-connection=zeffy] [data-test=connection-detail]": "Record donations from your Zeffy campaigns in your ledger.",
+					"[data-test=connection-row][data-connection=bucket] [data-test=connection-detail]": "Send a copy of your ledger to a bucket you own. Not available yet.",
+					"[data-test=stripe-connect]": "Replace",
+					"[data-test=zeffy-connect]": "Connect"
+				},
+				"count": {
+					"[data-test=settings-section]": 5,
+					"[data-test=settings-readonly]": 0,
+					"[data-test=basis-option]": 2,
+					"[data-test=basis-option][data-basis=cash].on": 1,
+					"[data-test=basis-from]": 1,
+					"[data-test=key-row]": 3,
+					"[data-test=connection-row]": 3,
+					"[data-test=stripe-check]": 1,
+					"[data-test=stripe-remove]": 1,
+					"[data-test=zeffy-remove]": 0,
+					"[data-test=bucket-setup][disabled]": 1,
+					"[data-test=lock-panel]": 0
+				},
+				"contains": {
+					"[data-test=key-row][data-key=k1]": [
+						"Website",
+						"Publishable"
+					],
+					"[data-test=key-row][data-key=k2]": [
+						"Booking server",
+						"Secret"
+					],
+					"[data-test=key-row][data-key=k3]": [
+						"Bookkeeper, expires Dec 5",
+						"Ledger read"
+					],
+					"[data-test=connection-row][data-connection=stripe]": [
+						"Stripe",
+						"Connected",
+						"live"
+					],
+					"[data-test=connection-row][data-connection=zeffy]": [
+						"Zeffy",
+						"Not connected"
+					],
+					"[data-test=connection-row][data-connection=bucket]": [
+						"Your own bucket (S3 or R2)",
+						"Later"
+					]
+				}
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "document.querySelector('#gb').click()"
+			}
+		},
+		{
+			"id": "settings-books-table",
+			"source": "mockup bkSettings(): the six-class table from the file (Class, KPIs, Public, Member, Governance, Finance · Owner), the rounding note with this school's size, the override editor, the change-permission table, the disabled custom-audiences row, Reset and Check and save disabled with no changes; smoke 'settings: the six classes…', 'settings: rounding by size explained and this school's size shown', 'settings: custom audiences are a disabled later row', 'settings: the change-permission table'",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=disclosure-cell][data-class=income][data-audience=public]": "categories · year · 12 months",
+					"[data-test=disclosure-cell][data-class=income][data-audience=member]": "categories · quarter · 6 weeks",
+					"[data-test=disclosure-cell][data-class=income][data-audience=governance]": "breakdown · month · at close",
+					"[data-test=disclosure-cell][data-class=income][data-audience=finance]": "names · live",
+					"[data-test=disclosure-kpis][data-class=income]": "gross_collected, revenue_by_kind, revenue_by_tier, net_income",
+					"[data-test=disclosure-cell][data-class=losses][data-audience=public]": "—",
+					"[data-test=disclosure-cell][data-class=losses][data-audience=member]": "total · quarter · 6 weeks",
+					"[data-test=disclosure-cell][data-class=losses][data-audience=governance]": "breakdown · month · at close",
+					"[data-test=disclosure-cell][data-class=losses][data-audience=finance]": "names · live",
+					"[data-test=disclosure-kpis][data-class=losses]": "refunds, disputes_lost, dispute_fees, stripe_fees, refund_rate, dispute_rate",
+					"[data-test=disclosure-cell][data-class=cash][data-audience=public]": "—",
+					"[data-test=disclosure-cell][data-class=cash][data-audience=member]": "—",
+					"[data-test=disclosure-cell][data-class=cash][data-audience=governance]": "categories · month · at close",
+					"[data-test=disclosure-cell][data-class=cash][data-audience=finance]": "names · live",
+					"[data-test=disclosure-kpis][data-class=cash]": "payouts, closing_balance_usd, credits_outstanding",
+					"[data-test=disclosure-cell][data-class=people][data-audience=public]": "total · quarter · at close",
+					"[data-test=disclosure-cell][data-class=people][data-audience=member]": "total · quarter · at close (as Public)",
+					"[data-test=disclosure-cell][data-class=people][data-audience=governance]": "spread · month · at close",
+					"[data-test=disclosure-cell][data-class=people][data-audience=finance]": "names · live",
+					"[data-test=disclosure-kpis][data-class=people]": "paying_members, new_paying_members, arpa",
+					"[data-test=disclosure-cell][data-class=activity][data-audience=public]": "categories · month · at close",
+					"[data-test=disclosure-cell][data-class=activity][data-audience=member]": "categories · month · at close (as Public)",
+					"[data-test=disclosure-cell][data-class=activity][data-audience=governance]": "breakdown · month · at close",
+					"[data-test=disclosure-cell][data-class=activity][data-audience=finance]": "names · live",
+					"[data-test=disclosure-kpis][data-class=activity]": "payments_count, refunds_count, disputes_opened, credits_granted, credits_consumed, credits_expired, breakage_rate",
+					"[data-test=disclosure-cell][data-class=personal][data-audience=public]": "—",
+					"[data-test=disclosure-cell][data-class=personal][data-audience=member]": "—",
+					"[data-test=disclosure-cell][data-class=personal][data-audience=governance]": "—",
+					"[data-test=disclosure-cell][data-class=personal][data-audience=finance]": "names · live",
+					"[data-test=disclosure-kpis][data-class=personal]": "closing_balance_credits",
+					"[data-test=books-intro]": "From the disclosure file (disclosure.v1.json, B4 Uni policy) and this school's override. Finance admins and the owner always see everything, names included.",
+					"[data-test=rounding-note]": {
+						"text": "Money for Public and Member is rounded by school size: under $100,000 of income in the last closed year, $100 for both; from $100,000, $1,000 for Public and $100 for Member. Governance and up: exact. Vibes of Light is small for 2026 (fixed on 1 Jan 2026).",
+						"moves": true
+					},
+					"[data-test=override-label][data-field=round]": "Round Public (small school) to",
+					"[data-test=override-message]": "No changes. The school uses the B4 Uni file.",
+					"[data-test=disclosure-save]": "Check and save",
+					"[data-test=disclosure-reset]": "Reset"
+				},
+				"count": {
+					"[data-test=disclosure-row]": 6,
+					"[data-test=disclosure-cell]": 24,
+					"[data-test=override-field]": 8,
+					"[data-test=override-field][disabled]": 0,
+					"[data-test=disclosure-change-row]": 4,
+					"[data-test=disclosure-save][disabled]": 1,
+					"[data-test=disclosure-reset][disabled]": 1,
+					"[data-test=custom-audiences] button[disabled]": 1,
+					"[data-test=books-readonly]": 0
+				},
+				"contains": {
+					"[data-test=disclosure-row]": [
+						"Income",
+						"Losses",
+						"Cash",
+						"People",
+						"Activity",
+						"Personal"
+					],
+					"[data-test=custom-audiences]": [
+						"Custom audiences: later",
+						"A school-defined audience (a donor tier) is allowed by the schema from version 1, not accepted in the first release."
+					],
+					"[data-test=disclosure-change-row]": [
+						"Stricter",
+						"More open for Member or Governance",
+						"More open for Public",
+						"PIN and the mailed-link step-up (it publishes); audited",
+						"Below the floor",
+						"Nobody",
+						"Refused"
+					]
+				}
+			}
+		},
+		{
+			"id": "settings-admin-readonly",
+			"source": "mockup settings() at B4 Uni, where the signed-in Jo A. is an admin (with the finance grant): the owners-only line, every write control disabled, the disclosure read-only with no Reset or Check and save, Check still open; smoke 'settings: admins see the disclosure read-only'",
+			"route": "#/b4u/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=settings-subtitle]": {
+						"text": "You and B4 Uni",
+						"moves": true
+					},
+					"[data-test=settings-readonly]": "Owners only. You are an admin here: you can look, not change.",
+					"[data-test=books-readonly]": "Owners change the disclosure. You can read it.",
+					"[data-test=rounding-note]": {
+						"text": "Money for Public and Member is rounded by school size: under $100,000 of income in the last closed year, $100 for both; from $100,000, $1,000 for Public and $100 for Member. Governance and up: exact. B4 Uni is small for 2026 (fixed on 1 Jan 2026).",
+						"moves": true
+					},
+					"[data-test=connection-row][data-connection=stripe] [data-test=connection-detail]": "B4 Uni · key ending 9aTx",
+					"[data-test=connection-row][data-connection=zeffy] [data-test=connection-detail]": "Reads fundraising payments · key ending 7Hq2",
+					"[data-test=key-row][data-key=k9] [data-test=key-detail]": "b4u_pk_live_Zr2… · used today"
+				},
+				"count": {
+					"[data-test=basis-option][disabled]": 2,
+					"[data-test=basis-from][disabled]": 1,
+					"[data-test=basis-save][disabled]": 1,
+					"[data-test=override-field][disabled]": 8,
+					"[data-test=disclosure-save]": 0,
+					"[data-test=disclosure-reset]": 0,
+					"[data-test=disclosure-row]": 6,
+					"[data-test=key-create][disabled]": 1,
+					"[data-test=key-revoke][disabled]": 1,
+					"[data-test=stripe-check]:not([disabled])": 1,
+					"[data-test=stripe-connect][disabled]": 1,
+					"[data-test=stripe-remove][disabled]": 1,
+					"[data-test=zeffy-connect][disabled]": 1,
+					"[data-test=zeffy-remove][disabled]": 1
+				}
+			}
+		},
+		{
+			"id": "settings-large-school",
+			"source": "mockup bkSettings() at Harbor Arts Academy (har, an admin without the finance grant; large for 2026 by bkSize): the size line and the large rounding field label; needs har in the schools list (merged mockup SC.har); the drawer's School books section is not locked for the admin row (the Plans pane under the drawer carries its own plans-revenue lock: gate-plans-revenue-admin)",
+			"route": "#/har/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=rounding-note]": {
+						"text": "Money for Public and Member is rounded by school size: under $100,000 of income in the last closed year, $100 for both; from $100,000, $1,000 for Public and $100 for Member. Governance and up: exact. Harbor Arts Academy is large for 2026 (fixed on 1 Jan 2026).",
+						"moves": true
+					},
+					"[data-test=override-label][data-field=round]": "Round Public (large school) to",
+					"[data-test=settings-readonly]": "Owners only. You are an admin here: you can look, not change.",
+					"[data-test=keys-empty]": "No keys yet.",
+					"[data-test=connection-row][data-connection=stripe] [data-test=connection-detail]": "Harbor Arts Academy Inc. · key ending h8Ra"
+				},
+				"count": {
+					"[data-test=lock-panel][data-surface=settings-books]": 0,
+					"[data-test=disclosure-row]": 6
+				}
+			}
+		},
+		{
+			"id": "settings-all-schools",
+			"source": "mockup settings() on All schools: Appearance and the per-school note only",
+			"route": "#/all/all?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=settings-subtitle]": "All schools",
+					"[data-test=settings-all-note]": "Accounting, keys and connections are set per school. Open a school to change them."
+				},
+				"count": {
+					"[data-test=settings-section]": 1,
+					"[data-test=settings-school]": 0,
+					"[data-test=disclosure-row]": 0
+				}
+			}
+		},
+		{
+			"id": "settings-empty-school",
+			"source": "mockup settings() at Lotus Lane Yoga: no keys, Stripe and Zeffy not connected",
+			"route": "#/nw/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=keys-empty]": "No keys yet.",
+					"[data-test=connection-row][data-connection=stripe] [data-test=connection-detail]": "Sell plans and take payments through your own Stripe account.",
+					"[data-test=stripe-connect]": "Connect",
+					"[data-test=zeffy-connect]": "Connect"
+				},
+				"count": {
+					"[data-test=key-row]": 0,
+					"[data-test=stripe-check]": 0,
+					"[data-test=stripe-remove]": 0,
+					"[data-test=zeffy-remove]": 0
+				},
+				"contains": {
+					"[data-test=connection-row][data-connection=stripe]": [
+						"Not connected"
+					]
+				}
+			}
+		},
+		{
+			"id": "basis-deferred-note",
+			"source": "mockup [data-basis=deferred]: the choice and its note change before any save; nothing is written",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"click": "[data-test=basis-option][data-basis=deferred]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=basis-note]": "Income counts as the service is given. Gifts are a liability until redeemed. A $780 yearly plan counts $65 a month."
+				},
+				"count": {
+					"[data-test=basis-option][data-basis=deferred].on": 1,
+					"[data-test=basis-option][data-basis=cash].on": 0
+				},
+				"writes": []
+			}
+		},
+		{
+			"id": "basis-save",
+			"source": "mockup #bsave: 'Accounting basis saved: deferred from Dec 1. Logged as a policy change.'",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"click": "[data-test=basis-option][data-basis=deferred]"
+				},
+				{
+					"click": "[data-test=basis-save]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "saveAccountingBasis",
+						"args": [
+							{
+								"school": "vol",
+								"basis": "deferred",
+								"from": "2026-12-01"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": "Accounting basis saved: deferred from Dec 1. Logged as a policy change."
+				}
+			}
+		},
+		{
+			"id": "basis-save-pending",
+			"source": "protocol §7 hold writer: Save is busy and no toast until the Writer answers",
+			"route": "#/vol/plans?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"click": "[data-test=basis-option][data-basis=deferred]"
+				},
+				{
+					"click": "[data-test=basis-save]",
+					"expect": {
+						"writes": [
+							{
+								"method": "saveAccountingBasis",
+								"args": [
+									{
+										"school": "vol",
+										"basis": "deferred",
+										"from": "2026-12-01"
+									}
+								]
+							}
+						],
+						"count": {
+							"[data-test=basis-save][aria-busy=true]": 1
+						},
+						"absent": [
+							"Accounting basis saved"
+						]
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "saveAccountingBasis",
+						"args": [
+							{
+								"school": "vol",
+								"basis": "deferred",
+								"from": "2026-12-01"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": "Accounting basis saved: deferred from Dec 1. Logged as a policy change."
+				}
+			}
+		},
+		{
+			"id": "key-create-menu",
+			"source": "mockup #cmk: Publishable key, Secret key, Ledger read credential",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"click": "[data-test=key-create]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=key-create-option]": 3
+				},
+				"text": {
+					"[data-test=key-create-option][data-kind=pk]": "Publishable key",
+					"[data-test=key-create-option][data-kind=sk]": "Secret key",
+					"[data-test=key-create-option][data-kind=rd]": "Ledger read credential"
+				}
+			}
+		},
+		{
+			"id": "key-create-pk",
+			"source": "mockup newItem('pk'): the create dialog, then 'Key created', shown once; the new row is listed with used never",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"click": "[data-test=key-create]"
+				},
+				{
+					"click": "[data-test=key-create-option][data-kind=pk]",
+					"expect": {
+						"text": {
+							"[data-test=dialog-title]": "Create publishable key",
+							"[data-test=dialog-confirm]": "Create"
+						},
+						"contains": {
+							"[data-test=dialog]": [
+								"For browsers, from your allowed origins. Reads public school data."
+							]
+						}
+					}
+				},
+				{
+					"fill": "[data-test=dialog-field][data-field=label]",
+					"value": "Docs site"
+				},
+				{
+					"click": "[data-test=dialog-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "createKey",
+								"args": [
+									{
+										"school": "vol",
+										"kind": "pk",
+										"label": "Docs site"
+									}
+								]
+							}
+						],
+						"text": {
+							"[data-test=dialog-title]": "Key created",
+							"[data-test=dialog-confirm]": "I stored it"
+						},
+						"contains": {
+							"[data-test=dialog]": [
+								"Shown once. Copy it now.",
+								"Only the SHA-256 and the first 15 characters are stored."
+							]
+						}
+					}
+				},
+				{
+					"click": "[data-test=dialog-confirm]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "createKey",
+						"args": [
+							{
+								"school": "vol",
+								"kind": "pk",
+								"label": "Docs site"
+							}
+						]
+					}
+				],
+				"count": {
+					"[data-test=dialog]": 0,
+					"[data-test=key-row]": 4
+				},
+				"contains": {
+					"[data-test=key-row]": [
+						"Docs site",
+						"used never"
+					]
+				}
+			}
+		},
+		{
+			"id": "key-create-pending",
+			"source": "protocol §7 hold writer: Create is busy until the Writer answers, then the shown-once dialog",
+			"route": "#/vol/plans?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"click": "[data-test=key-create]"
+				},
+				{
+					"click": "[data-test=key-create-option][data-kind=pk]"
+				},
+				{
+					"fill": "[data-test=dialog-field][data-field=label]",
+					"value": "Docs site"
+				},
+				{
+					"click": "[data-test=dialog-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "createKey",
+								"args": [
+									{
+										"school": "vol",
+										"kind": "pk",
+										"label": "Docs site"
+									}
+								]
+							}
+						],
+						"text": {
+							"[data-test=dialog-title]": "Create publishable key"
+						},
+						"count": {
+							"[data-test=dialog-confirm][aria-busy=true]": 1
+						}
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "createKey",
+						"args": [
+							{
+								"school": "vol",
+								"kind": "pk",
+								"label": "Docs site"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=dialog-title]": "Key created"
+				}
+			}
+		},
+		{
+			"id": "key-create-ledger-read",
+			"source": "mockup newItem('rd') with no label: 'No label', 'Credential created', the secret shown once",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"click": "[data-test=key-create]"
+				},
+				{
+					"click": "[data-test=key-create-option][data-kind=rd]",
+					"expect": {
+						"text": {
+							"[data-test=dialog-title]": "Create ledger read credential"
+						},
+						"contains": {
+							"[data-test=dialog]": [
+								"Read-only, limited to your school's folder."
+							]
+						}
+					}
+				},
+				{
+					"click": "[data-test=dialog-confirm]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "createKey",
+						"args": [
+							{
+								"school": "vol",
+								"kind": "rd",
+								"label": "No label"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=dialog-title]": "Credential created"
+				},
+				"contains": {
+					"[data-test=dialog]": [
+						"The secret is shown once.",
+						"Copy all",
+						"I stored it"
+					]
+				}
+			}
+		},
+		{
+			"id": "key-create-cap",
+			"source": "mockup newItem: a third live key of one kind is refused before any dialog, 'Two live keys of this kind already. Revoke one first.'",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"click": "[data-test=key-create]"
+				},
+				{
+					"click": "[data-test=key-create-option][data-kind=pk]"
+				},
+				{
+					"fill": "[data-test=dialog-field][data-field=label]",
+					"value": "Docs site"
+				},
+				{
+					"click": "[data-test=dialog-confirm]"
+				},
+				{
+					"click": "[data-test=dialog-confirm]"
+				},
+				{
+					"click": "[data-test=key-create]"
+				},
+				{
+					"click": "[data-test=key-create-option][data-kind=pk]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "createKey",
+						"args": [
+							{
+								"school": "vol",
+								"kind": "pk",
+								"label": "Docs site"
+							}
+						]
+					}
+				],
+				"count": {
+					"[data-test=dialog]": 0
+				},
+				"text": {
+					"[data-test=toast]": "Two live keys of this kind already. Revoke one first."
+				}
+			}
+		},
+		{
+			"id": "key-revoke",
+			"source": "mockup [data-rev2]: 'Revoke this key?', then toast 'Revoked.' and the row goes",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"click": "[data-test=key-revoke][data-key=k1]",
+					"expect": {
+						"text": {
+							"[data-test=dialog-title]": "Revoke this key?",
+							"[data-test=dialog-confirm]": "Revoke"
+						},
+						"contains": {
+							"[data-test=dialog]": [
+								"b4u_pk_live_Xk3… (Website). Anything using it stops working at once. This can't be undone."
+							]
+						}
+					}
+				},
+				{
+					"click": "[data-test=dialog-confirm]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "revokeKey",
+						"args": [
+							{
+								"school": "vol",
+								"keyId": "k1"
+							}
+						]
+					}
+				],
+				"count": {
+					"[data-test=key-row]": 2,
+					"[data-test=key-row][data-key=k1]": 0,
+					"[data-test=dialog]": 0
+				},
+				"text": {
+					"[data-test=toast]": "Revoked."
+				}
+			}
+		},
+		{
+			"id": "key-revoke-pending",
+			"source": "protocol §7 hold writer: Revoke is busy, the row stays and no toast until the Writer answers",
+			"route": "#/vol/plans?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"click": "[data-test=key-revoke][data-key=k1]"
+				},
+				{
+					"click": "[data-test=dialog-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "revokeKey",
+								"args": [
+									{
+										"school": "vol",
+										"keyId": "k1"
+									}
+								]
+							}
+						],
+						"count": {
+							"[data-test=dialog-confirm][aria-busy=true]": 1,
+							"[data-test=key-row]": 3
+						},
+						"absent": [
+							"Revoked."
+						]
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "revokeKey",
+						"args": [
+							{
+								"school": "vol",
+								"keyId": "k1"
+							}
+						]
+					}
+				],
+				"count": {
+					"[data-test=key-row]": 2
+				},
+				"text": {
+					"[data-test=toast]": "Revoked."
+				}
+			}
+		},
+		{
+			"id": "key-revoke-cancel",
+			"source": "mockup [data-close]: Cancel writes nothing",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"click": "[data-test=key-revoke][data-key=k1]"
+				},
+				{
+					"click": "[data-test=dialog-cancel]"
+				}
+			],
+			"expect": {
+				"writes": [],
+				"count": {
+					"[data-test=key-row]": 3,
+					"[data-test=dialog]": 0
+				}
+			}
+		},
+		{
+			"id": "stripe-check",
+			"source": "mockup permModal: 15 permissions to sell plans and 2 for invoices and refunds, all present",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"click": "[data-test=stripe-check]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=dialog-title]": "Stripe permissions"
+				},
+				"count": {
+					"[data-test=permission-item]": 17,
+					"[data-test=permission-item][data-ok=false]": 0
+				},
+				"contains": {
+					"[data-test=dialog]": [
+						"Vibes of Light LLC · key ending k3Qm",
+						"Needed to sell plans",
+						"Products (write)",
+						"Account (read)",
+						"Needed for Send invoice and Refund",
+						"Refunds (write)",
+						"All permissions are present."
+					]
+				}
+			}
+		},
+		{
+			"id": "stripe-check-missing",
+			"source": "mockup permModal at Maple Pilates: 2 missing, and the row's '2 permissions missing' badge",
+			"route": "#/map/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"click": "[data-test=stripe-check]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=permission-item][data-ok=false]": 2,
+					"[data-test=permission-item][data-ok=false][data-permission=\"Refunds (write)\"]": 1
+				},
+				"contains": {
+					"[data-test=dialog]": [
+						"2 missing. Invoices (write) and Refunds (write) stay disabled until you add them to the key in Stripe (Developers, API keys)."
+					],
+					"[data-test=connection-row][data-connection=stripe]": [
+						"2 permissions missing"
+					]
+				}
+			}
+		},
+		{
+			"id": "stripe-key-messages",
+			"source": "mockup stripeModal chk(): the key line for empty, a secret key, a test key, a wrong prefix, too short and a good key; Save key only with a PIN",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"click": "[data-test=stripe-connect]",
+					"expect": {
+						"text": {
+							"[data-test=dialog-title]": "Replace Stripe",
+							"[data-test=dialog-message]": "Paste a key that starts with rk_live_.",
+							"[data-test=dialog-confirm]": "Save key"
+						},
+						"contains": {
+							"[data-test=dialog]": [
+								"Paste a restricted key from your own Stripe account. It is stored encrypted and only its last four characters are shown afterwards."
+							]
+						}
+					}
+				},
+				{
+					"fill": "[data-test=dialog-field][data-field=key]",
+					"value": "sk_live_abc",
+					"expect": {
+						"text": {
+							"[data-test=dialog-message]": "That is a full secret key. Create a restricted key instead."
+						},
+						"count": {
+							"[data-test=dialog-confirm][disabled]": 1
+						}
+					}
+				},
+				{
+					"fill": "[data-test=dialog-field][data-field=key]",
+					"value": "rk_test_abc",
+					"expect": {
+						"text": {
+							"[data-test=dialog-message]": "A test key can't be used in production."
+						},
+						"count": {
+							"[data-test=dialog-confirm][disabled]": 1
+						}
+					}
+				},
+				{
+					"fill": "[data-test=dialog-field][data-field=key]",
+					"value": "pk_abc",
+					"expect": {
+						"text": {
+							"[data-test=dialog-message]": "The key must start with rk_live_."
+						},
+						"count": {
+							"[data-test=dialog-confirm][disabled]": 1
+						}
+					}
+				},
+				{
+					"fill": "[data-test=dialog-field][data-field=key]",
+					"value": "rk_live_abc",
+					"expect": {
+						"text": {
+							"[data-test=dialog-message]": "Keep typing…"
+						},
+						"count": {
+							"[data-test=dialog-confirm][disabled]": 1
+						}
+					}
+				},
+				{
+					"fill": "[data-test=dialog-field][data-field=key]",
+					"value": "rk_live_EXAMPLE-NOT-A-REAL-KEY",
+					"expect": {
+						"text": {
+							"[data-test=dialog-message]": "Looks right. Permissions are checked when you save."
+						},
+						"count": {
+							"[data-test=dialog-confirm][disabled]": 1
+						}
+					}
+				},
+				{
+					"fill": "[data-test=dialog-field][data-field=pin]",
+					"value": "1234"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=dialog-confirm]:not([disabled])": 1
+				},
+				"writes": []
+			}
+		},
+		{
+			"id": "stripe-key-save",
+			"source": "mockup #sgo: toast 'Stripe key saved. Run Check to confirm permissions.'",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"click": "[data-test=stripe-connect]"
+				},
+				{
+					"fill": "[data-test=dialog-field][data-field=key]",
+					"value": "rk_live_EXAMPLE-NOT-A-REAL-KEY"
+				},
+				{
+					"fill": "[data-test=dialog-field][data-field=pin]",
+					"value": "1234"
+				},
+				{
+					"click": "[data-test=dialog-confirm]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "saveStripeKey",
+						"args": [
+							{
+								"school": "vol",
+								"restrictedKey": "rk_live_EXAMPLE-NOT-A-REAL-KEY",
+								"pin": "1234"
+							}
+						]
+					}
+				],
+				"count": {
+					"[data-test=dialog]": 0
+				},
+				"text": {
+					"[data-test=toast]": "Stripe key saved. Run Check to confirm permissions."
+				}
+			}
+		},
+		{
+			"id": "stripe-key-save-pending",
+			"source": "protocol §7 hold writer: Save key is busy, the dialog stays, no toast until the Writer answers",
+			"route": "#/vol/plans?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"click": "[data-test=stripe-connect]"
+				},
+				{
+					"fill": "[data-test=dialog-field][data-field=key]",
+					"value": "rk_live_EXAMPLE-NOT-A-REAL-KEY"
+				},
+				{
+					"fill": "[data-test=dialog-field][data-field=pin]",
+					"value": "1234"
+				},
+				{
+					"click": "[data-test=dialog-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "saveStripeKey",
+								"args": [
+									{
+										"school": "vol",
+										"restrictedKey": "rk_live_EXAMPLE-NOT-A-REAL-KEY",
+										"pin": "1234"
+									}
+								]
+							}
+						],
+						"count": {
+							"[data-test=dialog-confirm][aria-busy=true]": 1
+						},
+						"absent": [
+							"Stripe key saved"
+						]
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "saveStripeKey",
+						"args": [
+							{
+								"school": "vol",
+								"restrictedKey": "rk_live_EXAMPLE-NOT-A-REAL-KEY",
+								"pin": "1234"
+							}
+						]
+					}
+				],
+				"count": {
+					"[data-test=dialog]": 0
+				},
+				"text": {
+					"[data-test=toast]": "Stripe key saved. Run Check to confirm permissions."
+				}
+			}
+		},
+		{
+			"id": "stripe-connect-empty",
+			"source": "mockup stripeModal on a school with no Stripe: 'Connect Stripe'",
+			"route": "#/nw/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"click": "[data-test=stripe-connect]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=dialog-title]": "Connect Stripe"
+				}
+			}
+		},
+		{
+			"id": "stripe-remove",
+			"source": "mockup removeModal('the Stripe key'): PIN first, then Remove",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"click": "[data-test=stripe-remove]",
+					"expect": {
+						"text": {
+							"[data-test=dialog-title]": "Remove the Stripe key?",
+							"[data-test=dialog-confirm]": "Remove"
+						},
+						"count": {
+							"[data-test=dialog-confirm][disabled]": 1
+						},
+						"contains": {
+							"[data-test=dialog]": [
+								"Plans stop being sold and new payments can't be taken until you connect again."
+							]
+						}
+					}
+				},
+				{
+					"fill": "[data-test=dialog-field][data-field=pin]",
+					"value": "1234"
+				},
+				{
+					"click": "[data-test=dialog-confirm]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "removeStripeKey",
+						"args": [
+							{
+								"school": "vol",
+								"pin": "1234"
+							}
+						]
+					}
+				],
+				"count": {
+					"[data-test=dialog]": 0
+				}
+			}
+		},
+		{
+			"id": "stripe-remove-pending",
+			"source": "protocol §7 hold writer: Remove is busy and the dialog stays until the Writer answers",
+			"route": "#/vol/plans?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"click": "[data-test=stripe-remove]"
+				},
+				{
+					"fill": "[data-test=dialog-field][data-field=pin]",
+					"value": "1234"
+				},
+				{
+					"click": "[data-test=dialog-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "removeStripeKey",
+								"args": [
+									{
+										"school": "vol",
+										"pin": "1234"
+									}
+								]
+							}
+						],
+						"count": {
+							"[data-test=dialog-confirm][aria-busy=true]": 1,
+							"[data-test=dialog]": 1
+						}
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "removeStripeKey",
+						"args": [
+							{
+								"school": "vol",
+								"pin": "1234"
+							}
+						]
+					}
+				],
+				"count": {
+					"[data-test=dialog]": 0
+				}
+			}
+		},
+		{
+			"id": "zeffy-connect",
+			"source": "mockup zeffyModal: Save key from 10 characters, toast 'Zeffy connected.'",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"click": "[data-test=zeffy-connect]",
+					"expect": {
+						"text": {
+							"[data-test=dialog-title]": "Connect Zeffy",
+							"[data-test=dialog-confirm]": "Save key"
+						},
+						"count": {
+							"[data-test=dialog-confirm][disabled]": 1
+						},
+						"contains": {
+							"[data-test=dialog]": [
+								"Paste the API key a Zeffy admin created. It is stored encrypted, used only to read payments, and never shown again.",
+								"Zeffy doesn't document webhook signing, so every payment is verified by looking it up in Zeffy before it is recorded."
+							]
+						}
+					}
+				},
+				{
+					"fill": "[data-test=dialog-field][data-field=apiKey]",
+					"value": "zeffy-example-key-0001"
+				},
+				{
+					"click": "[data-test=dialog-confirm]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "saveZeffyKey",
+						"args": [
+							{
+								"school": "vol",
+								"apiKey": "zeffy-example-key-0001"
+							}
+						]
+					}
+				],
+				"count": {
+					"[data-test=dialog]": 0
+				},
+				"text": {
+					"[data-test=toast]": "Zeffy connected."
+				}
+			}
+		},
+		{
+			"id": "zeffy-connect-pending",
+			"source": "protocol §7 hold writer: Save key is busy, no toast until the Writer answers",
+			"route": "#/vol/plans?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"click": "[data-test=zeffy-connect]"
+				},
+				{
+					"fill": "[data-test=dialog-field][data-field=apiKey]",
+					"value": "zeffy-example-key-0001"
+				},
+				{
+					"click": "[data-test=dialog-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "saveZeffyKey",
+								"args": [
+									{
+										"school": "vol",
+										"apiKey": "zeffy-example-key-0001"
+									}
+								]
+							}
+						],
+						"count": {
+							"[data-test=dialog-confirm][aria-busy=true]": 1
+						},
+						"absent": [
+							"Zeffy connected."
+						]
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "saveZeffyKey",
+						"args": [
+							{
+								"school": "vol",
+								"apiKey": "zeffy-example-key-0001"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": "Zeffy connected."
+				}
+			}
+		},
+		{
+			"id": "disclosure-open-member",
+			"source": "mockup dovEdit('rg','month') on the opening selection (Income, Member): valid, more open for members, the cell follows; nothing written",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"fill": "[data-test=override-field][data-field=every]",
+					"value": "month"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=override-message]": "Valid. More open for members or governance: your PIN.",
+					"[data-test=disclosure-cell][data-class=income][data-audience=member]": "categories · month · 6 weeks"
+				},
+				"count": {
+					"[data-test=disclosure-save]:not([disabled])": 1,
+					"[data-test=disclosure-reset]:not([disabled])": 1
+				},
+				"writes": []
+			}
+		},
+		{
+			"id": "disclosure-reset",
+			"source": "mockup #dreset: the draft goes back to the saved override",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"fill": "[data-test=override-field][data-field=every]",
+					"value": "month"
+				},
+				{
+					"click": "[data-test=disclosure-reset]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=override-message]": "No changes. The school uses the B4 Uni file.",
+					"[data-test=disclosure-cell][data-class=income][data-audience=member]": "categories · quarter · 6 weeks"
+				},
+				"count": {
+					"[data-test=disclosure-save][disabled]": 1
+				},
+				"writes": []
+			}
+		},
+		{
+			"id": "disclosure-save-member",
+			"source": "mockup dovSave() then the PIN: 'Save the disclosure change', toast on save; smoke 'settings: saving writes books.disclosure_changed…'",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"fill": "[data-test=override-field][data-field=every]",
+					"value": "month"
+				},
+				{
+					"click": "[data-test=disclosure-save]",
+					"expect": {
+						"text": {
+							"[data-test=dialog-title]": "Save the disclosure change",
+							"[data-test=dialog-confirm]": "Confirm with PIN"
+						},
+						"count": {
+							"[data-test=dialog-confirm][disabled]": 1
+						},
+						"contains": {
+							"[data-test=dialog]": [
+								"This makes the Member or Governance document more open. It applies from the next document build."
+							]
+						},
+						"writes": []
+					}
+				},
+				{
+					"fill": "[data-test=dialog-field][data-field=pin]",
+					"value": "1234"
+				},
+				{
+					"click": "[data-test=dialog-confirm]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "saveDisclosure",
+						"args": [
+							{
+								"school": "vol",
+								"override": {
+									"rules": {
+										"income.member": {
+											"detail": "categories",
+											"every": "month",
+											"after": "6 weeks"
+										}
+									}
+								},
+								"pin": "1234"
+							}
+						]
+					}
+				],
+				"count": {
+					"[data-test=dialog]": 0
+				},
+				"text": {
+					"[data-test=toast]": "Disclosure saved. Logged as books.disclosure_changed; applies from the next document build."
+				}
+			}
+		},
+		{
+			"id": "disclosure-save-pending",
+			"source": "protocol §7 hold writer: Confirm with PIN is busy, the dialog stays, no toast until the Writer answers",
+			"route": "#/vol/plans?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"fill": "[data-test=override-field][data-field=every]",
+					"value": "month"
+				},
+				{
+					"click": "[data-test=disclosure-save]"
+				},
+				{
+					"fill": "[data-test=dialog-field][data-field=pin]",
+					"value": "1234"
+				},
+				{
+					"click": "[data-test=dialog-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "saveDisclosure",
+								"args": [
+									{
+										"school": "vol",
+										"override": {
+											"rules": {
+												"income.member": {
+													"detail": "categories",
+													"every": "month",
+													"after": "6 weeks"
+												}
+											}
+										},
+										"pin": "1234"
+									}
+								]
+							}
+						],
+						"count": {
+							"[data-test=dialog-confirm][aria-busy=true]": 1
+						},
+						"absent": [
+							"Disclosure saved"
+						]
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "saveDisclosure",
+						"args": [
+							{
+								"school": "vol",
+								"override": {
+									"rules": {
+										"income.member": {
+											"detail": "categories",
+											"every": "month",
+											"after": "6 weeks"
+										}
+									}
+								},
+								"pin": "1234"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": "Disclosure saved. Logged as books.disclosure_changed; applies from the next document build."
+				}
+			}
+		},
+		{
+			"id": "disclosure-public-step-up",
+			"source": "mockup dovSave() for a Public change: valid with the step-up line, the PIN, then 'Confirm by email: this publishes your books' (saveDisclosure answers step_up); smoke 'settings: more open for Public…', 'settings: the step-up modal opens after the PIN'",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"fill": "[data-test=override-field][data-field=rule-audience]",
+					"value": "public"
+				},
+				{
+					"fill": "[data-test=override-field][data-field=every]",
+					"value": "quarter",
+					"expect": {
+						"text": {
+							"[data-test=override-message]": "Valid. More open for Public: your PIN and a mailed-link confirmation (it publishes).",
+							"[data-test=disclosure-cell][data-class=income][data-audience=public]": "categories · quarter · 12 months"
+						}
+					}
+				},
+				{
+					"click": "[data-test=disclosure-save]",
+					"expect": {
+						"contains": {
+							"[data-test=dialog]": [
+								"This makes the Public document more open. After your PIN, a mailed link confirms it: it publishes your books. It applies from the next document build."
+							]
+						}
+					}
+				},
+				{
+					"fill": "[data-test=dialog-field][data-field=pin]",
+					"value": "1234"
+				},
+				{
+					"click": "[data-test=dialog-confirm]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "saveDisclosure",
+						"args": [
+							{
+								"school": "vol",
+								"override": {
+									"rules": {
+										"income.public": {
+											"detail": "categories",
+											"every": "quarter",
+											"after": "12 months"
+										}
+									}
+								},
+								"pin": "1234"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=dialog-title]": "Confirm by email: this publishes your books",
+					"[data-test=dialog-confirm]": "I opened the link"
+				},
+				"contains": {
+					"[data-test=dialog]": [
+						"Public would see more, sooner or finer than today, and anyone can read it.",
+						"A link was mailed to confirm: this publishes your books. Nothing changes until you open it. The link works once and expires in 15 minutes."
+					]
+				},
+				"absent": [
+					"Disclosure saved"
+				]
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "document.querySelector('#gb').click();const f=(k,v)=>{const e=document.querySelector(`[data-dov=${k}]`);e.value=v;e.dispatchEvent(new Event('change',{bubbles:true}))};f('ra','public');f('rg','quarter');document.querySelector('#dsave').click();const p=document.querySelector('#dpin');p.value='1234';p.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('#dpgo').click()"
+			}
+		},
+		{
+			"id": "disclosure-step-up-confirm",
+			"source": "mockup #dgo 'I opened the link': applied, toast",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"fill": "[data-test=override-field][data-field=rule-audience]",
+					"value": "public"
+				},
+				{
+					"fill": "[data-test=override-field][data-field=every]",
+					"value": "quarter"
+				},
+				{
+					"click": "[data-test=disclosure-save]"
+				},
+				{
+					"fill": "[data-test=dialog-field][data-field=pin]",
+					"value": "1234"
+				},
+				{
+					"click": "[data-test=dialog-confirm]"
+				},
+				{
+					"click": "[data-test=dialog-confirm]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "saveDisclosure",
+						"args": [
+							{
+								"school": "vol",
+								"override": {
+									"rules": {
+										"income.public": {
+											"detail": "categories",
+											"every": "quarter",
+											"after": "12 months"
+										}
+									}
+								},
+								"pin": "1234"
+							}
+						]
+					},
+					{
+						"method": "confirmDisclosureStepUp",
+						"args": [
+							{
+								"school": "vol"
+							}
+						]
+					}
+				],
+				"count": {
+					"[data-test=dialog]": 0
+				},
+				"text": {
+					"[data-test=toast]": "Disclosure saved. Logged as books.disclosure_changed; applies from the next document build."
+				}
+			}
+		},
+		{
+			"id": "disclosure-step-up-cancel",
+			"source": "mockup [data-close] on the step-up: nothing applies; smoke 'settings: cancelling the step-up changes nothing'",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"fill": "[data-test=override-field][data-field=rule-audience]",
+					"value": "public"
+				},
+				{
+					"fill": "[data-test=override-field][data-field=every]",
+					"value": "quarter"
+				},
+				{
+					"click": "[data-test=disclosure-save]"
+				},
+				{
+					"fill": "[data-test=dialog-field][data-field=pin]",
+					"value": "1234"
+				},
+				{
+					"click": "[data-test=dialog-confirm]"
+				},
+				{
+					"click": "[data-test=dialog-cancel]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "saveDisclosure",
+						"args": [
+							{
+								"school": "vol",
+								"override": {
+									"rules": {
+										"income.public": {
+											"detail": "categories",
+											"every": "quarter",
+											"after": "12 months"
+										}
+									}
+								},
+								"pin": "1234"
+							}
+						]
+					}
+				],
+				"count": {
+					"[data-test=dialog]": 0
+				},
+				"absent": [
+					"Disclosure saved"
+				]
+			}
+		},
+		{
+			"id": "disclosure-step-up-pending",
+			"source": "protocol §7 hold writer: each of the two calls is busy until the Writer answers",
+			"route": "#/vol/plans?theme=light",
+			"writer": "hold",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"fill": "[data-test=override-field][data-field=rule-audience]",
+					"value": "public"
+				},
+				{
+					"fill": "[data-test=override-field][data-field=every]",
+					"value": "quarter"
+				},
+				{
+					"click": "[data-test=disclosure-save]"
+				},
+				{
+					"fill": "[data-test=dialog-field][data-field=pin]",
+					"value": "1234"
+				},
+				{
+					"click": "[data-test=dialog-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "saveDisclosure",
+								"args": [
+									{
+										"school": "vol",
+										"override": {
+											"rules": {
+												"income.public": {
+													"detail": "categories",
+													"every": "quarter",
+													"after": "12 months"
+												}
+											}
+										},
+										"pin": "1234"
+									}
+								]
+							}
+						],
+						"count": {
+							"[data-test=dialog-confirm][aria-busy=true]": 1
+						},
+						"text": {
+							"[data-test=dialog-title]": "Save the disclosure change"
+						}
+					}
+				},
+				{
+					"release": true,
+					"expect": {
+						"text": {
+							"[data-test=dialog-title]": "Confirm by email: this publishes your books"
+						}
+					}
+				},
+				{
+					"click": "[data-test=dialog-confirm]",
+					"expect": {
+						"writes": [
+							{
+								"method": "saveDisclosure",
+								"args": [
+									{
+										"school": "vol",
+										"override": {
+											"rules": {
+												"income.public": {
+													"detail": "categories",
+													"every": "quarter",
+													"after": "12 months"
+												}
+											}
+										},
+										"pin": "1234"
+									}
+								]
+							},
+							{
+								"method": "confirmDisclosureStepUp",
+								"args": [
+									{
+										"school": "vol"
+									}
+								]
+							}
+						],
+						"count": {
+							"[data-test=dialog-confirm][aria-busy=true]": 1
+						},
+						"absent": [
+							"Disclosure saved"
+						]
+					}
+				},
+				{
+					"release": true
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "saveDisclosure",
+						"args": [
+							{
+								"school": "vol",
+								"override": {
+									"rules": {
+										"income.public": {
+											"detail": "categories",
+											"every": "quarter",
+											"after": "12 months"
+										}
+									}
+								},
+								"pin": "1234"
+							}
+						]
+					},
+					{
+						"method": "confirmDisclosureStepUp",
+						"args": [
+							{
+								"school": "vol"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": "Disclosure saved. Logged as books.disclosure_changed; applies from the next document build."
+				}
+			}
+		},
+		{
+			"id": "disclosure-stricter",
+			"source": "mockup: Losses, Member, after 3 months is stricter: valid, PIN only; smoke 'settings: a stricter rule is valid and needs the PIN only'",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"fill": "[data-test=override-field][data-field=rule-class]",
+					"value": "losses"
+				},
+				{
+					"fill": "[data-test=override-field][data-field=rule-audience]",
+					"value": "member"
+				},
+				{
+					"fill": "[data-test=override-field][data-field=after]",
+					"value": "3 months",
+					"expect": {
+						"text": {
+							"[data-test=override-message]": "Valid. Stricter: your PIN. Already-published documents still inside their delay are withdrawn.",
+							"[data-test=disclosure-cell][data-class=losses][data-audience=member]": "total · quarter · 3 months"
+						}
+					}
+				},
+				{
+					"click": "[data-test=disclosure-save]",
+					"expect": {
+						"contains": {
+							"[data-test=dialog]": [
+								"This is stricter than today. Already-published documents for periods still inside their delay are withdrawn. It applies from the next document build."
+							]
+						}
+					}
+				},
+				{
+					"fill": "[data-test=dialog-field][data-field=pin]",
+					"value": "1234"
+				},
+				{
+					"click": "[data-test=dialog-confirm]"
+				}
+			],
+			"expect": {
+				"writes": [
+					{
+						"method": "saveDisclosure",
+						"args": [
+							{
+								"school": "vol",
+								"override": {
+									"rules": {
+										"losses.member": {
+											"detail": "total",
+											"every": "quarter",
+											"after": "3 months"
+										}
+									}
+								},
+								"pin": "1234"
+							}
+						]
+					}
+				],
+				"text": {
+					"[data-test=toast]": "Disclosure saved. Logged as books.disclosure_changed; applies from the next document build."
+				}
+			}
+		},
+		{
+			"id": "disclosure-below-floor",
+			"source": "mockup discCheck: Public income at breakdown is refused (and Member would be stricter than Public); smoke 'settings: Public money finer than categories is below the floor'",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"fill": "[data-test=override-field][data-field=rule-audience]",
+					"value": "public"
+				},
+				{
+					"fill": "[data-test=override-field][data-field=detail]",
+					"value": "breakdown"
+				}
+			],
+			"expect": {
+				"contains": {
+					"[data-test=override-message]": [
+						"400 below_floor: Money for Public is at most categories (income at breakdown)",
+						"400 order: Income: Member would be stricter than Public"
+					]
+				},
+				"count": {
+					"[data-test=disclosure-save][disabled]": 1
+				},
+				"writes": []
+			}
+		},
+		{
+			"id": "disclosure-more-open-than-input",
+			"source": "mockup discCheck: refund_rate moved to Activity is more open than its inputs; smoke 'settings: moving refund_rate to a more open class than refunds is refused, more_open_than_input'",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"fill": "[data-test=override-field][data-field=kpi]",
+					"value": "refund_rate"
+				},
+				{
+					"fill": "[data-test=override-field][data-field=class]",
+					"value": "activity"
+				}
+			],
+			"expect": {
+				"contains": {
+					"[data-test=override-message]": [
+						"400 more_open_than_input: refund_rate (activity) would be more open than its input refunds (losses)",
+						"400 more_open_than_input: refund_rate (activity) would be more open than its input gross_collected (income)"
+					]
+				},
+				"count": {
+					"[data-test=disclosure-save][disabled]": 1
+				},
+				"writes": []
+			}
+		},
+		{
+			"id": "disclosure-round-floor",
+			"source": "mockup discCheck: Public rounded finer than the file's $100 is refused",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				},
+				{
+					"fill": "[data-test=override-field][data-field=round]",
+					"value": "1000"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=override-message]": "400 below_floor: Money for Public (small school) can be rounded coarser, never finer than $100"
+				},
+				"count": {
+					"[data-test=disclosure-save][disabled]": 1
+				},
+				"writes": []
+			}
+		},
+		{
+			"id": "gate-settings-books-public",
+			"source": "mockup settings(): below the admins, the School books section is lockPanel('Owners and admins see school settings', …, admins_only); the owner of Vibes of Light previews as=public",
+			"route": "#/vol/plans?as=public&theme=light",
+			"covers": {
+				"surface": "settings-books",
+				"as": "public"
+			},
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=lock-panel][data-surface=settings-books] [data-test=lock-who]": "Owners and admins see school settings",
+					"[data-test=lock-panel][data-surface=settings-books] [data-test=lock-when]": "The School books table is the disclosure file; members and the public read the document their audience gets."
+				},
+				"count": {
+					"[data-test=lock-panel][data-surface=settings-books][data-lock=admins_only]": 1,
+					"[data-test=disclosure-row]": 0
+				}
+			}
+		},
+		{
+			"id": "gate-settings-books-member",
+			"source": "mockup settings(): below the admins, the School books section is lockPanel('Owners and admins see school settings', …, admins_only); the owner of Vibes of Light previews as=member",
+			"route": "#/vol/plans?as=member&theme=light",
+			"covers": {
+				"surface": "settings-books",
+				"as": "member"
+			},
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=lock-panel][data-surface=settings-books] [data-test=lock-who]": "Owners and admins see school settings",
+					"[data-test=lock-panel][data-surface=settings-books] [data-test=lock-when]": "The School books table is the disclosure file; members and the public read the document their audience gets."
+				},
+				"count": {
+					"[data-test=lock-panel][data-surface=settings-books][data-lock=admins_only]": 1,
+					"[data-test=disclosure-row]": 0
+				}
+			}
+		},
+		{
+			"id": "gate-settings-books-governance",
+			"source": "mockup settings(): below the admins, the School books section is lockPanel('Owners and admins see school settings', …, admins_only); the owner of Vibes of Light previews as=governance",
+			"route": "#/vol/plans?as=governance&theme=light",
+			"covers": {
+				"surface": "settings-books",
+				"as": "governance"
+			},
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=lock-panel][data-surface=settings-books] [data-test=lock-who]": "Owners and admins see school settings",
+					"[data-test=lock-panel][data-surface=settings-books] [data-test=lock-when]": "The School books table is the disclosure file; members and the public read the document their audience gets."
+				},
+				"count": {
+					"[data-test=lock-panel][data-surface=settings-books][data-lock=admins_only]": 1,
+					"[data-test=disclosure-row]": 0
+				}
+			}
+		},
+		{
+			"id": "gate-settings-books-finance",
+			"source": "mockup settings(): below the admins, the School books section is lockPanel('Owners and admins see school settings', …, admins_only); the owner of Vibes of Light previews as=finance",
+			"route": "#/vol/plans?as=finance&theme=light",
+			"covers": {
+				"surface": "settings-books",
+				"as": "finance"
+			},
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=lock-panel][data-surface=settings-books]": 0,
+					"[data-test=disclosure-row]": 6
+				},
+				"text": {
+					"[data-test=view-as]": "View as Finance admin"
+				}
+			}
+		},
+		{
+			"id": "gate-settings-books-owner",
+			"source": "mockup settings(): below the admins, the School books section is lockPanel('Owners and admins see school settings', …, admins_only); the owner of Vibes of Light previews as=owner",
+			"route": "#/vol/plans?as=owner&theme=light",
+			"covers": {
+				"surface": "settings-books",
+				"as": "owner"
+			},
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=lock-panel][data-surface=settings-books]": 0,
+					"[data-test=disclosure-row]": 6
+				},
+				"text": {
+					"[data-test=view-as]": "View as Owner"
+				}
+			}
+		},
+		{
+			"id": "gate-dashboard-plan-public",
+			"source": "mockup dashAgg(): 'By plan or fund' is hidWho(revenue_by_tier, breakdown), 'Governance and up see this' (no_grant) for Public and Member; shown from Governance up; the owner of Vibes of Light previews as=public",
+			"route": "#/vol/dashboard?as=public&theme=light",
+			"covers": {
+				"surface": "dashboard-plan",
+				"as": "public"
+			},
+			"expect": {
+				"text": {
+					"[data-test=lock-panel][data-surface=dashboard-plan] [data-test=lock-who]": "Governance and up see this"
+				},
+				"count": {
+					"[data-test=lock-panel][data-surface=dashboard-plan][data-lock=no_grant]": 1
+				}
+			}
+		},
+		{
+			"id": "gate-dashboard-plan-member",
+			"source": "mockup dashAgg(): 'By plan or fund' is hidWho(revenue_by_tier, breakdown), 'Governance and up see this' (no_grant) for Public and Member; shown from Governance up; the owner of Vibes of Light previews as=member",
+			"route": "#/vol/dashboard?as=member&theme=light",
+			"covers": {
+				"surface": "dashboard-plan",
+				"as": "member"
+			},
+			"expect": {
+				"text": {
+					"[data-test=lock-panel][data-surface=dashboard-plan] [data-test=lock-who]": "Governance and up see this"
+				},
+				"count": {
+					"[data-test=lock-panel][data-surface=dashboard-plan][data-lock=no_grant]": 1
+				}
+			}
+		},
+		{
+			"id": "gate-dashboard-plan-governance",
+			"source": "mockup dashAgg(): 'By plan or fund' is hidWho(revenue_by_tier, breakdown), 'Governance and up see this' (no_grant) for Public and Member; shown from Governance up; the owner of Vibes of Light previews as=governance",
+			"route": "#/vol/dashboard?as=governance&theme=light",
+			"covers": {
+				"surface": "dashboard-plan",
+				"as": "governance"
+			},
+			"expect": {
+				"count": {
+					"[data-test=lock-panel][data-surface=dashboard-plan]": 0
+				},
+				"text": {
+					"[data-test=view-as]": "View as Governance"
+				}
+			}
+		},
+		{
+			"id": "gate-dashboard-plan-finance",
+			"source": "mockup dashAgg(): 'By plan or fund' is hidWho(revenue_by_tier, breakdown), 'Governance and up see this' (no_grant) for Public and Member; shown from Governance up; the owner of Vibes of Light previews as=finance",
+			"route": "#/vol/dashboard?as=finance&theme=light",
+			"covers": {
+				"surface": "dashboard-plan",
+				"as": "finance"
+			},
+			"expect": {
+				"count": {
+					"[data-test=lock-panel][data-surface=dashboard-plan]": 0
+				},
+				"text": {
+					"[data-test=view-as]": "View as Finance admin"
+				}
+			}
+		},
+		{
+			"id": "gate-dashboard-plan-owner",
+			"source": "mockup dashAgg(): 'By plan or fund' is hidWho(revenue_by_tier, breakdown), 'Governance and up see this' (no_grant) for Public and Member; shown from Governance up; the owner of Vibes of Light previews as=owner",
+			"route": "#/vol/dashboard?as=owner&theme=light",
+			"covers": {
+				"surface": "dashboard-plan",
+				"as": "owner"
+			},
+			"expect": {
+				"count": {
+					"[data-test=lock-panel][data-surface=dashboard-plan]": 0
+				},
+				"text": {
+					"[data-test=view-as]": "View as Owner"
+				}
+			}
+		},
+		{
+			"id": "gate-plans-revenue-public",
+			"source": "mockup plans(): each plan's members and monthly revenue are hidWho(revenue_by_tier, breakdown) for Public and Member; smoke 'ranked 7: public preview shows only plans on sale and Governance and up for the breakdown'; the owner of Vibes of Light previews as=public Final whole-app panel (Opus, Fable): the mockup draws no plans-revenue lock panel; its notice is the kplnote line plus a lock in each cell, so the panel is absent.",
+			"route": "#/vol/plans?as=public&theme=light",
+			"covers": {
+				"surface": "plans-revenue",
+				"as": "public"
+			},
+			"expect": {
+				"text": {},
+				"count": {
+					"[data-surface=plans-revenue]": 0
+				}
+			}
+		},
+		{
+			"id": "gate-plans-revenue-member",
+			"source": "mockup plans(): each plan's members and monthly revenue are hidWho(revenue_by_tier, breakdown) for Public and Member; smoke 'ranked 7: public preview shows only plans on sale and Governance and up for the breakdown'; the owner of Vibes of Light previews as=member Final whole-app panel (Opus, Fable): the mockup draws no plans-revenue lock panel; its notice is the kplnote line plus a lock in each cell, so the panel is absent.",
+			"route": "#/vol/plans?as=member&theme=light",
+			"covers": {
+				"surface": "plans-revenue",
+				"as": "member"
+			},
+			"expect": {
+				"text": {},
+				"count": {
+					"[data-surface=plans-revenue]": 0
+				}
+			}
+		},
+		{
+			"id": "gate-plans-revenue-governance",
+			"source": "mockup plans(): each plan's members and monthly revenue are hidWho(revenue_by_tier, breakdown) for Public and Member; smoke 'ranked 7: public preview shows only plans on sale and Governance and up for the breakdown'; the owner of Vibes of Light previews as=governance",
+			"route": "#/vol/plans?as=governance&theme=light",
+			"covers": {
+				"surface": "plans-revenue",
+				"as": "governance"
+			},
+			"expect": {
+				"count": {
+					"[data-test=lock-panel][data-surface=plans-revenue]": 0
+				},
+				"text": {
+					"[data-test=view-as]": "View as Governance"
+				}
+			}
+		},
+		{
+			"id": "gate-plans-revenue-finance",
+			"source": "mockup plans(): each plan's members and monthly revenue are hidWho(revenue_by_tier, breakdown) for Public and Member; smoke 'ranked 7: public preview shows only plans on sale and Governance and up for the breakdown'; the owner of Vibes of Light previews as=finance",
+			"route": "#/vol/plans?as=finance&theme=light",
+			"covers": {
+				"surface": "plans-revenue",
+				"as": "finance"
+			},
+			"expect": {
+				"count": {
+					"[data-test=lock-panel][data-surface=plans-revenue]": 0
+				},
+				"text": {
+					"[data-test=view-as]": "View as Finance admin"
+				}
+			}
+		},
+		{
+			"id": "gate-plans-revenue-owner",
+			"source": "mockup plans(): each plan's members and monthly revenue are hidWho(revenue_by_tier, breakdown) for Public and Member; smoke 'ranked 7: public preview shows only plans on sale and Governance and up for the breakdown'; the owner of Vibes of Light previews as=owner",
+			"route": "#/vol/plans?as=owner&theme=light",
+			"covers": {
+				"surface": "plans-revenue",
+				"as": "owner"
+			},
+			"expect": {
+				"count": {
+					"[data-test=lock-panel][data-surface=plans-revenue]": 0
+				},
+				"text": {
+					"[data-test=view-as]": "View as Owner"
+				}
+			}
+		},
+		{
+			"id": "gate-plans-revenue-admin",
+			"source": "mockup plans() for the Admin row: noRev 'Finance or governance only' (no_grant); the banner says their books follow their own membership Final whole-app panel (Opus, Fable): the mockup draws no plans-revenue lock panel; its notice is the kplnote line plus a lock in each cell, so the panel is absent.",
+			"route": "#/vol/plans?as=admin&theme=light",
+			"expect": {
+				"text": {},
+				"contains": {
+					"[data-test=preview-banner]": [
+						"Preview: this is what Admin sees. You are Owner. Their books follow their own membership: shown as Member. Writes are off."
+					]
+				},
+				"count": {
+					"[data-surface=plans-revenue]": 0
+				}
+			}
+		},
+		{
+			"id": "view-as-finance-admin",
+			"source": "mockup renderVA() at B4 Uni (Jo A., finance admin): six rows in order, Owner disabled 'You do not hold this audience', the custom-audiences later row; smoke 'view as: options in order…', 'view as: a finance admin previews everything but the owner…', 'view as: custom audiences are a disabled later row', 'view as: the help keeps the old tooltip text and the preview-vs-portal line'",
+			"route": "#/b4u/dashboard?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=view-as]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=view-as]": "View as Finance admin",
+					"[data-test=view-as-note][data-note=top]": "You are Finance admin here. This previews what each role sees: the same document that audience gets, not a person. Owners and admins own the dashboard and see everyone's data. Members see only themselves and their family.",
+					"[data-test=view-as-note][data-note=portal]": "To see one person's portal, use View as member on their row in Members.",
+					"[data-test=view-as-option][data-as=owner] [data-test=view-as-name]": "Owner",
+					"[data-test=view-as-option][data-as=owner] [data-test=view-as-summary]": "Sees everything live, donor names, anonymous donors. Cannot be previewed by anyone but the owner.",
+					"[data-test=view-as-option][data-as=finance] [data-test=view-as-name]": "Finance admin (you)",
+					"[data-test=view-as-option][data-as=finance] [data-test=view-as-summary]": "Sees everything live, payer and donor names. Cannot see anonymous donors' names or change roles.",
+					"[data-test=view-as-option][data-as=admin] [data-test=view-as-name]": "Admin",
+					"[data-test=view-as-option][data-as=admin] [data-test=view-as-summary]": "Sees roster, plans, bookings and balances. Cannot see money per person, the ledger or names.",
+					"[data-test=view-as-option][data-as=governance] [data-test=view-as-name]": "Governance",
+					"[data-test=view-as-option][data-as=governance] [data-test=view-as-summary]": "Sees months, plans, spread, exact. Cannot see names or per-person rows.",
+					"[data-test=view-as-option][data-as=member] [data-test=view-as-name]": "Member",
+					"[data-test=view-as-option][data-as=member] [data-test=view-as-summary]": "Sees quarters, categories, money rounded. Cannot see plans, funds or anyone's rows.",
+					"[data-test=view-as-option][data-as=public] [data-test=view-as-name]": "Public",
+					"[data-test=view-as-option][data-as=public] [data-test=view-as-summary]": "Sees years, categories, money rounded, after a delay. Cannot see losses, cash or rows."
+				},
+				"count": {
+					"[data-test=view-as-option]": 6,
+					"[data-test=view-as-option]:not([disabled])": 5,
+					"[data-test=view-as-option][data-as=finance][aria-selected=true]": 1,
+					"[data-test=view-as-later][disabled][title=\"Custom audiences are not accepted in the first release\"]": 1,
+					"[data-test=view-as][title^=\"View as Finance admin. You are Finance admin in B4 Uni.\"]": 1,
+					"[data-test=view-as-option][data-as=owner][disabled][title=\"You do not hold this audience\"]": 1
+				},
+				"contains": {
+					"[data-test=view-as-later]": [
+						"Custom audiences: later",
+						"Etc.: any audience a school defines (a donor tier) comes in a later release."
+					]
+				}
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "document.querySelector('#sw').click();document.querySelector('[data-sc=b4u]').click();document.querySelector('#kview').click()"
+			}
+		},
+		{
+			"id": "view-as-owner",
+			"source": "mockup renderVA() as the owner of Vibes of Light: every row may be previewed; smoke 'view as: the owner previews every role'",
+			"route": "#/vol/dashboard?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=view-as]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=view-as]": "View as Owner",
+					"[data-test=view-as-note][data-note=top]": "You are Owner here. This previews what each role sees: the same document that audience gets, not a person. Owners and admins own the dashboard and see everyone's data. Members see only themselves and their family.",
+					"[data-test=view-as-note][data-note=portal]": "To see one person's portal, use View as member on their row in Members.",
+					"[data-test=view-as-option][data-as=owner] [data-test=view-as-name]": "Owner (you)",
+					"[data-test=view-as-option][data-as=owner] [data-test=view-as-summary]": "Sees everything live, donor names, anonymous donors. Cannot be previewed by anyone but the owner.",
+					"[data-test=view-as-option][data-as=finance] [data-test=view-as-name]": "Finance admin",
+					"[data-test=view-as-option][data-as=finance] [data-test=view-as-summary]": "Sees everything live, payer and donor names. Cannot see anonymous donors' names or change roles.",
+					"[data-test=view-as-option][data-as=admin] [data-test=view-as-name]": "Admin",
+					"[data-test=view-as-option][data-as=admin] [data-test=view-as-summary]": "Sees roster, plans, bookings and balances. Cannot see money per person, the ledger or names.",
+					"[data-test=view-as-option][data-as=governance] [data-test=view-as-name]": "Governance",
+					"[data-test=view-as-option][data-as=governance] [data-test=view-as-summary]": "Sees months, plans, spread, exact. Cannot see names or per-person rows.",
+					"[data-test=view-as-option][data-as=member] [data-test=view-as-name]": "Member",
+					"[data-test=view-as-option][data-as=member] [data-test=view-as-summary]": "Sees quarters, categories, money rounded. Cannot see plans, funds or anyone's rows.",
+					"[data-test=view-as-option][data-as=public] [data-test=view-as-name]": "Public",
+					"[data-test=view-as-option][data-as=public] [data-test=view-as-summary]": "Sees years, categories, money rounded, after a delay. Cannot see losses, cash or rows."
+				},
+				"count": {
+					"[data-test=view-as-option]": 6,
+					"[data-test=view-as-option]:not([disabled])": 6,
+					"[data-test=view-as-option][data-as=owner][aria-selected=true]": 1,
+					"[data-test=view-as-later][disabled][title=\"Custom audiences are not accepted in the first release\"]": 1,
+					"[data-test=view-as][title^=\"View as Owner. You are Owner in Vibes of Light.\"]": 1
+				},
+				"contains": {
+					"[data-test=view-as-later]": [
+						"Custom audiences: later",
+						"Etc.: any audience a school defines (a donor tier) comes in a later release."
+					]
+				}
+			}
+		},
+		{
+			"id": "view-as-admin-no-grant",
+			"source": "mockup renderVA() at Harbor Arts Academy (Rosa T., an admin without the grant with a live Studio membership): Admin, Member and Public only; smoke 'view as: an admin without the grant who holds a membership previews Admin, Member and Public only'; needs har in the schools list",
+			"route": "#/har/dashboard?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=view-as]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=view-as]": "View as Admin",
+					"[data-test=view-as-note][data-note=top]": "You are Admin here. This previews what each role sees: the same document that audience gets, not a person. Owners and admins own the dashboard and see everyone's data. Members see only themselves and their family.",
+					"[data-test=view-as-note][data-note=portal]": "To see one person's portal, use View as member on their row in Members.",
+					"[data-test=view-as-option][data-as=owner] [data-test=view-as-name]": "Owner",
+					"[data-test=view-as-option][data-as=owner] [data-test=view-as-summary]": "Sees everything live, donor names, anonymous donors. Cannot be previewed by anyone but the owner.",
+					"[data-test=view-as-option][data-as=finance] [data-test=view-as-name]": "Finance admin",
+					"[data-test=view-as-option][data-as=finance] [data-test=view-as-summary]": "Sees everything live, payer and donor names. Cannot see anonymous donors' names or change roles.",
+					"[data-test=view-as-option][data-as=admin] [data-test=view-as-name]": "Admin (you)",
+					"[data-test=view-as-option][data-as=admin] [data-test=view-as-summary]": "Sees roster, plans, bookings and balances. Cannot see money per person, the ledger or names.",
+					"[data-test=view-as-option][data-as=governance] [data-test=view-as-name]": "Governance",
+					"[data-test=view-as-option][data-as=governance] [data-test=view-as-summary]": "Sees months, plans, spread, exact. Cannot see names or per-person rows.",
+					"[data-test=view-as-option][data-as=member] [data-test=view-as-name]": "Member",
+					"[data-test=view-as-option][data-as=member] [data-test=view-as-summary]": "Sees quarters, categories, money rounded. Cannot see plans, funds or anyone's rows.",
+					"[data-test=view-as-option][data-as=public] [data-test=view-as-name]": "Public",
+					"[data-test=view-as-option][data-as=public] [data-test=view-as-summary]": "Sees years, categories, money rounded, after a delay. Cannot see losses, cash or rows."
+				},
+				"count": {
+					"[data-test=view-as-option]": 6,
+					"[data-test=view-as-option]:not([disabled])": 3,
+					"[data-test=view-as-option][data-as=admin][aria-selected=true]": 1,
+					"[data-test=view-as-later][disabled][title=\"Custom audiences are not accepted in the first release\"]": 1,
+					"[data-test=view-as][title^=\"View as Admin. You are Admin in Harbor Arts Academy.\"]": 1,
+					"[data-test=view-as-option][data-as=owner][disabled][title=\"You do not hold this audience\"]": 1,
+					"[data-test=view-as-option][data-as=finance][disabled][title=\"You do not hold this audience\"]": 1,
+					"[data-test=view-as-option][data-as=governance][disabled][title=\"You do not hold this audience\"]": 1
+				},
+				"contains": {
+					"[data-test=view-as-later]": [
+						"Custom audiences: later",
+						"Etc.: any audience a school defines (a donor tier) comes in a later release."
+					]
+				}
+			}
+		},
+		{
+			"id": "view-as-choose",
+			"source": "mockup setVa('governance'): the route gets as=governance, the button and the banner follow, and every tab re-renders for the previewed audience; smoke 'view as: picking an option re-renders the active tab in place', 'view as: banner says…', 'view as: every tab re-renders for the previewed role'",
+			"route": "#/vol/dashboard?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=view-as]"
+				},
+				{
+					"click": "[data-test=view-as-option][data-as=governance]",
+					"expect": {
+						"hash": "#/vol/dashboard",
+						"count": {
+							"[data-test=view-as-option]": 0
+						}
+					}
+				},
+				{
+					"click": "[data-test=tab][data-tab=plans]",
+					"expect": {
+						"hash": "#/vol/plans"
+					}
+				}
+			],
+			"expect": {
+				"hash": "as=governance",
+				"text": {
+					"[data-test=view-as]": "View as Governance"
+				},
+				"contains": {
+					"[data-test=preview-banner]": [
+						"Preview: this is what Governance sees. You are Owner. Writes are off."
+					]
+				},
+				"count": {
+					"[data-test=preview-exit]": 1,
+					"[data-test=lock-panel][data-surface=plans-revenue]": 0
+				}
+			}
+		},
+		{
+			"id": "view-as-choose-public-plans",
+			"source": "mockup setVa('public') on Plans: the tab re-renders in place with the revenue lock Final whole-app panel (Opus, Fable): the mockup draws no plans-revenue lock panel; its notice is the kplnote line plus a lock in each cell, so the panel is absent.",
+			"route": "#/vol/plans?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=view-as]"
+				},
+				{
+					"click": "[data-test=view-as-option][data-as=public]"
+				}
+			],
+			"expect": {
+				"hash": "as=public",
+				"text": {},
+				"count": {
+					"[data-surface=plans-revenue]": 0
+				}
+			}
+		},
+		{
+			"id": "view-as-all-schools",
+			"source": "mockup renderVA(): View as is hidden on All schools (cur==='all')",
+			"route": "#/all/all?theme=light",
+			"expect": {
+				"count": {
+					"[data-test=view-as]": 0,
+					"[data-test=preview-banner]": 0
+				}
+			}
+		},
+		{
+			"id": "preview-exit",
+			"source": "mockup #vax 'Exit preview': back to yourself, the banner goes; smoke 'view as: Exit returns to yourself and hides the banner'",
+			"route": "#/vol/dashboard?as=governance&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=preview-exit]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=view-as]": "View as Owner"
+				},
+				"count": {
+					"[data-test=preview-banner]": 0
+				}
+			}
+		},
+		{
+			"id": "view-as-not-held",
+			"source": "Cedar ReadDisclosure (principal in resource): as=owner is not held by B4 Uni's finance admin, so the route views their own row; smoke 'view as: Cedar rule, a viewer never previews above what they hold'",
+			"route": "#/b4u/dashboard?as=owner&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=view-as]": "View as Finance admin"
+				},
+				"count": {
+					"[data-test=preview-banner]": 0
+				}
+			}
+		},
+		{
+			"id": "preview-writes-off",
+			"source": "mockup pvLock(): while previewing, every write control is disabled with 'Exit preview to act', settings included; smoke 'view as: settings writes are off in preview too'",
+			"route": "#/vol/plans?as=member&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=settings-button]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=basis-save][disabled][title=\"Exit preview to act\"]": 1,
+					"[data-test=basis-option][disabled][title=\"Exit preview to act\"]": 2,
+					"[data-test=key-create][disabled][title=\"Exit preview to act\"]": 1,
+					"[data-test=stripe-connect][disabled][title=\"Exit preview to act\"]": 1
+				}
+			}
+		},
+		{
+			"id": "preview-school-switch",
+			"source": "mockup setSchool(): va=null, a school switch ends the preview",
+			"route": "#/vol/plans?as=public&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=school-switcher]"
+				},
+				{
+					"click": "[data-test=school-option][data-school=b4u]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=view-as]": "View as Finance admin"
+				},
+				"count": {
+					"[data-test=preview-banner]": 0
+				}
+			}
+		},
+		{
+			"id": "period-closed",
+			"source": "mockup renderPB(): the closed control shows an icon and the period's word, the dates only in its name; smoke 'period: closed control shows no dates, only an icon and a preset word, with an accessible name'",
+			"route": "#/vol/ledger?theme=light",
+			"expect": {
+				"text": {
+					"[data-test=period-button]": "Month"
+				},
+				"count": {
+					"[data-test=period-button][aria-label=\"Period: Nov 2026\"]": 1
+				}
+			}
+		},
+		{
+			"id": "period-public",
+			"source": "mockup renderPP() previewing Public: years only, presets disabled with the reason, 2025 and 2026 listed but disabled 'Published after'; the route's month snaps to 2024 (snapP); smoke 'period: Public may pick only years…', 'period: embargoed years are listed but disabled, Published after'",
+			"route": "#/b4u/ledger?as=public&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=period-button]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=period-button]": "Year",
+					"[data-test=period-note]": "Previewing Public: years only. One period for Dashboard, Reports, Ledger and Members.",
+					"[data-test=period-label]": "2024"
+				},
+				"count": {
+					"[data-test=period-button][aria-label=\"Period: 2024\"]": 1,
+					"[data-test=period-chip]": 3,
+					"[data-test=period-chip][data-period=\"2024\"]:not([disabled])": 1,
+					"[data-test=period-chip][data-period=\"2025\"][disabled][title=\"Published after 7 Jan 2027\"]": 1,
+					"[data-test=period-chip][data-period=\"2026\"][disabled][title=\"Published after 7 Jan 2028\"]": 1,
+					"[data-test=period-option][disabled]": 8,
+					"[data-test=period-option][disabled][title=\"Governance and up see this: Public sees years\"]": 3,
+					"[data-test=period-option][disabled][title=\"Members see this: Public sees years\"]": 2,
+					"[data-test=period-option][disabled][title=\"Published after 7 Jan 2028\"]": 1,
+					"[data-test=period-option][disabled][title=\"Published after 7 Jan 2027\"]": 1,
+					"[data-test=period-option][disabled][title=\"Finance admins and the owner see this: Public sees years\"]": 1,
+					"[data-test=period-next][disabled][title=\"Published after 7 Jan 2027\"]": 1
+				},
+				"contains": {
+					"[data-test=period-option]": [
+						"Days show to finance admins and the owner. Public sees years."
+					]
+				}
+			}
+		},
+		{
+			"id": "period-member",
+			"source": "mockup renderPP() previewing Member: quarters of 2025 and 2026, Q3 and Q4 2026 inside the 6-week delay; the clock's month snaps to Q2 2026",
+			"route": "#/b4u/ledger?as=member&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=period-button]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=period-button]": "Quarter",
+					"[data-test=period-note]": "Previewing Member: quarters only. One period for Dashboard, Reports, Ledger and Members."
+				},
+				"count": {
+					"[data-test=period-button][aria-label=\"Period: Q2 2026\"]": 1,
+					"[data-test=period-chip]": 8,
+					"[data-test=period-chip][data-period=\"2025-Q1\"]:not([disabled])": 1,
+					"[data-test=period-chip][data-period=\"2026-Q2\"]:not([disabled])": 1,
+					"[data-test=period-chip][data-period=\"2026-Q3\"][disabled][title=\"Published after 18 Nov 2026\"]": 1,
+					"[data-test=period-chip][data-period=\"2026-Q4\"][disabled][title=\"Published after 18 Feb 2027\"]": 1,
+					"[data-test=period-option][disabled]": 7,
+					"[data-test=period-option][disabled][title=\"Published after 18 Feb 2027\"]": 2,
+					"[data-test=period-option][disabled][title=\"Published after 18 Nov 2026\"]": 1
+				},
+				"contains": {
+					"[data-test=period-option]": [
+						"Days show to finance admins and the owner. Members see quarters."
+					]
+				}
+			}
+		},
+		{
+			"id": "period-governance",
+			"source": "mockup renderPP() previewing Governance: months of 2026, Oct and Nov not closed yet, Dec not started; This month and Last month embargoed, Year to date for finance admins and the owner",
+			"route": "#/b4u/ledger?as=governance&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=period-button]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=period-button]": "Month"
+				},
+				"count": {
+					"[data-test=period-button][aria-label=\"Period: Sep 2026\"]": 1,
+					"[data-test=period-chip]": 12,
+					"[data-test=period-chip][data-period=\"2026-09\"]:not([disabled])": 1,
+					"[data-test=period-chip][data-period=\"2026-10\"][disabled][title=\"Published after 7 Nov 2026\"]": 1,
+					"[data-test=period-chip][data-period=\"2026-11\"][disabled][title=\"Published after 7 Dec 2026\"]": 1,
+					"[data-test=period-chip][data-period=\"2026-12\"][disabled][title=\"Not started yet\"]": 1,
+					"[data-test=period-option][disabled]": 6,
+					"[data-test=period-option][disabled][title=\"Published after 7 Dec 2026\"]": 2,
+					"[data-test=period-option][disabled][title=\"Published after 7 Nov 2026\"]": 1,
+					"[data-test=period-option][disabled][title=\"Published after 7 Jan 2027\"]": 2,
+					"[data-test=period-option][disabled][title=\"Finance admins and the owner see this: Governance sees months\"]": 1
+				}
+			}
+		},
+		{
+			"id": "period-live",
+			"source": "mockup renderPP() for the finance admin: months and days, live; no audience chips, every preset and the custom range",
+			"route": "#/b4u/ledger?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=period-button]"
+				}
+			],
+			"expect": {
+				"text": {
+					"[data-test=period-note]": "Finance admin: months and days, live. One period for Dashboard, Reports, Ledger and Members."
+				},
+				"count": {
+					"[data-test=period-chip]": 0,
+					"[data-test=period-option][disabled]": 0
+				}
+			}
+		},
+		{
+			"id": "period-pick-year",
+			"source": "mockup [data-pk] chip: the year becomes the one period (month=<from>..<to>)",
+			"route": "#/b4u/ledger?as=public&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=period-button]"
+				},
+				{
+					"click": "[data-test=period-chip][data-period=\"2024\"]:not([disabled])"
+				}
+			],
+			"expect": {
+				"hash": "month=2024-01-01..2024-12-31",
+				"text": {
+					"[data-test=period-button]": "Year"
+				}
+			}
+		},
+		{
+			"id": "period-snap-toast",
+			"source": "mockup setVa() then snapP(): previewing Public from the clock's month snaps to 2024 with the toast 'Period changed to 2024: Public sees years'; smoke 'books public: switching re-snaps the period with a toast'",
+			"route": "#/b4u/ledger?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=view-as]"
+				},
+				{
+					"click": "[data-test=view-as-option][data-as=public]"
+				}
+			],
+			"expect": {
+				"hash": "month=2024-01-01..2024-12-31",
+				"text": {
+					"[data-test=toast]": "Period changed to 2024: Public sees years"
+				}
+			}
+		}
+	]
+}

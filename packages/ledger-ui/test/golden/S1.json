@@ -1,0 +1,1374 @@
+{
+	"slice": "S1",
+	"notes": [
+		"Mockup: frozen at atm dev 742105b64 (disclosure v2, #125). Data: src/data/kpi-document.ts with the generated src/fixtures/mart/documents.json (scripts/import-mart.ts; gates/oracle.ts on the disclosure object of src/data/disclosure.ts and src/fixtures/disclosure.json). The Reader gives kpiDocument({ school, preset, audience, pinLocked }) and dashboardOptions() (the presets). B4 Uni and Harbor Arts Academy show the mart's presets (fixture data); Vibes of Light, Maple Pilates and Lotus Lane Yoga their own events (gates/mockup-schools.json, the mockup's kpiSeries), with no preset switcher.",
+		"Route (S2 and S7's grammar): #/<school>/dashboard?preset=&as=&pin=&view=&month=. as= picks the View as row (resolveViewAs over the school's disclosure; the audience is option.audience, so Admin reads its member document); absent, the signed-in person's own. pin=locked from Governance up shows the PIN prompt (ignored below). month= is S0's period: YYYY-MM for a month, YYYY-MM-DD..YYYY-MM-DD for a quarter or a year (the document period's from..to); a period the audience may not pick snaps as S7's notes say. Without preset=, view= and month=, a fixture school opens on Monthly members, Money and the month the mockup opens it on (B4 Uni: Jun; Harbor Arts Academy as Member: Q2 2026), an events school on Money and the open month. Switching school drops as=, view=, month= and preset=.",
+		"root.dataset.route is set only after the Dashboard has rendered the document of that route (or its PIN prompt).",
+		"Every rendered KPI cell carries data-kpi, data-period (the document table's period: YYYY, YYYY-Qn or YYYY-MM) and data-cell (cellKind: number, lt, approx or the hidden kind), and its text is exactly the cell as the mockup writes it (kpi-document.ts KpiFormat, with the document's symbol): a hidden cell its text, '—' when suppressed; a cell with a reason carries title (a hidden cell its text; an lt or approx 'Rounded to the nearest 10: <why>'). Day cells (Finance admin and Owner, 'Gross by day') carry data-day (YYYY-MM-DD), data-cell and, for a number, data-value; their text is not checked. Labels, captions, legends and reason lines sit outside the cell element.",
+		"Series rows and charts read the table of the KPI's own grain (meta.every): 'Gross by year' the year table, 'Paying members by quarter' the quarter table, 'Credits used by month' the month table, each over the selected period's year; Member also shows the year's own total (the year table's gross_collected) and, when the year and its four quarters are all figures, year-note: 'The four rounded quarters add up to <the year table's gross_collected_rounded_quarters>; the year is rounded from its own events.' (mockup bkYearLine; the UI sums nothing). Plans (revenue_by_tier), funds (donations_by_fund, in table.order) and donors (donors_count, donors_by_size, donors_median_gift) are in the documents from Governance up; below it the plan row is S7's dashboard-plan lock panel.",
+		"kpi-card is one of the mockup's cards (5 Money, 4 Members, 4 Risk) with kpi-label and kpi-value (the card KPI's cell); Dispute cost shows disputes_lost and dispute_fees as cells (the UI derives no sum). dash-period is a strip button (data-period, disabled with its title when not shown, class on when chosen; at the month grain its text is the month's short name and the live audiences' open month carries class kopen with title 'Open month: live, can still change'); dash-step the ‹ › buttons of the month strip; open-key 'hatched = open month, live'. dash-caption the caption (document.captions[year]), dash-badge the badges ('Cash basis · <symbol>', 'Fixture data: invented' or 'From this school's events'), dash-note the annual-prepay note, dash-empty 'No payments yet…' (document.empty), dash-flag a 'Needs a look' row, donor-line the spread sentence, kpi-why a reason line '<title>: <why>'. pin-chip the PIN locked chip, pin-lock the prompt with pin-input and pin-unlock (enabled at 4 digits).",
+		"Not checked here: the card sub-lines that compare months ('▲ $29 vs May'), the chart bars, the Reports, Ledger and Members surfaces of the disclosure (S5, S4), the View as dropdown itself (S7)."
+	],
+	"hooks": [
+		"dash-view",
+		"dash-period",
+		"dash-step",
+		"open-key",
+		"preset-option",
+		"kpi-card",
+		"kpi-label",
+		"kpi-value",
+		"kpi-why",
+		"dash-caption",
+		"dash-badge",
+		"dash-note",
+		"dash-empty",
+		"dash-flag",
+		"donor-line",
+		"pin-chip",
+		"pin-lock",
+		"pin-input",
+		"pin-unlock",
+		"stale-banner",
+		"view-as",
+		"lock-panel",
+		"lock-who",
+		"lock-when",
+		"year-note"
+	],
+	"views": {
+		"public": {
+			"money": [
+				"gross_collected",
+				"refunds",
+				"stripe_fees",
+				"net_income",
+				"payouts",
+				"revenue_by_kind:*"
+			],
+			"members": [
+				"paying_members",
+				"new_paying_members",
+				"arpa",
+				"credits_consumed",
+				"credits_granted",
+				"credits_expired"
+			],
+			"risk": [
+				"refund_rate",
+				"refunds",
+				"disputes_opened",
+				"dispute_cost",
+				"net_income"
+			]
+		},
+		"member": {
+			"money": [
+				"gross_collected",
+				"refunds",
+				"stripe_fees",
+				"net_income",
+				"payouts",
+				"revenue_by_kind:*"
+			],
+			"members": [
+				"paying_members",
+				"new_paying_members",
+				"arpa",
+				"credits_consumed",
+				"credits_granted",
+				"credits_expired"
+			],
+			"risk": [
+				"refund_rate",
+				"refunds",
+				"disputes_opened",
+				"dispute_cost",
+				"net_income"
+			]
+		},
+		"governance": {
+			"money": [
+				"gross_collected",
+				"refunds",
+				"refund_rate",
+				"stripe_fees",
+				"net_income",
+				"payouts",
+				"revenue_by_tier:*",
+				"donations_by_fund:*"
+			],
+			"members": [
+				"paying_members",
+				"new_paying_members",
+				"arpa",
+				"credits_consumed",
+				"credits_granted",
+				"credits_expired",
+				"donors_count",
+				"donors_by_size:*",
+				"donors_median_gift"
+			],
+			"risk": [
+				"refund_rate",
+				"refunds",
+				"disputes_opened",
+				"dispute_cost",
+				"disputes_lost",
+				"dispute_fees",
+				"net_income"
+			]
+		},
+		"finance": {
+			"money": [
+				"gross_collected",
+				"refunds",
+				"refund_rate",
+				"stripe_fees",
+				"net_income",
+				"payouts",
+				"revenue_by_tier:*",
+				"donations_by_fund:*"
+			],
+			"members": [
+				"paying_members",
+				"new_paying_members",
+				"arpa",
+				"credits_consumed",
+				"credits_granted",
+				"credits_expired",
+				"donors_count",
+				"donors_by_size:*",
+				"donors_median_gift"
+			],
+			"risk": [
+				"refund_rate",
+				"refunds",
+				"disputes_opened",
+				"dispute_cost",
+				"disputes_lost",
+				"dispute_fees",
+				"net_income"
+			]
+		},
+		"owner": {
+			"money": [
+				"gross_collected",
+				"refunds",
+				"refund_rate",
+				"stripe_fees",
+				"net_income",
+				"payouts",
+				"revenue_by_tier:*",
+				"donations_by_fund:*"
+			],
+			"members": [
+				"paying_members",
+				"new_paying_members",
+				"arpa",
+				"credits_consumed",
+				"credits_granted",
+				"credits_expired",
+				"donors_count",
+				"donors_by_size:*",
+				"donors_median_gift"
+			],
+			"risk": [
+				"refund_rate",
+				"refunds",
+				"disputes_opened",
+				"dispute_cost",
+				"disputes_lost",
+				"dispute_fees",
+				"net_income"
+			]
+		}
+	},
+	"matrix": {
+		"view": [
+			"money",
+			"members",
+			"risk"
+		],
+		"as": [
+			"public",
+			"member",
+			"governance",
+			"finance",
+			"owner"
+		]
+	},
+	"entries": [
+		{
+			"id": "matrix-money-public",
+			"source": "mockup 742105b64 dashboard() on B4 Uni, Monthly members, View as Public, money: the cards, the caption, the strip and the badges; values from documents.json monthly-members.public at 2024, written as the mockup writes them",
+			"route": "#/b4u/dashboard?preset=monthly-members&as=public&view=money&month=2024-01-01..2024-12-31&theme=light",
+			"covers": {
+				"view": "money",
+				"as": "public"
+			},
+			"expect": {
+				"text": {
+					"[data-test=view-as]": "View as Public",
+					"[data-test=dash-view].on": "Money",
+					"[data-test=dash-period].on": "2024",
+					"[data-test=dash-caption]": "Public document · Income: categories by year, 12 months after it closes · Losses: Members only · Cash: Governance and up only · People: total by quarter · Activity: categories by month. Money rounded to $100 (small school, fixed for 2024 on 1 Jan 2024). Cell rules on: a count under 5 payers shows as <10 or to the nearest 10; an amount is hidden. 2025: published after 7 Jan 2027.",
+					"[data-test=kpi-value][data-kpi=\"gross_collected\"]": "$4,200",
+					"[data-test=kpi-value][data-kpi=\"refunds\"]": "Members see this",
+					"[data-test=kpi-value][data-kpi=\"stripe_fees\"]": "Members see this",
+					"[data-test=kpi-value][data-kpi=\"net_income\"]": "Members see this",
+					"[data-test=kpi-value][data-kpi=\"payouts\"]": "Governance and up see this"
+				},
+				"count": {
+					"[data-test=kpi-card]": 5,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-period]": 3,
+					"[data-test=dash-step]": 0,
+					"[data-test=pin-chip]": 0,
+					"[data-test=pin-lock]": 0,
+					"[data-test=preset-option]": 4
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Gross collected",
+						"Refunds",
+						"Payment fees",
+						"Net income",
+						"Paid out"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-members-public",
+			"source": "mockup 742105b64 dashboard() on B4 Uni, Monthly members, View as Public, members: the cards, the caption, the strip and the badges; values from documents.json monthly-members.public at 2024, written as the mockup writes them",
+			"route": "#/b4u/dashboard?preset=monthly-members&as=public&view=members&month=2024-01-01..2024-12-31&theme=light",
+			"covers": {
+				"view": "members",
+				"as": "public"
+			},
+			"expect": {
+				"text": {
+					"[data-test=view-as]": "View as Public",
+					"[data-test=dash-view].on": "Members",
+					"[data-test=dash-period].on": "2024",
+					"[data-test=dash-caption]": "Public document · Income: categories by year, 12 months after it closes · Losses: Members only · Cash: Governance and up only · People: total by quarter · Activity: categories by month. Money rounded to $100 (small school, fixed for 2024 on 1 Jan 2024). Cell rules on: a count under 5 payers shows as <10 or to the nearest 10; an amount is hidden. 2025: published after 7 Jan 2027.",
+					"[data-test=kpi-value][data-kpi=\"paying_members\"]": "14",
+					"[data-test=kpi-value][data-kpi=\"new_paying_members\"]": "14",
+					"[data-test=kpi-value][data-kpi=\"arpa\"]": "$300",
+					"[data-test=kpi-value][data-kpi=\"credits_consumed\"]": "150"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-period]": 3,
+					"[data-test=dash-step]": 0,
+					"[data-test=pin-chip]": 0,
+					"[data-test=pin-lock]": 0,
+					"[data-test=preset-option]": 4
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Paying members",
+						"New paying",
+						"Avg per paying member",
+						"Credits used"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-risk-public",
+			"source": "mockup 742105b64 dashboard() on B4 Uni, Monthly members, View as Public, risk: the cards, the caption, the strip and the badges; values from documents.json monthly-members.public at 2024, written as the mockup writes them",
+			"route": "#/b4u/dashboard?preset=monthly-members&as=public&view=risk&month=2024-01-01..2024-12-31&theme=light",
+			"covers": {
+				"view": "risk",
+				"as": "public"
+			},
+			"expect": {
+				"text": {
+					"[data-test=view-as]": "View as Public",
+					"[data-test=dash-view].on": "Risk",
+					"[data-test=dash-period].on": "2024",
+					"[data-test=dash-caption]": "Public document · Income: categories by year, 12 months after it closes · Losses: Members only · Cash: Governance and up only · People: total by quarter · Activity: categories by month. Money rounded to $100 (small school, fixed for 2024 on 1 Jan 2024). Cell rules on: a count under 5 payers shows as <10 or to the nearest 10; an amount is hidden. 2025: published after 7 Jan 2027.",
+					"[data-test=kpi-value][data-kpi=\"refund_rate\"]": "Members see this",
+					"[data-test=kpi-value][data-kpi=\"disputes_opened\"]": "0",
+					"[data-test=kpi-value][data-kpi=\"net_income\"]": "Members see this"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-period]": 3,
+					"[data-test=dash-step]": 0,
+					"[data-test=pin-chip]": 0,
+					"[data-test=pin-lock]": 0,
+					"[data-test=preset-option]": 4
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Refund rate",
+						"Disputes opened",
+						"Dispute cost",
+						"Net income"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-money-member",
+			"source": "mockup 742105b64 dashboard() on B4 Uni, Monthly members, View as Member, money: the cards, the caption, the strip and the badges; values from documents.json monthly-members.member at 2026-Q2, written as the mockup writes them",
+			"route": "#/b4u/dashboard?preset=monthly-members&as=member&view=money&month=2026-04-01..2026-06-30&theme=light",
+			"covers": {
+				"view": "money",
+				"as": "member"
+			},
+			"expect": {
+				"text": {
+					"[data-test=view-as]": "View as Member",
+					"[data-test=dash-view].on": "Money",
+					"[data-test=dash-period].on": "Q2 2026",
+					"[data-test=dash-caption]": "Member document · Income: categories by quarter, 6 weeks after it closes · Losses: total by quarter, 6 weeks after it closes · Cash: Governance and up only · People: total by quarter · Activity: categories by month. Money rounded to $100 (small school, fixed for 2026 on 1 Jan 2026). Cell rules on: a count under 5 payers shows as <10 or to the nearest 10; an amount is hidden. Q3 2026: published after 18 Nov 2026.",
+					"[data-test=kpi-value][data-kpi=\"gross_collected\"]": "$1,900",
+					"[data-test=kpi-value][data-kpi=\"refunds\"]": "under $100",
+					"[data-test=kpi-value][data-kpi=\"stripe_fees\"]": "$100",
+					"[data-test=kpi-value][data-kpi=\"net_income\"]": "$1,800",
+					"[data-test=kpi-value][data-kpi=\"payouts\"]": "Governance and up see this"
+				},
+				"count": {
+					"[data-test=kpi-card]": 5,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-period]": 8,
+					"[data-test=dash-step]": 0,
+					"[data-test=pin-chip]": 0,
+					"[data-test=pin-lock]": 0,
+					"[data-test=preset-option]": 4
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Gross collected",
+						"Refunds",
+						"Payment fees",
+						"Net income",
+						"Paid out"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-members-member",
+			"source": "mockup 742105b64 dashboard() on B4 Uni, Monthly members, View as Member, members: the cards, the caption, the strip and the badges; values from documents.json monthly-members.member at 2026-Q2, written as the mockup writes them",
+			"route": "#/b4u/dashboard?preset=monthly-members&as=member&view=members&month=2026-04-01..2026-06-30&theme=light",
+			"covers": {
+				"view": "members",
+				"as": "member"
+			},
+			"expect": {
+				"text": {
+					"[data-test=view-as]": "View as Member",
+					"[data-test=dash-view].on": "Members",
+					"[data-test=dash-period].on": "Q2 2026",
+					"[data-test=dash-caption]": "Member document · Income: categories by quarter, 6 weeks after it closes · Losses: total by quarter, 6 weeks after it closes · Cash: Governance and up only · People: total by quarter · Activity: categories by month. Money rounded to $100 (small school, fixed for 2026 on 1 Jan 2026). Cell rules on: a count under 5 payers shows as <10 or to the nearest 10; an amount is hidden. Q3 2026: published after 18 Nov 2026.",
+					"[data-test=kpi-value][data-kpi=\"paying_members\"]": "23",
+					"[data-test=kpi-value][data-kpi=\"new_paying_members\"]": "0",
+					"[data-test=kpi-value][data-kpi=\"arpa\"]": "$100",
+					"[data-test=kpi-value][data-kpi=\"credits_consumed\"]": "76"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-period]": 8,
+					"[data-test=dash-step]": 0,
+					"[data-test=pin-chip]": 0,
+					"[data-test=pin-lock]": 0,
+					"[data-test=preset-option]": 4
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Paying members",
+						"New paying",
+						"Avg per paying member",
+						"Credits used"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-risk-member",
+			"source": "mockup 742105b64 dashboard() on B4 Uni, Monthly members, View as Member, risk: the cards, the caption, the strip and the badges; values from documents.json monthly-members.member at 2026-Q2, written as the mockup writes them",
+			"route": "#/b4u/dashboard?preset=monthly-members&as=member&view=risk&month=2026-04-01..2026-06-30&theme=light",
+			"covers": {
+				"view": "risk",
+				"as": "member"
+			},
+			"expect": {
+				"text": {
+					"[data-test=view-as]": "View as Member",
+					"[data-test=dash-view].on": "Risk",
+					"[data-test=dash-period].on": "Q2 2026",
+					"[data-test=dash-caption]": "Member document · Income: categories by quarter, 6 weeks after it closes · Losses: total by quarter, 6 weeks after it closes · Cash: Governance and up only · People: total by quarter · Activity: categories by month. Money rounded to $100 (small school, fixed for 2026 on 1 Jan 2026). Cell rules on: a count under 5 payers shows as <10 or to the nearest 10; an amount is hidden. Q3 2026: published after 18 Nov 2026.",
+					"[data-test=kpi-value][data-kpi=\"refund_rate\"]": "1.0%",
+					"[data-test=kpi-value][data-kpi=\"disputes_opened\"]": "0",
+					"[data-test=kpi-value][data-kpi=\"net_income\"]": "$1,800"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-period]": 8,
+					"[data-test=dash-step]": 0,
+					"[data-test=pin-chip]": 0,
+					"[data-test=pin-lock]": 0,
+					"[data-test=preset-option]": 4
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Refund rate",
+						"Disputes opened",
+						"Dispute cost",
+						"Net income"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-money-governance",
+			"source": "mockup 742105b64 dashboard() on B4 Uni, Monthly members, View as Governance, money: the cards, the caption, the strip and the badges; values from documents.json monthly-members.governance at 2026-06, written as the mockup writes them",
+			"route": "#/b4u/dashboard?preset=monthly-members&as=governance&view=money&month=2026-06&theme=light",
+			"covers": {
+				"view": "money",
+				"as": "governance"
+			},
+			"expect": {
+				"text": {
+					"[data-test=view-as]": "View as Governance",
+					"[data-test=dash-view].on": "Money",
+					"[data-test=dash-period].on": "Jun",
+					"[data-test=dash-caption]": "Governance document · Income: breakdown by month · Losses: breakdown by month · Cash: categories by month · People: spread by month · Activity: breakdown by month. Money exact. Cell rules on for breakdowns and spreads. No names, emails or per-person rows. Oct: published after 7 Nov 2026.",
+					"[data-test=kpi-value][data-kpi=\"gross_collected\"]": "$623.00",
+					"[data-test=kpi-value][data-kpi=\"refunds\"]": "$6.00",
+					"[data-test=kpi-value][data-kpi=\"stripe_fees\"]": "$24.96",
+					"[data-test=kpi-value][data-kpi=\"net_income\"]": "$592.04",
+					"[data-test=kpi-value][data-kpi=\"payouts\"]": "$598.04"
+				},
+				"count": {
+					"[data-test=kpi-card]": 5,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-period]": 12,
+					"[data-test=dash-step]": 2,
+					"[data-test=pin-chip]": 1,
+					"[data-test=pin-lock]": 0,
+					"[data-test=preset-option]": 4
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Gross collected",
+						"Refunds",
+						"Payment fees",
+						"Net income",
+						"Paid out"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-members-governance",
+			"source": "mockup 742105b64 dashboard() on B4 Uni, Monthly members, View as Governance, members: the cards, the caption, the strip and the badges; values from documents.json monthly-members.governance at 2026-06, written as the mockup writes them",
+			"route": "#/b4u/dashboard?preset=monthly-members&as=governance&view=members&month=2026-06&theme=light",
+			"covers": {
+				"view": "members",
+				"as": "governance"
+			},
+			"expect": {
+				"text": {
+					"[data-test=view-as]": "View as Governance",
+					"[data-test=dash-view].on": "Members",
+					"[data-test=dash-period].on": "Jun",
+					"[data-test=dash-caption]": "Governance document · Income: breakdown by month · Losses: breakdown by month · Cash: categories by month · People: spread by month · Activity: breakdown by month. Money exact. Cell rules on for breakdowns and spreads. No names, emails or per-person rows. Oct: published after 7 Nov 2026.",
+					"[data-test=kpi-value][data-kpi=\"paying_members\"]": "23",
+					"[data-test=kpi-value][data-kpi=\"new_paying_members\"]": "0",
+					"[data-test=kpi-value][data-kpi=\"arpa\"]": "$27.09",
+					"[data-test=kpi-value][data-kpi=\"credits_consumed\"]": "19"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-period]": 12,
+					"[data-test=dash-step]": 2,
+					"[data-test=pin-chip]": 1,
+					"[data-test=pin-lock]": 0,
+					"[data-test=preset-option]": 4
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Paying members",
+						"New paying",
+						"Avg per paying member",
+						"Credits used"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-risk-governance",
+			"source": "mockup 742105b64 dashboard() on B4 Uni, Monthly members, View as Governance, risk: the cards, the caption, the strip and the badges; values from documents.json monthly-members.governance at 2026-06, written as the mockup writes them",
+			"route": "#/b4u/dashboard?preset=monthly-members&as=governance&view=risk&month=2026-06&theme=light",
+			"covers": {
+				"view": "risk",
+				"as": "governance"
+			},
+			"expect": {
+				"text": {
+					"[data-test=view-as]": "View as Governance",
+					"[data-test=dash-view].on": "Risk",
+					"[data-test=dash-period].on": "Jun",
+					"[data-test=dash-caption]": "Governance document · Income: breakdown by month · Losses: breakdown by month · Cash: categories by month · People: spread by month · Activity: breakdown by month. Money exact. Cell rules on for breakdowns and spreads. No names, emails or per-person rows. Oct: published after 7 Nov 2026.",
+					"[data-test=kpi-value][data-kpi=\"refund_rate\"]": "1.0%",
+					"[data-test=kpi-value][data-kpi=\"disputes_opened\"]": "0",
+					"[data-test=kpi-value][data-kpi=\"net_income\"]": "$592.04"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-period]": 12,
+					"[data-test=dash-step]": 2,
+					"[data-test=pin-chip]": 1,
+					"[data-test=pin-lock]": 0,
+					"[data-test=preset-option]": 4
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Refund rate",
+						"Disputes opened",
+						"Dispute cost",
+						"Net income"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-money-finance",
+			"source": "mockup 742105b64 dashboard() on B4 Uni, Monthly members, View as Finance admin, money: the cards, the caption, the strip and the badges; values from documents.json monthly-members.finance at 2026-06, written as the mockup writes them",
+			"route": "#/b4u/dashboard?preset=monthly-members&as=finance&view=money&month=2026-06&theme=light",
+			"covers": {
+				"view": "money",
+				"as": "finance"
+			},
+			"expect": {
+				"text": {
+					"[data-test=view-as]": "View as Finance admin",
+					"[data-test=dash-view].on": "Money",
+					"[data-test=dash-period].on": "Jun",
+					"[data-test=dash-caption]": "Finance admin sees everything, live: months and days, the open month included, names included. Cell rules are off, so no figure is hidden or banded. Every identified read is audited.",
+					"[data-test=kpi-value][data-kpi=\"gross_collected\"]": "$623.00",
+					"[data-test=kpi-value][data-kpi=\"refunds\"]": "$6.00",
+					"[data-test=kpi-value][data-kpi=\"stripe_fees\"]": "$24.96",
+					"[data-test=kpi-value][data-kpi=\"net_income\"]": "$592.04",
+					"[data-test=kpi-value][data-kpi=\"payouts\"]": "$598.04"
+				},
+				"count": {
+					"[data-test=kpi-card]": 5,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-period]": 12,
+					"[data-test=dash-step]": 2,
+					"[data-test=pin-chip]": 1,
+					"[data-test=pin-lock]": 0,
+					"[data-test=preset-option]": 4
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Gross collected",
+						"Refunds",
+						"Payment fees",
+						"Net income",
+						"Paid out"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-members-finance",
+			"source": "mockup 742105b64 dashboard() on B4 Uni, Monthly members, View as Finance admin, members: the cards, the caption, the strip and the badges; values from documents.json monthly-members.finance at 2026-06, written as the mockup writes them",
+			"route": "#/b4u/dashboard?preset=monthly-members&as=finance&view=members&month=2026-06&theme=light",
+			"covers": {
+				"view": "members",
+				"as": "finance"
+			},
+			"expect": {
+				"text": {
+					"[data-test=view-as]": "View as Finance admin",
+					"[data-test=dash-view].on": "Members",
+					"[data-test=dash-period].on": "Jun",
+					"[data-test=dash-caption]": "Finance admin sees everything, live: months and days, the open month included, names included. Cell rules are off, so no figure is hidden or banded. Every identified read is audited.",
+					"[data-test=kpi-value][data-kpi=\"paying_members\"]": "23",
+					"[data-test=kpi-value][data-kpi=\"new_paying_members\"]": "0",
+					"[data-test=kpi-value][data-kpi=\"arpa\"]": "$27.09",
+					"[data-test=kpi-value][data-kpi=\"credits_consumed\"]": "19"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-period]": 12,
+					"[data-test=dash-step]": 2,
+					"[data-test=pin-chip]": 1,
+					"[data-test=pin-lock]": 0,
+					"[data-test=preset-option]": 4
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Paying members",
+						"New paying",
+						"Avg per paying member",
+						"Credits used"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-risk-finance",
+			"source": "mockup 742105b64 dashboard() on B4 Uni, Monthly members, View as Finance admin, risk: the cards, the caption, the strip and the badges; values from documents.json monthly-members.finance at 2026-06, written as the mockup writes them",
+			"route": "#/b4u/dashboard?preset=monthly-members&as=finance&view=risk&month=2026-06&theme=light",
+			"covers": {
+				"view": "risk",
+				"as": "finance"
+			},
+			"expect": {
+				"text": {
+					"[data-test=view-as]": "View as Finance admin",
+					"[data-test=dash-view].on": "Risk",
+					"[data-test=dash-period].on": "Jun",
+					"[data-test=dash-caption]": "Finance admin sees everything, live: months and days, the open month included, names included. Cell rules are off, so no figure is hidden or banded. Every identified read is audited.",
+					"[data-test=kpi-value][data-kpi=\"refund_rate\"]": "1.0%",
+					"[data-test=kpi-value][data-kpi=\"disputes_opened\"]": "0",
+					"[data-test=kpi-value][data-kpi=\"net_income\"]": "$592.04"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-period]": 12,
+					"[data-test=dash-step]": 2,
+					"[data-test=pin-chip]": 1,
+					"[data-test=pin-lock]": 0,
+					"[data-test=preset-option]": 4
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Refund rate",
+						"Disputes opened",
+						"Dispute cost",
+						"Net income"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"Fixture data: invented"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-money-owner",
+			"source": "mockup 742105b64 dashboard() on Vibes of Light, View as Owner, money: the cards, the caption, the strip and the badges; values from documents.json vol.owner at 2026-11, written as the mockup writes them",
+			"route": "#/vol/dashboard?as=owner&view=money&month=2026-11&theme=light",
+			"covers": {
+				"view": "money",
+				"as": "owner"
+			},
+			"expect": {
+				"text": {
+					"[data-test=view-as]": "View as Owner",
+					"[data-test=dash-view].on": "Money",
+					"[data-test=dash-period].on": "Nov",
+					"[data-test=dash-caption]": "Owner sees everything, live: months and days, the open month included, names included. Cell rules are off, so no figure is hidden or banded. Owner-only actions (refunds, roles, publishing) stay on their own tabs. Anonymous donors' names show to the owner only. Every identified read is audited.",
+					"[data-test=kpi-value][data-kpi=\"gross_collected\"]": "$287.00",
+					"[data-test=kpi-value][data-kpi=\"refunds\"]": "$50.00",
+					"[data-test=kpi-value][data-kpi=\"stripe_fees\"]": "$8.61",
+					"[data-test=kpi-value][data-kpi=\"net_income\"]": "$228.39",
+					"[data-test=kpi-value][data-kpi=\"payouts\"]": "$202.16"
+				},
+				"count": {
+					"[data-test=kpi-card]": 5,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-period]": 12,
+					"[data-test=dash-step]": 2,
+					"[data-test=pin-chip]": 1,
+					"[data-test=pin-lock]": 0,
+					"[data-test=preset-option]": 0
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Gross collected",
+						"Refunds",
+						"Payment fees",
+						"Net income",
+						"Paid out"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"From this school's events"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-members-owner",
+			"source": "mockup 742105b64 dashboard() on Vibes of Light, View as Owner, members: the cards, the caption, the strip and the badges; values from documents.json vol.owner at 2026-11, written as the mockup writes them",
+			"route": "#/vol/dashboard?as=owner&view=members&month=2026-11&theme=light",
+			"covers": {
+				"view": "members",
+				"as": "owner"
+			},
+			"expect": {
+				"text": {
+					"[data-test=view-as]": "View as Owner",
+					"[data-test=dash-view].on": "Members",
+					"[data-test=dash-period].on": "Nov",
+					"[data-test=dash-caption]": "Owner sees everything, live: months and days, the open month included, names included. Cell rules are off, so no figure is hidden or banded. Owner-only actions (refunds, roles, publishing) stay on their own tabs. Anonymous donors' names show to the owner only. Every identified read is audited.",
+					"[data-test=kpi-value][data-kpi=\"paying_members\"]": "3",
+					"[data-test=kpi-value][data-kpi=\"new_paying_members\"]": "2",
+					"[data-test=kpi-value][data-kpi=\"arpa\"]": "$95.67",
+					"[data-test=kpi-value][data-kpi=\"credits_consumed\"]": "2"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-period]": 12,
+					"[data-test=dash-step]": 2,
+					"[data-test=pin-chip]": 1,
+					"[data-test=pin-lock]": 0,
+					"[data-test=preset-option]": 0
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Paying members",
+						"New paying",
+						"Avg per paying member",
+						"Sessions used"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"From this school's events"
+					]
+				}
+			}
+		},
+		{
+			"id": "matrix-risk-owner",
+			"source": "mockup 742105b64 dashboard() on Vibes of Light, View as Owner, risk: the cards, the caption, the strip and the badges; values from documents.json vol.owner at 2026-11, written as the mockup writes them",
+			"route": "#/vol/dashboard?as=owner&view=risk&month=2026-11&theme=light",
+			"covers": {
+				"view": "risk",
+				"as": "owner"
+			},
+			"expect": {
+				"text": {
+					"[data-test=view-as]": "View as Owner",
+					"[data-test=dash-view].on": "Risk",
+					"[data-test=dash-period].on": "Nov",
+					"[data-test=dash-caption]": "Owner sees everything, live: months and days, the open month included, names included. Cell rules are off, so no figure is hidden or banded. Owner-only actions (refunds, roles, publishing) stay on their own tabs. Anonymous donors' names show to the owner only. Every identified read is audited.",
+					"[data-test=kpi-value][data-kpi=\"refund_rate\"]": "17.4%",
+					"[data-test=kpi-value][data-kpi=\"disputes_opened\"]": "0",
+					"[data-test=kpi-value][data-kpi=\"net_income\"]": "$228.39"
+				},
+				"count": {
+					"[data-test=kpi-card]": 4,
+					"[data-test=dash-view]": 3,
+					"[data-test=dash-period]": 12,
+					"[data-test=dash-step]": 2,
+					"[data-test=pin-chip]": 1,
+					"[data-test=pin-lock]": 0,
+					"[data-test=preset-option]": 0
+				},
+				"contains": {
+					"[data-test=kpi-label]": [
+						"Refund rate",
+						"Disputes opened",
+						"Dispute cost",
+						"Net income"
+					],
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"From this school's events"
+					]
+				}
+			}
+		},
+		{
+			"id": "b4u-default",
+			"source": "mockup setSchool: B4 Uni (s.kpi) opens on Money and Jun (dm=5) as its signed-in person, Jo A., Finance admin; smoke.mjs 'b4u jun gross' $623.00 and 'b4u jun net' $592.04",
+			"route": "#/b4u/dashboard?theme=light",
+			"expect": {
+				"text": {
+					"[data-test=view-as]": "View as Finance admin",
+					"[data-test=dash-view].on": "Money",
+					"[data-test=dash-period].on": "Jun",
+					"[data-test=kpi-value][data-kpi=\"gross_collected\"]": "$623.00",
+					"[data-test=kpi-value][data-kpi=\"net_income\"]": "$592.04",
+					"[data-test=dash-caption]": "Finance admin sees everything, live: months and days, the open month included, names included. Cell rules are off, so no figure is hidden or banded. Every identified read is audited.",
+					"[data-test=open-key]": "hatched = open month, live"
+				},
+				"count": {
+					"[data-test=dash-period]": 12,
+					"[data-test=pin-chip]": 1
+				}
+			}
+		},
+		{
+			"id": "b4u-members-paying",
+			"source": "smoke.mjs 'b4u members paying 23'",
+			"route": "#/b4u/dashboard?theme=light",
+			"steps": [
+				{
+					"click": "[data-test=dash-view][data-view=members]"
+				}
+			],
+			"expect": {
+				"hash": "view=members",
+				"text": {
+					"[data-test=kpi-value][data-kpi=\"paying_members\"]": "23"
+				}
+			}
+		},
+		{
+			"id": "school-switch-drops-the-dashboard-query",
+			"source": "mockup setSchool: switching school resets View as, the view and the period, and a school not opened yet opens on Plans; then its Dashboard tab (smoke.mjs sc('b4u');tab('dash')) shows B4 Uni's own Money view and Jun (S7 notes: switching school drops as=)",
+			"route": "#/vol/dashboard?as=public&view=risk&month=2024-01-01..2024-12-31&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=school-switcher]"
+				},
+				{
+					"click": "[data-test=school-option][data-school=b4u]",
+					"expect": {
+						"hash": "#/b4u/plans"
+					}
+				},
+				{
+					"click": "[data-test=tab][data-tab=dashboard]"
+				}
+			],
+			"expect": {
+				"hash": "#/b4u/dashboard",
+				"text": {
+					"[data-test=view-as]": "View as Finance admin",
+					"[data-test=dash-view].on": "Money",
+					"[data-test=dash-period].on": "Jun",
+					"[data-test=kpi-value][data-kpi=\"gross_collected\"]": "$623.00"
+				}
+			}
+		},
+		{
+			"id": "vol-from-its-events",
+			"source": "mockup kpiSeries for a school without fixture data: Vibes of Light reads its own events, has no preset switcher and opens on the open month (Nov)",
+			"route": "#/vol/dashboard?theme=light",
+			"expect": {
+				"text": {
+					"[data-test=view-as]": "View as Owner",
+					"[data-test=dash-period].on": "Nov",
+					"[data-test=kpi-value][data-kpi=\"gross_collected\"]": "$287.00",
+					"[data-test=kpi-value][data-kpi=\"refunds\"]": "$50.00",
+					"[data-test=kpi-value][data-kpi=\"stripe_fees\"]": "$8.61",
+					"[data-test=kpi-value][data-kpi=\"net_income\"]": "$228.39",
+					"[data-test=kpi-value][data-kpi=\"payouts\"]": "$202.16",
+					"[data-kpi=\"revenue_by_tier:sparkle\"][data-period=\"2026-11\"]": "$182"
+				},
+				"contains": {
+					"[data-test=dash-badge]": [
+						"Cash basis · $",
+						"From this school's events"
+					]
+				},
+				"count": {
+					"[data-test=preset-option]": 0,
+					"[data-test=dash-period][data-period=\"2026-11\"].kopen[title=\"Open month: live, can still change\"]": 1,
+					"[data-test=dash-period][data-period=\"2026-12\"][title=\"Not started yet\"]": 1
+				}
+			}
+		},
+		{
+			"id": "nw-no-payments-yet",
+			"source": "mockup dashFull empty state: Lotus Lane Yoga has no payments (smoke.mjs 'nw empty')",
+			"route": "#/nw/dashboard?theme=light",
+			"expect": {
+				"text": {
+					"[data-test=dash-empty]": "No payments yet. This dashboard fills in after the first payment."
+				},
+				"count": {
+					"[data-test=kpi-card]": 0
+				},
+				"contains": {
+					"[data-test=dash-badge]": [
+						"From this school's events"
+					]
+				}
+			}
+		},
+		{
+			"id": "har-large-school-member",
+			"source": "mockup: Harbor Arts Academy (fixture data times 40, a large school) as its signed-in admin without the finance grant, Rosa T., whose audience is Member: quarters, money rounded to $100",
+			"route": "#/har/dashboard?theme=light",
+			"expect": {
+				"text": {
+					"[data-test=view-as]": "View as Admin",
+					"[data-test=dash-period].on": "Q2 2026",
+					"[data-test=dash-caption]": "Member document · Income: categories by quarter, 6 weeks after it closes · Losses: total by quarter, 6 weeks after it closes · Cash: Governance and up only · People: total by quarter · Activity: categories by month. Money rounded to $100 (large school, fixed for 2026 on 1 Jan 2026). Cell rules on: a count under 5 payers shows as <10 or to the nearest 10; an amount is hidden. Q3 2026: published after 18 Nov 2026.",
+					"[data-test=kpi-value][data-kpi=\"gross_collected\"]": "$74,800",
+					"[data-test=kpi-value][data-kpi=\"stripe_fees\"]": "$3,000"
+				},
+				"count": {
+					"[data-test=pin-chip]": 0
+				}
+			}
+		},
+		{
+			"id": "har-large-school-public",
+			"source": "mockup: a large school's public money is rounded to $1,000",
+			"route": "#/har/dashboard?preset=monthly-members&as=public&view=money&month=2024-01-01..2024-12-31&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=kpi-value][data-kpi=\"gross_collected\"]": "$167,000",
+					"[data-test=dash-caption]": "Public document · Income: categories by year, 12 months after it closes · Losses: Members only · Cash: Governance and up only · People: total by quarter · Activity: categories by month. Money rounded to $1,000 (large school, fixed for 2024 on 1 Jan 2024). Cell rules on: a count under 5 payers shows as <10 or to the nearest 10; an amount is hidden. 2025: published after 7 Jan 2027."
+				}
+			}
+		},
+		{
+			"id": "public-year",
+			"source": "mockup dashAgg for Public: years 2024 to 2026 (2024 invented from 2026, BK_SCALE 0.58), money rounded to $100 at a small school, Losses for members, Cash for governance, later years published after their delay; the plan row is S7's dashboard-plan lock panel",
+			"route": "#/b4u/dashboard?preset=monthly-members&as=public&view=money&month=2024-01-01..2024-12-31&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=kpi-value][data-kpi=\"gross_collected\"]": "$4,200",
+					"[data-test=kpi-value][data-kpi=\"refunds\"]": "Members see this",
+					"[data-test=kpi-value][data-kpi=\"payouts\"]": "Governance and up see this",
+					"[data-kpi=\"gross_collected\"][data-period=\"2025\"]": "Published after 7 Jan 2027",
+					"[data-kpi=\"revenue_by_kind:membership\"][data-period=\"2024\"]": "$4,200"
+				},
+				"count": {
+					"[data-test=dash-period][data-period=\"2025\"][disabled][title=\"Published after 7 Jan 2027\"]": 1,
+					"[data-test=dash-period][data-period=\"2026\"][disabled][title=\"Published after 7 Jan 2028\"]": 1,
+					"[data-test=kpi-value][data-kpi=\"refunds\"][data-cell=members_only][title=\"Members see this\"]": 1,
+					"[data-test=kpi-value][data-kpi=\"payouts\"][data-cell=no_grant]": 1,
+					"[data-test=lock-panel][data-surface=dashboard-plan]": 1
+				},
+				"contains": {
+					"[data-test=dash-period]": [
+						"2024",
+						"2025",
+						"2026"
+					],
+					"[data-test=pane]": [
+						"Gross by year",
+						"Income by kind, 2024",
+						"Each period is rounded on its own, so a year is not the sum of its rounded quarters."
+					]
+				},
+				"absent": [
+					"Gross by plan"
+				]
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "document.querySelector('#sw').click();document.querySelector('[data-sc=b4u]').click();document.querySelector('.tab[data-p=dash]').click();document.querySelector('#kview').click();document.querySelector('#kvp [data-bv=public]').click()"
+			}
+		},
+		{
+			"id": "public-members-by-quarter",
+			"source": "mockup dashAgg Members for Public: People total by quarter (no delay), Activity categories by month",
+			"route": "#/b4u/dashboard?preset=monthly-members&as=public&view=members&month=2024-01-01..2024-12-31&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=kpi-value][data-kpi=\"paying_members\"]": "14",
+					"[data-test=kpi-value][data-kpi=\"new_paying_members\"]": "14",
+					"[data-test=kpi-value][data-kpi=\"arpa\"]": "$300",
+					"[data-test=kpi-value][data-kpi=\"credits_consumed\"]": "150",
+					"[data-kpi=\"paying_members\"][data-period=\"2024-Q1\"]": "14",
+					"[data-kpi=\"credits_consumed\"][data-period=\"2024-01\"]": "10"
+				},
+				"contains": {
+					"[data-test=pane]": [
+						"Paying members by quarter",
+						"Credits used by month"
+					]
+				}
+			}
+		},
+		{
+			"id": "member-quarter",
+			"source": "mockup dashAgg for Member: quarters of 2025 (invented, BK_SCALE 0.82) and 2026, 6 weeks after each closes, money rounded to $100, the year's own total; losses as one total (refunds under $100, net $1,800: the cell rules count the period's paying members)",
+			"route": "#/b4u/dashboard?preset=monthly-members&as=member&view=money&month=2026-04-01..2026-06-30&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=kpi-value][data-kpi=\"gross_collected\"]": "$1,900",
+					"[data-test=kpi-value][data-kpi=\"refunds\"]": "under $100",
+					"[data-test=kpi-value][data-kpi=\"stripe_fees\"]": "$100",
+					"[data-test=kpi-value][data-kpi=\"net_income\"]": "$1,800",
+					"[data-test=kpi-value][data-kpi=\"payouts\"]": "Governance and up see this",
+					"[data-kpi=\"gross_collected\"][data-period=\"2026\"]": "Published after 18 Feb 2027"
+				},
+				"count": {
+					"[data-test=dash-period]": 8,
+					"[data-test=dash-period][data-period=\"2026-Q3\"][disabled][title=\"Published after 18 Nov 2026\"]": 1,
+					"[data-test=dash-period][data-period=\"2026-Q4\"][disabled][title=\"Published after 18 Feb 2027\"]": 1,
+					"[data-test=kpi-value][data-kpi=\"refunds\"][data-cell=lt]": 1,
+					"[data-test=year-note]": 0
+				},
+				"contains": {
+					"[data-test=dash-period]": [
+						"Q1 2025",
+						"Q4 2025",
+						"Q2 2026",
+						"Q4 2026"
+					],
+					"[data-test=pane]": [
+						"Gross by quarter",
+						"2026 total"
+					]
+				}
+			}
+		},
+		{
+			"id": "member-year-total",
+			"source": "mockup bkYearLine (smoke.mjs 'rounding: large school, Member money to $100, and the year total is not the sum of its rounded quarters'): Harbor Arts Academy as Member, Q4 2025: the year's own total, rounded from its events, and the sum of the four rounded quarters, both from the document's year table",
+			"route": "#/har/dashboard?preset=monthly-members&view=money&month=2025-10-01..2025-12-31&theme=light",
+			"expect": {
+				"text": {
+					"[data-kpi=\"gross_collected\"][data-period=\"2025\"]": "$236,800",
+					"[data-kpi=\"gross_collected_rounded_quarters\"][data-period=\"2025\"]": "$236,700",
+					"[data-test=year-note]": "The four rounded quarters add up to $236,700; the year is rounded from its own events."
+				},
+				"contains": {
+					"[data-test=pane]": [
+						"2025 total"
+					]
+				}
+			}
+		},
+		{
+			"id": "governance-month",
+			"source": "mockup dashFull for Governance: exact closed months (Oct to Dec wait, disabled), plan and fund breakdowns under the cell rules; a plan's payers are its gross over the average per paying member, as the mockup counts them",
+			"route": "#/b4u/dashboard?preset=monthly-members&as=governance&view=money&month=2026-06&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=kpi-value][data-kpi=\"gross_collected\"]": "$623.00",
+					"[data-test=kpi-value][data-kpi=\"refunds\"]": "$6.00",
+					"[data-test=kpi-value][data-kpi=\"stripe_fees\"]": "$24.96",
+					"[data-test=kpi-value][data-kpi=\"net_income\"]": "$592.04",
+					"[data-test=kpi-value][data-kpi=\"payouts\"]": "$598.04",
+					"[data-kpi=\"revenue_by_tier:scholar\"][data-period=\"2026-06\"]": "$266",
+					"[data-kpi=\"donations_by_fund:general\"][data-period=\"2026-06\"]": "$5,195",
+					"[data-kpi=\"donations_by_fund:building-fund\"][data-period=\"2026-06\"]": "—"
+				},
+				"count": {
+					"[data-test=dash-period][data-period=\"2026-10\"][disabled][title=\"Published after 7 Nov 2026\"]": 1,
+					"[data-test=dash-period][data-period=\"2026-11\"][disabled][title=\"Published after 7 Dec 2026\"]": 1,
+					"[data-test=dash-period][data-period=\"2026-12\"][disabled][title=\"Published after 7 Jan 2027\"]": 1,
+					"[data-test=open-key]": 0,
+					"[data-test=dash-period]": 12
+				},
+				"contains": {
+					"[data-test=pane]": [
+						"Gross by plan, Jun",
+						"Donations by fund, 2026 to Jun"
+					],
+					"[data-test=kpi-why]": [
+						"Building fund: fewer than 5 donors",
+						"Scholarships: hidden so the cell beside it can't be worked out from the total"
+					]
+				}
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "document.querySelector('#sw').click();document.querySelector('[data-sc=b4u]').click();document.querySelector('.tab[data-p=dash]').click();document.querySelector('#kview').click();document.querySelector('#kvp [data-bv=governance]').click()"
+			}
+		},
+		{
+			"id": "governance-donors",
+			"source": "mockup bkDist for Governance (spread): by September 62 donors, the $1,000 or more bucket under 5 shown as <10 and its neighbour rounded to the nearest 10, the median shown",
+			"route": "#/b4u/dashboard?preset=monthly-members&as=governance&view=members&month=2026-09&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=donor-line]": "62 donors: 40 under $100, 20 $100 to $999, <10 $1,000 or more; median gift $45"
+				},
+				"contains": {
+					"[data-test=kpi-why]": [
+						"$100 to $999: rounded so the cell beside it can't be worked out from the total",
+						"$1,000 or more: fewer than 5 donors"
+					],
+					"[data-test=pane]": [
+						"How donors give, 2026 to Sep",
+						"No names, no rows"
+					]
+				},
+				"count": {
+					"[data-kpi=\"donors_by_size:1000-plus\"][data-period=\"2026-09\"][data-cell=lt]": 1
+				}
+			}
+		},
+		{
+			"id": "finance-open-month",
+			"source": "mockup dashFull for Finance admin: live, the open month (Nov) hatched with its title and the days so far; Dec not started yet",
+			"route": "#/b4u/dashboard?preset=monthly-members&view=money&month=2026-11&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=dash-period].on": "Nov",
+					"[data-test=open-key]": "hatched = open month, live",
+					"[data-test=kpi-value][data-kpi=\"gross_collected\"]": "$517.00",
+					"[data-test=kpi-value][data-kpi=\"refunds\"]": "$0.00",
+					"[data-test=kpi-value][data-kpi=\"stripe_fees\"]": "$20.99",
+					"[data-test=kpi-value][data-kpi=\"net_income\"]": "$496.01",
+					"[data-test=kpi-value][data-kpi=\"payouts\"]": "$496.01"
+				},
+				"count": {
+					"[data-test=dash-period][data-period=\"2026-11\"].kopen[title=\"Open month: live, can still change\"]": 1,
+					"[data-kpi=\"gross_collected\"][data-day^=\"2026-11-\"]": 30,
+					"[data-kpi=\"gross_collected\"][data-day^=\"2026-11-\"][data-cell=future]": 25,
+					"[data-test=kpi-why]": 0
+				},
+				"contains": {
+					"[data-test=pane]": [
+						"Gross by day, Nov",
+						"Days so far (live)",
+						"Donations by fund, 2026 to Nov"
+					]
+				}
+			}
+		},
+		{
+			"id": "finance-donors",
+			"source": "mockup bkDist with the rules off for Finance admin, and the link to Reports",
+			"route": "#/b4u/dashboard?preset=monthly-members&view=members&month=2026-06&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=donor-line]": "47 donors: 30 under $100, 14 $100 to $999, 3 $1,000 or more; median gift $45"
+				},
+				"contains": {
+					"[data-test=pane]": [
+						"Spread only here; names are in Reports",
+						"Names and amounts: Donors and payers in Reports. Every identified read is audited."
+					]
+				}
+			}
+		},
+		{
+			"id": "owner-caption",
+			"source": "mockup bkCaption for Owner (Vibes of Light): anonymous donors' names show to the owner only",
+			"route": "#/vol/dashboard?theme=light",
+			"expect": {
+				"text": {
+					"[data-test=dash-caption]": "Owner sees everything, live: months and days, the open month included, names included. Cell rules are off, so no figure is hidden or banded. Owner-only actions (refunds, roles, publishing) stay on their own tabs. Anonymous donors' names show to the owner only. Every identified read is audited."
+				}
+			},
+			"shot": {
+				"full": true,
+				"mockupSteps": "document.querySelector('.tab[data-p=dash]').click()"
+			}
+		},
+		{
+			"id": "pin-locked",
+			"source": "mockup bkLock: Governance and up open the books with the family PIN; nothing shows until then (smoke.mjs 'books ... PIN locked: lock state, not zeros')",
+			"route": "#/b4u/dashboard?preset=monthly-members&as=governance&pin=locked&view=money&month=2026-06&theme=light",
+			"expect": {
+				"contains": {
+					"[data-test=pin-lock]": [
+						"Enter your PIN to see books",
+						"Governance opens the books with your family PIN. Nothing is shown until you unlock.",
+						"Your family PIN",
+						"Unlock"
+					]
+				},
+				"count": {
+					"[data-test=pin-chip].on": 1,
+					"[data-test=pin-unlock][disabled]": 1,
+					"[data-test=kpi-card]": 0
+				}
+			}
+		},
+		{
+			"id": "pin-chip",
+			"source": "mockup bkKt: the PIN locked chip with its title; clicking it locks the books",
+			"route": "#/b4u/dashboard?preset=monthly-members&as=governance&view=money&month=2026-06&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=pin-chip]"
+				}
+			],
+			"expect": {
+				"hash": "pin=locked",
+				"text": {
+					"[data-test=pin-chip]": "PIN locked"
+				},
+				"count": {
+					"[data-test=pin-chip][title^=\"Governance, Finance admin and Owner open books\"]": 1,
+					"[data-test=pin-lock]": 1
+				}
+			}
+		},
+		{
+			"id": "pin-unlock",
+			"source": "mockup: Unlock enables at 4 digits (smoke.mjs 'books PIN: entering the PIN unlocks the books')",
+			"route": "#/b4u/dashboard?preset=monthly-members&as=finance&pin=locked&view=money&month=2026-06&theme=light",
+			"steps": [
+				{
+					"fill": "[data-test=pin-input]",
+					"value": "1234"
+				},
+				{
+					"click": "[data-test=pin-unlock]"
+				}
+			],
+			"expect": {
+				"count": {
+					"[data-test=pin-lock]": 0,
+					"[data-test=kpi-card]": 5
+				}
+			}
+		},
+		{
+			"id": "disputes-flags",
+			"source": "smoke.mjs 'disputes flags' (at least 5): Finance admin's Disputes document flags 5 months",
+			"route": "#/b4u/dashboard?preset=disputes&view=risk&month=2026-06&theme=light",
+			"expect": {
+				"count": {
+					"[data-test=dash-flag]": 5
+				},
+				"contains": {
+					"[data-test=dash-flag]": [
+						"3 disputes",
+						"5 disputes",
+						"Show ›"
+					]
+				}
+			}
+		},
+		{
+			"id": "annual-note",
+			"source": "smoke.mjs 'annual note' and 'annual jan gross' $5,735.00",
+			"route": "#/b4u/dashboard?preset=annual-prepay&view=money&month=2026-01&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=dash-note]": "Cash basis: a yearly payer counts in the month paid, so every month after January looks empty. MRR and churn are not computed.",
+					"[data-test=kpi-value][data-kpi=\"gross_collected\"]": "$5,735.00"
+				}
+			}
+		},
+		{
+			"id": "month-step",
+			"source": "smoke.mjs 'month step': ‹ moves the month back one",
+			"route": "#/b4u/dashboard?preset=monthly-members&view=money&month=2026-06&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=dash-step][data-step=\"-1\"]"
+				}
+			],
+			"expect": {
+				"hash": "month=2026-05",
+				"text": {
+					"[data-test=dash-period].on": "May"
+				}
+			}
+		},
+		{
+			"id": "preset-switch",
+			"source": "mockup [data-dsc]: the mockup's four labels first; the mart's 15 presets",
+			"route": "#/b4u/dashboard?preset=monthly-members&view=money&month=2026-06&theme=light",
+			"steps": [
+				{
+					"click": "[data-test=preset-option][data-preset=disputes]"
+				}
+			],
+			"expect": {
+				"hash": "preset=disputes",
+				"text": {
+					"[data-test=preset-option].on": "Disputes"
+				},
+				"contains": {
+					"[data-test=preset-option]": [
+						"Monthly members",
+						"Annual prepay",
+						"Disputes",
+						"Heavy refunds"
+					]
+				}
+			}
+		},
+		{
+			"id": "empty-free-only",
+			"source": "mockup dashFull empty state on a preset with no payments",
+			"route": "#/b4u/dashboard?preset=free-only&view=money&month=2026-06&theme=light",
+			"expect": {
+				"text": {
+					"[data-test=dash-empty]": "No payments yet. This dashboard fills in after the first payment."
+				},
+				"count": {
+					"[data-test=kpi-card]": 0
+				}
+			}
+		},
+		{
+			"id": "non-usd",
+			"source": "bundle non-usd params.currency eur, written with €; atm skips non-USD payments (stats.skipped.non_usd 260), so it is empty",
+			"route": "#/b4u/dashboard?preset=non-usd&view=money&month=2026-06&theme=light",
+			"expect": {
+				"contains": {
+					"[data-test=dash-badge]": [
+						"Cash basis · €"
+					]
+				},
+				"count": {
+					"[data-test=dash-empty]": 1
+				}
+			}
+		},
+		{
+			"id": "stale-banner",
+			"source": "mockup: Maple Pilates is 26 min behind (the shell's banner)",
+			"route": "#/map/dashboard?theme=light",
+			"expect": {
+				"text": {
+					"[data-test=stale-banner]": "Data is 26 min behind: the shipper may be stuck. Recent events can be missing."
+				}
+			}
+		}
+	]
+}

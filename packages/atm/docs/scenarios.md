@@ -1,25 +1,25 @@
 # Scenarios: seeded school fixtures and KPI parity across channels
 
-What it is: a seeded generator for **Before University**, a public, open-access demo school (invented names, prices and ids; no real data and no key), run through atm's own billing rules, then replayed through three channels that each compute the same KPIs from the same events. If the channels' KPI hashes differ, something in the books or in a reader is wrong, and the diff says which KPI in which month.
+What it is: a seeded generator for **Before University**, a public, open-access demo school (invented names, prices and ids; no real data and no key), run through the Trifold engine's own billing rules, then replayed through three channels that each compute the same KPIs from the same events. If the channels' KPI hashes differ, something in the books or in a reader is wrong, and the diff says which KPI in which month.
 
 - **Events**: `handleStripeEvent` decides every Stripe event (`invoice.paid`, `charge.refunded`, disputes, `payout.paid`, `customer.subscription.deleted`) and the family service's booking commands (`track` then `finalize`), as the family service would. One in-memory subject per family. No clock is read.
-- **Channels**: `atm` (a TypeScript fold over the events), `hledger` (the events as a journal, summed by hledger), `duckdb` (the events loaded into DuckDB, answered by generated SQL). hledger and DuckDB are skipped, never failed, when the binary is missing.
+- **Channels**: `atm` (the Trifold engine's own TypeScript fold over the events; the channel keeps its name in the goldens), `hledger` (the events as a journal, summed by hledger), `duckdb` (the events loaded into DuckDB, answered by generated SQL). hledger and DuckDB are skipped, never failed, when the binary is missing.
 - **Spec**: `kpis/school.v1.json`, checked against `schema/kpis.v1.json`. The base KPIs (sum, count, distinct) are computed by each channel from the spec; the derived ones (ratio, combine) are evaluated once, in `src/scenario/kpis.ts`, from the base values.
 
 ## Copy-paste
 
 ```sh
-atm scenarios list
-atm scenarios describe heavy-refunds                 # knobs that differ from the defaults, and commands
-atm simulate --profile heavy-refunds                 # fixture hash, one KPI hash per channel, parity
-atm simulate --profile heavy-refunds --set refundRate=0.2 --seed 7 --json
-atm simulate --profile annual-prepay --set months=14 --set tierMix.fellow=0 --channels atm,duckdb
-echo '{"name":"tiny","params":{"members":3,"months":2,"currency":"gbp"}}' | atm simulate --scenario - --json
-atm scenarios schema                                 # the JSON Schema of --scenario
-atm scenario kpis --profile disputes --out ./out     # ./out/disputes/kpis.json and kpis.parquet
+tfd scenarios list
+tfd scenarios describe heavy-refunds                 # knobs that differ from the defaults, and commands
+tfd simulate --profile heavy-refunds                 # fixture hash, one KPI hash per channel, parity
+tfd simulate --profile heavy-refunds --set refundRate=0.2 --seed 7 --json
+tfd simulate --profile annual-prepay --set months=14 --set tierMix.fellow=0 --channels atm,duckdb
+echo '{"name":"tiny","params":{"members":3,"months":2,"currency":"gbp"}}' | tfd simulate --scenario - --json
+tfd scenarios schema                                 # the JSON Schema of --scenario
+tfd scenario kpis --profile disputes --out ./out     # ./out/disputes/kpis.json and kpis.parquet
 ```
 
-`atm scenarios` and `atm scenario` are the same command. `atm simulate` without `--profile` is the log what-if of 0.6.0, unchanged.
+`tfd scenarios` and `tfd scenario` are the same command. `tfd simulate` without `--profile` is the log what-if of 0.6.0, unchanged.
 
 Exit codes: 0 every channel that ran agrees, 1 they differ (a per-KPI diff follows), 2 input it cannot use (one line on stderr with every problem and its fix, and `{"ok":false,"error":...}` on stdout with `--json`).
 
@@ -43,9 +43,11 @@ Exit codes: 0 every channel that ran agrees, 1 they differ (a per-KPI diff follo
 | `seminar-quantities` | 114 | everyone on `seminar`, sold in 1, 2 and 4 seats: payments of three sizes (a subset-sum case) |
 | `child-only` | 115 | every membership is a child's own profile: holder `profile:prof_NNN`, never `family:`, across all four tiers |
 
-The last seven exist so the dashboard export's privacy suppression has a small-cell case that exists exactly, not by luck of a seed. Each promise is asserted from the generated events in `tests/scenario-presets.test.ts` (payers per tier, refund events, payment amounts, holder keys), not from the knobs.
+Six more presets simulate four other demo orgs: a studio, a church, a SaaS product and a course creator (`studio-members`, `studio-class-packs`, `church-giving`, `saas-seats`, `saas-annual`, `creator-launch`). They are in `docs/scenario-orgs.md`, with the two knobs they add (`seatChangeRate`, `upgradeRate`) and where each org is approximated.
 
-A preset is a seed and knobs over the defaults (`src/scenario/profiles.ts`); nothing is written by hand. The knobs are `months`, `start`, `members`, `newMembersPerMonth`, `tierMix`, `yearlyShare`, `addonRate`, `freeShare`, `churnRate`, `refundRate`, `partialRefundShare`, `disputeRate`, `disputeLostShare`, `usageRate`, `currency`, `feePercent`, `feeFixedCents`, `childShare`, `tierCounts`, `yearlyCount`, `refundCount`; `atm scenarios describe <preset>` lists each with its range and meaning.
+The last seven school presets exist so the dashboard export's privacy suppression has a small-cell case that exists exactly, not by luck of a seed. Each promise is asserted from the generated events in `tests/scenario-presets.test.ts` (payers per tier, refund events, payment amounts, holder keys), not from the knobs.
+
+A preset is a seed and knobs over the defaults (`src/scenario/profiles.ts`); nothing is written by hand. The knobs are `months`, `start`, `members`, `newMembersPerMonth`, `tierMix`, `yearlyShare`, `addonRate`, `freeShare`, `churnRate`, `refundRate`, `partialRefundShare`, `disputeRate`, `disputeLostShare`, `usageRate`, `currency`, `feePercent`, `feeFixedCents`, `childShare`, `tierCounts`, `yearlyCount`, `refundCount`; `tfd scenarios describe <preset>` lists each with its range and meaning.
 
 The last four make a scenario exact (the weighted knobs above them only make it likely). Each is off at its default (`0`, `0`, `{}`, `0`) and then changes nothing: an existing preset's events are byte-identical with or without them in the resolved knobs.
 
@@ -58,7 +60,7 @@ An ad-hoc scenario is `{ "name"?, "profile"?, "seed"?, "params"? }`: the preset'
 
 ## Before University and buzz-school's `Menu`
 
-`fixtures/billing/menu/before-university.json`: four tiers (Audit, Scholar, Seminar sold in 1, 2 or 4 seats, Fellow), three credit features, four add-ons (monthly, yearly and two one-time), monthly and yearly prices, rollover with and without `max`. It uses only the shape of buzz-school's `Menu` (`docs/features/school-billing.md`: at most 4 tiers, 6 add-ons, 12 features; ids `[a-z0-9_-]`, amounts 50 to 10,000,000 cents, grants naming a menu feature). `tests/scenario-fixtures.test.ts` checks it against atm's `validateMenu` and against those rules restated (buzz-school is not a dependency).
+`fixtures/billing/menu/before-university.json`: four tiers (Audit, Scholar, Seminar sold in 1, 2 or 4 seats, Fellow), three credit features, four add-ons (monthly, yearly and two one-time), monthly and yearly prices, rollover with and without `max`. It uses only the shape of buzz-school's `Menu` (`docs/features/school-billing.md`: at most 4 tiers, 6 add-ons, 12 features; ids `[a-z0-9_-]`, amounts 50 to 10,000,000 cents, grants naming a menu feature). `tests/scenario-fixtures.test.ts` checks it against the engine's `validateMenu` and against those rules restated (buzz-school is not a dependency).
 
 Shape drift against buzz-school's pinned atm 0.6.0 that these fixtures do not use: atm 0.8.0 adds `gift` on add-ons, member and gift `codes`, bookable items with `billing`, and the booking and gift settings in the policy (`UPGRADING.md`, "Moving to 0.8.0 from 0.6.0"). The fixtures also assume what 0.8.0 does and 0.6.0 does not: dispute money lines, `non_usd` markers, the optional `fee` on a payment.
 
@@ -99,7 +101,7 @@ The books are cash basis and carry no interval or period on a payment, so these 
 - hledger drops every event without postings (`money.skipped`, `plan.changed`, `credit.expiration_changed`): any KPI over those would differ. See above.
 - The hledger channel cannot make hledger's regexes case-sensitive; it throws if a filter would match differently with and without case. A label value's comma or line break is a space in the journal (`journal.ts`), so a KPI keyed on such a label would differ from the raw event. Neither occurs in the fixtures.
 - hledger cannot add different commodities, so a `credits` sum over several credit features is added in TypeScript per cell. The demo school's three features are three commodities; this is exercised by every credit KPI.
-- Found by the harness while it was being built, and fixed: the atm fold returned a month's movement instead of a running balance for the closing-balance KPIs. DuckDB and hledger had it right, and the final balances match `fixtures/vibes-year/expected.json`.
+- Found by the harness while it was being built, and fixed: the `atm` channel's fold returned a month's movement instead of a running balance for the closing-balance KPIs. DuckDB and hledger had it right, and the final balances match `fixtures/vibes-year/expected.json`.
 
 ## Goldens
 
@@ -113,7 +115,7 @@ cd packages/atm && UPDATE_GOLDEN=1 bun test tests/scenario-parity.test.ts   # or
 
 ## The export
 
-`atm scenario kpis --profile <p> --out <dir>` writes:
+`tfd scenario kpis --profile <p> --out <dir>` writes:
 
 - `<dir>/<name>/kpis.json`: canonical JSON, `{ version, profile, seed, fixtureHash, kpisHash, rows: [{ kpiId, period, unit, value }] }`. `kpisHash` is the sha256 of the canonical JSON of the rows without `unit`.
 - `<dir>/<name>/kpis.parquet`: the same rows by DuckDB `COPY`, long format, columns `profile VARCHAR, kpi_id VARCHAR, period VARCHAR (YYYY-MM), value DOUBLE, unit VARCHAR`, sorted by `kpi_id` then `period`. Skipped (and said so) when `duckdb` is missing. A dimensioned KPI's id is `<kpi>:<dimension>` (`revenue_by_tier:scholar`).

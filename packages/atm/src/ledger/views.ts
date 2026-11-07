@@ -1,15 +1,18 @@
 /**
  * Read models for the admin UI, built from the event log and written next to it, all under `schools/<school>/views/`:
- * `months/YYYY-MM.json`, `members/<hash>.json`, `members/index.json` and `manifest.json`. `buildViews` is pure;
+ * `months/YYYY-MM.json`, `members/<hash>.json`, `members/index.json`, `finance/months/YYYY-MM.json`,
+ * `finance/members/<hash>.json`, `kpi/contributions/YYYY-MM.json` and `manifest.json`. The month view holds no money:
+ * the books are under `finance/` (finance.ts), so a reader that may not see them never opens that prefix; the
+ * contributions (contributions.ts) are counts and a share per KPI cell, never a key. `buildViews` is pure;
  * `writeViews` puts the objects through a `Store` and `readViewsFromStore` reads them back, verified. All three are the
  * Worker-safe side of atm (no `node:fs`, no `ajv`).
  *
  * A member's object name is a hash of the school and the holder key, never the key: an object listing (or a log line of
  * a path) does not carry a family id. The body holds the key, and `members/index.json` lists every member's object name
  * with its key and `lastEventAt`, so a reader opens one object for the list instead of listing the prefix and opening
- * every body. The bodies hold no names or emails.
+ * every body. The bodies hold no names or emails. A finance member object is named by the same hash.
  *
- * The month, member and index objects are content only: they hold nothing about the run (no `asOf`), so the same events
+ * Every object is content only: they hold nothing about the run (no `asOf`), so the same events
  * give the same bytes and a scheduled run rewrites only what changed. What the run was is in `manifest.json`: its `asOf`,
  * the events it read, and `objects`, the SHA-256 of the bytes of every object the run meant to leave (by object key).
  *
@@ -33,6 +36,17 @@ import {
 	utf8,
 } from "../store/store.js";
 import type { AtmEvent, Store } from "../types.js";
+import {
+	buildContributions,
+	type ContributionsObject,
+	type ContributionsView,
+} from "./contributions.js";
+import {
+	buildFinance,
+	type FinanceMemberObject,
+	type FinanceMonthObject,
+	type FinanceViews,
+} from "./finance.js";
 import { byText } from "./order.js";
 import { MONEY_COMMODITY } from "./postings.js";
 import {
@@ -48,17 +62,6 @@ import { canonicalize, decimalToUnits, isoInstant } from "./util.js";
 export type MonthView = {
 	/** Events by `event_type`. */
 	counts: Record<string, number>;
-	/** Dollars, in cents, from the USD postings of the month's payment events. Absent when the month has none. */
-	money?: {
-		/** Cash taken before fees: the credits to `income:billing:*` other than refunds. */
-		grossCents: number;
-		/** Cash given back: the postings to `income:billing:refunds`. */
-		refundedCents: number;
-		/** Stripe's fees: the postings to `expenses:billing:stripe-fees`. */
-		feeCents: number;
-		/** `grossCents - refundedCents - feeCents`. */
-		netCents: number;
-	};
 	/** Units by credit commodity (`VISIT`), from the postings of the credit events; each is in whole credits. */
 	credits: Record<
 		string,
@@ -77,17 +80,17 @@ export type Views = {
 	generatedFrom: GeneratedFrom;
 	months: Record<string, MonthView>;
 	members: Record<string, MemberSummary>;
+	/** The books side: finance months and members (finance.ts), written under `views/finance/`. */
+	finance: FinanceViews;
+	/** Per month, the KPI cells' holder counts and largest share (contributions.ts), written under `views/kpi/contributions/`. */
+	contributions: Record<string, ContributionsView>;
 };
 
 export type ViewsResult =
 	| { ok: true; views: Views }
 	| { ok: false; error: SummaryProblem };
 
-const MONEY_DECIMALS = 2;
 const CREDIT_DECIMALS = 0;
-const INCOME_PREFIX = "income:billing:";
-const REFUNDS_ACCOUNT = "income:billing:refunds";
-const FEES_ACCOUNT = "expenses:billing:stripe-fees";
 const ACTIVITY_TYPES = new Set([
 	"credit.held",
 	"credit.released",
@@ -103,30 +106,14 @@ const monthOf = (event: AtmEvent) => event.date.slice(0, 7);
 
 type MonthAccumulator = {
 	counts: Record<string, number>;
-	grossCents: bigint;
-	refundedCents: bigint;
-	feeCents: bigint;
-	hasMoney: boolean;
 	credits: MonthView["credits"];
 	active: Set<string>;
 };
 
 const addPostings = (month: MonthAccumulator, event: AtmEvent): void => {
 	for (const posting of event.postings) {
-		if (posting.commodity === MONEY_COMMODITY) {
-			const cents = decimalToUnits(posting.amount, MONEY_DECIMALS);
-			if (posting.account === REFUNDS_ACCOUNT) {
-				month.refundedCents += cents;
-				month.hasMoney = true;
-			} else if (posting.account.startsWith(INCOME_PREFIX)) {
-				month.grossCents -= cents;
-				month.hasMoney = true;
-			} else if (posting.account === FEES_ACCOUNT) {
-				month.feeCents += cents;
-				month.hasMoney = true;
-			}
-			continue;
-		}
+		// money is the finance month view's (finance.ts)
+		if (posting.commodity === MONEY_COMMODITY) continue;
 		const units = Number(decimalToUnits(posting.amount, CREDIT_DECIMALS));
 		const slot = month.credits[posting.commodity] ?? {
 			granted: 0,
@@ -161,10 +148,6 @@ export const buildViews = (
 		if (!accumulator) {
 			accumulator = {
 				counts: {},
-				grossCents: 0n,
-				refundedCents: 0n,
-				feeCents: 0n,
-				hasMoney: false,
 				credits: {},
 				active: new Set(),
 			};
@@ -187,31 +170,19 @@ export const buildViews = (
 			generatedFrom: { lastEventId, eventCount: events.length },
 			months: sortedRecord(
 				Object.fromEntries(
-					[...months].map(([month, accumulator]) => {
-						const netCents =
-							accumulator.grossCents -
-							accumulator.refundedCents -
-							accumulator.feeCents;
-						const view: MonthView = {
+					[...months].map(([month, accumulator]): [string, MonthView] => [
+						month,
+						{
 							counts: sortedRecord(accumulator.counts),
-							...(accumulator.hasMoney
-								? {
-										money: {
-											grossCents: Number(accumulator.grossCents),
-											refundedCents: Number(accumulator.refundedCents),
-											feeCents: Number(accumulator.feeCents),
-											netCents: Number(netCents),
-										},
-									}
-								: {}),
 							credits: sortedRecord(accumulator.credits),
 							activeHolders: accumulator.active.size,
-						};
-						return [month, view];
-					}),
+						},
+					]),
 				),
 			),
 			members: members.members,
+			finance: buildFinance(events),
+			contributions: buildContributions(events),
 		},
 	};
 };
@@ -228,6 +199,15 @@ export const memberViewKey = (school: string, key: string): string =>
 
 export const monthViewKey = (school: string, month: string): string =>
 	`schools/${school}/views/months/${month}.json`;
+
+export const financeMonthKey = (school: string, month: string): string =>
+	`schools/${school}/views/finance/months/${month}.json`;
+
+export const financeMemberKey = (school: string, key: string): string =>
+	`schools/${school}/views/finance/members/${memberViewName(school, key)}.json`;
+
+export const contributionsKey = (school: string, month: string): string =>
+	`schools/${school}/views/kpi/contributions/${month}.json`;
 
 export const memberIndexKey = (school: string): string =>
 	`schools/${school}/views/members/index.json`;
@@ -285,7 +265,7 @@ const saveIfChanged = async (
 
 /**
  * What a run records about itself, written last as `manifest.json`. It is the run's intent, checked by readers (see the
- * header): `objects` maps each object key the run produced (the months, the members and the member index, not the
+ * header): `objects` maps each object key the run produced (the months, the members, the member index, the finance and contributions objects, not the
  * manifest) to the hex SHA-256 of its bytes.
  */
 export type ViewsManifest = {
@@ -400,6 +380,24 @@ export const writeViews = async (
 				{ school, ...summary },
 			],
 		),
+		...Object.entries(views.finance.months).map(
+			([month, view]): [string, unknown] => [
+				financeMonthKey(school, month),
+				{ school, month, ...view },
+			],
+		),
+		...Object.entries(views.finance.members).map(
+			([key, view]): [string, unknown] => [
+				financeMemberKey(school, key),
+				{ school, ...view },
+			],
+		),
+		...Object.entries(views.contributions).map(
+			([month, view]): [string, unknown] => [
+				contributionsKey(school, month),
+				{ school, month, ...view },
+			],
+		),
 		[
 			memberIndexKey(school),
 			{ school, members: memberNames.sort((a, b) => byText(a.name, b.name)) },
@@ -465,6 +463,12 @@ export type ViewsReader = {
 	member: (key: string) => Promise<ViewRead<MemberObject>>;
 	/** The month `YYYY-MM`. */
 	month: (month: string) => Promise<ViewRead<MonthObject>>;
+	/** The month's books: money, income by account and plan, fundraising by campaign. Finance data: gate it. */
+	financeMonth: (month: string) => Promise<ViewRead<FinanceMonthObject>>;
+	/** A holder's payments and refunds (by key, e.g. `family:fam_x`). Finance data: gate it. */
+	financeMember: (key: string) => Promise<ViewRead<FinanceMemberObject>>;
+	/** The month's KPI cells: holders and the largest holder's share. Counts only. */
+	contributions: (month: string) => Promise<ViewRead<ContributionsObject>>;
 };
 
 const isManifest = (value: unknown): value is ViewsManifest => {
@@ -494,8 +498,7 @@ const parseManifest = (body: Uint8Array): ViewsManifest | null => {
 };
 
 /**
- * Opens the school's published views: reads `manifest.json`, and hands back readers for the members index, a member and
- * a month. Each reader gets the object's bytes once, compares their SHA-256 with the one the manifest lists for that
+ * Opens the school's published views: reads `manifest.json`, and hands back readers for the members index, a member, a month, and the finance and contributions objects. Each reader gets the object's bytes once, compares their SHA-256 with the one the manifest lists for that
  * key, and parses those same bytes: an object that differs gives `{ ok: false, error: "view-mismatch", key }`. Objects are
  * overwritten in place by `writeViews`, so a mismatch is expected while a run is in flight; see the header for what the
  * manifest does and does not promise. Store failures other than a missing object throw.
@@ -529,5 +532,11 @@ export const readViewsFromStore = async (
 		membersIndex: () => verified<MemberIndexObject>(memberIndexKey(school)),
 		member: (key) => verified<MemberObject>(memberViewKey(school, key)),
 		month: (month) => verified<MonthObject>(monthViewKey(school, month)),
+		financeMonth: (month) =>
+			verified<FinanceMonthObject>(financeMonthKey(school, month)),
+		financeMember: (key) =>
+			verified<FinanceMemberObject>(financeMemberKey(school, key)),
+		contributions: (month) =>
+			verified<ContributionsObject>(contributionsKey(school, month)),
 	};
 };

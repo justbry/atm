@@ -1,0 +1,21 @@
+{
+	"scores": {
+		"testability": 8,
+		"convergence": 9,
+		"antiGaming": 9,
+		"simplicity": 8,
+		"cost": 9
+	},
+	"overall": 8,
+	"blockers": [],
+	"mustFix": [
+		"export has no .git: compute changed/builder paths and head sha in W, pass to run.ts",
+		"moving data: perturb only typed amount/count fields + named name fields; marked text must exist and differ",
+		"builder re-implements cell-rules in fixtures: import-mart writes oracle docs to src/fixtures/mart/docs; Reader returns them; drop C3"
+	],
+	"wouldChange": [
+		"C1 mismatch may be stale snapshot: refresh first",
+		"nonce only in pixels",
+		"rerun per round vs per attempt; C4 over 120 s"
+	]
+}

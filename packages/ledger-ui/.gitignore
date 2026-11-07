@@ -1,0 +1,5 @@
+dist/
+dist-size/
+src/fixtures/mart/documents.json
+src/fixtures/mart/rows.json
+src/fixtures/mart/cell-rules.json

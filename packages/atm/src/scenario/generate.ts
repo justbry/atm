@@ -14,13 +14,8 @@ import {
 } from "../billing/stripe-menu.js";
 import type { Menu } from "../billing/types.js";
 import type { AtmEvent } from "../types.js";
+import { DEFAULT_ORG, ORGS } from "./orgs.js";
 import type { ResolvedScenario } from "./profiles.js";
-import {
-	BEFORE_UNIVERSITY_MENU,
-	FEATURES,
-	SCHOOL_ID,
-	SERVICES,
-} from "./school.js";
 import { createStore, type Store } from "./store.js";
 import {
 	chargeRefunded,
@@ -75,6 +70,12 @@ const weighted = (
 
 type Rng = ReturnType<typeof makeRng>;
 
+/** "a", "a or b", "a, b or c". */
+const orList = (items: readonly string[]): string =>
+	items.length < 2
+		? (items[0] ?? "none")
+		: `${items.slice(0, -1).join(", ")} or ${items.at(-1)}`;
+
 /** A seeded Fisher-Yates shuffle: the same items and rng give the same order. */
 const shuffled = <T>(items: readonly T[], rng: Rng): T[] => {
 	const out = [...items];
@@ -101,7 +102,11 @@ type FamilyPlan = {
 
 export const generateScenario = (scenario: ResolvedScenario): Generated => {
 	const p = scenario.params;
-	const menu: Menu = { ...BEFORE_UNIVERSITY_MENU, currency: p.currency };
+	const org = ORGS[scenario.org ?? DEFAULT_ORG];
+	const SCHOOL_ID = org.id;
+	const FEATURES = org.features;
+	const SERVICES = org.services;
+	const menu: Menu = { ...org.menu, currency: p.currency };
 	const [startYear, startMonth] = p.start.split("-").map(Number) as [
 		number,
 		number,
@@ -239,6 +244,51 @@ export const generateScenario = (scenario: ResolvedScenario): Generated => {
 			plan.addonChoice = recurring(interval) ?? null;
 	};
 
+	/**
+	 * What a family's plan becomes in a monthly period, if anything: the next tier down the menu list that costs more a
+	 * month at the count it would take (`upgradeRate`, keeping its count where the tier sells it), else the next count up or down of a tier sold in
+	 * quantities (`seatChangeRate`). An upgrade or a raise is billed now; a decrease waits for the renewal.
+	 */
+	const planChange = (
+		changes: Rng,
+		current: Menu["tiers"][number],
+		count: number | undefined,
+	): {
+		tierId: string;
+		quantity: number | undefined;
+		billedNow: boolean;
+	} | null => {
+		const upgrade = changes.next() < (p.upgradeRate ?? 0);
+		const seats = changes.next() < (p.seatChangeRate ?? 0);
+		const up = changes.next() < 0.6;
+		const tiers = menu.tiers;
+		const monthly = (t: Menu["tiers"][number], n: number | undefined) =>
+			(t.prices.find((x) => x.interval === "month")?.amount ?? 0) * (n ?? 1);
+		const countOn = (t: Menu["tiers"][number]) =>
+			t.quantities
+				? (t.quantities.find((n) => n >= (count ?? 1)) ?? t.quantities.at(-1))
+				: undefined;
+		const now = monthly(current, count);
+		const higher = tiers
+			.slice(tiers.indexOf(current) + 1)
+			.find(
+				(t) =>
+					t.prices.some((x) => x.interval === "month") &&
+					monthly(t, countOn(t)) > now,
+			);
+		if (upgrade && higher)
+			return { tierId: higher.id, quantity: countOn(higher), billedNow: true };
+		const counts = current.quantities;
+		if (!seats || !counts || counts.length < 2) return null;
+		const at = counts.indexOf(count as number);
+		const raise = (up && at < counts.length - 1) || at === 0;
+		return {
+			tierId: current.id,
+			quantity: counts[raise ? at + 1 : at - 1],
+			billedNow: raise,
+		};
+	};
+
 	const countedTiers = Object.keys(p.tierCounts);
 	if (countedTiers.length > 0) {
 		const openTiers = menu.tiers
@@ -272,7 +322,7 @@ export const generateScenario = (scenario: ResolvedScenario): Generated => {
 		const eligible = plans.filter((plan) => canYear(tierOf(plan.tierId)));
 		if (eligible.length < p.yearlyCount)
 			throw new ScenarioRunError(
-				`yearlyCount=${p.yearlyCount} but only ${eligible.length} families are on a tier with a yearly price. Lower yearlyCount, raise members, or put families on audit, scholar or fellow (tierMix, tierCounts).`,
+				`yearlyCount=${p.yearlyCount} but only ${eligible.length} families are on a tier with a yearly price. Lower yearlyCount, raise members, or put families on ${orList(menu.tiers.filter(canYear).map((t) => t.id))} (tierMix, tierCounts).`,
 			);
 		const yearly = new Set(
 			shuffled(eligible, makeRng(`${scenario.seed}/yearlyCount`)).slice(
@@ -318,11 +368,17 @@ export const generateScenario = (scenario: ResolvedScenario): Generated => {
 	};
 
 	for (const plan of plans) {
-		const { family, profile, rng, joinAt, tierId, interval, free } = plan;
-		const { addonChoice, quantity } = plan;
-		const tier = tierOf(tierId);
-		const price = tier.prices.find((x) => x.interval === interval)
-			?.amount as number;
+		const { family, profile, rng, joinAt, interval, free, addonChoice } = plan;
+		// a seat change or an upgrade (`seatChangeRate`, `upgradeRate`) moves these for the cycles after it
+		let { tierId, quantity } = plan;
+		let tier = tierOf(tierId);
+		const priceOf = (t: Menu["tiers"][number]) =>
+			t.prices.find((x) => x.interval === interval)?.amount as number;
+		let price = priceOf(tier);
+		const changes =
+			(p.seatChangeRate ?? 0) > 0 || (p.upgradeRate ?? 0) > 0
+				? makeRng(`${scenario.seed}/${family}/plan-change`)
+				: null;
 		stats.families += 1;
 		const store = createStore({
 			menu,
@@ -333,17 +389,22 @@ export const generateScenario = (scenario: ResolvedScenario): Generated => {
 		});
 		stores.set(family, store);
 
-		const tierLine = (): EventLine => ({
+		const tierLineOf = (
+			id: string,
+			unit: number,
+			count: number | undefined,
+		): EventLine => ({
 			lookupKey: lookupKeyOf(
 				SCHOOL_ID,
-				tierPriceKey(tierId, interval),
-				price,
+				tierPriceKey(id, interval),
+				unit,
 				menu.currency,
 			),
-			amount: price * (quantity ?? 1),
+			amount: unit * (count ?? 1),
 			interval,
-			...(quantity === undefined ? {} : { quantity }),
+			...(count === undefined ? {} : { quantity: count }),
 		});
+		const tierLine = (): EventLine => tierLineOf(tierId, price, quantity);
 		const addonLine = (a: Menu["addons"][number]): EventLine => ({
 			lookupKey: lookupKeyOf(
 				SCHOOL_ID,
@@ -408,7 +469,8 @@ export const generateScenario = (scenario: ResolvedScenario): Generated => {
 			for (let s = 0; s < sliceCount; s++) {
 				const sliceStart = addUtcMonths(thisStart, s);
 				const classCredits =
-					tier.grants.find((g) => g.featureId === "class")?.amount ?? 0;
+					tier.grants.find((g) => g.featureId === org.spendFeature)?.amount ??
+					0;
 				const wanted = Math.min(3, Math.max(1, classCredits * (quantity ?? 1)));
 				if (rng.next() >= p.usageRate) continue;
 				for (let u = 0; u < rng.int(1, wanted); u++) {
@@ -421,7 +483,14 @@ export const generateScenario = (scenario: ResolvedScenario): Generated => {
 						spendAt < Math.min(cancelsAt, endMs)
 					)
 						at(holdAt, () => {
-							if (store.consume({ feature: "class", service, holdAt, spendAt }))
+							if (
+								store.consume({
+									feature: org.spendFeature,
+									service,
+									holdAt,
+									spendAt,
+								})
+							)
 								stats.bookings += 1;
 						});
 				}
@@ -495,13 +564,80 @@ export const generateScenario = (scenario: ResolvedScenario): Generated => {
 				}
 			}
 
+			// a seat change or an upgrade inside this period: a raise or an upgrade is billed now, prorated; a decrease waits
+			// for the renewal
+			if (changes && !leaves && interval === "month") {
+				const next = planChange(changes, tier, quantity);
+				const changeAt =
+					thisStart + changes.int(3, 20) * DAY + changes.int(9, 18) * HOUR;
+				if (next && changeAt < Math.min(periodEnd, endMs)) {
+					const nextTier = tierOf(next.tierId);
+					const nextPrice = priceOf(nextTier);
+					const share = (periodEnd - changeAt) / (periodEnd - thisStart);
+					const prorated = (unit: number, count: number | undefined) =>
+						Math.round(unit * (count ?? 1) * share);
+					const credit = prorated(price, quantity);
+					const charge = prorated(nextPrice, next.quantity);
+					if (next.billedNow && charge > credit) {
+						const changeId = `in_${family}_${cycle}_change`;
+						const lines: EventLine[] = [
+							{
+								...tierLineOf(tierId, price, quantity),
+								amount: -credit,
+								proration: true,
+								periodStart: changeAt,
+							},
+							{
+								...tierLineOf(next.tierId, nextPrice, next.quantity),
+								amount: charge,
+								proration: true,
+								periodStart: changeAt,
+							},
+						];
+						const paid = free ? 0 : charge - credit;
+						const fee =
+							paid > 0 && p.currency === "usd"
+								? Math.min(
+										paid,
+										Math.round((paid * p.feePercent) / 100) + p.feeFixedCents,
+									)
+								: 0;
+						at(changeAt, () => {
+							stats.invoices += 1;
+							const event = invoicePaid({
+								eventId: `evt_${changeId}`,
+								invoiceId: changeId,
+								at: changeAt,
+								subscriptionId: sub,
+								reason: "subscription_update",
+								periodStart: changeAt,
+								periodEnd,
+								lines,
+								metadata: metadataOf(family, profile),
+								amountPaid: paid,
+							});
+							event.data.object.currency = p.currency;
+							send(store, event, changeAt, { fee });
+							if (paid > 0) stats.paidInvoices += 1;
+						});
+					}
+					if (!next.billedNow || charge > credit) {
+						tierId = next.tierId;
+						tier = nextTier;
+						price = nextPrice;
+						quantity = next.quantity;
+					}
+				}
+			}
+
 			if (leaves) {
+				const leftTier = tierId;
 				at(periodEnd, () => {
 					stats.cancellations += 1;
 					const event = subscriptionDeleted({
 						eventId: `evt_sd_${family}`,
 						subscriptionId: sub,
-						tierId,
+						tierId: leftTier,
 						interval,
 						periodStart: thisStart,
 						periodEnd,
