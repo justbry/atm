@@ -4,6 +4,14 @@
  * Every error says which knob, what was given, what is allowed and a fix, so an agent can correct itself in one step.
  */
 import { Ajv2020 } from "ajv/dist/2020.js";
+import {
+	DEFAULT_ORG,
+	isOrgKind,
+	ORG_KINDS,
+	ORGS,
+	type OrgKind,
+	tierIdsOf,
+} from "./orgs.js";
 import { BEFORE_UNIVERSITY_MENU } from "./school.js";
 
 export type ScenarioParams = {
@@ -28,6 +36,10 @@ export type ScenarioParams = {
 	tierCounts: Record<string, number>;
 	yearlyCount: number;
 	refundCount: number;
+	/** Off unless set: see `OPTIONAL_KNOBS`. */
+	seatChangeRate?: number;
+	/** Off unless set: see `OPTIONAL_KNOBS`. */
+	upgradeRate?: number;
 };
 
 type Def =
@@ -39,7 +51,7 @@ type Def =
 
 export const TIER_IDS = BEFORE_UNIVERSITY_MENU.tiers.map((t) => t.id);
 
-export const PARAMS: { [K in keyof ScenarioParams]: Def } = {
+export const PARAMS: { [K in keyof ScenarioParams]-?: Def } = {
 	months: {
 		kind: "int",
 		min: 1,
@@ -164,7 +176,25 @@ export const PARAMS: { [K in keyof ScenarioParams]: Def } = {
 		max: 200,
 		doc: "Exact number of refunds in the whole run, each on a different paid invoice that is not disputed, chosen by a seeded shuffle among those whose refund falls inside the run; `refundRate` is ignored. 0 = use `refundRate`.",
 	},
+	seatChangeRate: {
+		kind: "number",
+		min: 0,
+		max: 1,
+		doc: "Chance, at each monthly renewal of a tier sold in quantities, that a family changes its count to the next one up or down: a raise is billed at once on a prorated `subscription_update` invoice, a decrease takes effect at the next renewal. Drawn from a stream of its own; 0 (the default) changes nothing.",
+	},
+	upgradeRate: {
+		kind: "number",
+		min: 0,
+		max: 1,
+		doc: "Chance, at each monthly renewal, that a family moves to the next tier up the menu with a price for its interval, billed at once on a prorated `subscription_update` invoice. Drawn from a stream of its own; 0 (the default) changes nothing.",
+	},
 };
+
+/**
+ * Knobs added after the presets' goldens were pinned. A resolved scenario carries one only when it is not at its
+ * default, so every earlier scenario resolves (and hashes) as it did.
+ */
+export const OPTIONAL_KNOBS = { seatChangeRate: 0, upgradeRate: 0 } as const;
 
 export const DEFAULT_PARAMS: ScenarioParams = {
 	months: 12,
@@ -190,9 +220,16 @@ export const DEFAULT_PARAMS: ScenarioParams = {
 	refundCount: 0,
 };
 
-/** A scenario to run: a preset (optional), a seed (optional) and knobs that override the preset's. */
+/** The defaults of an org's scenario: `DEFAULT_PARAMS` with the org's own tier weights. */
+export const defaultParamsOf = (org: OrgKind): ScenarioParams =>
+	org === DEFAULT_ORG
+		? DEFAULT_PARAMS
+		: { ...DEFAULT_PARAMS, tierMix: { ...ORGS[org].tierMix } };
+
+/** A scenario to run: an org (optional), a preset (optional), a seed (optional) and knobs that override the preset's. */
 export type ScenarioInput = {
 	name?: string;
+	org?: OrgKind;
 	profile?: string;
 	seed?: number;
 	params?: Partial<ScenarioParams>;
@@ -248,13 +285,22 @@ export const scenarioSchema = (profiles: readonly string[]) => ({
 	additionalProperties: false,
 	properties: {
 		name: { type: "string", minLength: 1, maxLength: 60 },
+		org: { enum: [...ORG_KINDS] },
 		profile: { enum: [...profiles] },
 		seed: { type: "integer", minimum: 0, maximum: 2 ** 31 - 1 },
 		params: {
 			type: "object",
 			additionalProperties: false,
+			// a tier weight or count may name any org's tier; the org's own tiers are checked by `checkScenarioInput`
 			properties: Object.fromEntries(
-				Object.entries(PARAMS).map(([k, d]) => [k, jsonSchemaOf(d)]),
+				Object.entries(PARAMS).map(([k, d]) => [
+					k,
+					jsonSchemaOf(
+						d.kind === "weights" || d.kind === "counts"
+							? { ...d, keys: [...new Set(ORG_KINDS.flatMap(tierIdsOf))] }
+							: d,
+					),
+				]),
 			),
 		},
 	},
@@ -314,11 +360,13 @@ const allowed = (def: Def): string => {
 
 /**
  * Checks an ad-hoc scenario against the schema and the rules a schema cannot say, and throws `ScenarioInputError` with
- * one line per problem (knob, what was given, what is allowed, the fix). `profiles` are the preset names.
+ * one line per problem (knob, what was given, what is allowed, the fix). `profiles` are the preset names; `orgOfProfile`
+ * names a preset's org, whose menu's tiers are the keys `tierMix` and `tierCounts` may use.
  */
 export const checkScenarioInput = (
 	input: unknown,
 	profiles: readonly string[],
+	orgOfProfile: (profile: string) => OrgKind = () => DEFAULT_ORG,
 ): ScenarioInput => {
 	if (typeof input !== "object" || input === null || Array.isArray(input))
 		throw new ScenarioInputError([
@@ -326,7 +374,7 @@ export const checkScenarioInput = (
 		]);
 	const problems: string[] = [];
 	const record = input as Record<string, unknown>;
-	const top = ["name", "profile", "seed", "params"];
+	const top = ["name", "org", "profile", "seed", "params"];
 	for (const key of Object.keys(record).filter((k) => !top.includes(k))) {
 		const near = nearest(key, [...top, ...Object.keys(PARAMS)]);
 		const hint = near
@@ -345,6 +393,26 @@ export const checkScenarioInput = (
 			`profile ${JSON.stringify(record.profile)} is not a preset.${near ? ` Did you mean "${near}"?` : ""} Presets: ${profiles.join(", ")} (list them: atm scenarios list)`,
 		);
 	}
+	const presetOrg =
+		typeof record.profile === "string" && profiles.includes(record.profile)
+			? orgOfProfile(record.profile)
+			: undefined;
+	if (record.org !== undefined && !isOrgKind(record.org)) {
+		const near = nearest(String(record.org), ORG_KINDS);
+		problems.push(
+			`org ${JSON.stringify(record.org)} is not an org.${near ? ` Did you mean "${near}"?` : ""} Orgs: ${ORG_KINDS.join(", ")}`,
+		);
+	} else if (
+		record.org !== undefined &&
+		presetOrg !== undefined &&
+		record.org !== presetOrg
+	)
+		problems.push(
+			`org ${JSON.stringify(record.org)} does not match preset ${JSON.stringify(record.profile)}, which simulates ${presetOrg}. Drop "org", or pick a preset of ${record.org} (atm scenarios list)`,
+		);
+	const org: OrgKind = isOrgKind(record.org)
+		? record.org
+		: (presetOrg ?? DEFAULT_ORG);
 	if (
 		record.seed !== undefined &&
 		!(
@@ -365,7 +433,11 @@ export const checkScenarioInput = (
 		else {
 			const known = Object.keys(PARAMS);
 			for (const [key, value] of Object.entries(params)) {
-				const def = PARAMS[key as keyof ScenarioParams];
+				const knob = PARAMS[key as keyof ScenarioParams];
+				const def: Def | undefined =
+					knob?.kind === "weights" || knob?.kind === "counts"
+						? { ...knob, keys: tierIdsOf(org) }
+						: knob;
 				if (!def) {
 					const near = nearest(key, known);
 					problems.push(
@@ -403,7 +475,10 @@ export const familyCountOf = (
  * The rules between knobs that no schema can say, checked on the knobs a scenario resolved to. Throws
  * `ScenarioInputError` with one line per problem (knob, what was given, what is allowed, the fix).
  */
-export const checkResolvedParams = (params: ScenarioParams): void => {
+export const checkResolvedParams = (
+	params: ScenarioParams,
+	tierIds: readonly string[] = TIER_IDS,
+): void => {
 	const problems: string[] = [];
 	const families = familyCountOf(params);
 	const counted = Object.values(params.tierCounts).reduce((n, c) => n + c, 0);
@@ -412,7 +487,7 @@ export const checkResolvedParams = (params: ScenarioParams): void => {
 			`tierCounts=${JSON.stringify(params.tierCounts)} puts ${counted} families on tiers but the scenario has ${families} (members ${params.members} + newMembersPerMonth ${params.newMembersPerMonth} x ${params.months - 1} later months). Lower the counts or raise members.`,
 		);
 	else if (counted < families) {
-		const open = TIER_IDS.filter((id) => !(id in params.tierCounts));
+		const open = tierIds.filter((id) => !(id in params.tierCounts));
 		if (!open.some((id) => (params.tierMix[id] ?? 0) > 0))
 			problems.push(
 				`tierCounts=${JSON.stringify(params.tierCounts)} places ${counted} of ${families} families, and the other families draw from tierMix over the tiers tierCounts does not name (${open.join(", ") || "none"}), where no weight is above 0 (tierMix=${JSON.stringify(params.tierMix)}). Name every family in tierCounts, or give an unnamed tier a weight.`,
