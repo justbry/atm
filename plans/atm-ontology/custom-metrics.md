@@ -296,7 +296,7 @@ validate refund_rate_trailing_3_months@1: refused
 
 | Option | For | Against |
 | --- | --- | --- |
-| **A. B4 Uni-wide catalog in atm**, `packages/atm/metrics/<id>@<version>.json` next to the model, compiled by `bun model/build.ts` into the Worker bundle | reviewed in a PR; CI validates against the model and evaluates on all 15 presets with the rebuild-a-holder test; immutability is git plus the hash; no validator in the Worker; one meaning across schools | a school waits for an atm release to get a new metric |
+| **A. B4 Uni-wide catalog in atm**, `packages/atm/metrics/<id>@<version>.json` next to the model, imported as JSON and resolved in-process as the KPI catalog is (`src/model/resolve.ts`) | reviewed in a PR; CI validates against the model and evaluates on all 15 presets with the rebuild-a-holder test; immutability is git plus the hash; no validator in the Worker; one meaning across schools | a school waits for an atm release to get a new metric |
 | B. Per school in buzz-school, next to the disclosure override (`school_books_disclosure`) | schools author their own; changes need no release | a runtime validator in buzz-school or the Worker; each school's metric needs its own leak review; the same name means different things per school |
 | C. R2 beside the views | the Worker reads it with the views | R2 holds what the job writes, not a source of truth; no writer, no review, no audit trail |
 

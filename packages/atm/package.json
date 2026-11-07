@@ -33,7 +33,6 @@
 		"fixtures": "bun ./fixtures/generate.ts",
 		"schema": "bun ./schema/build.ts",
 		"model": "bun ./model/build.ts",
-		"model:check": "bun ./model/build.ts --check",
 		"stripe-spec": "bun ./schema/stripe/build.ts",
 		"scenarios": "bun ./src/bin.ts scenarios",
 		"bundles:gaps": "bun ./tests/author-gap-bundles.ts",

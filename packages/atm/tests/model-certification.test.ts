@@ -21,14 +21,13 @@ import {
 	type ResolvedRule,
 	ruledAudiences,
 } from "../src/ledger/kpi-disclosure.js";
+import { LEDGER_MODEL, parseLedgerModel } from "../src/model/ledger-model.js";
 import {
-	LEDGER_MODEL,
 	type LedgerModel,
 	LedgerModelError,
 	type ModelEntity,
 	type ModelRelationship,
-	parseLedgerModel,
-} from "../src/model/ledger-model.js";
+} from "../src/model/resolve.js";
 import { atmChannel } from "../src/scenario/channels/atm.js";
 import { buildFixture, type Fixture } from "../src/scenario/fixture.js";
 import { evaluateKpis, kpiRootId } from "../src/scenario/kpi-evaluate.js";

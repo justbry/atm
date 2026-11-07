@@ -2,7 +2,7 @@
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
 	"$id": "https://b4uni.com/_schema/model.v1.json",
 	"title": "Ledger model v1",
-	"description": "The semantic model of a school's books: what the ledger's things are (entities), how they join (relationships), how a KPI's rows are split (dimensions) and what each KPI means (measures). It does not restate the KPI spec (`kpis/school.v1.json`): a measure of `source: kpiSpec` takes its title, unit, precision, definition and formula from the spec by id, and adds only what the spec does not say. The KPI catalog of the document, the disclosure class table, the OpenAPI components and the JSON-LD context are generated from this file (`bun model/build.ts`).",
+	"description": "The semantic model of a school's books: what the ledger's things are (entities), how they join (relationships), how a KPI's rows are split (dimensions) and what each KPI means (measures). It does not restate the KPI spec (`kpis/school.v1.json`): a measure of `source: kpiSpec` takes its title, unit, precision, definition and formula from the spec by id, and adds only what the spec does not say. The Worker computes the KPI document's catalog from this file at load (`src/ledger/kpi-catalog.ts`); the disclosure class table, the OpenAPI components and the JSON-LD context are computed from it too, and `bun model/build.ts` writes all four on demand (to `dist/model/`, not committed).",
 	"type": "object",
 	"required": [
 		"version",

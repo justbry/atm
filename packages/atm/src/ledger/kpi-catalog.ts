@@ -1,9 +1,18 @@
 /**
- * The KPI catalog the document is built from and the derived KPIs the disclosure caps, as `bun model/build.ts` generates
- * them from the ledger model (`model/generated/kpi-catalog.v1.json`, from `model/ledger.v1.json`). Worker-safe: a JSON
- * import, typed; no Ajv, no file read. `tests/model-generated.test.ts` fails when the file is stale or hand-edited.
+ * The KPI catalog the document is built from and the derived KPIs the disclosure caps, computed at load from the ledger
+ * model (`model/ledger.v1.json`) and the KPI spec (`kpis/school.v1.json`) by `src/model/resolve.ts`. Worker-safe: JSON
+ * imports, resolved without Ajv (the shape is not validated at run time; `tests/model-generated.test.ts` holds this
+ * catalog to the one resolved from the schema-checked model).
  */
-import generated from "../../model/generated/kpi-catalog.v1.json";
+import schoolSpec from "../../kpis/school.v1.json";
+import modelJson from "../../model/ledger.v1.json";
+import {
+	derivedKpisOf,
+	kpiCatalogOf,
+	type LedgerModel,
+	resolveLedgerModel,
+} from "../model/resolve.js";
+import type { KpiSpec } from "../scenario/kpi-evaluate.js";
 import type { DetailStep } from "./kpi-disclosure.js";
 import type { KpiFormat } from "./kpi-document-types.js";
 
@@ -25,10 +34,11 @@ export type KpiCatalogEntry = {
 /** A derived KPI's inputs, and whether it is `capped` (in a more open class, it takes its inputs' rule: spec rule 3). */
 export type DerivedKpi = { inputs: string[]; capped: boolean };
 
+const resolved = resolveLedgerModel(
+	modelJson as LedgerModel,
+	schoolSpec as unknown as KpiSpec,
+);
 /** The document's KPIs in the document's order, keyed by id, or `id:*` for a measure split by a dimension. */
-export const kpiCatalog = generated.catalog as Record<string, KpiCatalogEntry>;
+export const kpiCatalog = kpiCatalogOf(resolved);
 /** The spec's ratio and combine KPIs, by id. */
-export const derivedKpiCatalog = generated.derivedKpis as Record<
-	string,
-	DerivedKpi
->;
+export const derivedKpiCatalog = derivedKpisOf(resolved);

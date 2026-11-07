@@ -14,10 +14,8 @@ import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { canonicalize, sha256Hex } from "../../packages/atm/src/ledger/util.js";
-import {
-	LEDGER_MODEL,
-	type ModelDimension,
-} from "../../packages/atm/src/model/ledger-model.js";
+import { LEDGER_MODEL } from "../../packages/atm/src/model/ledger-model.js";
+import type { ModelDimension } from "../../packages/atm/src/model/resolve.js";
 import { atmChannel } from "../../packages/atm/src/scenario/channels/atm.js";
 import { buildFixture } from "../../packages/atm/src/scenario/fixture.js";
 import {

@@ -1,15 +1,16 @@
 /**
- * What `bun model/build.ts` generates from the ledger model (`src/model/generate.ts`), against what it replaces and what
- * reads it: the files on disk are the generator's bytes (and Biome's); the class table is the UI fixture's; the derived
+ * What the ledger model generates (`src/model/resolve.ts`, `src/model/generate.ts`), computed in memory (nothing is
+ * committed; `bun model/build.ts` writes the same values on demand), against what it replaces and what reads it: the
+ * Worker's catalog, resolved without Ajv, is the schema-checked model's; the class table is the UI fixture's; the derived
  * KPIs are the UI's; the catalog is the KPI document's (its need, ruleOf, inputs and money0 facts); every `x-measure`,
- * `x-jsonld-type` and `$ref` of the OpenAPI components resolves, and real KPI documents (mart presets, both mart schools,
- * the five audiences, PIN open and locked) validate against `KpiDocument` with Ajv 2020; every JSON-LD term expands to
- * an IRI under a declared prefix. The UI's `disclosure.ts` and the oracle load by a computed path, as in
+ * `x-jsonld-type` (a full IRI) and `$ref` of the OpenAPI components resolves, and real KPI documents (mart presets, both
+ * mart schools, the five audiences, PIN open and locked) validate against `KpiDocument` with Ajv 2020; every JSON-LD
+ * term expands to an IRI under a declared prefix. The UI's `disclosure.ts` and the oracle load by a computed path, as in
  * `kpi-document-oracle.test.ts`: they are checked under the UI package's own compiler options.
  */
 import { describe, expect, test } from "bun:test";
-import { readdirSync, readFileSync } from "node:fs";
-import { basename, join, resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import modelSchema from "../schema/model.v1.json";
@@ -31,33 +32,32 @@ import {
 	roundedQuartersKpi,
 } from "../src/ledger/kpi-document.js";
 import {
-	catalogKey,
-	derivedKpisOf,
 	dimensionTerm,
 	disclosureClassesOf,
 	documentFacts,
-	documentMeasures,
-	generatedDirectory,
 	generateModelFiles,
-	kpiCatalogOf,
+	jsonLdContextOf,
 	kpiDocumentOpenApiOf,
 } from "../src/model/generate.js";
-import { LEDGER_MODEL, termIri } from "../src/model/ledger-model.js";
+import { LEDGER_MODEL } from "../src/model/ledger-model.js";
+import {
+	catalogKey,
+	derivedKpisOf,
+	documentMeasures,
+	kpiCatalogOf,
+	termIri,
+} from "../src/model/resolve.js";
 
 const PACKAGE = resolve(import.meta.dir, "..");
 const REPOSITORY = resolve(PACKAGE, "../..");
 const UI = join(REPOSITORY, "packages/ledger-ui");
 const SNAPSHOT = join(REPOSITORY, "plans/ledger-ui/design/mart");
-const BIOME = join(REPOSITORY, "node_modules/.bin/biome");
 const CLOCK = { today: "2026-11-05", now: "2026-11-05T12:00" };
 const YEAR = 2026;
 
 const { model, measures } = LEDGER_MODEL;
-const files = generateModelFiles(LEDGER_MODEL);
 const readJson = <T>(path: string): T =>
 	JSON.parse(readFileSync(path, "utf8")) as T;
-const generated = <T>(name: string): T =>
-	readJson<T>(join(PACKAGE, generatedDirectory, name));
 const measureById = new Map(measures.map((measure) => [measure.id, measure]));
 const expand = (curie: string): string => {
 	const [prefix = "", ...rest] = curie.split(":");
@@ -98,46 +98,50 @@ type Oracle = {
 };
 const oracle = (await import(join(UI, "gates/oracle.ts"))) as Oracle;
 
-describe("the generated files", () => {
-	test("on disk, each is the generator's bytes, and nothing else is in model/generated", () => {
-		for (const file of files)
-			expect(
-				readFileSync(join(PACKAGE, file.path), "utf8"),
-				`${file.path} is stale or hand-edited: run bun model/build.ts`,
-			).toBe(file.content);
-		expect(readdirSync(join(PACKAGE, generatedDirectory)).sort()).toEqual(
-			files.map((file) => basename(file.path)).sort(),
+describe("what bun model/build.ts writes", () => {
+	test("four files, each the tab-indented JSON of a value the tests check in memory", () => {
+		const files = generateModelFiles(LEDGER_MODEL);
+		expect(files.map((file) => file.name)).toEqual([
+			"kpi-catalog.v1.json",
+			"disclosure-classes.v1.json",
+			"kpi-document.openapi.json",
+			`${model.id}.context.jsonld`,
+		]);
+		const [catalogFile, classesFile, openapiFile, contextFile] = files.map(
+			(file) => JSON.parse(file.content) as Record<string, unknown>,
 		);
-	});
-
-	test("Biome's formatter leaves the generator's bytes as they are", () => {
+		expect(catalogFile?.catalog).toEqual(kpiCatalogOf(LEDGER_MODEL));
+		expect(catalogFile?.derivedKpis).toEqual(derivedKpisOf(LEDGER_MODEL));
+		expect(classesFile?.classes).toEqual(disclosureClassesOf(LEDGER_MODEL));
+		expect(openapiFile).toEqual(
+			kpiDocumentOpenApiOf(LEDGER_MODEL) as Record<string, unknown>,
+		);
+		expect(contextFile).toEqual(
+			jsonLdContextOf(LEDGER_MODEL) as Record<string, unknown>,
+		);
 		for (const file of files) {
-			const formatted = Bun.spawnSync(
-				[BIOME, "format", `--stdin-file-path=${join(PACKAGE, file.path)}`],
-				{ stdin: new TextEncoder().encode(file.content), cwd: REPOSITORY },
+			expect(file.content.endsWith("}\n"), file.name).toBe(true);
+			expect(file.content.split("\n")[1]?.startsWith("\t"), file.name).toBe(
+				true,
 			);
-			expect(formatted.exitCode, file.path).toBe(0);
-			expect(formatted.stdout.toString(), file.path).toBe(file.content);
 		}
 	});
 });
 
 describe("the disclosure class table and the derived KPIs", () => {
 	test("the classes deep-equal the UI fixture's file.classes, in order", () => {
-		const { classes } = generated<{ catalog: string; classes: unknown }>(
-			"disclosure-classes.v1.json",
-		);
+		const classes = disclosureClassesOf(LEDGER_MODEL);
 		expect(JSON.stringify(classes)).toBe(
 			JSON.stringify(disclosureFixture.file.classes),
 		);
-		expect(classes).toEqual(disclosureClassesOf(LEDGER_MODEL));
+		expect(classes).toEqual(disclosureFixture.file.classes);
 		expect(Object.keys(disclosureFixture.file.classes)).toEqual([
 			...kpiClasses,
 		]);
 		expect(disclosureFixture.file.catalog).toBe(model.kpiSpec);
 	});
 
-	test("the derived KPIs are the UI's, inputs as sets, and the Worker's derivedKpis is the generated one", async () => {
+	test("the derived KPIs are the UI's, inputs as sets, and the Worker's derivedKpis is the model's", async () => {
 		const ui = (await import(join(UI, "src/data/disclosure.ts"))) as {
 			derivedKpis: Record<string, { inputs: string[]; capped: boolean }>;
 		};
@@ -162,7 +166,7 @@ describe("the disclosure class table and the derived KPIs", () => {
 describe("the KPI catalog", () => {
 	const catalog = kpiCatalogOf(LEDGER_MODEL);
 
-	test("the Worker's catalog is the generated one", () => {
+	test("the Worker's catalog, resolved without Ajv, is the schema-checked model's", () => {
 		expect(kpiCatalog).toEqual(catalog);
 		expect(Object.keys(kpiCatalog)).toEqual(Object.keys(catalog));
 	});
@@ -261,12 +265,12 @@ describe("the KPI catalog", () => {
 });
 
 describe("the OpenAPI components", () => {
-	const openapi = generated<{
+	const openapi = kpiDocumentOpenApiOf(LEDGER_MODEL) as {
 		openapi: string;
 		info: { version: string };
 		paths: object;
 		components: { schemas: Record<string, unknown> };
-	}>("kpi-document.openapi.json");
+	};
 	const walk = (
 		node: unknown,
 		visit: (key: string, value: unknown) => void,
@@ -282,12 +286,9 @@ describe("the OpenAPI components", () => {
 		expect(openapi.openapi).toBe("3.1.0");
 		expect(openapi.paths).toEqual({});
 		expect(openapi.info.version).toBe(model.id);
-		expect(openapi).toEqual(
-			kpiDocumentOpenApiOf(LEDGER_MODEL) as typeof openapi,
-		);
 	});
 
-	test("every x-measure is a model measure, every x-jsonld-type a model entity, every $ref resolves", () => {
+	test("every x-measure is a model measure, every x-jsonld-type a model entity's full IRI, every $ref resolves", () => {
 		const found = { measures: new Set<string>(), types: new Set<string>() };
 		walk(openapi, (key, value) => {
 			if (key === "x-measure") {
@@ -295,9 +296,8 @@ describe("the OpenAPI components", () => {
 				found.measures.add(value as string);
 			}
 			if (key === "x-jsonld-type") {
-				expect(entityIris.has(expand(value as string)), String(value)).toBe(
-					true,
-				);
+				// The OpenAPI document declares no prefixes, so a type is the IRI itself, not a CURIE.
+				expect(entityIris.has(value as string), String(value)).toBe(true);
 				found.types.add(value as string);
 			}
 			if (key === "$ref") {
@@ -310,15 +310,17 @@ describe("the OpenAPI components", () => {
 		});
 		for (const measure of documentMeasures(measures))
 			expect(found.measures.has(measure.id), measure.id).toBe(true);
-		for (const type of [
-			"atm:KpiDocument",
-			"atm:KpiCell",
-			"atm:Period",
-			"atm:Audience",
-			"atm:DisclosureClass",
-			"atm:MonetaryAmount",
-		])
-			expect(found.types.has(type), type).toBe(true);
+		for (const entity of [
+			"KpiDocument",
+			"KpiCell",
+			"Period",
+			"Audience",
+			"DisclosureClass",
+			"MonetaryAmount",
+		]) {
+			const iri = termIri.entity(model, entity);
+			expect(found.types.has(iri), iri).toBe(true);
+		}
 	});
 
 	test("the enums that are not model facts are the Worker's", () => {
@@ -350,7 +352,7 @@ describe("real KPI documents validate against KpiDocument", () => {
 		"x-jsonld-type",
 	]);
 	ajv.addSchema({
-		...generated<object>("kpi-document.openapi.json"),
+		...(kpiDocumentOpenApiOf(LEDGER_MODEL) as object),
 		$id: openapiId,
 	});
 	const validate = ajv.getSchema(
@@ -521,10 +523,10 @@ describe("real KPI documents validate against KpiDocument", () => {
 });
 
 describe("the JSON-LD context", () => {
-	const document = generated<{
+	const document = jsonLdContextOf(LEDGER_MODEL) as {
 		"@context": Record<string, unknown>;
 		"@included": Array<Record<string, unknown>>;
-	}>(`${model.id}.context.jsonld`);
+	};
 	const context = document["@context"];
 	const prefixes = Object.keys(model.prefixes);
 	const expandTerm = (curie: string): string => {

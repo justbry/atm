@@ -105,7 +105,7 @@ export type DisclosureOverride = {
 	rounding?: Partial<Record<SchoolSize, Partial<RoundingUnits>>>;
 };
 
-/** Derived KPIs and their inputs (atm's catalog, generated from the ledger model). A `capped` one sits in a more open
+/** Derived KPIs and their inputs (atm's catalog, computed from the ledger model). A `capped` one sits in a more open
  * class and takes its inputs' rule (spec rule 3); the others must not be more open than their inputs. */
 export const derivedKpis: Record<
 	string,

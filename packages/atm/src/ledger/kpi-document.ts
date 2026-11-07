@@ -117,7 +117,7 @@ const monthNames = [
 ];
 
 /** A catalog entry's kind. The catalog (`kpiCatalog`) is atm's catalog facts the documents need, with the mockup's
- * labels (its `KPI` table), in the document's order: generated from the ledger model by `bun model/build.ts`. */
+ * labels (its `KPI` table), in the document's order: computed from the ledger model at load (`kpi-catalog.ts`). */
 type Kind = KpiCatalogKind;
 /** The mockup's donor buckets (`bkBuckets`), in cents. */
 const donorBuckets: Array<Dimension & { below: number | null }> = [
