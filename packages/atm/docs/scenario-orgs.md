@@ -25,12 +25,12 @@ Each org is one entry in `src/scenario/orgs.ts` with a menu in `fixtures/billing
 | `saas-annual` | saas | 402 | Lumen Notes sold annually. Every customer prepays a year on solo, team or business, over 24 months so that the renewals show. API credits are used every month, and churn is low. |
 | `creator-launch` | creator | 501 | Night Kitchen Courses launches. Ninety members join the paid community in the launch month, then four a month. Many buy a course (sourdough, knife skills) or the recipe pack download at sign-up. Members book live cook-alongs. Refunds run high (about 7% of payments) and about one member in twelve leaves each month. |
 
-`atm scenarios list` shows every preset with its org, and `atm scenarios describe <preset>` shows the org, its knobs and copy-paste commands.
+`tfd scenarios list` shows every preset with its org, and `tfd scenarios describe <preset>` shows the org, its knobs and copy-paste commands.
 
 ```sh
-atm simulate --profile church-giving
-atm simulate --profile saas-seats --set seatChangeRate=0.3 --seed 9 --json
-echo '{"org":"creator","params":{"members":40,"refundRate":0.1}}' | atm simulate --scenario - --json
+tfd simulate --profile church-giving
+tfd simulate --profile saas-seats --set seatChangeRate=0.3 --seed 9 --json
+echo '{"org":"creator","params":{"members":40,"refundRate":0.1}}' | tfd simulate --scenario - --json
 ```
 
 ## Picking an org
