@@ -63,7 +63,7 @@ test("the Ledger's file for B4 Uni in November is the table's rows in the table'
 		promo: null,
 	});
 	const rows = page.days.flatMap((day) => day.entries);
-	expect(toCsv(ledgerColumns(page.currency), rows)).toBe(
+	expect(toCsv(ledgerColumns(page.currency ?? ""), rows)).toBe(
 		[
 			`${byteOrderMark}date,member,description,amount,currency,status,invoice_id,payment_id,event,credits`,
 			"2026-11-03,s_26,Plan allowance,,USD,Posted,,,credit.granted,8.00",

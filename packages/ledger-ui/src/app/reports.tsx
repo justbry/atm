@@ -40,6 +40,10 @@ const sparkHeight = 56;
 const drillTitle = "Show these events in the ledger";
 const financeOnlyTitle = "Finance admins only: the rows behind a figure";
 const grainWords = { year: "years", quarter: "quarters", month: "months" };
+/** A figure the source does not record yet (the Worker answers null): never shown as 0. */
+const notAvailableText = "—";
+const statementAmount = (cents: number | null, currency: string): string =>
+	cents === null ? notAvailableText : formatMoney(cents, currency);
 const whoSees: Record<AudienceReport["audience"], string> = {
 	public: "Public sees",
 	member: "Members see",
@@ -316,15 +320,21 @@ function StatementBody({
 				changes: previous.changes,
 			}
 		: null;
-	const gifts = `${money(giftsOutstanding.amountCents)}${
-		giftsOutstanding.credits > 0
-			? ` + ${giftsOutstanding.credits} ${giftsOutstanding.credits === 1 ? unit.one : unit.other}`
-			: ""
-	}`;
+	const gifts = giftsOutstanding
+		? `${money(giftsOutstanding.amountCents)}${
+				giftsOutstanding.credits > 0
+					? ` + ${giftsOutstanding.credits} ${giftsOutstanding.credits === 1 ? unit.one : unit.other}`
+					: ""
+			}`
+		: notAvailableText;
 	return (
 		<>
 			<p class="okline" data-test="report-status">
-				{statement.matchesStripe ? (
+				{statement.matchesStripe === null ? (
+					<span class="mut" data-test="report-stripe-unchecked">
+						Not checked against Stripe yet.
+					</span>
+				) : statement.matchesStripe ? (
 					<>
 						<span class="ok">
 							<Icon name="check" /> Matches Stripe
@@ -405,7 +415,9 @@ function StatementBody({
 					</small>
 					<b data-test="report-kpi-value">{gifts}</b>
 					<i class="s" data-test="report-kpi-change">
-						{`${giftsOutstanding.count} unredeemed gift${giftsOutstanding.count === 1 ? "" : "s"} (a liability)`}
+						{giftsOutstanding
+							? `${giftsOutstanding.count} unredeemed gift${giftsOutstanding.count === 1 ? "" : "s"} (a liability)`
+							: "Not available yet"}
 					</i>
 				</button>
 			</div>
@@ -452,9 +464,9 @@ function Statement({
 				</td>
 				<td class={row.negative ? "r neg" : "r"} data-test="report-line-amount">
 					{row.bold && row.line === "net" ? (
-						<b>{formatMoney(amounts[row.field], currency)}</b>
+						<b>{statementAmount(amounts[row.field], currency)}</b>
 					) : (
-						formatMoney(amounts[row.field], currency)
+						statementAmount(amounts[row.field], currency)
 					)}
 				</td>
 			</tr>
@@ -478,7 +490,9 @@ function Statement({
 				>
 					<td class="mut" colSpan={2} style="padding-top:10px">
 						<button type="button" class="drill">
-							{`Not income: gift certificates sold ${formatMoney(amounts.giftsSold, currency)} (held as a liability until redeemed)`}
+							{amounts.giftsSold === null
+								? "Not income: gift certificates sold: not available yet"
+								: `Not income: gift certificates sold ${formatMoney(amounts.giftsSold, currency)} (held as a liability until redeemed)`}
 						</button>
 					</td>
 				</tr>

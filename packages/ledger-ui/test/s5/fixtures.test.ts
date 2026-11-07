@@ -116,8 +116,10 @@ test("the statement's lines add up, in every school and period", async () => {
 				...period,
 				compare: false,
 			});
+			const { discounts } = amounts;
+			if (discounts === null) throw new Error("the fixtures record discounts");
 			expect(amounts.income).toBe(
-				amounts.memberships + amounts.bookings + amounts.discounts,
+				amounts.memberships + amounts.bookings + discounts,
 			);
 			expect(amounts.net).toBe(amounts.income + amounts.refunds + amounts.fees);
 			expect(counts.payments).toBeGreaterThanOrEqual(0);

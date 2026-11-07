@@ -235,10 +235,11 @@ export type LedgerPage = {
 	school: string;
 	from: string;
 	to: string;
-	timeZone: string;
+	/** The school's time zone, currency and credit unit come from its latest published menu: null when it has none. */
+	timeZone: string | null;
 	/** ISO 4217. */
-	currency: string;
-	unit: CreditUnit;
+	currency: string | null;
+	unit: CreditUnit | null;
 	/** Every event the page holds, pending ones included: `<count> events · <timeZone>`. */
 	count: number;
 	/** Shown first, under "Waiting to ship (<n>) · each ships within 5 min". */
@@ -298,13 +299,14 @@ export type IncomeStatementQuery = {
 export type StatementAmounts = {
 	memberships: number;
 	bookings: number;
-	discounts: number;
+	/** Null when the source records no discounts (no atm event carries one yet). */
+	discounts: number | null;
 	income: number;
 	refunds: number;
 	fees: number;
 	net: number;
 	/** "Not income: gift certificates sold …": a liability until redeemed. */
-	giftsSold: number;
+	giftsSold: number | null;
 	paidOut: number;
 };
 
@@ -338,11 +340,15 @@ export type IncomeStatement = {
 	basis: { kind: "cash" } | { kind: "deferred"; from: string };
 	/** True when the period is whole months and atm's reconciliation matches Stripe: "Matches Stripe · …"; otherwise
 	 * the "Partial month" line. */
-	matchesStripe: boolean;
+	matchesStripe: boolean | null;
 	counts: { payments: number; refunds: number; payouts: number };
 	amounts: StatementAmounts;
 	/** Active dollar gifts' value, active credit gifts' credits, and how many gifts that is. */
-	giftsOutstanding: { amountCents: number; credits: number; count: number };
+	giftsOutstanding: {
+		amountCents: number;
+		credits: number;
+		count: number;
+	} | null;
 	income: IncomeSeries;
 	/** The previous period of the same length, when `compare`. */
 	previous: {
@@ -622,7 +628,7 @@ export const statementLines: ReadonlyArray<
 	["Gift certificates sold (not income)", "giftsSold"],
 ];
 
-export type StatementCsvRow = { line: string; amountCents: number };
+export type StatementCsvRow = { line: string; amountCents: number | null };
 
 export const statementColumns = (
 	statement: Pick<IncomeStatement, "currency" | "from" | "to">,

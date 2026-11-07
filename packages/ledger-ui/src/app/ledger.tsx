@@ -270,6 +270,11 @@ export function Ledger({
 	if (!loaded) return null;
 
 	const { page, promoCode } = loaded;
+	// The page names them from the latest published menu; a school with none answers null, so the school's own
+	// settings name them instead.
+	const unit = page.unit ?? school.creditUnit;
+	const timeZone = page.timeZone ?? school.timeZone;
+	const currency = page.currency ?? school.currency;
 	const entries = [...page.pending, ...page.days.flatMap((day) => day.entries)];
 	const clearFilters = (): void =>
 		navigate(withQuery(withQuery(route, "drill", null), "promo", null));
@@ -284,7 +289,7 @@ export function Ledger({
 			<EntryRows
 				key={entry.event.id}
 				entry={entry}
-				unit={page.unit}
+				unit={unit}
 				open={opened.includes(entry.event.id)}
 				onToggle={() => toggle(entry.event.id)}
 			/>
@@ -306,7 +311,7 @@ export function Ledger({
 							onClick={() => navigate(withQuery(route, "type", chip.type))}
 						>
 							{chip.icon && <Icon name={chip.icon} />}
-							{chip.label ?? capitalise(page.unit.other)}
+							{chip.label ?? capitalise(unit.other)}
 						</button>
 					);
 				})}
@@ -332,7 +337,7 @@ export function Ledger({
 				)}
 				<span class="sp" />
 				<span class="mut" data-test="ledger-count">
-					{`${plural(page.count, "event")} · ${page.timeZone}`}
+					{`${plural(page.count, "event")} · ${timeZone}`}
 				</span>
 				<DownloadButton
 					writer={writer}
@@ -342,7 +347,7 @@ export function Ledger({
 					title="Download the rows in this view as CSV"
 					label="Download CSV"
 					name={csvFileNames.ledger(page.from, page.to)}
-					columns={ledgerColumns(page.currency)}
+					columns={ledgerColumns(currency)}
 					rows={entries}
 				/>
 			</div>
@@ -354,7 +359,7 @@ export function Ledger({
 						<th>Member</th>
 						<th>What happened</th>
 						<th class="r" data-test="ledger-credit-head">
-							{capitalise(page.unit.other)}
+							{capitalise(unit.other)}
 						</th>
 						<th class="r">Amount</th>
 					</tr>
@@ -383,7 +388,7 @@ export function Ledger({
 								<td class="r" data-test="ledger-day-amount">
 									{day.amountCents === 0
 										? ""
-										: formatMoney(day.amountCents, page.currency)}
+										: formatMoney(day.amountCents, currency)}
 								</td>
 							</tr>
 							{rowsOf(day.entries)}
