@@ -6,6 +6,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Command } from "commander";
+import { commandName } from "../command-name.js";
 import {
 	loadScenarioBundle,
 	loadScenarioBundles,
@@ -63,7 +64,7 @@ export const withScenarioOptions = (command: Command): Command =>
 	command
 		.option(
 			"--profile <name>",
-			`a preset (${PROFILE_NAMES.join(", ")}); list them with: atm scenarios list`,
+			`a preset (${PROFILE_NAMES.join(", ")}); list them with: ${commandName} scenarios list`,
 		)
 		.option(
 			"--scenario <file>",
@@ -71,7 +72,7 @@ export const withScenarioOptions = (command: Command): Command =>
 		)
 		.option(
 			"--set <key=value>",
-			"override a knob, repeatable: --set refundRate=0.2 --set tierMix.audit=5 (knobs: atm scenarios describe <profile>)",
+			`override a knob, repeatable: --set refundRate=0.2 --set tierMix.audit=5 (knobs: ${commandName} scenarios describe <profile>)`,
 			collect,
 		)
 		.option("--seed <n>", "the seed, over the preset's")
@@ -263,7 +264,7 @@ export const addScenarioCommands = (program: Command, kit: CliKit): void => {
 						});
 					else
 						process.stdout.write(
-							`${PROFILES.map((p) => `${p.name.padEnd(16)} seed ${String(p.seed).padEnd(4)} ${p.summary}`).join("\n")}\n\nmore: atm scenarios describe <name>\n`,
+							`${PROFILES.map((p) => `${p.name.padEnd(16)} seed ${String(p.seed).padEnd(4)} ${p.summary}`).join("\n")}\n\nmore: ${commandName} scenarios describe <name>\n`,
 						);
 				}),
 			),
@@ -289,9 +290,9 @@ export const addScenarioCommands = (program: Command, kit: CliKit): void => {
 					}
 					const params = { ...DEFAULT_PARAMS, ...profile.params };
 					const examples = [
-						`atm simulate --profile ${profile.name} --json`,
-						`atm simulate --profile ${profile.name} --seed 7 --set refundRate=0.1 --json`,
-						`atm scenario kpis --profile ${profile.name} --out ./out`,
+						`${commandName} simulate --profile ${profile.name} --json`,
+						`${commandName} simulate --profile ${profile.name} --seed 7 --set refundRate=0.1 --json`,
+						`${commandName} scenario kpis --profile ${profile.name} --out ./out`,
 					];
 					if (opts.json)
 						kit.writeJson({

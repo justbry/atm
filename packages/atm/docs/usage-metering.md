@@ -4,9 +4,9 @@ Two possible directions that are not planned: pricing and invoicing metered usag
 
 ## Usage invoicing
 
-- Metered usage pricing is out of scope; atm is a credits and flat-subscription engine. Listed so the decision stays visible.
+- Metered usage pricing is out of scope; the Trifold engine handles credits and flat subscriptions. Listed so the decision stays visible.
 - What it would be: events become a quantity per metric, the quantity is priced (unit, tiered, volume, package), the result is an invoice. Late events need a grace window; the vendors differ (Orb 12 hours, Stripe 1 hour up to 72, Metronome a 34-day backdating window).
-- Open decision: pass usage to Stripe meters, or rate it in atm. The first keeps Stripe the system of record for money; the second makes atm compete with Stripe Billing.
+- Open decision: pass usage to Stripe meters, or rate it in the Trifold engine. The first keeps Stripe the system of record for money; the second makes Trifold compete with Stripe Billing.
 
 ## Usage events as a ledger source (spike, 2026-11-05; decision pending on whether to build)
 Full reports, raw results and scripts: `docs/spikes/usage/`. Question: can atm hold AI token usage and other usage events in R2 with a Tares-style label mapping (`glassflow/tares`; the owner's fork `agentlake` has an `examples/agent-logs` sync that maps six coding agents' logs into one vocabulary)? This is the raw-event layer under the Stripe-meter option above, not rating or invoicing. atm stays the credit wallet; Stripe (or a separate job) prices and invoices.

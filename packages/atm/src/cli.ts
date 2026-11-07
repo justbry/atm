@@ -16,6 +16,7 @@ import packageJson from "../package.json";
 import { validateMenu } from "./billing/menu.js";
 import { resolvePolicy } from "./billing/policy.js";
 import type { BillingPolicy, Menu } from "./billing/types.js";
+import { commandName } from "./command-name.js";
 import { engineCommandTypes, runEngineCommand } from "./engine.js";
 import { bunSqlite } from "./handler/bun-sqlite.js";
 import { inputsStatus, sqliteInputsSource } from "./handler/inputs.js";
@@ -98,8 +99,10 @@ const readJson = async (path: string) =>
 	);
 
 export const program = new Command()
-	.name("atm")
-	.description("Autumn's balance engine as a local CLI")
+	.name(commandName)
+	.description(
+		"The Trifold engine as a local CLI (Autumn's balance rules inside); `atm` is the same command",
+	)
 	.version(packageJson.version);
 
 program
@@ -214,7 +217,7 @@ exitTwoOnUsageError(journalCommand);
 const reportCommand = program
 	.command("report")
 	.description(
-		`build a school's journal for one month (as atm journal does), then print hledger's income statement, balance sheet and credit balances from its main.journal, to date over every month journaled so far; needs hledger on PATH and exits 2 saying so when it is missing`,
+		`build a school's journal for one month (as ${commandName} journal does), then print hledger's income statement, balance sheet and credit balances from its main.journal, to date over every month journaled so far; needs hledger on PATH and exits 2 saying so when it is missing`,
 	)
 	.requiredOption("--root <folder>", "the folder that holds schools/<id>/")
 	.requiredOption("--school <id>", "school id, as in schools/<id>/")
@@ -521,7 +524,7 @@ exitTwoOnUsageError(inputsCommand);
 const inputsShipCommand = inputsCommand
 	.command("ship")
 	.description(
-		`ship a school's unshipped stored inputs (atm_event_inputs) from the handler's SQLite file to <root>/schools/<id>/inputs/<env>/date=YYYY-MM-DD/batch-*.jsonl (UTC commit day), with the contexts/ and seeds/ they refer to, create-only, safe to rerun, run it from cron before \`atm ship\`. First settles the erasure queue: a shipped batch that held an erased holder's facts is rewritten under a new key with the tombstone and the old object deleted. Exits 0 when done (also when there was nothing to ship), 1 when a key already holds different bytes (conflict lines on stderr) or an erasure is still pending, 2 on any other error (one line on stderr). R2 credentials are read from the environment only (${R2_ENV.accessKeyId}, ${R2_ENV.secretAccessKey}, optional ${R2_ENV.sessionToken}); the R2 path has not been run against R2`,
+		`ship a school's unshipped stored inputs (atm_event_inputs) from the handler's SQLite file to <root>/schools/<id>/inputs/<env>/date=YYYY-MM-DD/batch-*.jsonl (UTC commit day), with the contexts/ and seeds/ they refer to, create-only, safe to rerun, run it from cron before \`${commandName} ship\`. First settles the erasure queue: a shipped batch that held an erased holder's facts is rewritten under a new key with the tombstone and the old object deleted. Exits 0 when done (also when there was nothing to ship), 1 when a key already holds different bytes (conflict lines on stderr) or an erasure is still pending, 2 on any other error (one line on stderr). R2 credentials are read from the environment only (${R2_ENV.accessKeyId}, ${R2_ENV.secretAccessKey}, optional ${R2_ENV.sessionToken}); the R2 path has not been run against R2`,
 	)
 	.requiredOption("--db <file>", "the SQLite file the webhook handler writes")
 	.requiredOption("--school <id>", "school id, as in schools/<id>/")
@@ -958,7 +961,7 @@ const simulateCommand = program
 	.option("--school <id>", "school id, as in schools/<id>/")
 	.option(
 		"--profile <name>",
-		"instead of a log: simulate a seeded scenario of the demo school Before University (presets: atm scenarios list), replay it through the atm, hledger and DuckDB KPI channels and compare their hashes",
+		`instead of a log: simulate a seeded scenario of the demo school Before University (presets: ${commandName} scenarios list), replay it through the atm, hledger and DuckDB KPI channels and compare their hashes`,
 	)
 	.option(
 		"--scenario <file>",
@@ -994,7 +997,7 @@ const simulateCommand = program
 	)
 	.option(
 		"--inputs <sqlite file | folder>",
-		"the handler's SQLite database, or a folder `atm inputs ship` shipped them to: decide the stored Stripe inputs again (the grant rules: upgradeGrant, what an invoice grants, a menu's prices and tiers) with the recorded menu and policy, which must reproduce the log, and then with the candidate. Opened read-only; writes nothing. Needs --env. --menu and --policy are optional (none is the identity); --current-menu and --current-policy replace the recorded ones; --catalog and --current-catalog are not used",
+		`the handler's SQLite database, or a folder \`${commandName} inputs ship\` shipped them to: decide the stored Stripe inputs again (the grant rules: upgradeGrant, what an invoice grants, a menu's prices and tiers) with the recorded menu and policy, which must reproduce the log, and then with the candidate. Opened read-only; writes nothing. Needs --env. --menu and --policy are optional (none is the identity); --current-menu and --current-policy replace the recorded ones; --catalog and --current-catalog are not used`,
 	)
 	.option("--env <live|test>", "with --inputs: the Stripe mode of the inputs")
 	.option(
