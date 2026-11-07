@@ -18,7 +18,7 @@ All commands are `bun ./src/bin.ts ...` (the source entry), with `dist/atm.js` (
 ```
 bun test --timeout 60000 tests/golden-e2e-check.test.ts                 # a sample, about two minutes
 ATM_GOLDEN_E2E=full bun test --timeout 1200000 tests/golden-e2e-check.test.ts   # all 46 bundles, all kill points
-ATM_GOLDEN_E2E=full ATM_GOLDEN_E2E_SHARD=1/6 ...                         # a sixth of the bundles (six processes at once)
+ATM_GOLDEN_E2E=full ATM_GOLDEN_E2E_SHARD=1/6 ...                         # a sixth of the run (six processes at once); CI splits the sample in two
 ATM_GOLDEN_E2E_TZ=Asia/Tokyo ...                                          # every process, the handler included, in that zone
 bun scripts/golden-e2e-scale.ts --copies 20,100,300 [--ship-index]        # S7
 ```
