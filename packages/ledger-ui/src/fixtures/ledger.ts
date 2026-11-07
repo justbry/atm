@@ -246,12 +246,15 @@ const sum = (values: Iterable<number>): number => {
 	return total;
 };
 
+/** The fixtures record every line, so none of their amounts is null. */
+type RecordedAmounts = { [Line in keyof StatementAmounts]: number };
+
 function statementOf(
 	sources: SourceEvent[],
 	from: string,
 	to: string,
 ): {
-	amounts: StatementAmounts;
+	amounts: RecordedAmounts;
 	counts: IncomeStatement["counts"];
 } {
 	const inPeriod = sources.filter(({ at }) => {
@@ -343,7 +346,9 @@ function incomeSeries(
 	};
 }
 
-function giftsOutstanding(school: string): IncomeStatement["giftsOutstanding"] {
+function giftsOutstanding(
+	school: string,
+): NonNullable<IncomeStatement["giftsOutstanding"]> {
 	const active = (promosBySchool[school] ?? []).filter(
 		({ type, status }) => type !== "member" && status === "active",
 	);
@@ -743,7 +748,7 @@ export function createLedgerReader(options: {
 			const changes = Object.fromEntries(
 				Object.entries(amounts).map(([line, cents]) => [
 					line,
-					cents - before[line as keyof StatementAmounts],
+					cents - before[line as keyof RecordedAmounts],
 				]),
 			) as StatementAmounts;
 			return {
