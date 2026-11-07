@@ -137,7 +137,7 @@ S8a, S8b and S8d-bz can run in parallel.
 | D15 | Backfill (spike D-5) and payouts (D-6) | *Default taken 2026-11-07 under the owner's S8 goal; the owner may override.* No money backfill: the log starts at switch-on and the UI says "from <date>". The catalog backfill is done. A refund or dispute with no `payment.succeeded` in the log is skipped and recorded as `money.skipped` with an audit row. Payout events are out of scope. |
 | D16 | Erasure model (spike D-4) | *Default taken 2026-11-07 under the owner's S8 goal; the owner may override.* Undecided: the log is never rewritten and a family deletion appends nothing. |
 | D17 | How a ledger fault answers Stripe (spike D-7) | *Default taken 2026-11-07 under the owner's S8 goal; the owner may override.* As spike section 3.4: a database error is a 500 (Stripe retries); a builder error is logged and audited and the credits still go. |
-| D7 | (confirmed 2026-11-07 by the ledger-ui orchestrator) | Matches the UI's `audiencesOf` (`packages/ledger-ui/src/data/disclosure.ts`): an admin without the finance grant gets `public`, or the highest audience of their own live membership tiers if they are an adult, never `finance`; the owner gets `owner`; an admin with the grant gets `finance`. The token carries no tier audience, and the Worker cannot trust a client's claim of one, so until buzz-school adds an `audience` claim to the ledger token (a follow-up to build list group 8) the Worker serves an admin without the grant at most `public`; the UI's View as only goes down. |
+| D7 | (confirmed 2026-11-07 by the ledger-ui orchestrator) | Matches the UI's `audiencesOf` (`packages/ledger-ui/src/data/disclosure.ts`): an admin without the finance grant gets `public`, or the highest audience of their own live membership tiers if they are an adult, never `finance`; the owner gets `owner`; an admin with the grant gets `finance`. The token carries no tier audience, and the Worker cannot trust a client's claim of one, so until buzz-school adds an `audience` claim to the ledger token (a follow-up to build list group 8) the Worker serves an admin without the grant at most `public`, and the HTTP adapter caps the same way (orchestrator, 2026-11-07); the claim is build list follow-up S8d-bz12. The UI's View as only goes down. |
 
 ## 9. Open risks
 
@@ -164,6 +164,7 @@ The plan is `docs/features/ledger-ui-gaps.md` in buzz-school (PR #1348): for eac
 | 9 | S8d-bz10 | `audit-facts` read | M | after S8c, S8d |
 | 10 | S8d-bz11 | accounting basis, booking rules | M | M, O |
 | later | | promos, Zeffy, portal writes for the embed | L each | O |
+| follow-up | S8d-bz12 | `audience` claim in the ledger token: the highest audience of the person's own live membership tiers (an adult's `books` level, never `finance` or `owner`), so the Worker can serve an admin without the finance grant above `public` (D7). Needs the tier `audience` field (group 8) first | S | after group 8 |
 
 Groups 8 and 10 need a migration, and so does a gift-code table if promos are built. Which groups are built, and in what order, is decided by the S8 thread with the orchestrator, not by a child.
 
