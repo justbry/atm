@@ -245,8 +245,8 @@ export const generateScenario = (scenario: ResolvedScenario): Generated => {
 	};
 
 	/**
-	 * What a family's plan becomes at a renewal, if anything: the next tier up the menu with a price for the interval
-	 * (`upgradeRate`, keeping its count where the tier sells it), else the next count up or down of a tier sold in
+	 * What a family's plan becomes in a monthly period, if anything: the next tier down the menu list that costs more a
+	 * month at the count it would take (`upgradeRate`, keeping its count where the tier sells it), else the next count up or down of a tier sold in
 	 * quantities (`seatChangeRate`). An upgrade or a raise is billed now; a decrease waits for the renewal.
 	 */
 	const planChange = (
@@ -262,16 +262,22 @@ export const generateScenario = (scenario: ResolvedScenario): Generated => {
 		const seats = changes.next() < (p.seatChangeRate ?? 0);
 		const up = changes.next() < 0.6;
 		const tiers = menu.tiers;
+		const monthly = (t: Menu["tiers"][number], n: number | undefined) =>
+			(t.prices.find((x) => x.interval === "month")?.amount ?? 0) * (n ?? 1);
+		const countOn = (t: Menu["tiers"][number]) =>
+			t.quantities
+				? (t.quantities.find((n) => n >= (count ?? 1)) ?? t.quantities.at(-1))
+				: undefined;
+		const now = monthly(current, count);
 		const higher = tiers
 			.slice(tiers.indexOf(current) + 1)
-			.find((t) => t.prices.some((x) => x.interval === "month"));
-		if (upgrade && higher) {
-			const counts = higher.quantities;
-			const quantity = counts
-				? (counts.find((n) => n >= (count ?? 1)) ?? counts.at(-1))
-				: undefined;
-			return { tierId: higher.id, quantity, billedNow: true };
-		}
+			.find(
+				(t) =>
+					t.prices.some((x) => x.interval === "month") &&
+					monthly(t, countOn(t)) > now,
+			);
+		if (upgrade && higher)
+			return { tierId: higher.id, quantity: countOn(higher), billedNow: true };
 		const counts = current.quantities;
 		if (!seats || !counts || counts.length < 2) return null;
 		const at = counts.indexOf(count as number);

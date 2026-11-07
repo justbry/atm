@@ -41,8 +41,8 @@ A preset names its org. An ad-hoc scenario can give one at the top level: `{ "or
 
 Both are off (0) by default. A scenario that leaves them at 0 carries neither one in its resolved knobs, so every school preset's fixture hash and golden stay byte-identical.
 
-- `seatChangeRate`: at each monthly renewal of a tier sold in quantities, the chance that a family moves to the next count up or down. A raise is billed at once on a prorated `subscription_update` invoice, as the billing portal's `always_invoice` does. A decrease takes effect at the next renewal, as the portal schedules it.
-- `upgradeRate`: at each monthly renewal, the chance that a family moves to the next tier up the menu. The move is billed at once on a prorated `subscription_update` invoice (a credit line for the old plan and a charge line for the new one). The family keeps its seat count where the new tier sells it, or else takes the tier's smallest count at or above it.
+- `seatChangeRate`: in each monthly period (a day from the 3rd to the 20th of it, the sign-up month included), the chance that a family on a tier sold in quantities moves to the next count up or down. A raise is billed at once on a prorated `subscription_update` invoice, as the billing portal's `always_invoice` does. A decrease takes effect at the next renewal, as the portal schedules it.
+- `upgradeRate`: in each monthly period (a day from the 3rd to the 20th of it, the sign-up month included), the chance that a family on a monthly price moves to the next tier down the menu list that costs more a month at the count it would take. The move is billed at once on a prorated `subscription_update` invoice (a credit line for the old plan and a charge line for the new one). The family keeps its seat count where the new tier sells it, or else takes the tier's smallest count above it, or its largest if none is.
 
 Both are drawn from a stream of their own, so turning them on moves nothing else in a family's draws.
 

@@ -180,13 +180,13 @@ export const PARAMS: { [K in keyof ScenarioParams]-?: Def } = {
 		kind: "number",
 		min: 0,
 		max: 1,
-		doc: "Chance, at each monthly renewal of a tier sold in quantities, that a family changes its count to the next one up or down: a raise is billed at once on a prorated `subscription_update` invoice, a decrease takes effect at the next renewal. Drawn from a stream of its own; 0 (the default) changes nothing.",
+		doc: "Chance, in each monthly period (a day from the 3rd to the 20th of it, the sign-up month included), that a family on a tier sold in quantities changes its count to the next one up or down: a raise is billed at once on a prorated `subscription_update` invoice, a decrease takes effect at the next renewal. Drawn from a stream of its own; 0 (the default) changes nothing.",
 	},
 	upgradeRate: {
 		kind: "number",
 		min: 0,
 		max: 1,
-		doc: "Chance, at each monthly renewal, that a family moves to the next tier up the menu with a price for its interval, billed at once on a prorated `subscription_update` invoice. Drawn from a stream of its own; 0 (the default) changes nothing.",
+		doc: "Chance, in each monthly period (a day from the 3rd to the 20th of it, the sign-up month included), that a family on a monthly price moves to the next tier down the menu list that costs more a month, billed at once on a prorated `subscription_update` invoice. Drawn from a stream of its own; 0 (the default) changes nothing.",
 	},
 };
 

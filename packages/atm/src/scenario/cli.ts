@@ -15,7 +15,7 @@ import { checkBundle, formatCheck } from "./bundle-check.js";
 import { duckdbAvailable, writeKpiParquet } from "./channels/duckdb.js";
 import { buildFixture } from "./fixture.js";
 import { type KpiRow, kpiHash } from "./kpis.js";
-import { DEFAULT_ORG, ORGS } from "./orgs.js";
+import { DEFAULT_ORG, ORGS, tierIdsOf } from "./orgs.js";
 import {
 	defaultParamsOf,
 	PARAMS,
@@ -172,6 +172,8 @@ const describeRun = ({ fixture, parity, rows }: ScenarioRun) => ({
 	ok: true as const,
 	profile: fixture.scenario.profile,
 	name: fixture.scenario.name,
+	// absent for the school, as in the resolved scenario
+	...(fixture.scenario.org ? { org: fixture.scenario.org } : {}),
 	seed: fixture.scenario.seed,
 	params: fixture.scenario.params,
 	fixtureHash: fixture.hash,
@@ -305,7 +307,11 @@ export const addScenarioCommands = (program: Command, kit: CliKit): void => {
 							org: org.kind,
 							orgName: org.name,
 							defaults,
-							knobs: PARAMS,
+							knobs: {
+								...PARAMS,
+								tierMix: { ...PARAMS.tierMix, keys: tierIdsOf(org.kind) },
+								tierCounts: { ...PARAMS.tierCounts, keys: tierIdsOf(org.kind) },
+							},
 							examples,
 						});
 					else
