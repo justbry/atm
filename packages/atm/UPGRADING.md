@@ -2,9 +2,13 @@
 
 The sections for past releases keep the name the engine had then, `atm`.
 
-## On `dev` since 0.9.0
+## Moving to 0.10.0 from 0.9.0
 
-Changes merged to `dev` after the `atm-v0.9.0` tag. Nothing here is in a release yet.
+Everything merged to `dev` after the `atm-v0.9.0` tag is in 0.10.0. A caller that reads `views/months/YYYY-MM.json` must change (the first item); the rest is additive or says what to do.
+
+- **`MonthView.money` is removed from `views/months/YYYY-MM.json` (a reader of it must change).** The month's money (collected, refunded, fees, net) is now `money` in `views/finance/months/YYYY-MM.json`, which `runViews` writes next to the other views (finance members are `views/finance/members/<hash>.json`, KPI contributions `views/kpi/contributions/YYYY-MM.json`). A reader that took `month.money` reads the finance month instead; a TypeScript caller sees the property gone from `MonthView`. Every month object, the manifest and a committed view snapshot change bytes, so regenerate the views and any hash pinned over them. Detail: `plans/ledger-ui/S8a-hash-changes.md`.
+- **The tarball now has `atm/worker` (additive).** Earlier tarballs had no `./worker` export; a pinned install of 0.10.0 can `import … from "atm/worker"` (the Worker-safe read slice: `kpiDocument`, `runViews`, `incomeStatement`, `ledgerRows`, views, `R2BindingStore`). It needs the `nodejs_compat` flag in a Worker (README).
+- **`catalogPublishedEvent` is also exported from the package root (additive).** It was in `atm/worker` only. A caller that already imports it from `atm/worker` needs no change.
 
 - **The CLI is also `tfd` (additive: nothing to change).** The docs now call the product and the managed service Trifold and this package the Trifold engine, and the CLI `tfd`. `atm` is the same command and keeps working, so scripts and cron lines that call `atm` need no change. Nothing stored or published changed: the package is still `atm` (`import … from "atm"`, `"atm/worker"`), the release is still `atm-v<version>` with `atm-<version>.tgz`, and the `ATM_*` environment variables, the handler's tables, the events, the log layout and the log prefixes are as they were. The names that must never change are listed in `docs/frozen-identifiers.md`.
 

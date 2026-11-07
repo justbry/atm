@@ -3552,3 +3552,18 @@ export type ReconcileVerdictInput = {
 	ignored: unknown;
 	skipped: unknown;
 };
+
+/** What `catalogPublishedEvent` takes. */
+export type CatalogPublishedInput = {
+	school: string;
+	menu: Menu;
+	/** The menu's version: the `@v<version>` of every plan it publishes, and the idempotency key's tail. */
+	version: number | string;
+	/** UTC instant (ISO) or epoch ms of the publish. */
+	eventTime: string | number;
+	/** Default: the menu's own time zone. */
+	tz?: string;
+	/** Who wrote it; default `family`. */
+	source?: string;
+	ingestTime?: string | number;
+};

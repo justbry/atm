@@ -29,6 +29,24 @@ const expected = JSON.parse(
 	JSON.stringify(computeCheck({ fullSubject: subject, command })),
 );
 
+/** What buzz-school's ledger emission imports from the package root and from `atm/worker`; losing one breaks it. */
+const ROOT_EXPORTS = [
+	"appendToOutbox",
+	"catalogPublishedEvent",
+	"HANDLER_DDL",
+	"ledgerEvent",
+	"migrateHandlerSchema",
+	"planOutbox",
+	"shipOutbox",
+];
+const WORKER_EXPORTS = [
+	"catalogPublishedEvent",
+	"incomeStatement",
+	"kpiDocument",
+	"ledgerRows",
+	"runViews",
+];
+
 beforeAll(async () => {
 	dir = await mkdtemp(join(tmpdir(), "atm-consumer-"));
 	if (process.env.ATM_DIST) {
@@ -395,4 +413,30 @@ describe("built library", () => {
 		);
 		expect(out.built.ok).toBe(true);
 	}, 60_000);
+
+	test("the exports the ledger emission pins are there, from `.` and `atm/worker`, under Bun and Node", async () => {
+		await writeFile(
+			join(dir, "exports.mjs"),
+			[
+				'import * as root from "./dist/index.js";',
+				'import * as worker from "./dist/worker.js";',
+				"const kinds = (module, names) => Object.fromEntries(names.map((name) => [name, typeof module[name]]));",
+				`console.log(JSON.stringify({ root: kinds(root, ${JSON.stringify(ROOT_EXPORTS)}), worker: kinds(worker, ${JSON.stringify(WORKER_EXPORTS)}) }));`,
+			].join("\n"),
+		);
+		const rootExpected = Object.fromEntries(
+			ROOT_EXPORTS.map((name) => [
+				name,
+				name === "HANDLER_DDL" ? "string" : "function",
+			]),
+		);
+		const workerExpected = Object.fromEntries(
+			WORKER_EXPORTS.map((name) => [name, "function"]),
+		);
+		for (const runtime of ["bun", "node"]) {
+			const out = JSON.parse(run([runtime, "exports.mjs"]));
+			expect(out.root).toEqual(rootExpected);
+			expect(out.worker).toEqual(workerExpected);
+		}
+	});
 });
