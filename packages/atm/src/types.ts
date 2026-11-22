@@ -4340,6 +4340,7 @@ export type PayLaterNoteInput = {
 export type PayLaterNoteResult =
 	| { ok: true; event: PayLaterNoteCreated }
 	| { ok: false; reason: "too_many_instalments"; count: number }
+	/** Not a whole number of cents from 1 to 99,999,999, or an instalment of it under Stripe's 50-cent minimum. */
 	| { ok: false; reason: "bad_amount" }
 	/** tfd-notes refused the terms (a date that is not one, `firstDue` not after `issueDate`, ...): `message` says which. */
 	| { ok: false; reason: "bad_terms"; message: string };
@@ -4347,7 +4348,7 @@ export type PayLaterNoteResult =
 export type InstalmentCheckoutInput = {
 	schoolId: string;
 	familyId: string;
-	/** The note's whole stream so far, `note.created` first. */
+	/** The note's whole stream so far, in any order (`seq` orders it). */
 	noteEvents: readonly unknown[];
 	/** Which instalment of the schedule, 1-based. */
 	instalment: number;

@@ -23,9 +23,9 @@ import type {
 } from "../types.js";
 import {
 	PAY_LATER_INCOME_KIND,
-	PAY_LATER_INSTALMENT_KEY,
-	PAY_LATER_NOTE_KEY,
-} from "./pay-later-keys.js";
+	PAY_LATER_INSTALMENT_FIELD,
+	PAY_LATER_NOTE_FIELD,
+} from "./pay-later-fields.js";
 
 const USD = "usd";
 /** The one currency the books take; the handler asks it of a `payout.failed` to know whether a payout line can exist. */
@@ -108,7 +108,7 @@ export const feeProblem = (
  * for the tier it leaves, which is no income of that tier).
  */
 const incomeKindOf = (invoice: BillingInvoice): string => {
-	if (invoice.metadata[PAY_LATER_NOTE_KEY] !== undefined)
+	if (invoice.metadata[PAY_LATER_NOTE_FIELD] !== undefined)
 		return PAY_LATER_INCOME_KIND;
 	const tiers = invoice.lines.filter(
 		(line) => line.kind === "tier" && line.tierId,
@@ -200,8 +200,8 @@ export const paymentEvents = ({
 			}),
 		];
 	const dollars = invoice.amountPaid / CENTS_PER_DOLLAR;
-	const note = invoice.metadata[PAY_LATER_NOTE_KEY];
-	const instalment = invoice.metadata[PAY_LATER_INSTALMENT_KEY];
+	const note = invoice.metadata[PAY_LATER_NOTE_FIELD];
+	const instalment = invoice.metadata[PAY_LATER_INSTALMENT_FIELD];
 	return [
 		paymentSucceeded({
 			id: invoice.id,

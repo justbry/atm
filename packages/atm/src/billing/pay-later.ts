@@ -13,7 +13,12 @@
  * tfd-notes accepts up to 5200, so it is enforced here, on the note and again at each checkout. Pure: no clock, no
  * network, no store. The caller appends the note events to the note's stream, with the next `seq`.
  */
-import { NOTE_EVENT_SCHEMA, parseNoteEvent, statement } from "tfd-notes";
+import {
+	generateSchedule,
+	NOTE_EVENT_SCHEMA,
+	parseNoteEvent,
+	statement,
+} from "tfd-notes";
 import type {
 	AtmEvent,
 	InstalmentCheckoutInput,
@@ -25,10 +30,11 @@ import type {
 	PayLaterNoteInput,
 	PayLaterNoteResult,
 } from "../types.js";
+import { MAX_LINE_TOTAL } from "./menu.js";
 import {
-	PAY_LATER_INSTALMENT_KEY,
-	PAY_LATER_NOTE_KEY,
-} from "./pay-later-keys.js";
+	PAY_LATER_INSTALMENT_FIELD,
+	PAY_LATER_NOTE_FIELD,
+} from "./pay-later-fields.js";
 
 /** Most instalments a Pay later note may have until counsel reviews Regulation Z. */
 export const MAX_PAY_LATER_INSTALMENTS = 4;
@@ -36,8 +42,8 @@ export const MAX_PAY_LATER_INSTALMENTS = 4;
 const PAY_LATER_CURRENCY = "USD";
 const CENTS_EXPONENT = 2;
 const ZERO_RATE = "0";
-/** The largest amount Stripe takes for one line: eight nines, in minor units. */
-const STRIPE_MAX_AMOUNT = 99_999_999;
+/** The smallest USD charge Stripe takes, in cents: an instalment below it could not be paid by checkout. */
+const STRIPE_MIN_AMOUNT = 50n;
 const CHECKOUT_METHOD = "checkout";
 
 /** The `note.created` of a Pay later note, entered by the lender, or why not. */
@@ -51,7 +57,7 @@ export const payLaterNote = (input: PayLaterNoteInput): PayLaterNoteResult => {
 	if (
 		!Number.isInteger(input.principal) ||
 		input.principal <= 0 ||
-		input.principal > STRIPE_MAX_AMOUNT
+		input.principal > MAX_LINE_TOTAL
 	)
 		return { ok: false, reason: "bad_amount" };
 	const event: PayLaterNoteCreated = {
@@ -79,8 +85,11 @@ export const payLaterNote = (input: PayLaterNoteInput): PayLaterNoteResult => {
 			},
 		},
 	};
+	let schedule: ReturnType<typeof generateSchedule>;
 	try {
-		parseNoteEvent(event);
+		const parsed = parseNoteEvent(event);
+		schedule =
+			parsed.type === "note.created" ? generateSchedule(parsed.terms) : [];
 	} catch (error) {
 		return {
 			ok: false,
@@ -88,6 +97,9 @@ export const payLaterNote = (input: PayLaterNoteInput): PayLaterNoteResult => {
 			message: error instanceof Error ? error.message : String(error),
 		};
 	}
+	// A small principal splits into instalments Stripe refuses (or of 0 cents: 5 cents in 4 is 2, 2, 1, 0).
+	if (schedule.some((row) => BigInt(row.payment_minor) < STRIPE_MIN_AMOUNT))
+		return { ok: false, reason: "bad_amount" };
 	return { ok: true, event };
 };
 
@@ -100,7 +112,15 @@ export const instalmentCheckoutParams = (
 	input: InstalmentCheckoutInput,
 ): InstalmentCheckoutResult => {
 	const read = statement([...input.noteEvents], input.asOf);
-	const created = parseNoteEvent(input.noteEvents[0]);
+	// The stream may come in any order (tfd-notes orders it by `seq`); `statement` has checked it holds one `note.created`.
+	const created = parseNoteEvent(
+		input.noteEvents.find(
+			(event) =>
+				typeof event === "object" &&
+				event !== null &&
+				(event as { type?: unknown }).type === "note.created",
+		),
+	);
 	const terms = created.type === "note.created" ? created.terms : null;
 	if (
 		!terms ||
@@ -134,8 +154,8 @@ export const instalmentCheckoutParams = (
 	const metadata: Record<string, string> = {
 		b4u_school: input.schoolId,
 		family_id: input.familyId,
-		[PAY_LATER_NOTE_KEY]: read.note_id,
-		[PAY_LATER_INSTALMENT_KEY]: String(input.instalment),
+		[PAY_LATER_NOTE_FIELD]: read.note_id,
+		[PAY_LATER_INSTALMENT_FIELD]: String(input.instalment),
 	};
 	return {
 		ok: true,

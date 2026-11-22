@@ -104,6 +104,11 @@ describe("payLaterNote", () => {
 			ok: false,
 			reason: "bad_amount",
 		});
+		// 5 cents in 4 instalments is 2, 2, 1 and 0 cents, which Stripe would not charge.
+		expect(payLaterNote({ ...base, principal: 5 })).toEqual({
+			ok: false,
+			reason: "bad_amount",
+		});
 		expect(payLaterNote({ ...base, firstDue: "2026-11-01" })).toMatchObject({
 			ok: false,
 			reason: "bad_terms",
@@ -160,6 +165,25 @@ describe("instalmentCheckoutParams", () => {
 			instalment: 1,
 		});
 		expect(checkout([created(), payment], 2).ok).toBe(true);
+	});
+
+	test("the stream may come in any order", () => {
+		const payment = {
+			schema: "tfd.note-event.v1",
+			id: "ne_2",
+			note_id: NOTE,
+			seq: 2,
+			entered_at: "2026-12-20T18:00:00Z",
+			entered_by: "lender",
+			type: "payment.recorded",
+			kind: "payment",
+			amount_minor: "45600",
+			value_date: "2026-12-20",
+		};
+		expect(checkout([payment, created()], 2)).toMatchObject({
+			ok: true,
+			amount: 45_600,
+		});
 	});
 
 	test("a note that is not a Pay later note is refused", () => {

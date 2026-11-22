@@ -80,7 +80,7 @@ import {
 	resolveInvoice,
 	resolveSubscriptionPlan,
 } from "./normalize.js";
-import { PAY_LATER_NOTE_KEY } from "./pay-later-keys.js";
+import { PAY_LATER_NOTE_FIELD } from "./pay-later-fields.js";
 import {
 	applyRowChanges,
 	diffRows,
@@ -151,7 +151,7 @@ const resolve = (
 		menuLineItems(schoolId, input.menu, input.priceIds),
 	);
 	// A Pay later instalment (`instalmentCheckoutParams`) is an ad hoc price with no lookup key: it is ours and grants nothing.
-	const instalment = invoice.metadata[PAY_LATER_NOTE_KEY] !== undefined;
+	const instalment = invoice.metadata[PAY_LATER_NOTE_FIELD] !== undefined;
 	// Money came in for something that is ours but not on the menu now: granting nothing would be silent.
 	const stray = resolved.lines.filter(
 		(l) =>
