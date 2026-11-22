@@ -2,7 +2,7 @@
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
 	"$id": "https://b4uni.com/_schema/catalog/menu.v1.json",
 	"title": "School billing menu v1",
-	"description": "A school's menu: features (credits), tiers (memberships) and add-ons. Amounts are cents of `currency`. Limits match the family service's MenuSchema. Text fields are trimmed before they are checked (validateMenu does that); the rules a schema cannot say (unique ids, grants name a feature, one price per interval, a gift is a one-time add-on, a real time zone, a tier's quantities in ascending order) are in validateMenu.",
+	"description": "A school's menu: features (credits), tiers (memberships) and add-ons. Amounts are cents of `currency`. A menu with no audiences has the limits of the family service's MenuSchema (4 tiers, 6 add-ons); `audience`, `holderPrefixes` and `payWhatYouCan` are tfd's, which that service does not read yet. Text fields are trimmed before they are checked (validateMenu does that); the rules a schema cannot say (unique ids, grants name a feature, one price per interval, a gift is a one-time add-on, a real time zone, a tier's quantities in ascending order, at most 4 tiers and 6 add-ons per audience, at most 6 audiences) are in validateMenu.",
 	"type": "object",
 	"additionalProperties": false,
 	"required": ["currency", "timeZone", "features", "tiers", "addons"],
@@ -15,14 +15,26 @@
 			"items": { "$ref": "#/$defs/feature" }
 		},
 		"tiers": {
+			"description": "At most 4 for each audience (validateMenu checks it); 24 in all, for 6 audiences.",
 			"type": "array",
-			"maxItems": 4,
+			"maxItems": 24,
 			"items": { "$ref": "#/$defs/tier" }
 		},
 		"addons": {
+			"description": "At most 6 for each audience (validateMenu checks it); 36 in all, for 6 audiences.",
 			"type": "array",
-			"maxItems": 6,
+			"maxItems": 36,
 			"items": { "$ref": "#/$defs/addon" }
+		},
+		"holderPrefixes": {
+			"description": "The holder id prefix of each audience's buyers, by audience (e.g. families: fam_). Checkout refuses a familyId without the prefix of the audience it buys from. validateMenu checks that each key is an audience of the menu and that no prefix starts another.",
+			"type": "object",
+			"maxProperties": 6,
+			"propertyNames": { "$ref": "#/$defs/id" },
+			"additionalProperties": {
+				"type": "string",
+				"pattern": "^[a-z0-9][a-z0-9]{0,14}[_-]$"
+			}
 		},
 		"codes": {
 			"description": "Member discount codes (0.8.0): a percentage off membership tiers, never add-ons or gifts. Absent: none (policy.memberCode still names one). validateMenu checks that ids are unique, that codes are unique without regard to case and that tierIds name tiers.",
@@ -57,6 +69,10 @@
 			}
 		},
 		"id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$" },
+		"audience": {
+			"description": "Who the tier or add-on is sold to, for a merchant that sells to several kinds of buyer from one menu and one Stripe account (B4 Uni: families, guides, schools). An id; absent: every audience. The 4-tier and 6-add-on limits are per audience, and an item with no audience counts toward each.",
+			"$ref": "#/$defs/id"
+		},
 		"amount": { "type": "integer", "minimum": 50, "maximum": 10000000 },
 		"interval": { "enum": ["month", "year"] },
 		"feature": {
@@ -109,6 +125,7 @@
 				"name": { "type": "string", "minLength": 1, "maxLength": 60 },
 				"blurb": { "type": "string", "maxLength": 300 },
 				"public": { "type": "boolean" },
+				"audience": { "$ref": "#/$defs/audience" },
 				"prices": {
 					"type": "array",
 					"minItems": 1,
@@ -151,7 +168,17 @@
 					"required": ["amount", "every"],
 					"properties": {
 						"amount": { "$ref": "#/$defs/amount" },
-						"every": { "enum": ["once", "month", "year"] }
+						"every": { "enum": ["once", "month", "year"] },
+						"payWhatYouCan": {
+							"description": "The buyer picks the amount in Checkout (a Stripe price with custom_unit_amount): at least `amount`, at most `maximum`, starting at `preset`. validateMenu checks that the add-on is one-time, not a gift and grants nothing, and that amount <= preset <= maximum.",
+							"type": "object",
+							"additionalProperties": false,
+							"required": ["maximum"],
+							"properties": {
+								"maximum": { "$ref": "#/$defs/amount" },
+								"preset": { "$ref": "#/$defs/amount" }
+							}
+						}
 					}
 				},
 				"grants": {
@@ -159,7 +186,8 @@
 					"maxItems": 12,
 					"items": { "$ref": "#/$defs/grant" }
 				},
-				"gift": { "enum": ["sessions", "dollars"] }
+				"gift": { "enum": ["sessions", "dollars"] },
+				"audience": { "$ref": "#/$defs/audience" }
 			}
 		}
 	}
