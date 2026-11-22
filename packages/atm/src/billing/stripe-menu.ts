@@ -234,6 +234,7 @@ type EffectiveCode = {
 	tierIds?: string[];
 	firstTimeOnly: boolean;
 	expiresAt?: number;
+	intervals?: Interval[];
 };
 
 const memberCodesOf = (menu: Menu, policy: BillingPolicy): EffectiveCode[] => {
@@ -244,6 +245,7 @@ const memberCodesOf = (menu: Menu, policy: BillingPolicy): EffectiveCode[] => {
 		...(c.tierIds ? { tierIds: c.tierIds } : {}),
 		firstTimeOnly: c.firstTimeOnly ?? true,
 		...(c.expiresAt === undefined ? {} : { expiresAt: c.expiresAt }),
+		...(c.intervals ? { intervals: c.intervals } : {}),
 	}));
 	const mc = policy.memberCode;
 	if (mc && !out.some((c) => c.code.toLowerCase() === mc.code.toLowerCase()))
@@ -495,12 +497,17 @@ export function checkoutParams(input: CheckoutInput): CheckoutResult {
 			return { ok: false, reason: "code_not_found", code: input.code };
 		if (found.tierIds && !found.tierIds.includes(tier.id))
 			return { ok: false, reason: "code_not_applicable", code: input.code };
+		if (found.intervals && !found.intervals.includes(interval))
+			return { ok: false, reason: "code_not_applicable", code: input.code };
 		appliedCode = found.code;
 	}
-	// A buyer may type a member code, or the code of a dollar gift certificate (made after the menu, so the menu cannot name it).
+	// A buyer may type a member code valid for this interval, or the code of a dollar gift certificate (made after the menu,
+	// so the menu cannot name it). Stripe cannot hold a code to an interval (a coupon names products, and a tier's month
+	// and year prices share one), so a checkout where no code is valid offers no typing at all.
 	const mayTypeCode =
-		memberCodesOf(menu, policy).length > 0 ||
-		menu.addons.some((addon) => addon.gift === "dollars");
+		memberCodesOf(menu, policy).some(
+			(c) => !c.intervals || c.intervals.includes(interval),
+		) || menu.addons.some((addon) => addon.gift === "dollars");
 	const metadata: Record<string, string> = {
 		b4u_school: schoolId,
 		family_id: input.familyId,

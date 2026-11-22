@@ -304,7 +304,8 @@
 			"code": "EARLY2027",
 			"percentOff": 30,
 			"tierIds": ["go_build", "go_hive"],
-			"expiresAt": 1797404400000
+			"expiresAt": 1797404400000,
+			"intervals": ["year"]
 		}
 	]
 }

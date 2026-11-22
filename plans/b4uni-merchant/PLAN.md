@@ -103,8 +103,9 @@ Free. Credits come from `balancesOf` (or the engine's `check`) on the same rows.
 1. **Audiences.** Done in #105.
 2. **Pay what you can, as a menu add-on.** Done in #105.
 3. **Holder prefixes per audience.** Done in #105.
-4. **A code limited to an interval** (`codes[].intervals: ["year"]`). `checkoutParams` would refuse it on a monthly
-   checkout and stop offering typed codes there. Small; built before Dec 1, 2026 it would close the gap that lets a buyer type the early code on a monthly checkout.
+4. **A code limited to an interval** (`codes[].intervals: ["year"]`). Done: `checkoutParams` refuses it on a monthly
+   checkout and offers no typed codes there. Stripe cannot restrict a code by price, so a monthly checkout that offers
+   typing for another code could still take it; B4 Uni has no other code (set `policy.memberCode` to `null`).
 5. **Fees taken at checkout** (Connect `application_fee_amount`). Out of scope by decision 3; on the roadmap.
 
 ## Gaps that stay outside tfd
@@ -114,8 +115,8 @@ Free. Credits come from `balancesOf` (or the engine's `check`) on the same rows.
   grants in tfd would book about 365 credit events a year per family into sealed books, for something that isn't money,
   and Free has no invoice to grant from.
 - **The early price.** A member code: `EARLY2027`, 30% off Go Build and Go Unlimited, `expiresAt` the end of
-  2026-12-15 in Denver (2026-12-16T07:00:00Z). buzz-school applies it only to yearly checkouts. Accept that a buyer
-  could type it on a monthly checkout until then.
+  2026-12-15 in Denver (2026-12-16T07:00:00Z), `intervals: ["year"]`, so tfd's checkout takes it on yearly checkouts
+  only.
 - **Receipts.** Show `hostedInvoiceUrl` and `invoicePdf` to the family (they are bearer links, so keep them out of
   logs). Sign with `receiptOfV2` once B4 Uni has a signing key. The itemised receipt is still the owner decision in
   `docs/receipts.md`.
