@@ -2,9 +2,13 @@
 
 The sections for past releases keep the name the engine had then, `atm`.
 
-## Unreleased
+## Moving to 0.12.0 from 0.11.1
 
-Additive: a caller that changes nothing validates, publishes, checks out and books exactly as on 0.11.1.
+B4 Uni as its own merchant (#105, #108, #109) and promissory notes with Pay later (#106, #107). The pin moves to `tfd-v0.12.0` (asset `tfd-0.12.0.tgz`), keeping the dependency key `atm`. A caller that changes nothing validates, publishes, checks out and books as on 0.11.1, except for the types:
+
+- **Must, at the type level.** `StripeOp`'s `price.create` has `unitAmount: number | null` (null only for a pay-what-you-can add-on, with `customUnitAmount`): a publisher that passes `unitAmount` on as a number stops type-checking, and must send `custom_unit_amount` for such a price (below). `CheckoutRefusal` and `OneTimeCheckoutRefusal` both gain `addon_audience_mismatch`, `addon_sold_alone` and `holder_not_in_audience`: a caller that switches on `reason` exhaustively adds the cases.
+- **B4 Uni's own menu (may, when it sells its plans).** Publish `fixtures/billing/menu/b4uni-merchant.json`'s shape (generated from `b4uniMenu(D)`), serve it from one clover endpoint with `schoolId` `b4uni`, and set `policy.memberCode` to `null` so that `EARLY2027`, yearly only, cannot be typed on a monthly checkout.
+- **Promissory notes (may).** `tfd note schedule|statement` and the Apache-2.0 `tfd-notes` library are new; nothing existing changes.
 
 - **Audiences: one menu for a merchant that sells to several kinds of buyer (may).** B4 Uni selling its own family, Guide, school and organizer plans from one Stripe account is the case (`plans/b4uni-merchant/PLAN.md`). Give each tier and add-on an `audience` (an id such as `families`); leave it out for one sold to everyone. The limits are then per audience: 4 tiers and 6 add-ons for each, an item with no audience counting toward each, at most 6 audiences (`MAX_AUDIENCES`). The schema allows 24 tiers and 36 add-ons in all; `validateMenu` refuses `tiers` or `addons` when one audience is over, and `tiers.<i>.audience` or `addons.<i>.audience` for the seventh audience. Show one audience's page with `publicMenu(menu, audience)`. `checkoutParams` answers `{ ok: false, reason: "addon_audience_mismatch", addonId }` for an add-on whose audience isn't the tier's (a tier or add-on with no audience goes with any), and `oneTimeCheckoutParams` gives the same answer for add-ons of two audiences in one session: a new member of `CheckoutRefusal` and `OneTimeCheckoutRefusal`, so a caller that switches on `reason` exhaustively adds a case. Adding audiences to a published menu changes no lookup key and makes no `menuToStripe` step.
   - **One plan per group.** tfd keeps one tier subscription per holder, so make the holder the group the plan is for. `family_id` in the checkout metadata may be any id (`fam_7`, `guide-u42`, `school-…`). Each group is then its own subject under the one merchant (`b4uni|live|family:guide-u42`), in one ledger.
