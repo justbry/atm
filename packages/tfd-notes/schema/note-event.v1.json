@@ -186,14 +186,14 @@
 		"seq": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
 		"role": { "enum": ["lender", "borrower"] },
 		"minor_unsigned": {
-			"description": "A non-negative integer count of minor units as digits, no leading zero. No event field carries a negative amount; a signed form would be ^(0|-?[1-9][0-9]*)$.",
+			"description": "A non-negative integer count of minor units as digits, no leading zero, at most 20 digits. No event field carries a negative amount; a signed form would be ^(0|-?[1-9][0-9]{0,19})$.",
 			"type": "string",
-			"pattern": "^(0|[1-9][0-9]*)$"
+			"pattern": "^(0|[1-9][0-9]{0,19})$"
 		},
 		"minor_positive": {
-			"description": "A positive integer count of minor units as digits, no leading zero: at least 1.",
+			"description": "A positive integer count of minor units as digits, no leading zero, at most 20 digits: at least 1.",
 			"type": "string",
-			"pattern": "^[1-9][0-9]*$"
+			"pattern": "^[1-9][0-9]{0,19}$"
 		},
 		"civil_date": {
 			"description": "A civil date. The pattern fixes the shape; the validator also checks it is a real calendar date, leap years included.",

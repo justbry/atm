@@ -31,7 +31,11 @@ type BaseFields = Pick<
 	"schema" | "id" | "note_id" | "seq" | "entered_at" | "entered_by"
 >;
 
-const MONEY_PATTERN = /^(0|[1-9][0-9]*)$/;
+/**
+ * At most 20 digits (below 10^20 minor units): far above any real note, and small enough that the level-payment search,
+ * which re-simulates the schedule for each probe, stays quick on terms from an untrusted event.
+ */
+const MONEY_PATTERN = /^(0|[1-9][0-9]{0,19})$/;
 const RATE_PATTERN = /^(0|0\.[0-9]{1,6})$/;
 const CURRENCY_PATTERN = /^[A-Z]{3}$/;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
@@ -164,7 +168,7 @@ const readMoney = (label: string, path: string, value: unknown): string => {
 	if (typeof value !== "string" || !MONEY_PATTERN.test(value)) {
 		return fail(
 			label,
-			`${path} must be a non-negative integer digit string of minor units, got ${show(value)}`,
+			`${path} must be a non-negative integer digit string of minor units, at most 20 digits, got ${show(value)}`,
 		);
 	}
 	return value;

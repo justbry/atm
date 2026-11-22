@@ -116,9 +116,9 @@ const readEventLines = async (
 		if (line.trim() === "") continue;
 		try {
 			events.push(JSON.parse(line));
-		} catch {
+		} catch (error) {
 			throw new kit.InputError(
-				`${path} line ${index + 1} is not JSON: one event per line`,
+				`${path} line ${index + 1} is not JSON (one event per line): ${messageOf(error)}`,
 			);
 		}
 	}
@@ -261,9 +261,7 @@ const scheduleOf = (kit: CliKit, terms: NoteTerms): ScheduleRow[] => {
 	try {
 		return generateSchedule(terms);
 	} catch (error) {
-		throw new kit.InputError(
-			error instanceof Error ? error.message : String(error),
-		);
+		throw new kit.InputError(messageOf(error));
 	}
 };
 
@@ -286,11 +284,11 @@ export const addNoteCommands = (program: Command, kit: CliKit): void => {
 				"--json",
 				"print one JSON line ({ok, schedule}) with the library's strings unchanged, instead of the table",
 			)
-			.action((path: string, opts: { json?: boolean }) =>
-				kit.unattended("note schedule", opts.json === true, async () => {
+			.action((path: string, options: { json?: boolean }) =>
+				kit.unattended("note schedule", options.json === true, async () => {
 					const terms = await parseTermsFile(kit, path);
 					const rows = scheduleOf(kit, terms);
-					if (opts.json) kit.writeJson({ ok: true, schedule: rows });
+					if (options.json) kit.writeJson({ ok: true, schedule: rows });
 					else process.stdout.write(scheduleText(terms, rows));
 				}),
 			),
@@ -314,21 +312,21 @@ export const addNoteCommands = (program: Command, kit: CliKit): void => {
 				"--json",
 				"print one JSON line ({ok, statement}) instead of the text",
 			)
-			.action((path: string, opts: { asOf: string; json?: boolean }) =>
-				kit.unattended("note statement", opts.json === true, async () => {
-					if (!isValidCivilDate(opts.asOf)) {
+			.action((path: string, options: { asOf: string; json?: boolean }) =>
+				kit.unattended("note statement", options.json === true, async () => {
+					if (!isValidCivilDate(options.asOf)) {
 						throw new kit.InputError(
-							`--as-of ${opts.asOf} is not a date: use YYYY-MM-DD`,
+							`--as-of ${options.asOf} is not a date: use YYYY-MM-DD`,
 						);
 					}
 					const events = await readEventLines(kit, path);
 					let report: Statement;
 					try {
-						report = statement(events, opts.asOf);
+						report = statement(events, options.asOf);
 					} catch (error) {
 						throw new kit.InputError(`${path}: ${messageOf(error)}`);
 					}
-					if (opts.json) kit.writeJson({ ok: true, statement: report });
+					if (options.json) kit.writeJson({ ok: true, statement: report });
 					else process.stdout.write(statementText(report));
 				}),
 			),

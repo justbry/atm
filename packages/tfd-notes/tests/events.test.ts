@@ -169,6 +169,11 @@ describe("parseNoteEvent accepts", () => {
 
 describe("parseNoteEvent rejects", () => {
 	const invalid: [string, unknown, string][] = [
+		[
+			"a principal of more than 20 digits",
+			{ ...created(), terms: { ...TERMS, principal_minor: "1".repeat(21) } },
+			"at most 20 digits",
+		],
 		["null", null, "event: must be an object"],
 		["an array", [], "event: must be an object"],
 		["a string", "note.created", "event: must be an object"],
