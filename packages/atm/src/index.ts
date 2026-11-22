@@ -8,14 +8,6 @@ import * as grants from "./billing/grants.js";
 import * as handle from "./billing/handle.js";
 import * as menu from "./billing/menu.js";
 import * as normalizer from "./billing/normalize.js";
-import type {
-	InstalmentCheckoutInput,
-	InstalmentCheckoutResult,
-	NoteEventSlot,
-	NoteReversalResult,
-	PayLaterNoteInput,
-	PayLaterNoteResult,
-} from "./billing/pay-later.js";
 import * as payLater from "./billing/pay-later.js";
 import * as policy from "./billing/policy.js";
 import * as raise from "./billing/raise.js";
@@ -189,6 +181,8 @@ import type {
 	InputsSimulation,
 	InputsSource,
 	InputsStatus,
+	InstalmentCheckoutInput,
+	InstalmentCheckoutResult,
 	InvoiceGrantInput,
 	InvoiceLine,
 	JournalRun,
@@ -206,6 +200,9 @@ import type {
 	NormalizedStripeEvent,
 	NormalizeError,
 	NormalizeResult,
+	NoteEventSlot,
+	NotePaymentRecorded,
+	NoteReversalResult,
 	OneTimeCheckoutInput,
 	OneTimeCheckoutParams,
 	OneTimeCheckoutParamsWithPrices,
@@ -215,6 +212,8 @@ import type {
 	OutboxRow,
 	OutboxStatus,
 	OutboxStatusInput,
+	PayLaterNoteInput,
+	PayLaterNoteResult,
 	PortalConfigIds,
 	ProrationLine,
 	ProrationPair,
@@ -662,16 +661,6 @@ export const oneTimeCheckoutParams = (
 	input: OneTimeCheckoutInput,
 ): OneTimeCheckoutResult => stripeMenu.oneTimeCheckoutParams(input);
 
-export type {
-	InstalmentCheckoutInput,
-	InstalmentCheckoutParams,
-	InstalmentCheckoutResult,
-	NoteEventSlot,
-	NoteReversalResult,
-	PayLaterNoteInput,
-	PayLaterNoteResult,
-} from "./billing/pay-later.js";
-
 /** Most instalments a Pay later note may have until counsel reviews Regulation Z. */
 export const MAX_PAY_LATER_INSTALMENTS: number =
 	payLater.MAX_PAY_LATER_INSTALMENTS;
@@ -693,13 +682,12 @@ export const instalmentCheckoutParams = (
 export const notePaymentEvent = (
 	event: AtmEvent,
 	slot: NoteEventSlot,
-): ReturnType<typeof payLater.notePaymentEvent> =>
-	payLater.notePaymentEvent(event, slot);
+): NotePaymentRecorded | null => payLater.notePaymentEvent(event, slot);
 
 /** The whole `reversal` of an instalment's note payment once its charge is refunded in full, or why not. */
 export const noteReversalEvent = (
 	refund: AtmEvent,
-	payment: NonNullable<ReturnType<typeof payLater.notePaymentEvent>>,
+	payment: NotePaymentRecorded,
 	slot: NoteEventSlot,
 ): NoteReversalResult => payLater.noteReversalEvent(refund, payment, slot);
 

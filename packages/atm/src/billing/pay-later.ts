@@ -13,16 +13,18 @@
  * tfd-notes accepts up to 5200, so it is enforced here, on the note and again at each checkout. Pure: no clock, no
  * network, no store. The caller appends the note events to the note's stream, with the next `seq`.
  */
-import {
-	type CivilDate,
-	type Frequency,
-	NOTE_EVENT_SCHEMA,
-	type NoteCreatedEvent,
-	type PaymentRecordedEvent,
-	parseNoteEvent,
-	statement,
-} from "tfd-notes";
-import type { AtmEvent } from "../types.js";
+import { NOTE_EVENT_SCHEMA, parseNoteEvent, statement } from "tfd-notes";
+import type {
+	AtmEvent,
+	InstalmentCheckoutInput,
+	InstalmentCheckoutResult,
+	NoteEventSlot,
+	NotePaymentRecorded,
+	NoteReversalResult,
+	PayLaterNoteCreated,
+	PayLaterNoteInput,
+	PayLaterNoteResult,
+} from "../types.js";
 import {
 	PAY_LATER_INSTALMENT_KEY,
 	PAY_LATER_NOTE_KEY,
@@ -38,30 +40,6 @@ const ZERO_RATE = "0";
 const STRIPE_MAX_AMOUNT = 99_999_999;
 const CHECKOUT_METHOD = "checkout";
 
-export type PayLaterNoteInput = {
-	noteId: string;
-	/** The event's own id (a ULID or similar). */
-	eventId: string;
-	/** When the note was entered: an ISO 8601 UTC instant ending in `Z`. */
-	enteredAt: string;
-	/** What is lent, in cents: the price of what the family buys. */
-	principal: number;
-	issueDate: CivilDate;
-	firstDue: CivilDate;
-	/** Instalments, 1 to `MAX_PAY_LATER_INSTALMENTS`. */
-	count: number;
-	frequency: Frequency;
-	/** The lender's IANA zone (B4 Uni's menu `timeZone`). */
-	timeZone: string;
-};
-
-export type PayLaterNoteResult =
-	| { ok: true; event: NoteCreatedEvent }
-	| { ok: false; reason: "too_many_instalments"; count: number }
-	| { ok: false; reason: "bad_amount" }
-	/** tfd-notes refused the terms (a date that is not one, `firstDue` not after `issueDate`, ...): `message` says which. */
-	| { ok: false; reason: "bad_terms"; message: string };
-
 /** The `note.created` of a Pay later note, entered by the lender, or why not. */
 export const payLaterNote = (input: PayLaterNoteInput): PayLaterNoteResult => {
 	if (
@@ -76,7 +54,7 @@ export const payLaterNote = (input: PayLaterNoteInput): PayLaterNoteResult => {
 		input.principal > STRIPE_MAX_AMOUNT
 	)
 		return { ok: false, reason: "bad_amount" };
-	const event: NoteCreatedEvent = {
+	const event: PayLaterNoteCreated = {
 		schema: NOTE_EVENT_SCHEMA,
 		id: input.eventId,
 		note_id: input.noteId,
@@ -112,56 +90,6 @@ export const payLaterNote = (input: PayLaterNoteInput): PayLaterNoteResult => {
 	}
 	return { ok: true, event };
 };
-
-export type InstalmentCheckoutInput = {
-	schoolId: string;
-	familyId: string;
-	/** The note's whole stream so far, `note.created` first. */
-	noteEvents: readonly unknown[];
-	/** Which instalment of the schedule, 1-based. */
-	instalment: number;
-	/** Today in the lender's zone: what the note's lender view counts as paid is read as of this date. */
-	asOf: CivilDate;
-	/** What the buyer sees on the Checkout line, e.g. "Go Unlimited, instalment 2 of 4". */
-	name: string;
-	returnUrls: { success: string; cancel: string };
-	invoice?: { description?: string; footer?: string };
-};
-
-/** A payment-mode Checkout Session for one instalment, in Stripe's nested shape; nothing in it needs a published price. */
-export type InstalmentCheckoutParams = {
-	mode: "payment";
-	client_reference_id: string;
-	success_url: string;
-	cancel_url: string;
-	line_items: [
-		{
-			quantity: 1;
-			price_data: {
-				currency: string;
-				unit_amount: number;
-				product_data: { name: string };
-			};
-		},
-	];
-	metadata: Record<string, string>;
-	invoice_creation: {
-		enabled: true;
-		invoice_data: {
-			metadata: Record<string, string>;
-			description?: string;
-			footer?: string;
-		};
-	};
-};
-
-export type InstalmentCheckoutResult =
-	| { ok: true; params: InstalmentCheckoutParams; amount: number }
-	/** The note is not one `payLaterNote` makes: not USD, a rate above 0, not amortized, or more than 4 instalments. */
-	| { ok: false; reason: "not_pay_later" }
-	| { ok: false; reason: "instalment_not_found"; instalment: number }
-	/** The lender's view already counts this instalment, and every one before it, as paid. */
-	| { ok: false; reason: "instalment_paid"; instalment: number };
 
 /**
  * The checkout for instalment `instalment` of a Pay later note, or why not. The amount is the schedule row's payment, but
@@ -243,9 +171,6 @@ export const instalmentCheckoutParams = (
 	};
 };
 
-/** Where the next event goes on the note: its `seq`, its own id and when it is entered (ISO 8601 UTC, `Z`). */
-export type NoteEventSlot = { seq: number; eventId: string; enteredAt: string };
-
 const textAt = (
 	record: Record<string, unknown>,
 	key: string,
@@ -263,7 +188,7 @@ const textAt = (
 export const notePaymentEvent = (
 	event: AtmEvent,
 	slot: NoteEventSlot,
-): PaymentRecordedEvent | null => {
+): NotePaymentRecorded | null => {
 	const noteId = event.labels?.note;
 	if (event.event_type !== "payment.succeeded" || !noteId) return null;
 	const amount = event.payload.amount_paid;
@@ -285,16 +210,6 @@ export const notePaymentEvent = (
 	};
 };
 
-export type NoteReversalResult =
-	| { ok: true; event: PaymentRecordedEvent }
-	/** Not a refund of this payment's invoice. */
-	| { ok: false; reason: "not_this_payment" }
-	/**
-	 * Refunded in part so far: a note reverses a payment whole (tfd-notes R-9a), so a partial refund is not recorded. Record
-	 * the lower amount by hand (a dispute and resolution), or wait for the rest of the refund.
-	 */
-	| { ok: false; reason: "partial_refund"; refunded: number; paid: number };
-
 /**
  * The whole `reversal` of an instalment's payment, from the handler's `payment.refunded` once the charge is refunded in
  * full (`payload.amount_refunded`, the charge's total refunded so far). `payment` is the note's `payment.recorded` whose
@@ -302,7 +217,7 @@ export type NoteReversalResult =
  */
 export const noteReversalEvent = (
 	refund: AtmEvent,
-	payment: PaymentRecordedEvent,
+	payment: NotePaymentRecorded,
 	slot: NoteEventSlot,
 ): NoteReversalResult => {
 	const invoice = textAt(refund.payload, "invoice");
