@@ -771,6 +771,13 @@ export type MenuCode = {
 	firstTimeOnly?: boolean;
 	/** The code stops working at this time (ms); absent: no end. */
 	expiresAt?: number;
+	/**
+	 * Limit to checkouts at these intervals (`["year"]` for an early yearly price); absent: every interval. Stripe cannot
+	 * restrict a code by price, so `checkoutParams` enforces it: it refuses the code at another interval
+	 * (`code_not_applicable`) and offers typed codes only when one is valid for the checkout's interval. A buyer can still
+	 * type it at Stripe on a checkout that offers typing for another code.
+	 */
+	intervals?: Interval[];
 };
 
 /**

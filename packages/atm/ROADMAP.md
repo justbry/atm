@@ -184,7 +184,7 @@ The owner decided that B4 Uni sells its own plans through tfd, on its own Stripe
 - [x] Audiences: one menu, with per-audience limits, a page per audience and checkout guards (unreleased; `CHANGELOG.md`).
 - [x] Holder prefixes per audience, with B4 Uni's frozen ids (unreleased).
 - [x] Pay what you can as a menu add-on (Stripe `custom_unit_amount`; unreleased). Not checked in a Stripe account: `invoice_creation` with such a price.
-- [ ] A member code limited to an interval (`intervals: ["year"]`), for early-prepay prices.
+- [x] A member code limited to an interval (`intervals: ["year"]`), for early-prepay prices (unreleased).
 - [x] Fees on Guide, school and organizer sales: booked afterwards with each seller's `revenueShare`, written by buzz-school from the seller's tier (decided 2026-11-22; no code change).
 - [ ] Fees taken at checkout through Stripe Connect `application_fee_amount`. Out of scope by the owner's decision of 2026-11-22.
 - [x] Early price settled: launch Dec 1, 2026, the 30% yearly price ends at the end of Dec 15 (fixture `EARLY2027`). Guides sell on their own Stripe, each its own tfd school (plan, decisions 6 and 7).

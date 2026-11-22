@@ -234,6 +234,7 @@ type EffectiveCode = {
 	tierIds?: string[];
 	firstTimeOnly: boolean;
 	expiresAt?: number;
+	intervals?: Interval[];
 };
 
 const memberCodesOf = (menu: Menu, policy: BillingPolicy): EffectiveCode[] => {
@@ -244,6 +245,7 @@ const memberCodesOf = (menu: Menu, policy: BillingPolicy): EffectiveCode[] => {
 		...(c.tierIds ? { tierIds: c.tierIds } : {}),
 		firstTimeOnly: c.firstTimeOnly ?? true,
 		...(c.expiresAt === undefined ? {} : { expiresAt: c.expiresAt }),
+		...(c.intervals ? { intervals: c.intervals } : {}),
 	}));
 	const mc = policy.memberCode;
 	if (mc && !out.some((c) => c.code.toLowerCase() === mc.code.toLowerCase()))
@@ -486,20 +488,26 @@ export function checkoutParams(input: CheckoutInput): CheckoutResult {
 	}
 	// One code per checkout (Stripe refuses `discounts` and `allow_promotion_codes` together, and takes one code).
 	let appliedCode: string | null = null;
+	const memberCodes = memberCodesOf(menu, policy);
+	const fitsTier = (c: EffectiveCode): boolean =>
+		!c.tierIds || c.tierIds.includes(tier.id);
+	const fitsInterval = (c: EffectiveCode): boolean =>
+		!c.intervals || c.intervals.includes(interval);
 	if (input.code !== undefined) {
 		const wanted = input.code.trim().toLowerCase();
-		const found = memberCodesOf(menu, policy).find(
-			(c) => c.code.toLowerCase() === wanted,
-		);
+		const found = memberCodes.find((c) => c.code.toLowerCase() === wanted);
 		if (!found)
 			return { ok: false, reason: "code_not_found", code: input.code };
-		if (found.tierIds && !found.tierIds.includes(tier.id))
+		if (!fitsTier(found) || !fitsInterval(found))
 			return { ok: false, reason: "code_not_applicable", code: input.code };
 		appliedCode = found.code;
 	}
-	// A buyer may type a member code, or the code of a dollar gift certificate (made after the menu, so the menu cannot name it).
+	// A buyer may type a member code valid for this tier and interval, or the code of a dollar gift certificate (made after
+	// the menu, so the menu cannot name it). Stripe cannot hold a code to an interval (a coupon names products, and a tier's
+	// month and year prices share one), so a checkout where no code is valid offers no typing at all: a code for another
+	// tier must not open typing here, or a buyer could type an interval-limited code for this tier.
 	const mayTypeCode =
-		memberCodesOf(menu, policy).length > 0 ||
+		memberCodes.some((c) => fitsTier(c) && fitsInterval(c)) ||
 		menu.addons.some((addon) => addon.gift === "dollars");
 	const metadata: Record<string, string> = {
 		b4u_school: schoolId,

@@ -186,6 +186,9 @@ recorded as an event on the note.
 4. Usury caps and below-AFR family loan warnings: which places, and who maintains the table.
 5. Counsel on Pay later: Regulation Z coverage above four installments (and at four or fewer), lender licensing and
    disclosures for B4 Uni or a school, and state consumer-credit rules. Until answered, Pay later stays at 4 installments.
+6. After launch: collapse a self-reversed, unanswered payment into one line; needs an R-9a change and new golden
+   vectors. Today a party's own payment that it then reverses, before the other party answers, shows as two "claimed,
+   unanswered" rows that net to zero (owner, 2026-11-22: change it after launch, not now).
 
 ## Out of scope
 

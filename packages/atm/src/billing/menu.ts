@@ -232,6 +232,16 @@ function crossProblems(m: Menu): { bad: string[]; messages: string[] } {
 		seenCodes.add(folded);
 		if (c.tierIds?.some((id) => !tierIds.has(id)))
 			bad.push(`codes.${i}.tierIds`);
+		// A code limited to intervals none of its tiers is priced at could never be applied.
+		const { intervals } = c;
+		const covered = m.tiers.filter((t) =>
+			c.tierIds ? c.tierIds.includes(t.id) : t.public,
+		);
+		if (
+			intervals &&
+			!covered.some((t) => t.prices.some((p) => intervals.includes(p.interval)))
+		)
+			bad.push(`codes.${i}.intervals`);
 	});
 	m.addons.forEach((a, i) => {
 		grants(`addons.${i}.grants`, a.grants);
