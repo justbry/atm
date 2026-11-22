@@ -15,7 +15,7 @@
  *   lookup key, so changing a tier's `quantities` publishes nothing.
  */
 import { createHash } from "node:crypto";
-import { quantitiesOf } from "./menu.js";
+import { holderInAudience, quantitiesOf } from "./menu.js";
 import type {
 	AddonEvery,
 	BillingPolicy,
@@ -28,11 +28,13 @@ import type {
 	Interval,
 	LineItem,
 	Menu,
+	MenuAddon,
 	MenuToStripeInput,
 	OneTimeCheckoutInput,
 	OneTimeCheckoutParams,
 	OneTimeCheckoutParamsWithPrices,
 	OneTimeCheckoutResult,
+	PayWhatYouCan,
 	PortalConfigIds,
 	StripeOp,
 } from "./types.js";
@@ -48,6 +50,7 @@ type Wanted = {
 		amount: number;
 		every: AddonEvery;
 		gift?: GiftKind;
+		payWhatYouCan?: PayWhatYouCan;
 	}[];
 };
 
@@ -66,12 +69,30 @@ export const lookupKeyOf = (
 /** `t:<tierId>:<interval>` or `a:<addonId>:<every>`: the menu's name for a price, before the amount and currency are added. */
 export const tierPriceKey = (tierId: string, interval: Interval): string =>
 	`t:${tierId}:${interval}`;
-/** A gift add-on's key names the gift kind: flipping the flag is a new price (prices are immutable), not a stale one. */
+/**
+ * A gift add-on's key names the gift kind, and a pay-what-you-can one its maximum and preset: changing either is a new
+ * price (prices are immutable), not a stale one.
+ */
 export const addonPriceKey = (
 	addonId: string,
 	every: AddonEvery,
 	gift?: GiftKind,
-): string => `a:${addonId}:${every}${gift ? `:gift-${gift}` : ""}`;
+	payWhatYouCan?: PayWhatYouCan,
+): string =>
+	`a:${addonId}:${every}${gift ? `:gift-${gift}` : ""}${
+		payWhatYouCan
+			? `:pwyc-${payWhatYouCan.maximum}${payWhatYouCan.preset === undefined ? "" : `-${payWhatYouCan.preset}`}`
+			: ""
+	}`;
+
+/** An add-on's price key, from the add-on itself. */
+const addonKeyOf = (addon: MenuAddon): string =>
+	addonPriceKey(
+		addon.id,
+		addon.price.every,
+		addon.gift,
+		addon.price.payWhatYouCan,
+	);
 
 /** What the menu asks Stripe to hold, in menu order: a product per public tier and per add-on that has a usable price. */
 function wantedOf(schoolId: string, menu: Menu): Wanted[] {
@@ -105,7 +126,7 @@ function wantedOf(schoolId: string, menu: Menu): Wanted[] {
 	}
 	for (const a of menu.addons) {
 		if (!usable(a.price.amount)) continue;
-		const priceKey = addonPriceKey(a.id, a.price.every, a.gift);
+		const priceKey = addonKeyOf(a);
 		out.push({
 			key: `a:${a.id}`,
 			name: a.name,
@@ -128,6 +149,9 @@ function wantedOf(schoolId: string, menu: Menu): Wanted[] {
 					amount: a.price.amount,
 					every: a.price.every,
 					...(a.gift ? { gift: a.gift } : {}),
+					...(a.price.payWhatYouCan
+						? { payWhatYouCan: a.price.payWhatYouCan }
+						: {}),
 				},
 			],
 		});
@@ -165,20 +189,12 @@ export function menuLineItems(
 				);
 	for (const a of menu.addons)
 		if (usable(a.price.amount))
-			add(
-				lookupKeyOf(
-					schoolId,
-					addonPriceKey(a.id, a.price.every, a.gift),
-					a.price.amount,
-					menu.currency,
-				),
-				{
-					kind: "addon",
-					addonId: a.id,
-					interval: a.price.every === "once" ? null : a.price.every,
-					...(a.gift ? { gift: a.gift } : {}),
-				},
-			);
+			add(lookupKeyOf(schoolId, addonKeyOf(a), a.price.amount, menu.currency), {
+				kind: "addon",
+				addonId: a.id,
+				interval: a.price.every === "once" ? null : a.price.every,
+				...(a.gift ? { gift: a.gift } : {}),
+			});
 	return out;
 }
 
@@ -188,7 +204,12 @@ export function menuLineItems(
  */
 export const giftProductKeys = (schoolId: string, menu: Menu): string[] =>
 	wantedOf(schoolId, menu)
-		.filter((w) => w.key.startsWith("t:") || !w.prices.some((p) => p.gift))
+		// Stripe takes no coupon on a pay-what-you-can price, so a dollar gift cannot pay for one.
+		.filter(
+			(w) =>
+				w.key.startsWith("t:") ||
+				!w.prices.some((p) => p.gift || p.payWhatYouCan),
+		)
 		.map((w) => w.key);
 
 const desc = (w: Wanted): { description?: string } =>
@@ -327,7 +348,18 @@ export function menuToStripe(input: MenuToStripeInput): StripeOp[] {
 					productKey: w.key,
 					lookupKey: p.lookupKey,
 					currency: menu.currency,
-					unitAmount: p.amount,
+					...(p.payWhatYouCan
+						? {
+								unitAmount: null,
+								customUnitAmount: {
+									minimum: p.amount,
+									maximum: p.payWhatYouCan.maximum,
+									...(p.payWhatYouCan.preset === undefined
+										? {}
+										: { preset: p.payWhatYouCan.preset }),
+								},
+							}
+						: { unitAmount: p.amount }),
 					recurring: p.every === "once" ? null : { interval: p.every },
 					metadata: {
 						b4u_school: schoolId,
@@ -415,6 +447,12 @@ export function checkoutParams(input: CheckoutInput): CheckoutResult {
 	const quantity = input.quantity ?? 1;
 	if (!quantitiesOf(tier).includes(quantity))
 		return { ok: false, reason: "quantity_not_offered", quantity };
+	if (!holderInAudience(menu, tier.audience, input.familyId))
+		return {
+			ok: false,
+			reason: "holder_not_in_audience",
+			familyId: input.familyId,
+		};
 
 	const tierLine = {
 		lookupKey: lookupKeyOf(
@@ -433,13 +471,17 @@ export function checkoutParams(input: CheckoutInput): CheckoutResult {
 			return { ok: false, reason: "addon_not_found", addonId: id };
 		if (a.price.every !== "once" && a.price.every !== interval)
 			return { ok: false, reason: "addon_interval_mismatch", addonId: id };
+		// An item with no audience is sold to every audience, so only two named audiences can differ.
+		if (
+			a.audience !== undefined &&
+			tier.audience !== undefined &&
+			a.audience !== tier.audience
+		)
+			return { ok: false, reason: "addon_audience_mismatch", addonId: id };
+		if (a.price.payWhatYouCan)
+			return { ok: false, reason: "addon_sold_alone", addonId: id };
 		lines.push(
-			lookupKeyOf(
-				schoolId,
-				addonPriceKey(a.id, a.price.every, a.gift),
-				a.price.amount,
-				menu.currency,
-			),
+			lookupKeyOf(schoolId, addonKeyOf(a), a.price.amount, menu.currency),
 		);
 	}
 	// One code per checkout (Stripe refuses `discounts` and `allow_promotion_codes` together, and takes one code).
@@ -517,16 +559,32 @@ export function oneTimeCheckoutParams(
 	const addonIds = [...new Set(input.addonIds)];
 	if (addonIds.length === 0) return { ok: false, reason: "no_addons" };
 	const lookupKeys: string[] = [];
+	// The first audience an add-on names: the others must be sold to it too.
+	let audience: string | undefined;
 	for (const id of addonIds) {
 		const addon = menu.addons.find((candidate) => candidate.id === id);
 		if (!addon || !usable(addon.price.amount))
 			return { ok: false, reason: "addon_not_found", addonId: id };
 		if (addon.price.every !== "once")
 			return { ok: false, reason: "addon_not_one_time", addonId: id };
+		if (addon.audience !== undefined) {
+			audience ??= addon.audience;
+			if (addon.audience !== audience)
+				return { ok: false, reason: "addon_audience_mismatch", addonId: id };
+		}
+		// Stripe takes a customer-chosen price as the session's only line, at quantity 1.
+		if (addon.price.payWhatYouCan && addonIds.length > 1)
+			return { ok: false, reason: "addon_sold_alone", addonId: id };
+		if (!holderInAudience(menu, addon.audience, input.familyId))
+			return {
+				ok: false,
+				reason: "holder_not_in_audience",
+				familyId: input.familyId,
+			};
 		lookupKeys.push(
 			lookupKeyOf(
 				schoolId,
-				addonPriceKey(addon.id, addon.price.every, addon.gift),
+				addonKeyOf(addon),
 				addon.price.amount,
 				menu.currency,
 			),

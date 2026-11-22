@@ -77,6 +77,7 @@ export type {
 	OneTimeCheckoutParamsWithPrices,
 	OneTimeCheckoutRefusal,
 	OneTimeCheckoutResult,
+	PayWhatYouCan,
 	PortalConfigIds,
 	QuoteInput,
 	RedeemedCode,

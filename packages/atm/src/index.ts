@@ -624,6 +624,8 @@ export const lapseUnpaidCycle = (
 export const MAX_TIERS: number = menu.MAX_TIERS;
 export const MAX_ADDONS: number = menu.MAX_ADDONS;
 export const MAX_FEATURES: number = menu.MAX_FEATURES;
+/** Most audiences one menu sells to (`MenuTier.audience`); `MAX_TIERS` and `MAX_ADDONS` are per audience. */
+export const MAX_AUDIENCES: number = menu.MAX_AUDIENCES;
 /** Most counts a tier can list in `quantities`, and the largest count. */
 export const MAX_QUANTITIES: number = menu.MAX_QUANTITIES;
 export const MAX_QUANTITY: number = menu.MAX_QUANTITY;
@@ -639,8 +641,9 @@ export const validateMenu = (input: unknown): MenuValidation =>
 /** What stops a valid menu from being published: dotted paths. */
 export const publishProblems = (m: Menu): string[] => menu.publishProblems(m);
 
-/** The menu without the tiers the school has not made public. */
-export const publicMenu = (m: Menu): Menu => menu.publicMenu(m);
+/** The menu without the tiers the school has not made public; with `audience`, only what is sold to that audience. */
+export const publicMenu = (m: Menu, audience?: string): Menu =>
+	menu.publicMenu(m, audience);
 
 /** An IANA zone the runtime knows. */
 export const validTimeZone = (tz: string): boolean => menu.validTimeZone(tz);

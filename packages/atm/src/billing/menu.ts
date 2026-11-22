@@ -12,9 +12,13 @@ import menuSchema from "../../schema/catalog/menu.v1.json";
 import { commodityProblems } from "./commodity.js";
 import type { Menu, MenuTier, MenuValidation } from "./types.js";
 
+/** Per audience (`MenuTier.audience`); a menu with no audiences is one audience. */
 export const MAX_TIERS = 4;
+/** Per audience, like `MAX_TIERS`. */
 export const MAX_ADDONS = 6;
 export const MAX_FEATURES = 12;
+/** Most audiences one menu sells to: the schema's caps on tiers and add-ons are this many audiences' worth. */
+export const MAX_AUDIENCES = 6;
 /** A tier sold in quantities offers at most this many counts, each from 1 to `MAX_QUANTITY`. */
 export const MAX_QUANTITIES = 6;
 export const MAX_QUANTITY = 50;
@@ -94,9 +98,86 @@ export function validTimeZone(tz: string): boolean {
 
 const dup = (xs: string[]) => new Set(xs).size !== xs.length;
 
+/** Whether an item with this audience is sold to `audience`: an item with none is sold to every audience. */
+const soldTo = (itemAudience: string | undefined, audience: string): boolean =>
+	itemAudience === undefined || itemAudience === audience;
+
+/** The audiences a menu's tiers and add-ons name, in the order they first appear. */
+const audiencesOf = (m: Menu): string[] => [
+	...new Set(
+		[...m.tiers, ...m.addons].flatMap((item) =>
+			item.audience === undefined ? [] : [item.audience],
+		),
+	),
+];
+
+/**
+ * The limits a schema cannot say once a menu sells to audiences: at most `MAX_TIERS` tiers and `MAX_ADDONS` add-ons sold
+ * to each audience (an item with no audience counts toward each, and a menu with none is one audience), and at most
+ * `MAX_AUDIENCES` audiences. Dotted paths: `tiers`, `addons`, or the first item whose audience is one too many.
+ */
+function audienceProblems(m: Menu): string[] {
+	const bad: string[] = [];
+	const audiences = audiencesOf(m);
+	const allowed = new Set(audiences.slice(0, MAX_AUDIENCES));
+	const extra = (item: { audience?: string }) =>
+		item.audience !== undefined && !allowed.has(item.audience);
+	const extraTier = m.tiers.findIndex(extra);
+	const extraAddon = m.addons.findIndex(extra);
+	if (extraTier >= 0) bad.push(`tiers.${extraTier}.audience`);
+	else if (extraAddon >= 0) bad.push(`addons.${extraAddon}.audience`);
+	// A menu with no audiences is one unnamed audience: the limits of a school's menu before audiences.
+	const groups: (string | undefined)[] =
+		audiences.length > 0 ? audiences : [undefined];
+	const over = (items: readonly { audience?: string }[], limit: number) =>
+		groups.some(
+			(audience) =>
+				items.filter(
+					(item) => audience === undefined || soldTo(item.audience, audience),
+				).length > limit,
+		);
+	if (over(m.tiers, MAX_TIERS)) bad.push("tiers");
+	if (over(m.addons, MAX_ADDONS)) bad.push("addons");
+	// Each prefix names an audience the menu sells to, and one holder id has at most one audience: no prefix starts another.
+	const prefixes = Object.entries(m.holderPrefixes ?? {});
+	for (const [audience, prefix] of prefixes) {
+		const startsAnother = prefixes.some(
+			([other, otherPrefix]) =>
+				other !== audience && otherPrefix.startsWith(prefix),
+		);
+		if (!audiences.includes(audience) || startsAnother)
+			bad.push(`holderPrefixes.${audience}`);
+	}
+	return bad;
+}
+
+/** Why a pay-what-you-can add-on is not one: dotted paths. */
+function payWhatYouCanProblems(
+	addon: Menu["addons"][number],
+	i: number,
+): string[] {
+	const range = addon.price.payWhatYouCan;
+	if (!range) return [];
+	const bad: string[] = [];
+	const base = `addons.${i}.price`;
+	// Stripe takes a customer-chosen price for one-time payments only, with no coupon; it is a payment, not credits.
+	if (addon.price.every !== "once") bad.push(`${base}.every`);
+	if (addon.gift) bad.push(`addons.${i}.gift`);
+	if (addon.grants.length > 0) bad.push(`addons.${i}.grants`);
+	if (range.maximum < addon.price.amount)
+		bad.push(`${base}.payWhatYouCan.maximum`);
+	const { preset } = range;
+	if (
+		preset !== undefined &&
+		(preset < addon.price.amount || preset > range.maximum)
+	)
+		bad.push(`${base}.payWhatYouCan.preset`);
+	return bad;
+}
+
 /** The rules a schema cannot say, on a menu that passed the schema. Dotted paths of what fails, and a sentence for those a path does not explain. */
 function crossProblems(m: Menu): { bad: string[]; messages: string[] } {
-	const bad: string[] = [];
+	const bad: string[] = audienceProblems(m);
 	const messages: string[] = [];
 	if (!validTimeZone(m.timeZone)) bad.push("timeZone");
 	if (dup(m.features.map((f) => f.id))) bad.push("features");
@@ -154,6 +235,7 @@ function crossProblems(m: Menu): { bad: string[]; messages: string[] } {
 	});
 	m.addons.forEach((a, i) => {
 		grants(`addons.${i}.grants`, a.grants);
+		bad.push(...payWhatYouCanProblems(a, i));
 		if (!a.gift) return;
 		// A gift is one purchase: sessions are the grants, a dollar certificate holds none.
 		if (a.price.every !== "once") bad.push(`addons.${i}.gift`);
@@ -180,16 +262,40 @@ export function validateMenu(input: unknown): MenuValidation {
 		: { ok: true, menu };
 }
 
+/**
+ * Whether `familyId` may buy what is sold to `audience`: true when the audience has no prefix in `menu.holderPrefixes` (or
+ * the item has no audience), else when the id starts with the prefix and has more after it.
+ */
+export const holderInAudience = (
+	m: Menu,
+	audience: string | undefined,
+	familyId: string,
+): boolean => {
+	const prefix =
+		audience === undefined ? undefined : m.holderPrefixes?.[audience];
+	return (
+		prefix === undefined ||
+		(familyId.startsWith(prefix) && familyId.length > prefix.length)
+	);
+};
+
 /** What stops a valid menu from being published: nothing to sell, or no public tier. Dotted paths. */
 export function publishProblems(menu: Menu): string[] {
 	return menu.tiers.some((t) => t.public) ? [] : ["tiers"];
 }
 
-/** What a visitor may see: tiers the school did not make public are drafts, left out and never sold. */
-export const publicMenu = (m: Menu): Menu => ({
-	...m,
-	tiers: m.tiers.filter((t) => t.public),
-});
+/**
+ * What a visitor may see: tiers the school did not make public are drafts, left out and never sold. With `audience`, one
+ * audience's page: only the tiers and add-ons sold to it (theirs, and those with no audience).
+ */
+export const publicMenu = (m: Menu, audience?: string): Menu =>
+	audience === undefined
+		? { ...m, tiers: m.tiers.filter((t) => t.public) }
+		: {
+				...m,
+				tiers: m.tiers.filter((t) => t.public && soldTo(t.audience, audience)),
+				addons: m.addons.filter((a) => soldTo(a.audience, audience)),
+			};
 
 export type { CommodityProblem } from "./commodity.js";
 export { commodityProblems };
