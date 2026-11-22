@@ -1,0 +1,63 @@
+{
+	"terms": {
+		"currency": "USD",
+		"exponent": 2,
+		"principal_minor": "40595",
+		"issue_date": "2026-01-31",
+		"annual_rate": "0.07",
+		"day_count": "actual/365",
+		"rounding": "half-up",
+		"timezone": "America/Denver",
+		"schedule": {
+			"type": "amortized",
+			"frequency": "monthly",
+			"count": 7,
+			"first_due": "2026-02-28"
+		}
+	},
+	"payments": [
+		{
+			"id": "r1",
+			"value_date": "2026-02-28",
+			"amount_minor": "5931",
+			"seq": 2
+		},
+		{
+			"id": "r2",
+			"value_date": "2026-03-28",
+			"amount_minor": "5931",
+			"seq": 3
+		},
+		{
+			"id": "r3",
+			"value_date": "2026-04-28",
+			"amount_minor": "5931",
+			"seq": 4
+		},
+		{
+			"id": "r4",
+			"value_date": "2026-05-28",
+			"amount_minor": "5931",
+			"seq": 5
+		},
+		{
+			"id": "r5",
+			"value_date": "2026-06-28",
+			"amount_minor": "5931",
+			"seq": 6
+		},
+		{
+			"id": "r6",
+			"value_date": "2026-07-28",
+			"amount_minor": "5931",
+			"seq": 7
+		},
+		{
+			"id": "r7",
+			"value_date": "2026-08-28",
+			"amount_minor": "5929",
+			"seq": 8
+		}
+	],
+	"as_of": "2026-08-28"
+}

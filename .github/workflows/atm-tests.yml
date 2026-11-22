@@ -35,6 +35,7 @@ on:
       - "packages/atm/**"
       - "packages/balance-engine/**"
       - "packages/ksuid/**"
+      - "packages/tfd-notes/**"
       - "packages/ledger-ui/src/fixtures/disclosure.json"
       - "packages/ledger-ui/src/data/disclosure.ts"
       - "shared/**"
@@ -49,6 +50,7 @@ on:
       - "packages/atm/**"
       - "packages/balance-engine/**"
       - "packages/ksuid/**"
+      - "packages/tfd-notes/**"
       - "packages/ledger-ui/src/fixtures/disclosure.json"
       - "packages/ledger-ui/src/data/disclosure.ts"
       - "shared/**"
@@ -199,3 +201,12 @@ jobs:
       - name: Build
         working-directory: packages/atm
         run: bun ./build.ts
+
+      # tfd-notes is the Apache-2.0 note engine that `tfd note` bundles: its own typecheck and tests.
+      - name: Notes library typecheck
+        working-directory: packages/tfd-notes
+        run: bunx tsc --noEmit
+
+      - name: Notes library tests
+        working-directory: packages/tfd-notes
+        run: bun test tests

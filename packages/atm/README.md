@@ -19,6 +19,15 @@ bun run --cwd packages/atm tfd run --subject subject.json --command check.json
 - `--command`: an engine command with its `type`, validated by the engine's own parser.
 - Either may be `-` to read stdin. The result is printed as JSON; an error exits non-zero.
 
+### Promissory notes
+
+```bash
+tfd note schedule terms.json                            # the repayment table for a note's terms
+tfd note statement events.jsonl --as-of 2026-03-01      # lender and borrower counts side by side
+```
+
+`schedule` reads one note's terms as JSON; `statement` reads one note event per line and prints the lender's count, the borrower's count, the payoff gap and each payment the two counts differ on, labelled "confirmed by both parties", "claimed by lender", "claimed by borrower", "disputed" or "resolved by agreement". A difference between the counts is information, so the exit code is 0; a bad file or event exits 2. Add `--json` for one JSON line. The figures come from the Apache-2.0 `tfd-notes` library (`packages/tfd-notes`), so anyone can recompute them. A statement is a record of what was entered, not legal or tax advice.
+
 ## Library
 
 ```ts

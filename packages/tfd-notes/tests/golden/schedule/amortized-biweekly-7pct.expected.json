@@ -1,0 +1,42 @@
+[
+	{
+		"n": 1,
+		"due": "2026-05-29",
+		"payment_minor": "50418",
+		"interest_minor": "695",
+		"principal_minor": "49723",
+		"balance_after_minor": "200277"
+	},
+	{
+		"n": 2,
+		"due": "2026-06-12",
+		"payment_minor": "50418",
+		"interest_minor": "557",
+		"principal_minor": "49861",
+		"balance_after_minor": "150416"
+	},
+	{
+		"n": 3,
+		"due": "2026-06-26",
+		"payment_minor": "50418",
+		"interest_minor": "418",
+		"principal_minor": "50000",
+		"balance_after_minor": "100416"
+	},
+	{
+		"n": 4,
+		"due": "2026-07-10",
+		"payment_minor": "50418",
+		"interest_minor": "280",
+		"principal_minor": "50138",
+		"balance_after_minor": "50278"
+	},
+	{
+		"n": 5,
+		"due": "2026-07-24",
+		"payment_minor": "50417",
+		"interest_minor": "139",
+		"principal_minor": "50278",
+		"balance_after_minor": "0"
+	}
+]

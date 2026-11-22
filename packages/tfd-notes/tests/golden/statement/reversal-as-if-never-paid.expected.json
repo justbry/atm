@@ -1,0 +1,43 @@
+{
+	"engine_version": "tfd-notes/1",
+	"note_id": "note-1",
+	"currency": "USD",
+	"exponent": 2,
+	"as_of": "2026-12-31",
+	"schedule": [],
+	"lender": {
+		"principal_minor": "100000",
+		"interest_minor": "4986",
+		"payoff_minor": "104986",
+		"paid_minor": "0",
+		"overpaid_minor": "0"
+	},
+	"borrower": {
+		"principal_minor": "97479",
+		"interest_minor": "2444",
+		"payoff_minor": "99923",
+		"paid_minor": "5000",
+		"overpaid_minor": "0"
+	},
+	"difference": [
+		{
+			"event_id": "evt-3",
+			"value_date": "2026-07-02",
+			"status": "claimed-by-lender",
+			"lender_counts_minor": "-5000",
+			"borrower_counts_minor": "0",
+			"difference_minor": "-5000",
+			"unanswered_days": 182
+		}
+	],
+	"payoff_gap_minor": "5063",
+	"expected": {
+		"due_to_date_minor": "0",
+		"lender_paid_minor": "0",
+		"borrower_paid_minor": "5000",
+		"lender_overdue_minor": "0",
+		"borrower_overdue_minor": "0",
+		"lender_days_overdue": 0,
+		"borrower_days_overdue": 0
+	}
+}

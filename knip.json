@@ -119,6 +119,10 @@
 		"packages/tfd-credentials": {
 			"entry": ["spikes/validators/*.{ts,mjs}"]
 		},
+		"packages/tfd-notes": {
+			"entry": ["tests/**/*.test.ts"],
+			"project": ["src/**/*.ts"]
+		},
 		"packages/verify": {
 			"entry": ["tests/**/*.test.ts"],
 			"project": ["src/**/*.ts"]

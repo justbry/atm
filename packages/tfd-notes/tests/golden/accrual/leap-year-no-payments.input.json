@@ -1,0 +1,17 @@
+{
+	"terms": {
+		"currency": "USD",
+		"exponent": 2,
+		"principal_minor": "1000000",
+		"issue_date": "2027-12-31",
+		"annual_rate": "0.0525",
+		"day_count": "actual/365",
+		"rounding": "half-up",
+		"timezone": "America/Denver",
+		"schedule": {
+			"type": "none"
+		}
+	},
+	"payments": [],
+	"as_of": "2028-12-31"
+}

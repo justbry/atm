@@ -1,0 +1,29 @@
+{
+	"name": "tfd-notes",
+	"version": "0.1.0",
+	"private": true,
+	"license": "Apache-2.0",
+	"type": "module",
+	"description": "Promissory-note engine: exact, deterministic schedule, interest and two-party balance statements from an append-only event stream. Zero dependencies, no node:* imports, runs in browsers, Workers and Bun.",
+	"sideEffects": false,
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"default": "./src/index.ts"
+		}
+	},
+	"files": [
+		"src",
+		"schema",
+		"LICENSE",
+		"README.md"
+	],
+	"scripts": {
+		"test": "bun test tests",
+		"ts": "tsc --noEmit"
+	},
+	"devDependencies": {
+		"@types/bun": "1.4.2",
+		"typescript": "5.8.3"
+	}
+}

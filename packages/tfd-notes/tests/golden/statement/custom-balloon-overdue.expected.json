@@ -1,0 +1,68 @@
+{
+	"engine_version": "tfd-notes/1",
+	"note_id": "note-1",
+	"currency": "USD",
+	"exponent": 2,
+	"as_of": "2026-04-10",
+	"schedule": [
+		{
+			"n": 1,
+			"due": "2026-02-01",
+			"payment_minor": "10000",
+			"interest_minor": "6115",
+			"principal_minor": "3885",
+			"balance_after_minor": "1196115"
+		},
+		{
+			"n": 2,
+			"due": "2026-03-01",
+			"payment_minor": "10000",
+			"interest_minor": "5505",
+			"principal_minor": "4495",
+			"balance_after_minor": "1191620"
+		},
+		{
+			"n": 3,
+			"due": "2026-04-01",
+			"payment_minor": "1197693",
+			"interest_minor": "6073",
+			"principal_minor": "1191620",
+			"balance_after_minor": "0"
+		}
+	],
+	"lender": {
+		"principal_minor": "1196115",
+		"interest_minor": "13370",
+		"payoff_minor": "1209485",
+		"paid_minor": "10000",
+		"overpaid_minor": "0"
+	},
+	"borrower": {
+		"principal_minor": "1191620",
+		"interest_minor": "7836",
+		"payoff_minor": "1199456",
+		"paid_minor": "20000",
+		"overpaid_minor": "0"
+	},
+	"difference": [
+		{
+			"event_id": "evt-3",
+			"value_date": "2026-03-01",
+			"status": "claimed-by-borrower",
+			"lender_counts_minor": "0",
+			"borrower_counts_minor": "10000",
+			"difference_minor": "-10000",
+			"unanswered_days": 39
+		}
+	],
+	"payoff_gap_minor": "10029",
+	"expected": {
+		"due_to_date_minor": "1217693",
+		"lender_paid_minor": "10000",
+		"borrower_paid_minor": "20000",
+		"lender_overdue_minor": "1207693",
+		"borrower_overdue_minor": "1197693",
+		"lender_days_overdue": 40,
+		"borrower_days_overdue": 9
+	}
+}

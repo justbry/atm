@@ -1,0 +1,30 @@
+{
+	"terms": {
+		"currency": "USD",
+		"exponent": 2,
+		"principal_minor": "1000000",
+		"issue_date": "2026-01-01",
+		"annual_rate": "0.05",
+		"day_count": "actual/365",
+		"rounding": "half-up",
+		"timezone": "America/Denver",
+		"schedule": {
+			"type": "none"
+		}
+	},
+	"payments": [
+		{
+			"id": "p1",
+			"value_date": "2026-02-01",
+			"amount_minor": "100000",
+			"seq": 2
+		},
+		{
+			"id": "p2",
+			"value_date": "2026-03-15",
+			"amount_minor": "50000",
+			"seq": 3
+		}
+	],
+	"as_of": "2026-04-01"
+}

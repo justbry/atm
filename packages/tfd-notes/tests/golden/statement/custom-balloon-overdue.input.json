@@ -1,0 +1,65 @@
+{
+	"events": [
+		{
+			"schema": "tfd.note-event.v1",
+			"id": "evt-1",
+			"note_id": "note-1",
+			"seq": 1,
+			"entered_at": "2026-01-01T09:00:00Z",
+			"entered_by": "lender",
+			"type": "note.created",
+			"terms": {
+				"currency": "USD",
+				"exponent": 2,
+				"principal_minor": "1200000",
+				"issue_date": "2026-01-01",
+				"annual_rate": "0.06",
+				"day_count": "actual/365",
+				"rounding": "half-up",
+				"timezone": "America/Denver",
+				"schedule": {
+					"type": "custom",
+					"installments": [
+						{
+							"due": "2026-02-01",
+							"amount_minor": "10000"
+						},
+						{
+							"due": "2026-03-01",
+							"amount_minor": "10000"
+						},
+						{
+							"due": "2026-04-01",
+							"amount_minor": "1197693"
+						}
+					]
+				}
+			}
+		},
+		{
+			"schema": "tfd.note-event.v1",
+			"id": "evt-2",
+			"note_id": "note-1",
+			"seq": 2,
+			"entered_at": "2026-02-01T10:00:00Z",
+			"entered_by": "lender",
+			"type": "payment.recorded",
+			"kind": "payment",
+			"amount_minor": "10000",
+			"value_date": "2026-02-01"
+		},
+		{
+			"schema": "tfd.note-event.v1",
+			"id": "evt-3",
+			"note_id": "note-1",
+			"seq": 3,
+			"entered_at": "2026-03-02T10:00:00Z",
+			"entered_by": "borrower",
+			"type": "payment.recorded",
+			"kind": "payment",
+			"amount_minor": "10000",
+			"value_date": "2026-03-01"
+		}
+	],
+	"as_of": "2026-04-10"
+}

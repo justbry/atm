@@ -67,6 +67,7 @@ import {
 } from "./ledger/simulate-inputs.js";
 import { outboxStatus } from "./ledger/status.js";
 import { canonicalize, isoInstant } from "./ledger/util.js";
+import { addNoteCommands } from "./note-cli.js";
 import { addScenarioCommands, runScenarioSimulate } from "./scenario/cli.js";
 import { FolderStore, hasErrorCode } from "./store/folder-store.js";
 import { R2Store } from "./store/r2-store.js";
@@ -1040,6 +1041,7 @@ const simulateCommand = program
 	);
 exitTwoOnUsageError(simulateCommand);
 addScenarioCommands(program, scenarioKit);
+addNoteCommands(program, scenarioKit);
 
 // ---- atm keys new, receipt, seal, verify (signed receipts and sealed months) ----
 

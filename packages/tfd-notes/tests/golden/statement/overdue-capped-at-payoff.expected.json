@@ -1,0 +1,130 @@
+{
+	"engine_version": "tfd-notes/1",
+	"note_id": "note-1",
+	"currency": "USD",
+	"exponent": 2,
+	"as_of": "2027-06-01",
+	"schedule": [
+		{
+			"n": 1,
+			"due": "2026-02-01",
+			"payment_minor": "8560",
+			"interest_minor": "425",
+			"principal_minor": "8135",
+			"balance_after_minor": "91865"
+		},
+		{
+			"n": 2,
+			"due": "2026-03-01",
+			"payment_minor": "8560",
+			"interest_minor": "352",
+			"principal_minor": "8208",
+			"balance_after_minor": "83657"
+		},
+		{
+			"n": 3,
+			"due": "2026-04-01",
+			"payment_minor": "8560",
+			"interest_minor": "355",
+			"principal_minor": "8205",
+			"balance_after_minor": "75452"
+		},
+		{
+			"n": 4,
+			"due": "2026-05-01",
+			"payment_minor": "8560",
+			"interest_minor": "310",
+			"principal_minor": "8250",
+			"balance_after_minor": "67202"
+		},
+		{
+			"n": 5,
+			"due": "2026-06-01",
+			"payment_minor": "8560",
+			"interest_minor": "286",
+			"principal_minor": "8274",
+			"balance_after_minor": "58928"
+		},
+		{
+			"n": 6,
+			"due": "2026-07-01",
+			"payment_minor": "8560",
+			"interest_minor": "242",
+			"principal_minor": "8318",
+			"balance_after_minor": "50610"
+		},
+		{
+			"n": 7,
+			"due": "2026-08-01",
+			"payment_minor": "8560",
+			"interest_minor": "215",
+			"principal_minor": "8345",
+			"balance_after_minor": "42265"
+		},
+		{
+			"n": 8,
+			"due": "2026-09-01",
+			"payment_minor": "8560",
+			"interest_minor": "179",
+			"principal_minor": "8381",
+			"balance_after_minor": "33884"
+		},
+		{
+			"n": 9,
+			"due": "2026-10-01",
+			"payment_minor": "8560",
+			"interest_minor": "140",
+			"principal_minor": "8420",
+			"balance_after_minor": "25464"
+		},
+		{
+			"n": 10,
+			"due": "2026-11-01",
+			"payment_minor": "8560",
+			"interest_minor": "108",
+			"principal_minor": "8452",
+			"balance_after_minor": "17012"
+		},
+		{
+			"n": 11,
+			"due": "2026-12-01",
+			"payment_minor": "8560",
+			"interest_minor": "70",
+			"principal_minor": "8490",
+			"balance_after_minor": "8522"
+		},
+		{
+			"n": 12,
+			"due": "2027-01-01",
+			"payment_minor": "8558",
+			"interest_minor": "36",
+			"principal_minor": "8522",
+			"balance_after_minor": "0"
+		}
+	],
+	"lender": {
+		"principal_minor": "0",
+		"interest_minor": "0",
+		"payoff_minor": "0",
+		"paid_minor": "100014",
+		"overpaid_minor": "0"
+	},
+	"borrower": {
+		"principal_minor": "0",
+		"interest_minor": "0",
+		"payoff_minor": "0",
+		"paid_minor": "100014",
+		"overpaid_minor": "0"
+	},
+	"difference": [],
+	"payoff_gap_minor": "0",
+	"expected": {
+		"due_to_date_minor": "102718",
+		"lender_paid_minor": "100014",
+		"borrower_paid_minor": "100014",
+		"lender_overdue_minor": "0",
+		"borrower_overdue_minor": "0",
+		"lender_days_overdue": 0,
+		"borrower_days_overdue": 0
+	}
+}
