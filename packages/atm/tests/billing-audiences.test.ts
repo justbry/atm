@@ -19,6 +19,7 @@ import {
 	checkoutParams,
 	lookupKeyOf,
 	menuToStripe,
+	oneTimeCheckoutParams,
 	tierPriceKey,
 } from "../src/billing/stripe-menu.js";
 import type { Menu, MenuAddon, MenuTier } from "../src/billing/types.js";
@@ -181,6 +182,36 @@ describe("checkoutParams: audiences", () => {
 		const m = menu();
 		delete addonOf(m, "extra-school").audience;
 		expect(checkout("go-build", ["extra-school"], m).ok).toBe(true);
+	});
+
+	test("a tier with no audience takes any audience's add-on, as publicMenu shows them together", () => {
+		const m = menu();
+		delete tierOf(m, "go-build").audience;
+		expect(publicMenu(m, "schools").tiers.map((t) => t.id)).toContain(
+			"go-build",
+		);
+		expect(checkout("go-build", ["extra-school"], m).ok).toBe(true);
+	});
+
+	test("a one-time checkout keeps to one audience", () => {
+		const oneTime = (addonIds: string[], m = menu()) =>
+			oneTimeCheckoutParams({
+				schoolId: MERCHANT,
+				menu: m,
+				addonIds,
+				familyId: "fam_1",
+				menuVersion: 1,
+				returnUrls: { success: "https://x/ok", cancel: "https://x/no" },
+			});
+		expect(oneTime(["credits-5", "vetting"])).toEqual({
+			ok: false,
+			reason: "addon_audience_mismatch",
+			addonId: "vetting",
+		});
+		expect(oneTime(["credits-5", "credits-10"]).ok).toBe(true);
+		const m = menu();
+		delete addonOf(m, "vetting").audience;
+		expect(oneTime(["credits-5", "vetting"], m).ok).toBe(true);
 	});
 
 	test("the holder id must have the prefix of the tier's audience", () => {

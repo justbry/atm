@@ -102,11 +102,6 @@ const dup = (xs: string[]) => new Set(xs).size !== xs.length;
 const soldTo = (itemAudience: string | undefined, audience: string): boolean =>
 	itemAudience === undefined || itemAudience === audience;
 
-/**
- * The limits a schema cannot say once a menu sells to audiences: at most `MAX_TIERS` tiers and `MAX_ADDONS` add-ons sold
- * to each audience (an item with no audience counts toward each, and a menu with none is one audience), and at most
- * `MAX_AUDIENCES` audiences. Dotted paths: `tiers`, `addons`, or the first item whose audience is one too many.
- */
 /** The audiences a menu's tiers and add-ons name, in the order they first appear. */
 const audiencesOf = (m: Menu): string[] => [
 	...new Set(
@@ -116,6 +111,11 @@ const audiencesOf = (m: Menu): string[] => [
 	),
 ];
 
+/**
+ * The limits a schema cannot say once a menu sells to audiences: at most `MAX_TIERS` tiers and `MAX_ADDONS` add-ons sold
+ * to each audience (an item with no audience counts toward each, and a menu with none is one audience), and at most
+ * `MAX_AUDIENCES` audiences. Dotted paths: `tiers`, `addons`, or the first item whose audience is one too many.
+ */
 function audienceProblems(m: Menu): string[] {
 	const bad: string[] = [];
 	const audiences = audiencesOf(m);

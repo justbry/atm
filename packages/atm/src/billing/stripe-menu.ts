@@ -471,7 +471,12 @@ export function checkoutParams(input: CheckoutInput): CheckoutResult {
 			return { ok: false, reason: "addon_not_found", addonId: id };
 		if (a.price.every !== "once" && a.price.every !== interval)
 			return { ok: false, reason: "addon_interval_mismatch", addonId: id };
-		if (a.audience !== undefined && a.audience !== tier.audience)
+		// An item with no audience is sold to every audience, so only two named audiences can differ.
+		if (
+			a.audience !== undefined &&
+			tier.audience !== undefined &&
+			a.audience !== tier.audience
+		)
 			return { ok: false, reason: "addon_audience_mismatch", addonId: id };
 		if (a.price.payWhatYouCan)
 			return { ok: false, reason: "addon_sold_alone", addonId: id };
@@ -554,12 +559,19 @@ export function oneTimeCheckoutParams(
 	const addonIds = [...new Set(input.addonIds)];
 	if (addonIds.length === 0) return { ok: false, reason: "no_addons" };
 	const lookupKeys: string[] = [];
+	// The first audience an add-on names: the others must be sold to it too.
+	let audience: string | undefined;
 	for (const id of addonIds) {
 		const addon = menu.addons.find((candidate) => candidate.id === id);
 		if (!addon || !usable(addon.price.amount))
 			return { ok: false, reason: "addon_not_found", addonId: id };
 		if (addon.price.every !== "once")
 			return { ok: false, reason: "addon_not_one_time", addonId: id };
+		if (addon.audience !== undefined) {
+			audience ??= addon.audience;
+			if (addon.audience !== audience)
+				return { ok: false, reason: "addon_audience_mismatch", addonId: id };
+		}
 		// Stripe takes a customer-chosen price as the session's only line, at quantity 1.
 		if (addon.price.payWhatYouCan && addonIds.length > 1)
 			return { ok: false, reason: "addon_sold_alone", addonId: id };

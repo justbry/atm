@@ -705,7 +705,7 @@ export type MenuTier = {
 	/**
 	 * Who it is sold to, for a merchant that sells to several kinds of buyer from one menu (B4 Uni: `families`, `guides`,
 	 * `schools`). Absent: every audience. The tier and add-on limits are per audience; `publicMenu(menu, audience)` is one
-	 * audience's page, and `checkoutParams` refuses an add-on of another audience than the tier's.
+	 * audience's page, and the checkouts refuse an add-on of another audience than the tier's or the other add-ons'.
 	 */
 	audience?: string;
 };
@@ -1641,6 +1641,8 @@ export type OneTimeCheckoutRefusal =
 	| { ok: false; reason: "no_addons" }
 	| { ok: false; reason: "addon_not_found"; addonId: string }
 	| { ok: false; reason: "addon_not_one_time"; addonId: string }
+	/** The add-on is sold to another audience than an add-on before it (`MenuAddon.audience`). */
+	| { ok: false; reason: "addon_audience_mismatch"; addonId: string }
 	/** A pay-what-you-can add-on with other add-ons: Stripe takes it as the only line, at quantity 1. */
 	| { ok: false; reason: "addon_sold_alone"; addonId: string }
 	/** `familyId` lacks the prefix an add-on's audience has in `menu.holderPrefixes`. */

@@ -114,6 +114,41 @@ const searchProduct = async (
 };
 
 /** Runs `menuToStripe`'s steps for one school; returns its product ids by key. */
+type PriceCreate = Extract<StripeOp, { op: "price.create" }>;
+
+/**
+ * The form of `POST /v1/prices` for a `price.create` step: `unit_amount`, or for a pay-what-you-can price
+ * `custom_unit_amount` with its bounds and no `unit_amount` (Stripe takes one or the other).
+ */
+export const priceFormOf = (
+	op: PriceCreate,
+	product: string,
+): (readonly [string, string])[] => {
+	const custom = op.customUnitAmount;
+	const amount: (readonly [string, string])[] = custom
+		? [
+				["custom_unit_amount[enabled]", "true"],
+				["custom_unit_amount[minimum]", String(custom.minimum)],
+				["custom_unit_amount[maximum]", String(custom.maximum)],
+				...(custom.preset === undefined
+					? []
+					: [["custom_unit_amount[preset]", String(custom.preset)] as const]),
+			]
+		: [["unit_amount", String(op.unitAmount)]];
+	return [
+		["product", product],
+		["currency", op.currency],
+		...amount,
+		["lookup_key", op.lookupKey],
+		...(op.recurring
+			? [["recurring[interval]", op.recurring.interval] as const]
+			: []),
+		...Object.entries(op.metadata).map(
+			([name, value]) => [`metadata[${name}]`, value] as const,
+		),
+	];
+};
+
 const runOps = async (
 	stripe: StripeCall,
 	schoolId: string,
@@ -180,18 +215,7 @@ const runOps = async (
 				await stripe(
 					"POST",
 					"/v1/prices",
-					[
-						["product", product],
-						["currency", op.currency],
-						["unit_amount", String(op.unitAmount)],
-						["lookup_key", op.lookupKey],
-						...(op.recurring
-							? [["recurring[interval]", op.recurring.interval] as const]
-							: []),
-						...Object.entries(op.metadata).map(
-							([name, value]) => [`metadata[${name}]`, value] as const,
-						),
-					],
+					priceFormOf(op, product),
 					op.idempotencyKey,
 				);
 				break;

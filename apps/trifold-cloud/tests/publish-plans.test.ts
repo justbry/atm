@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	type PublishedPlans,
+	priceFormOf,
 	publishPlans,
 	type StripeCall,
 } from "../scripts/publish-plans";
@@ -183,5 +184,44 @@ describe("publishing Trifold's menus to Stripe test mode", () => {
 			);
 			expect(committed?.portalConfiguration).toMatch(/^bpc_/);
 		}
+	});
+});
+
+describe("priceFormOf", () => {
+	const base = {
+		op: "price.create" as const,
+		productKey: "a:go-learn",
+		lookupKey: "lk",
+		currency: "usd",
+		recurring: null,
+		metadata: { b4u_key: "a:go-learn:once" },
+		idempotencyKey: "k",
+	};
+
+	test("a fixed price sends unit_amount", () => {
+		expect(priceFormOf({ ...base, unitAmount: 500 }, "prod_1")).toContainEqual([
+			"unit_amount",
+			"500",
+		]);
+	});
+
+	test("a pay-what-you-can price sends custom_unit_amount and no unit_amount", () => {
+		const form = priceFormOf(
+			{
+				...base,
+				unitAmount: null,
+				customUnitAmount: { minimum: 50, maximum: 50000, preset: 4800 },
+			},
+			"prod_1",
+		);
+		expect(form.map(([key]) => key)).not.toContain("unit_amount");
+		expect(form).toEqual(
+			expect.arrayContaining([
+				["custom_unit_amount[enabled]", "true"],
+				["custom_unit_amount[minimum]", "50"],
+				["custom_unit_amount[maximum]", "50000"],
+				["custom_unit_amount[preset]", "4800"],
+			]),
+		);
 	});
 });
