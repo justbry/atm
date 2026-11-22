@@ -26,6 +26,16 @@
 			"maxItems": 36,
 			"items": { "$ref": "#/$defs/addon" }
 		},
+		"holderPrefixes": {
+			"description": "The holder id prefix of each audience's buyers, by audience (e.g. families: fam_). Checkout refuses a familyId without the prefix of the audience it buys from. validateMenu checks that each key is an audience of the menu and that no prefix starts another.",
+			"type": "object",
+			"maxProperties": 6,
+			"propertyNames": { "$ref": "#/$defs/id" },
+			"additionalProperties": {
+				"type": "string",
+				"pattern": "^[a-z0-9][a-z0-9]{0,14}[_-]$"
+			}
+		},
 		"codes": {
 			"description": "Member discount codes (0.8.0): a percentage off membership tiers, never add-ons or gifts. Absent: none (policy.memberCode still names one). validateMenu checks that ids are unique, that codes are unique without regard to case and that tierIds name tiers.",
 			"type": "array",
@@ -158,7 +168,17 @@
 					"required": ["amount", "every"],
 					"properties": {
 						"amount": { "$ref": "#/$defs/amount" },
-						"every": { "enum": ["once", "month", "year"] }
+						"every": { "enum": ["once", "month", "year"] },
+						"payWhatYouCan": {
+							"description": "The buyer picks the amount in Checkout (a Stripe price with custom_unit_amount): at least `amount`, at most `maximum`, starting at `preset`. validateMenu checks that the add-on is one-time, not a gift and grants nothing, and that amount <= preset <= maximum.",
+							"type": "object",
+							"additionalProperties": false,
+							"required": ["maximum"],
+							"properties": {
+								"maximum": { "$ref": "#/$defs/amount" },
+								"preset": { "$ref": "#/$defs/amount" }
+							}
+						}
 					}
 				},
 				"grants": {

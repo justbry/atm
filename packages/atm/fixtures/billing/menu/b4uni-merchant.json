@@ -1,6 +1,12 @@
 {
 	"currency": "usd",
 	"timeZone": "America/Denver",
+	"holderPrefixes": {
+		"families": "fam_",
+		"guides": "guide-",
+		"schools": "school-",
+		"organizers": "org-"
+	},
 	"features": [
 		{
 			"id": "credits",
@@ -199,6 +205,20 @@
 					"every": "month"
 				}
 			]
+		},
+		{
+			"id": "go-learn",
+			"name": "Go Learn",
+			"audience": "families",
+			"price": {
+				"amount": 50,
+				"every": "once",
+				"payWhatYouCan": {
+					"maximum": 50000,
+					"preset": 4800
+				}
+			},
+			"grants": []
 		},
 		{
 			"id": "vetting",

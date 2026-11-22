@@ -182,9 +182,12 @@ What exists (#41 to #49, on `dev`, not released) is in `CHANGELOG.md` (Unrelease
 The owner decided that B4 Uni sells its own plans through tfd, on its own Stripe account. Design, fit and decisions: `plans/b4uni-merchant/PLAN.md`.
 
 - [x] Audiences: one menu, with per-audience limits, a page per audience and checkout guards (unreleased; `CHANGELOG.md`).
-- [ ] Pay what you can as a menu add-on (Stripe `custom_unit_amount`). Today an off-menu price with B4 Uni's metadata is refused `unmatched_line`. Waits on the owner (plan, decision 2).
+- [x] Holder prefixes per audience, with B4 Uni's frozen ids (unreleased).
+- [x] Pay what you can as a menu add-on (Stripe `custom_unit_amount`; unreleased). Not checked in a Stripe account: `invoice_creation` with such a price.
 - [ ] A member code limited to an interval (`intervals: ["year"]`), for early-prepay prices.
-- [ ] Revenue share from the seller's tier: a rate on B4 Uni's Guide and school tiers that buzz-school writes into the seller's policy. Waits on the owner (plan, decision 3: booked afterwards, or taken at checkout through Connect).
+- [x] Fees on Guide, school and organizer sales: booked afterwards with each seller's `revenueShare`, written by buzz-school from the seller's tier (decided 2026-11-22; no code change).
+- [ ] Fees taken at checkout through Stripe Connect `application_fee_amount`. Out of scope by the owner's decision of 2026-11-22.
+- [ ] Pay later, and the Dec 1, 2026 early-price deadline: open with the owner.
 - Not in tfd: daily answer limits, pay later, receipts wiring (buzz-school).
 
 ## Decisions taken

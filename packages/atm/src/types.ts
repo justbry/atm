@@ -714,13 +714,25 @@ export type GiftKind = "sessions" | "dollars";
 export type MenuAddon = {
 	id: string;
 	name: string;
-	price: { amount: number; every: AddonEvery };
+	/**
+	 * `amount` is the price; for a pay-what-you-can add-on (`payWhatYouCan`), it is the least the buyer may pay. Such an
+	 * add-on is a Stripe price with `custom_unit_amount` (the buyer picks the amount in Checkout, from `amount` to
+	 * `maximum`, starting at `preset`): one-time, no gift, no grants, sold alone in `oneTimeCheckoutParams`.
+	 */
+	price: {
+		amount: number;
+		every: AddonEvery;
+		payWhatYouCan?: PayWhatYouCan;
+	};
 	grants: MenuGrant[];
 	/** Makes the add-on a gift certificate. Needs a one-time price; `sessions` needs grants, `dollars` has none. */
 	gift?: GiftKind;
 	/** Who it is sold to, as `MenuTier.audience`; absent: every audience. */
 	audience?: string;
 };
+
+/** A pay-what-you-can price's range above its `amount` (cents): the most the buyer may pay, and where Checkout starts. */
+export type PayWhatYouCan = { maximum: number; preset?: number };
 
 /** A school's menu (lowercase ISO currency, IANA time zone). Same shape as the family service's and the web's. */
 export type Menu = {
@@ -731,6 +743,13 @@ export type Menu = {
 	addons: MenuAddon[];
 	/** Discount codes for membership tiers (0.8.0). Absent: none beyond `policy.memberCode`. */
 	codes?: MenuCode[];
+	/**
+	 * The holder id prefix each audience's buyers have, by audience (`{ "families": "fam_", "guides": "guide-" }`): checkout
+	 * refuses a `familyId` that does not start with the prefix of the audience it buys from (`holder_not_in_audience`). An
+	 * audience with no prefix, and an item with no audience, take any id. Holder ids are frozen once booked, so set this
+	 * before the first sale.
+	 */
+	holderPrefixes?: Record<string, string>;
 };
 
 /**
@@ -1138,7 +1157,10 @@ export type StripeOp =
 			productKey: string;
 			lookupKey: string;
 			currency: string;
-			unitAmount: number;
+			/** null for a pay-what-you-can price, which Stripe makes with `custom_unit_amount` instead of `unit_amount`. */
+			unitAmount: number | null;
+			/** Set for a pay-what-you-can add-on: send as `custom_unit_amount[enabled]=true` with these bounds. */
+			customUnitAmount?: { minimum: number; maximum: number; preset?: number };
 			recurring: { interval: Interval } | null;
 			metadata: Record<string, string>;
 			idempotencyKey: string;
@@ -1552,6 +1574,10 @@ export type CheckoutRefusal =
 	| { ok: false; reason: "addon_interval_mismatch"; addonId: string }
 	/** The add-on is sold to another audience than the tier (`MenuAddon.audience`). */
 	| { ok: false; reason: "addon_audience_mismatch"; addonId: string }
+	/** A pay-what-you-can add-on: Stripe sells it alone, in `oneTimeCheckoutParams`. */
+	| { ok: false; reason: "addon_sold_alone"; addonId: string }
+	/** `familyId` lacks the prefix the tier's audience has in `menu.holderPrefixes`. */
+	| { ok: false; reason: "holder_not_in_audience"; familyId: string }
 	| { ok: false; reason: "quantity_not_offered"; quantity: number }
 	| { ok: false; reason: "code_not_found"; code: string }
 	| { ok: false; reason: "code_not_applicable"; code: string };
@@ -1614,7 +1640,11 @@ export type OneTimeCheckoutParams = {
 export type OneTimeCheckoutRefusal =
 	| { ok: false; reason: "no_addons" }
 	| { ok: false; reason: "addon_not_found"; addonId: string }
-	| { ok: false; reason: "addon_not_one_time"; addonId: string };
+	| { ok: false; reason: "addon_not_one_time"; addonId: string }
+	/** A pay-what-you-can add-on with other add-ons: Stripe takes it as the only line, at quantity 1. */
+	| { ok: false; reason: "addon_sold_alone"; addonId: string }
+	/** `familyId` lacks the prefix an add-on's audience has in `menu.holderPrefixes`. */
+	| { ok: false; reason: "holder_not_in_audience"; familyId: string };
 
 export type OneTimeCheckoutResult =
 	| { ok: true; params: OneTimeCheckoutParams }

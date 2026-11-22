@@ -107,15 +107,18 @@ const soldTo = (itemAudience: string | undefined, audience: string): boolean =>
  * to each audience (an item with no audience counts toward each, and a menu with none is one audience), and at most
  * `MAX_AUDIENCES` audiences. Dotted paths: `tiers`, `addons`, or the first item whose audience is one too many.
  */
+/** The audiences a menu's tiers and add-ons name, in the order they first appear. */
+const audiencesOf = (m: Menu): string[] => [
+	...new Set(
+		[...m.tiers, ...m.addons].flatMap((item) =>
+			item.audience === undefined ? [] : [item.audience],
+		),
+	),
+];
+
 function audienceProblems(m: Menu): string[] {
 	const bad: string[] = [];
-	const audiences = [
-		...new Set(
-			[...m.tiers, ...m.addons].flatMap((item) =>
-				item.audience === undefined ? [] : [item.audience],
-			),
-		),
-	];
+	const audiences = audiencesOf(m);
 	const allowed = new Set(audiences.slice(0, MAX_AUDIENCES));
 	const extra = (item: { audience?: string }) =>
 		item.audience !== undefined && !allowed.has(item.audience);
@@ -135,6 +138,40 @@ function audienceProblems(m: Menu): string[] {
 		);
 	if (over(m.tiers, MAX_TIERS)) bad.push("tiers");
 	if (over(m.addons, MAX_ADDONS)) bad.push("addons");
+	// Each prefix names an audience the menu sells to, and one holder id has at most one audience: no prefix starts another.
+	const prefixes = Object.entries(m.holderPrefixes ?? {});
+	for (const [audience, prefix] of prefixes) {
+		const startsAnother = prefixes.some(
+			([other, otherPrefix]) =>
+				other !== audience && otherPrefix.startsWith(prefix),
+		);
+		if (!audiences.includes(audience) || startsAnother)
+			bad.push(`holderPrefixes.${audience}`);
+	}
+	return bad;
+}
+
+/** Why a pay-what-you-can add-on is not one: dotted paths. */
+function payWhatYouCanProblems(
+	addon: Menu["addons"][number],
+	i: number,
+): string[] {
+	const range = addon.price.payWhatYouCan;
+	if (!range) return [];
+	const bad: string[] = [];
+	const base = `addons.${i}.price`;
+	// Stripe takes a customer-chosen price for one-time payments only, with no coupon; it is a payment, not credits.
+	if (addon.price.every !== "once") bad.push(`${base}.every`);
+	if (addon.gift) bad.push(`addons.${i}.gift`);
+	if (addon.grants.length > 0) bad.push(`addons.${i}.grants`);
+	if (range.maximum < addon.price.amount)
+		bad.push(`${base}.payWhatYouCan.maximum`);
+	const { preset } = range;
+	if (
+		preset !== undefined &&
+		(preset < addon.price.amount || preset > range.maximum)
+	)
+		bad.push(`${base}.payWhatYouCan.preset`);
 	return bad;
 }
 
@@ -198,6 +235,7 @@ function crossProblems(m: Menu): { bad: string[]; messages: string[] } {
 	});
 	m.addons.forEach((a, i) => {
 		grants(`addons.${i}.grants`, a.grants);
+		bad.push(...payWhatYouCanProblems(a, i));
 		if (!a.gift) return;
 		// A gift is one purchase: sessions are the grants, a dollar certificate holds none.
 		if (a.price.every !== "once") bad.push(`addons.${i}.gift`);
@@ -223,6 +261,23 @@ export function validateMenu(input: unknown): MenuValidation {
 		? { ok: false, problems, ...(messages.length ? { messages } : {}) }
 		: { ok: true, menu };
 }
+
+/**
+ * Whether `familyId` may buy what is sold to `audience`: true when the audience has no prefix in `menu.holderPrefixes` (or
+ * the item has no audience), else when the id starts with the prefix and has more after it.
+ */
+export const holderInAudience = (
+	m: Menu,
+	audience: string | undefined,
+	familyId: string,
+): boolean => {
+	const prefix =
+		audience === undefined ? undefined : m.holderPrefixes?.[audience];
+	return (
+		prefix === undefined ||
+		(familyId.startsWith(prefix) && familyId.length > prefix.length)
+	);
+};
 
 /** What stops a valid menu from being published: nothing to sell, or no public tier. Dotted paths. */
 export function publishProblems(menu: Menu): string[] {

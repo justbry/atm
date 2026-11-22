@@ -49,7 +49,7 @@ const copies = <T extends { id: string; name: string }>(
 	}));
 
 describe("validateMenu: audiences", () => {
-	test("B4 Uni's own menu is valid: 7 tiers and 8 add-ons, none over the per-audience limits", () => {
+	test("B4 Uni's own menu is valid: 7 tiers and 9 add-ons, none over the per-audience limits", () => {
 		const result = validateMenu(menu());
 		expect(result.ok).toBe(true);
 		if (result.ok) expect(result.menu).toEqual(menu());
@@ -78,8 +78,9 @@ describe("validateMenu: audiences", () => {
 			),
 		];
 		m.addons = copies(pack, MAX_ADDONS);
-		// the early-prepay code names the tiers replaced here
+		// the early-prepay code and the holder prefixes name tiers and audiences replaced here
 		delete m.codes;
+		delete m.holderPrefixes;
 		expect(validateMenu(m).ok).toBe(true);
 		m.tiers.push({ ...tier, id: "fifth", name: "Fifth" });
 		expect(problems(m)).toEqual(["tiers"]);
@@ -89,10 +90,10 @@ describe("validateMenu: audiences", () => {
 		const m = menu();
 		const shared = { ...addonOf(m, "vetting"), audience: undefined };
 		delete shared.audience;
-		// families sell four packs; three shared add-ons make seven for them
+		// families sell four packs and Go Learn; two shared add-ons make seven for them
 		m.addons = [
 			...m.addons,
-			...copies(shared, 3).map((a, i) => ({ ...a, id: `shared-${i}` })),
+			...copies(shared, 2).map((a, i) => ({ ...a, id: `shared-${i}` })),
 		];
 		expect(problems(m)).toEqual(["addons"]);
 		m.addons.pop();
@@ -108,6 +109,7 @@ describe("validateMenu: audiences", () => {
 			...copies(tier, 6).map((t, i) => ({ ...t, audience: `a${i}` })),
 		];
 		m.addons = m.addons.filter((a) => a.audience === "families");
+		delete m.holderPrefixes;
 		expect(problems(m)).toEqual(["tiers.7.audience"]);
 		m.tiers.pop();
 		expect(validateMenu(m).ok).toBe(true);
@@ -145,14 +147,19 @@ describe("publicMenu: one audience's page", () => {
 });
 
 describe("checkoutParams: audiences", () => {
-	const checkout = (tierId: string, addonIds: string[], m = menu()) =>
+	const checkout = (
+		tierId: string,
+		addonIds: string[],
+		m = menu(),
+		familyId = "fam_1",
+	) =>
 		checkoutParams({
 			schoolId: MERCHANT,
 			menu: m,
 			tierId,
 			interval: "month",
 			addonIds,
-			familyId: "fam_1",
+			familyId,
 			menuVersion: 1,
 			returnUrls: { success: "https://x/ok", cancel: "https://x/no" },
 			policy: { ...DEFAULT_POLICY, memberCode: null },
@@ -164,7 +171,9 @@ describe("checkoutParams: audiences", () => {
 			reason: "addon_audience_mismatch",
 			addonId: "extra-school",
 		});
-		expect(checkout("academy", ["extra-school"]).ok).toBe(true);
+		expect(checkout("academy", ["extra-school"], menu(), "school-9").ok).toBe(
+			true,
+		);
 		expect(checkout("go-build", ["credits-10"]).ok).toBe(true);
 	});
 
@@ -172,6 +181,57 @@ describe("checkoutParams: audiences", () => {
 		const m = menu();
 		delete addonOf(m, "extra-school").audience;
 		expect(checkout("go-build", ["extra-school"], m).ok).toBe(true);
+	});
+
+	test("the holder id must have the prefix of the tier's audience", () => {
+		expect(checkout("guide-pro", [], menu(), "fam_1")).toEqual({
+			ok: false,
+			reason: "holder_not_in_audience",
+			familyId: "fam_1",
+		});
+		expect(checkout("guide-pro", [], menu(), "guide-u42").ok).toBe(true);
+		// the prefix alone names nobody
+		expect(checkout("guide-pro", [], menu(), "guide-").ok).toBe(false);
+		expect(checkout("basecamp", [], menu(), "org-3").ok).toBe(true);
+		expect(checkout("academy", [], menu(), "school_9").ok).toBe(false);
+	});
+
+	test("an audience with no prefix, or a menu with none, takes any holder id", () => {
+		const m = menu();
+		delete m.holderPrefixes?.guides;
+		expect(checkout("guide-pro", [], m, "u42").ok).toBe(true);
+		delete m.holderPrefixes;
+		expect(checkout("academy", [], m, "fam_1").ok).toBe(true);
+	});
+});
+
+describe("validateMenu: holder prefixes", () => {
+	test("B4 Uni's frozen ids: school b4uni, fam_, guide-, school-, org-", () => {
+		expect(MERCHANT).toBe("b4uni");
+		expect(menu().holderPrefixes).toEqual({
+			families: "fam_",
+			guides: "guide-",
+			schools: "school-",
+			organizers: "org-",
+		});
+	});
+
+	test("a prefix names an audience of the menu and ends in _ or -", () => {
+		const m = menu();
+		(m.holderPrefixes as Record<string, string>).travelers = "trav-";
+		expect(problems(m)).toEqual(["holderPrefixes.travelers"]);
+		const bad = menu();
+		(bad.holderPrefixes as Record<string, string>).guides = "guide";
+		expect(problems(bad)).toEqual(["holderPrefixes.guides"]);
+	});
+
+	test("no prefix starts another, so a holder id has one audience", () => {
+		const m = menu();
+		(m.holderPrefixes as Record<string, string>).organizers = "fam_";
+		expect(problems(m)).toEqual([
+			"holderPrefixes.families",
+			"holderPrefixes.organizers",
+		]);
 	});
 });
 
