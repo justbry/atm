@@ -702,6 +702,12 @@ export type MenuTier = {
 	 * the counts publishes nothing new to Stripe.
 	 */
 	quantities?: number[];
+	/**
+	 * Who it is sold to, for a merchant that sells to several kinds of buyer from one menu (B4 Uni: `families`, `guides`,
+	 * `schools`). Absent: every audience. The tier and add-on limits are per audience; `publicMenu(menu, audience)` is one
+	 * audience's page, and `checkoutParams` refuses an add-on of another audience than the tier's.
+	 */
+	audience?: string;
 };
 /** What a gift certificate holds: `sessions` (credits that lapse after `giftSessionMonths`) or `dollars` (a coupon the family service issues; no credits). */
 export type GiftKind = "sessions" | "dollars";
@@ -712,6 +718,8 @@ export type MenuAddon = {
 	grants: MenuGrant[];
 	/** Makes the add-on a gift certificate. Needs a one-time price; `sessions` needs grants, `dollars` has none. */
 	gift?: GiftKind;
+	/** Who it is sold to, as `MenuTier.audience`; absent: every audience. */
+	audience?: string;
 };
 
 /** A school's menu (lowercase ISO currency, IANA time zone). Same shape as the family service's and the web's. */
@@ -1542,6 +1550,8 @@ export type CheckoutRefusal =
 	| { ok: false; reason: "tier_not_found" }
 	| { ok: false; reason: "addon_not_found"; addonId: string }
 	| { ok: false; reason: "addon_interval_mismatch"; addonId: string }
+	/** The add-on is sold to another audience than the tier (`MenuAddon.audience`). */
+	| { ok: false; reason: "addon_audience_mismatch"; addonId: string }
 	| { ok: false; reason: "quantity_not_offered"; quantity: number }
 	| { ok: false; reason: "code_not_found"; code: string }
 	| { ok: false; reason: "code_not_applicable"; code: string };

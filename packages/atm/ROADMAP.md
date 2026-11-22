@@ -177,6 +177,16 @@ What exists (#41 to #49, on `dev`, not released) is in `CHANGELOG.md` (Unrelease
 - [ ] The ledger has `referral.qualified` and `referral.rewarded` events and postings, but no referral-code table or rules (single use, no self-referral). The B4 Uni purpose-built estimate counts gift and referral codes (220 to 380 lines).
 - [ ] A reconciliation query: the Trifold engine's balances and grants against Stripe's paid invoices, run nightly by the caller. Nothing in `src/` does this yet.
 
+## B4 Uni as its own merchant (2026-11-22)
+
+The owner decided that B4 Uni sells its own plans through tfd, on its own Stripe account. Design, fit and decisions: `plans/b4uni-merchant/PLAN.md`.
+
+- [x] Audiences: one menu, with per-audience limits, a page per audience and checkout guards (unreleased; `CHANGELOG.md`).
+- [ ] Pay what you can as a menu add-on (Stripe `custom_unit_amount`). Today an off-menu price with B4 Uni's metadata is refused `unmatched_line`. Waits on the owner (plan, decision 2).
+- [ ] A member code limited to an interval (`intervals: ["year"]`), for early-prepay prices.
+- [ ] Revenue share from the seller's tier: a rate on B4 Uni's Guide and school tiers that buzz-school writes into the seller's policy. Waits on the owner (plan, decision 3: booked afterwards, or taken at checkout through Connect).
+- Not in tfd: daily answer limits, pay later, receipts wiring (buzz-school).
+
 ## Decisions taken
 - 2026-11-05: PII stripping and a raw input store for usage events are punted; atm stores no raw usage payload and no redacted copy. (docs/usage-metering.md#usage-events-as-a-ledger-source-spike-2026-11-05-decision-pending-on-whether-to-build)
 - 2026-11-05: a usage ledger event is an allowlist of the mapping's declared fields (no prompt or message text); `personal` stays a denylist backstop plus the drift check. (same section)

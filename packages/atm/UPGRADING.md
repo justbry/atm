@@ -2,6 +2,14 @@
 
 The sections for past releases keep the name the engine had then, `atm`.
 
+## Unreleased
+
+Additive: a caller that changes nothing validates, publishes, checks out and books exactly as on 0.11.1.
+
+- **Audiences: one menu for a merchant that sells to several kinds of buyer (may).** B4 Uni selling its own family, Guide, school and organizer plans from one Stripe account is the case (`plans/b4uni-merchant/PLAN.md`). Give each tier and add-on an `audience` (an id such as `families`); leave it out for one sold to everyone. The limits are then per audience: 4 tiers and 6 add-ons for each, an item with no audience counting toward each, at most 6 audiences (`MAX_AUDIENCES`). The schema allows 24 tiers and 36 add-ons in all; `validateMenu` refuses `tiers` or `addons` when one audience is over, and `tiers.<i>.audience` or `addons.<i>.audience` for the seventh audience. Show one audience's page with `publicMenu(menu, audience)`. `checkoutParams` answers `{ ok: false, reason: "addon_audience_mismatch", addonId }` for an add-on whose audience isn't the tier's: a new member of `CheckoutRefusal`, so a caller that switches on `reason` exhaustively adds a case. Adding audiences to a published menu changes no lookup key and makes no `menuToStripe` step.
+  - **One plan per group.** tfd keeps one tier subscription per holder, so make the holder the group the plan is for. `family_id` in the checkout metadata may be any id (`fam_7`, `guide-u42`, `school-…`). Each group is then its own subject under the one merchant (`b4uni|live|family:guide-u42`), in one ledger.
+  - **What doesn't change.** A school's menu with no audiences has the same 4-tier and 6-add-on limits. A validator other than `validateMenu` that reads `schema/catalog/menu.v1.json` alone now accepts up to 24 tiers and 36 add-ons; run `validateMenu` for the per-audience rules.
+
 ## Moving to 0.11.1 from 0.11.0
 
 Three additive changes (#98, #99, #100), all on the credits engine for buzz-school's move onto tfd's grants. Nothing is required: a caller that changes nothing decides and replays byte for byte as on 0.11.0. The pin moves to `tfd-v0.11.1` (asset `tfd-0.11.1.tgz`), keeping the dependency key `atm`. What buzz-school should change, and what it may:

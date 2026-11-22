@@ -433,6 +433,8 @@ export function checkoutParams(input: CheckoutInput): CheckoutResult {
 			return { ok: false, reason: "addon_not_found", addonId: id };
 		if (a.price.every !== "once" && a.price.every !== interval)
 			return { ok: false, reason: "addon_interval_mismatch", addonId: id };
+		if (a.audience !== undefined && a.audience !== tier.audience)
+			return { ok: false, reason: "addon_audience_mismatch", addonId: id };
 		lines.push(
 			lookupKeyOf(
 				schoolId,
