@@ -488,26 +488,27 @@ export function checkoutParams(input: CheckoutInput): CheckoutResult {
 	}
 	// One code per checkout (Stripe refuses `discounts` and `allow_promotion_codes` together, and takes one code).
 	let appliedCode: string | null = null;
+	const memberCodes = memberCodesOf(menu, policy);
+	const fitsTier = (c: EffectiveCode): boolean =>
+		!c.tierIds || c.tierIds.includes(tier.id);
+	const fitsInterval = (c: EffectiveCode): boolean =>
+		!c.intervals || c.intervals.includes(interval);
 	if (input.code !== undefined) {
 		const wanted = input.code.trim().toLowerCase();
-		const found = memberCodesOf(menu, policy).find(
-			(c) => c.code.toLowerCase() === wanted,
-		);
+		const found = memberCodes.find((c) => c.code.toLowerCase() === wanted);
 		if (!found)
 			return { ok: false, reason: "code_not_found", code: input.code };
-		if (found.tierIds && !found.tierIds.includes(tier.id))
-			return { ok: false, reason: "code_not_applicable", code: input.code };
-		if (found.intervals && !found.intervals.includes(interval))
+		if (!fitsTier(found) || !fitsInterval(found))
 			return { ok: false, reason: "code_not_applicable", code: input.code };
 		appliedCode = found.code;
 	}
-	// A buyer may type a member code valid for this interval, or the code of a dollar gift certificate (made after the menu,
-	// so the menu cannot name it). Stripe cannot hold a code to an interval (a coupon names products, and a tier's month
-	// and year prices share one), so a checkout where no code is valid offers no typing at all.
+	// A buyer may type a member code valid for this tier and interval, or the code of a dollar gift certificate (made after
+	// the menu, so the menu cannot name it). Stripe cannot hold a code to an interval (a coupon names products, and a tier's
+	// month and year prices share one), so a checkout where no code is valid offers no typing at all: a code for another
+	// tier must not open typing here, or a buyer could type an interval-limited code for this tier.
 	const mayTypeCode =
-		memberCodesOf(menu, policy).some(
-			(c) => !c.intervals || c.intervals.includes(interval),
-		) || menu.addons.some((addon) => addon.gift === "dollars");
+		memberCodes.some((c) => fitsTier(c) && fitsInterval(c)) ||
+		menu.addons.some((addon) => addon.gift === "dollars");
 	const metadata: Record<string, string> = {
 		b4u_school: schoolId,
 		family_id: input.familyId,

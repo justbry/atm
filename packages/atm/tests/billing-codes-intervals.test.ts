@@ -31,6 +31,33 @@ describe("validateMenu: code intervals", () => {
 		expect(menu().codes?.[0]?.intervals).toEqual(["year"]);
 	});
 
+	test("a code limited to an interval none of its tiers is priced at is refused", () => {
+		const m = menu();
+		const tier = m.tiers.find((t) => t.id === "go_build");
+		const code = m.codes?.[0];
+		if (!(tier && code)) throw new Error("fixture changed");
+		code.tierIds = ["go_build"];
+		tier.prices = tier.prices.filter((p) => p.interval === "month");
+		const result = validateMenu(m);
+		expect(result.ok).toBe(false);
+		if (!result.ok) expect(result.problems).toContain("codes.0.intervals");
+	});
+
+	test("a code for another tier opens no typing on a monthly checkout", () => {
+		const m = menu();
+		m.codes?.push({
+			id: "other",
+			kind: "member",
+			code: "OTHER10",
+			percentOff: 10,
+			tierIds: ["go_hive"],
+		});
+		const monthly = checkout("month", undefined, m);
+		expect(monthly.ok).toBe(true);
+		if (monthly.ok)
+			expect(monthly.params).not.toHaveProperty("allow_promotion_codes");
+	});
+
 	test("intervals are month or year, at least one, no repeats", () => {
 		for (const intervals of [[], ["week"], ["year", "year"]]) {
 			const m = menu() as unknown as { codes: { intervals: unknown }[] };
