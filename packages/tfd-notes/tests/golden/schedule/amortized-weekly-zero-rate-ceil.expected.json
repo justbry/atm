@@ -1,0 +1,26 @@
+[
+	{
+		"n": 1,
+		"due": "2026-03-08",
+		"payment_minor": "334",
+		"interest_minor": "0",
+		"principal_minor": "334",
+		"balance_after_minor": "666"
+	},
+	{
+		"n": 2,
+		"due": "2026-03-15",
+		"payment_minor": "334",
+		"interest_minor": "0",
+		"principal_minor": "334",
+		"balance_after_minor": "332"
+	},
+	{
+		"n": 3,
+		"due": "2026-03-22",
+		"payment_minor": "332",
+		"interest_minor": "0",
+		"principal_minor": "332",
+		"balance_after_minor": "0"
+	}
+]

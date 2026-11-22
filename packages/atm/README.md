@@ -19,6 +19,15 @@ bun run --cwd packages/atm tfd run --subject subject.json --command check.json
 - `--command`: an engine command with its `type`, validated by the engine's own parser.
 - Either may be `-` to read stdin. The result is printed as JSON; an error exits non-zero.
 
+### Promissory notes
+
+```bash
+tfd note schedule terms.json                            # the repayment table for a note's terms
+tfd note statement events.jsonl --as-of 2026-03-01      # lender and borrower counts side by side
+```
+
+`schedule` reads one note's terms as JSON; `statement` reads one note event per line and prints the lender's count, the borrower's count, the payoff gap and each payment the two counts differ on, labelled "confirmed by both parties", "claimed by lender", "claimed by borrower", "disputed" or "resolved by agreement". A difference between the counts is information, so the exit code is 0; a bad file or event exits 2. Add `--json` for one JSON line. The figures come from the Apache-2.0 `tfd-notes` library (`packages/tfd-notes`), so anyone can recompute them. A statement is a record of what was entered, not legal or tax advice.
+
 ## Library
 
 ```ts
@@ -136,6 +145,17 @@ A family that pays a school needs a document: an itemised, dated receipt (B4 Uni
 - **A payment-mode Checkout makes none.** A gift certificate or a pack bought on its own (`mode=payment`) makes no invoice unless `invoice_creation[enabled]=true`, and with none there is no `invoice.paid` event, so the Trifold engine has nothing to grant from. `oneTimeCheckoutParams({ schoolId, menu, addonIds, familyId, forProfileId?, menuVersion, returnUrls, invoice? })` returns the payment-mode parameters with `invoice_creation` on, or `{ reason }`: `no_addons`, `addon_not_found`, `addon_not_one_time` (the add-on repeats, so it goes on a membership's checkout). `checkoutParams` is unchanged and stays subscription-only (a tier is required and the output has no `invoice_creation`): the one-time sale is its own function, not a flag, because it is a different Stripe mode with different parameters. The invoice's `invoice_data.metadata` holds `b4u_school`, `family_id`, `menu_version`, `addon_ids` and `profile_id`: Checkout's session `metadata` does not reach the invoice, and `handleStripeEvent` finds the family on the invoice's own metadata. `invoice.description` and `invoice.footer` pass through to `invoice_data` when given. `withPriceIds` and `toStripeForm` take its result as they take a membership's. The invoice it makes is a `manual` invoice with no subscription, which the grants rules already credit (a gift or a pack). Stripe prices post-payment invoices for Checkout apart from Invoicing (see Stripe's pricing note on that page).
 - **The links are on the fact.** `BillingInvoice` (from `invoice.paid`) carries `number`, `hostedInvoiceUrl` and `invoicePdf` (each `string | null`; absent on a fact built by hand), read by the declarative mapping from `number`, `hosted_invoice_url` and `invoice_pdf` (all in the pinned OpenAPI spec). The two URLs are bearer links: whoever holds one can open the invoice, which shows the customer's name. Show them only to the family the invoice belongs to, and keep them out of logs. They are not in the mapping's `personal` list, so the stored raw event keeps them (the raw event always held them).
 - **Not built: an itemised receipt.** (`receiptOf` is now the signed receipt in "Receipts and seals" below: a proof of payment with no items, tax or student.) The Trifold engine does not know what the Idaho receipt needs: the subject and the hours of a session (a menu line has a name and a count, no subject or length), tax (the normalized invoice carries none; Stripe's `total_taxes` and each line's `taxes` are arrays, which a declarative mapping cannot sum), the per-student split of one family's invoice, and whether the receipt is for what was bought (an invoice) or what was delivered (a session on a date). The options are in `docs/receipts.md` ("Owner decision: the itemised receipt"); it waits on the owner.
+
+### Pay later (unreleased)
+
+A family pays for a plan in up to 4 instalments, at zero interest, on a promissory note kept by the Apache-2.0 `tfd-notes` library (`docs/specs/promissory-notes.md`, "Use: Pay later on B4 Uni"). The cap of 4 holds until counsel reviews Regulation Z, and tfd enforces it (`MAX_PAY_LATER_INSTALMENTS`); tfd-notes itself takes up to 5200.
+
+- `payLaterNote({ noteId, eventId, enteredAt, principal, issueDate, firstDue, count, frequency, timeZone })` makes the note's `note.created` (USD, rate `"0"`, amortized), or `{ reason }`: `too_many_instalments`, `bad_amount` (also when an instalment would be under Stripe's 50-cent minimum), or `bad_terms` with tfd-notes' message.
+- `instalmentCheckoutParams({ schoolId, familyId, noteEvents, instalment, asOf, name, returnUrls, invoice? })` makes a payment-mode Checkout Session for one instalment: one inline `price_data` line (nothing to publish) for the schedule row's payment, capped at the lender view's payoff, with `invoice_creation` on. The invoice's metadata names `b4u_note` and `b4u_instalment`. It refuses with `not_pay_later`, `instalment_not_found`, or `instalment_paid` (the lender view already counts that instalment and every one before it as paid).
+- The handler applies the paid invoice and grants nothing. It books the amount paid to `income:billing:pay-later`, with `labels.note` and `labels.instalment` on the `payment.succeeded`. An inline price without `b4u_note` is still refused `unmatched_line`.
+- `notePaymentEvent(paymentSucceeded, { seq, eventId, enteredAt })` turns that `payment.succeeded` into the note's `payment.recorded`: lender side, the gross amount, the payment's local date, method `checkout`, reference the invoice. A lender's own record counts in both views at once, and the family can still dispute it. `noteReversalEvent(paymentRefunded, notePayment, slot)` is the payment's whole `reversal` once the charge is refunded in full. A partial refund is `{ reason: "partial_refund" }`, because a note reverses a payment whole.
+- The check for an instalment already paid runs when the session is made, so keep one open session per instalment (expire the old one before making another). A second payment of the same instalment is booked as income, and the note shows it as `overpaid_minor`.
+- The caller appends the note events with the next `seq`, and reads the balance with tfd-notes' `statement`. Not built: tying a lost dispute to a reversal, the family's magic-link view (tfd-notes step 2), and checking Stripe's records (step 6).
 
 ### Billing portal
 

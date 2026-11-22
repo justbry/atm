@@ -33,6 +33,7 @@ Decisions and rules for anyone, human or agent, working in this repo. Git and co
 | The pitch brief (`apps/trifold-brief`): the password-protected, multi-audience decks, their sources, scripts and rendered pages | **Proprietary**, all rights reserved; embedded fonts under the SIL OFL 1.1 | `apps/trifold-brief/LICENSE` |
 | Logo concepts (`docs/brand/logo/`): SVGs, animations, favicons, previews | **Proprietary**, all rights reserved | `docs/brand/logo/LICENSE` |
 | The verifier SDK `tfd-verify` (`packages/verify`): tfd's receipt and seal checks for browsers and other WebCrypto runtimes; the website's verifier comes from it | **Apache-2.0** | SPDX headers; `packages/verify/LICENSE`, `packages/verify/REUSE.toml` |
+| The promissory-note engine `tfd-notes` (`packages/tfd-notes`): schedule, interest and two-party balance statements; its golden vectors (`tests/golden/`) are CC0-1.0. Apache-2.0 so anyone can recompute a statement; decided 2026-11-12 | **Apache-2.0**; vectors **CC0-1.0** | SPDX headers; `packages/tfd-notes/LICENSE`, `packages/tfd-notes/REUSE.toml` |
 | Hosted service, Rifo, the witness | Proprietary, not in this repo | — |
 
 `packages/atm/LICENSING.md` explains the package's licenses in prose. `REUSE.toml` is the machine-readable map: keep both in step when files move.
@@ -44,6 +45,7 @@ Decisions and rules for anyone, human or agent, working in this repo. Git and co
 - Apache-2.0 files under `packages/atm` must import only other Apache-2.0 files, or third-party packages.
 - `packages/verify` is Apache-2.0 throughout and must not import from `packages/atm`. Verification code the website needs goes there, not into `apps/trifold-site`, which keeps no Apache-2.0 files.
 - The website's build ships third-party code, so it writes `/licenses.txt` (`apps/trifold-site/third-party-notices.ts`) with every bundled package's license text; the legal page links to it.
+- `packages/tfd-notes` is Apache-2.0 throughout and must not import from `packages/atm` or any FSL code. `packages/atm` may import it (FSL code may use Apache-2.0 code), and so may `packages/verify`.
 - Don't copy FSL code into Apache-2.0 files, or into other packages.
 - Mark an Autumn file you modify at its top and list it in `UPSTREAM.md` (Apache-2.0 section 4).
 

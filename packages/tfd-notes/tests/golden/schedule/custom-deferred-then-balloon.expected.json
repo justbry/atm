@@ -1,0 +1,18 @@
+[
+	{
+		"n": 1,
+		"due": "2028-01-01",
+		"payment_minor": "0",
+		"interest_minor": "0",
+		"principal_minor": "0",
+		"balance_after_minor": "100000"
+	},
+	{
+		"n": 2,
+		"due": "2028-12-31",
+		"payment_minor": "120000",
+		"interest_minor": "20000",
+		"principal_minor": "100000",
+		"balance_after_minor": "0"
+	}
+]

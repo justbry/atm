@@ -1,0 +1,16 @@
+{
+	"currency": "USD",
+	"exponent": 2,
+	"principal_minor": "1000000",
+	"issue_date": "2026-01-01",
+	"annual_rate": "0.05",
+	"day_count": "actual/365",
+	"rounding": "half-up",
+	"timezone": "America/Denver",
+	"schedule": {
+		"type": "amortized",
+		"frequency": "monthly",
+		"count": 36,
+		"first_due": "2026-02-01"
+	}
+}

@@ -11,6 +11,7 @@
  * events are to be written, keep the event and retry once the cause is fixed. The one thing to write is the money of a
  * paid invoice whose credits were refused: `refused.payment` (see `withCertainPayment`).
  */
+
 import type {
 	SubjectState,
 	SubjectStateMutation,
@@ -79,6 +80,7 @@ import {
 	resolveInvoice,
 	resolveSubscriptionPlan,
 } from "./normalize.js";
+import { PAY_LATER_NOTE_FIELD } from "./pay-later-fields.js";
 import {
 	applyRowChanges,
 	diffRows,
@@ -148,12 +150,15 @@ const resolve = (
 		invoice,
 		menuLineItems(schoolId, input.menu, input.priceIds),
 	);
+	// A Pay later instalment (`instalmentCheckoutParams`) is an ad hoc price with no lookup key: it is ours and grants nothing.
+	const instalment = invoice.metadata[PAY_LATER_NOTE_FIELD] !== undefined;
 	// Money came in for something that is ours but not on the menu now: granting nothing would be silent.
 	const stray = resolved.lines.filter(
 		(l) =>
 			l.kind === "unknown" &&
 			l.amount > 0 &&
-			(l.lookupKey == null || l.lookupKey.startsWith(BILLING_LINE_PREFIX)),
+			((l.lookupKey == null && !instalment) ||
+				l.lookupKey?.startsWith(BILLING_LINE_PREFIX)),
 	);
 	if (stray.length > 0)
 		return {

@@ -1,0 +1,74 @@
+{
+	"events": [
+		{
+			"schema": "tfd.note-event.v1",
+			"id": "evt-1",
+			"note_id": "note-1",
+			"seq": 1,
+			"entered_at": "2026-01-01T09:00:00Z",
+			"entered_by": "lender",
+			"type": "note.created",
+			"terms": {
+				"currency": "USD",
+				"exponent": 2,
+				"principal_minor": "100000",
+				"issue_date": "2026-01-01",
+				"annual_rate": "0.0365",
+				"day_count": "actual/365",
+				"rounding": "half-up",
+				"timezone": "America/Denver",
+				"schedule": {
+					"type": "none"
+				}
+			}
+		},
+		{
+			"schema": "tfd.note-event.v1",
+			"id": "evt-2",
+			"note_id": "note-1",
+			"seq": 2,
+			"entered_at": "2026-01-12T10:00:00Z",
+			"entered_by": "borrower",
+			"type": "payment.recorded",
+			"kind": "payment",
+			"amount_minor": "10000",
+			"value_date": "2026-01-11",
+			"method": "cash"
+		},
+		{
+			"schema": "tfd.note-event.v1",
+			"id": "evt-3",
+			"note_id": "note-1",
+			"seq": 3,
+			"entered_at": "2026-01-13T10:00:00Z",
+			"entered_by": "lender",
+			"type": "payment.disputed",
+			"target": "evt-2",
+			"counter_amount_minor": "0",
+			"reason": "Nothing arrived"
+		},
+		{
+			"schema": "tfd.note-event.v1",
+			"id": "evt-4",
+			"note_id": "note-1",
+			"seq": 4,
+			"entered_at": "2026-01-14T10:00:00Z",
+			"entered_by": "borrower",
+			"type": "payment.resolved",
+			"target": "evt-2",
+			"agreed_amount_minor": "6000"
+		},
+		{
+			"schema": "tfd.note-event.v1",
+			"id": "evt-5",
+			"note_id": "note-1",
+			"seq": 5,
+			"entered_at": "2026-01-15T10:00:00Z",
+			"entered_by": "lender",
+			"type": "payment.resolved",
+			"target": "evt-2",
+			"agreed_amount_minor": "6000"
+		}
+	],
+	"as_of": "2026-01-21"
+}

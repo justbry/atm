@@ -188,7 +188,13 @@ The owner decided that B4 Uni sells its own plans through tfd, on its own Stripe
 - [x] Fees on Guide, school and organizer sales: booked afterwards with each seller's `revenueShare`, written by buzz-school from the seller's tier (decided 2026-11-22; no code change).
 - [ ] Fees taken at checkout through Stripe Connect `application_fee_amount`. Out of scope by the owner's decision of 2026-11-22.
 - [x] Early price settled: launch Dec 1, 2026, the 30% yearly price ends at the end of Dec 15 (fixture `EARLY2027`). Guides sell on their own Stripe, each its own tfd school (plan, decisions 6 and 7).
-- Not in tfd: daily answer limits, pay later, receipts wiring (buzz-school).
+- Not in tfd: daily answer limits, receipts wiring (buzz-school).
+
+## Pay later (2026-11-22)
+
+- [x] tfd side of Pay later on tfd-notes: the note, the instalment checkout, the handler's booking and the note events from paid and refunded instalments (unreleased; `README.md`, "Pay later").
+- [ ] Before it is live: counsel on Regulation Z (the cap of 4 instalments stays until then), a test-mode Checkout with `invoice_creation` and `price_data` end to end, and the family's view (tfd-notes step 2).
+- [ ] A receivable in the books for the amount still owed, if the owner wants accrual books; today an instalment is income when paid.
 
 ## Decisions taken
 - 2026-11-05: PII stripping and a raw input store for usage events are punted; atm stores no raw usage payload and no redacted copy. (docs/usage-metering.md#usage-events-as-a-ledger-source-spike-2026-11-05-decision-pending-on-whether-to-build)

@@ -33,6 +33,7 @@
 			"packages/atm",
 			"packages/tfd-credentials",
 			"packages/verify",
+			"packages/tfd-notes",
 			"packages/ledger-worker",
 			"apps/trifold-cloud",
 			"packages/catalog-lru",

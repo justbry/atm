@@ -411,6 +411,7 @@
         "ajv": "8.20.0",
         "aws4fetch": "1.0.20",
         "commander": "14.0.3",
+        "tfd-notes": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "1.4.2",
@@ -1036,6 +1037,14 @@
       "devDependencies": {
         "@types/bun": "1.4.2",
         "typescript": "~5.8.3",
+      },
+    },
+    "packages/tfd-notes": {
+      "name": "tfd-notes",
+      "version": "0.1.0",
+      "devDependencies": {
+        "@types/bun": "1.4.2",
+        "typescript": "5.8.3",
       },
     },
     "packages/tinybird": {
@@ -6960,6 +6969,8 @@
     "tfd": ["tfd@workspace:packages/atm"],
 
     "tfd-credentials": ["tfd-credentials@workspace:packages/tfd-credentials"],
+
+    "tfd-notes": ["tfd-notes@workspace:packages/tfd-notes"],
 
     "tfd-verify": ["tfd-verify@workspace:packages/verify"],
 

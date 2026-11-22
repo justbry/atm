@@ -4266,3 +4266,144 @@ export type AtmSubjectState = TfdSubjectState;
 export type AtmValidation = TfdValidation;
 /** @deprecated Use {@link TfdValidationError}. */
 export type AtmValidationError = TfdValidationError;
+
+// ---- Pay later (src/billing/pay-later.ts) ----
+
+/**
+ * The tfd-notes event shapes Pay later makes, declared here rather than imported so the public types stand alone (the
+ * build refuses a declaration that imports another package). They match tfd-notes' `NoteCreatedEvent` and
+ * `PaymentRecordedEvent` (`packages/tfd-notes/src/types.ts`, schema `tfd.note-event.v1`).
+ */
+export type NoteFrequency = "weekly" | "biweekly" | "monthly";
+
+/** A Pay later note's `note.created`: USD, rate `"0"`, amortized. */
+export type PayLaterNoteCreated = {
+	schema: "tfd.note-event.v1";
+	id: string;
+	note_id: string;
+	seq: number;
+	entered_at: string;
+	entered_by: "lender" | "borrower";
+	type: "note.created";
+	terms: {
+		currency: string;
+		exponent: number;
+		principal_minor: string;
+		issue_date: string;
+		annual_rate: string;
+		day_count: "actual/365";
+		rounding: "half-up";
+		timezone: string;
+		schedule: {
+			type: "amortized";
+			frequency: NoteFrequency;
+			count: number;
+			first_due: string;
+		};
+	};
+};
+
+/** A note's `payment.recorded`: a paid instalment (`payment`) or the whole reversal of one (`reversal`, naming `reverses`). */
+export type NotePaymentRecorded = {
+	schema: "tfd.note-event.v1";
+	id: string;
+	note_id: string;
+	seq: number;
+	entered_at: string;
+	entered_by: "lender" | "borrower";
+	type: "payment.recorded";
+	kind: "payment" | "reversal";
+	amount_minor: string;
+	value_date: string;
+	method?: string;
+	reference?: string;
+	reverses?: string;
+};
+
+export type PayLaterNoteInput = {
+	noteId: string;
+	/** The event's own id (a ULID or similar). */
+	eventId: string;
+	/** When the note was entered: an ISO 8601 UTC instant ending in `Z`. */
+	enteredAt: string;
+	/** What is lent, in cents: the price of what the family buys. */
+	principal: number;
+	issueDate: string;
+	firstDue: string;
+	/** Instalments, 1 to `MAX_PAY_LATER_INSTALMENTS`. */
+	count: number;
+	frequency: NoteFrequency;
+	/** The lender's IANA zone (B4 Uni's menu `timeZone`). */
+	timeZone: string;
+};
+
+export type PayLaterNoteResult =
+	| { ok: true; event: PayLaterNoteCreated }
+	| { ok: false; reason: "too_many_instalments"; count: number }
+	/** Not a whole number of cents from 1 to 99,999,999, or an instalment of it under Stripe's 50-cent minimum. */
+	| { ok: false; reason: "bad_amount" }
+	/** tfd-notes refused the terms (a date that is not one, `firstDue` not after `issueDate`, ...): `message` says which. */
+	| { ok: false; reason: "bad_terms"; message: string };
+
+export type InstalmentCheckoutInput = {
+	schoolId: string;
+	familyId: string;
+	/** The note's whole stream so far, in any order (`seq` orders it). */
+	noteEvents: readonly unknown[];
+	/** Which instalment of the schedule, 1-based. */
+	instalment: number;
+	/** Today in the lender's zone: what the note's lender view counts as paid is read as of this date. */
+	asOf: string;
+	/** What the buyer sees on the Checkout line, e.g. "Go Unlimited, instalment 2 of 4". */
+	name: string;
+	returnUrls: { success: string; cancel: string };
+	invoice?: { description?: string; footer?: string };
+};
+
+/** A payment-mode Checkout Session for one instalment, in Stripe's nested shape; nothing in it needs a published price. */
+export type InstalmentCheckoutParams = {
+	mode: "payment";
+	client_reference_id: string;
+	success_url: string;
+	cancel_url: string;
+	line_items: [
+		{
+			quantity: 1;
+			price_data: {
+				currency: string;
+				unit_amount: number;
+				product_data: { name: string };
+			};
+		},
+	];
+	metadata: Record<string, string>;
+	invoice_creation: {
+		enabled: true;
+		invoice_data: {
+			metadata: Record<string, string>;
+			description?: string;
+			footer?: string;
+		};
+	};
+};
+
+export type InstalmentCheckoutResult =
+	| { ok: true; params: InstalmentCheckoutParams; amount: number }
+	/** The note is not one `payLaterNote` makes: not USD, a rate above 0, not amortized, or more than 4 instalments. */
+	| { ok: false; reason: "not_pay_later" }
+	| { ok: false; reason: "instalment_not_found"; instalment: number }
+	/** The lender's view already counts this instalment, and every one before it, as paid. */
+	| { ok: false; reason: "instalment_paid"; instalment: number };
+
+/** Where the next event goes on the note: its `seq`, its own id and when it is entered (ISO 8601 UTC, `Z`). */
+export type NoteEventSlot = { seq: number; eventId: string; enteredAt: string };
+
+export type NoteReversalResult =
+	| { ok: true; event: NotePaymentRecorded }
+	/** Not a refund of this payment's invoice. */
+	| { ok: false; reason: "not_this_payment" }
+	/**
+	 * Refunded in part so far: a note reverses a payment whole (tfd-notes R-9a), so a partial refund is not recorded. Record
+	 * the lower amount by hand (a dispute and resolution), or wait for the rest of the refund.
+	 */
+	| { ok: false; reason: "partial_refund"; refunded: number; paid: number };

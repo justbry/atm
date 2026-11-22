@@ -7,7 +7,7 @@ tfd (this package) is source-available. Each file falls under one of these licen
 | The engine and CLI: everything in this package not listed below | **FSL-1.1-ALv2** (Functional Source License 1.1, Apache 2.0 future license) | `LICENSE.md` |
 | The receipt and seal format and their verifier: `schema/receipt.v1.json`, `schema/receipt.v2.json`, `schema/seal.v1.json`, `docs/receipts.md`, `src/ledger/receipt.ts`, `src/ledger/seal.ts`, `src/ledger/sign.ts`, `src/ledger/util.ts` | **Apache-2.0** | `LICENSES/Apache-2.0.txt` |
 | The receipt test vectors: `tests/golden/receipt/`, `tests/golden/receipt-v2/` | **CC0-1.0** (public domain) | `LICENSES/CC0-1.0.txt` |
-| Autumn's code this package builds on and bundles into `dist/` (`@autumn/balance-engine`, `@autumn/shared` and their dependencies) | **Apache-2.0**, unchanged from upstream | `LICENSES/Apache-2.0.txt`; see `UPSTREAM.md` at the repo root |
+| Autumn's code this package builds on and bundles into `dist/` (`@autumn/balance-engine`, `@autumn/shared` and their dependencies), and the promissory-note engine `tfd-notes` (`packages/tfd-notes`), which `tfd note` bundles and which stays Apache-2.0 | **Apache-2.0**; Autumn's code unchanged from upstream | `LICENSES/Apache-2.0.txt`; see `UPSTREAM.md` at the repo root, and `packages/tfd-notes/LICENSE` |
 
 ## What FSL allows
 

@@ -52,6 +52,7 @@ apps/balance-worker/.data/
 !packages/fx/tests
 !packages/errors/tests
 !packages/verify/tests
+!packages/tfd-notes/tests
 !vite/tests
 .secrets
 
