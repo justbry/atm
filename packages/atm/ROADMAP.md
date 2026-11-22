@@ -187,7 +187,7 @@ The owner decided that B4 Uni sells its own plans through tfd, on its own Stripe
 - [ ] A member code limited to an interval (`intervals: ["year"]`), for early-prepay prices.
 - [x] Fees on Guide, school and organizer sales: booked afterwards with each seller's `revenueShare`, written by buzz-school from the seller's tier (decided 2026-11-22; no code change).
 - [ ] Fees taken at checkout through Stripe Connect `application_fee_amount`. Out of scope by the owner's decision of 2026-11-22.
-- [ ] The Dec 1, 2026 early-price deadline: open with the owner. Pay later is decided (tfd-notes; below).
+- [x] Early price settled: launch Dec 1, 2026, the 30% yearly price ends at the end of Dec 15 (fixture `EARLY2027`). Guides sell on their own Stripe, each its own tfd school (plan, decisions 6 and 7).
 - Not in tfd: daily answer limits, receipts wiring (buzz-school).
 
 ## Pay later (2026-11-22)

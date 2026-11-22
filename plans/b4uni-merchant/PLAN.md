@@ -16,12 +16,12 @@ no code was needed.
 | Spending credits (Gumbee 1, Goldee 2) | Yes. `track` and `check` with `addToBalance: -n`; buzz-school chooses n | engine |
 | Full refund takes back unused credits | Yes. Policy `removeOnFullRefund` | `policy.ts` |
 | Daily allowance (10 a day on Free, 100 on Go Build) | No. A grant's `every` is `month` or `year`. Free has no invoice to grant from. | schema `interval` |
-| Early-prepay price until Dec 1 | Partly. A member code with `percentOff`, `tierIds` and `expiresAt` (Stripe's promotion code stops working then). It can't be limited to yearly checkouts: when a menu has codes, `checkoutParams` lets a buyer type one. | `stripe-menu.ts:447-497` |
+| Early-prepay price until Dec 15 (decided) | Partly. A member code with `percentOff`, `tierIds` and `expiresAt` (Stripe's promotion code stops working then). It can't be limited to yearly checkouts: when a menu has codes, `checkoutParams` lets a buyer type one. | `stripe-menu.ts:447-497` |
 | One plan per group (the cart) | Yes, if the holder is the group. tfd keeps one tier subscription per holder (`grants.ts:792-796`); the holder is whatever `family_id` buzz-school puts in the metadata | `handle.ts:136` |
 | Treasurer at $8 a month on Listed | Not as an add-on: Listed is free, and a recurring add-on is granted only on a tier subscription (`addon_only_subscription`). **Decided:** a tier, "Listed with Treasurer" | `handle.ts:213, 290` |
 | Extra school at $25 a month | Yes, as a monthly add-on on the Academy subscription. One per checkout: add-ons have no quantity, so a second extra school is a change on the subscription itself (as the quote is) | `stripe-menu.ts:433` |
 | Go Learn, pay what you can | **Built in #105**, as a pay-what-you-can add-on. Before it, a price that wasn't on the menu, with B4 Uni's metadata, was refused 422 `unmatched_line` (Stripe retried for three days), and without the metadata it was `ignored`. | `menu.v1.json` `payWhatYouCan` |
-| Pay later (up to 4 payments) | No | — |
+| Pay later (up to 4 payments) | Decided: a tfd-notes note, each instalment a tfd checkout (decision 5) | `billing/pay-later.ts` (#107) |
 | Guide fee by tier (20%, 14%, 8%) | **Yes, with no code change.** `policy.revenueShare` is one rate per seller, booked in the seller's ledger and invoiced afterwards. Each payment keeps the rate it was booked at, so a rate change mid-month is right on the statement | `share.ts`, `ledger/share-statement.ts:88` |
 | Fee taken at checkout (Connect `application_fee`) | No. Out of scope (decision 3); on the roadmap | — |
 | Receipts and invoices on demand | Partly. Stripe's hosted invoice and PDF are on every `BillingInvoice`; `receiptOfV2` and `signReceipt` sign a proof of payment. buzz-school calls neither. No itemised receipt. | README "Invoices and receipts" |
@@ -41,7 +41,11 @@ platform, their events go to a Connect endpoint, not this one.
 is sold to every audience. `publicMenu(menu, audience)` gives one audience's page. `checkoutParams` refuses an add-on of
 another audience (`addon_audience_mismatch`). Lookup keys don't change, so adding audiences to a published menu makes no
 Stripe step. A school's menu, which has no audiences, has the same limits as before. The fixture is
-`packages/atm/fixtures/billing/menu/b4uni-merchant.json`.
+`packages/atm/fixtures/billing/menu/b4uni-merchant.json`, generated from buzz-school's `b4uniMenu(D)`
+(`docs/design/pricing-render.js` on `main`, built from `pricing.json`), the menu's source of truth, plus the early-price
+code. Its ids are frozen once booked: `go_build`, `go_hive`, `passport`, `odyssey`, `guide_pro`, `guide_studio`,
+`academy`, `listed_treasurer`, `basecamp`; add-ons `credits_50`, `credits_100`, `credits_250`, `credits_500`,
+`go_learn`, `vetting`, `vetting_pro`, `extra_school`, `trip_leader_check`.
 
 **Fixed ids (decision 1, frozen 2026-11-22).** These are never changed once the first event is booked:
 
@@ -100,7 +104,7 @@ Free. Credits come from `balancesOf` (or the engine's `check`) on the same rows.
 2. **Pay what you can, as a menu add-on.** Done in #105.
 3. **Holder prefixes per audience.** Done in #105.
 4. **A code limited to an interval** (`codes[].intervals: ["year"]`). `checkoutParams` would refuse it on a monthly
-   checkout and stop offering typed codes there. Too late for Dec 1, 2026; worth it if early prices come back.
+   checkout and stop offering typed codes there. Small; built before Dec 1, 2026 it would close the gap that lets a buyer type the early code on a monthly checkout.
 5. **Fees taken at checkout** (Connect `application_fee_amount`). Out of scope by decision 3; on the roadmap.
 
 ## Gaps that stay outside tfd
@@ -109,11 +113,9 @@ Free. Credits come from `balancesOf` (or the engine's `check`) on the same rows.
   from the plan read above (10, 100, or none). When the counter runs out, buzz-school spends credits with `track`. Daily
   grants in tfd would book about 365 credit events a year per family into sealed books, for something that isn't money,
   and Free has no invoice to grant from.
-- **Pay later.** Stripe Checkout with Affirm or Klarna, which is a payment method, needs no tfd change. Instalments that
-  B4 Uni carries itself would be a subscription schedule; that is an owner decision first.
-- **The Dec 1 early price.** Use a member code now: `EARLY2027`, 30% off, `tierIds` for the family tiers,
-  `expiresAt` 2026-12-01 in Denver. buzz-school applies it only to yearly checkouts. Accept that a buyer could type it
-  on a monthly checkout until Dec 1.
+- **The early price.** A member code: `EARLY2027`, 30% off Go Build and Go Unlimited, `expiresAt` the end of
+  2026-12-15 in Denver (2026-12-16T07:00:00Z). buzz-school applies it only to yearly checkouts. Accept that a buyer
+  could type it on a monthly checkout until then.
 - **Receipts.** Show `hostedInvoiceUrl` and `invoicePdf` to the family (they are bearer links, so keep them out of
   logs). Sign with `receiptOfV2` once B4 Uni has a signing key. The itemised receipt is still the owner decision in
   `docs/receipts.md`.
@@ -127,9 +129,10 @@ Taken on 2026-11-22: 1, the fixed ids; 2, Go Learn as a pay-what-you-can add-on;
 
 Pay later = tfd-notes: each instalment is a tfd one-time checkout tied to a note (zero interest, at most 4 instalments until counsel reviews Regulation Z).
 
-Still open with the owner:
+Settled later on 2026-11-22 (buzz-school PR #1502):
 
-6. **The Dec 1, 2026 early-price deadline.** No checkout exists before it, so it may move. The code's `expiresAt` follows
-   whatever date is chosen.
-7. **Where a Guide's own sales run.** Is it the Guide's own Stripe account (its own tfd school, as for schools), or
-   only through schools? This decides whether a Guide's rate is ever booked.
+6. **Early price.** Launch day is Dec 1, 2026. The 30% yearly early price ends 14 days later, at the end of Dec 15, 2026
+   in America/Denver; the fixture's `EARLY2027` expires then.
+7. **Guides sell on their own Stripe.** Each Guide is their own tfd school id; B4 Uni never holds a tutor's money. B4
+   Uni's fee (20%, 14% or 8% by Guide tier) is booked with the Guide's `revenueShare` and invoiced monthly from B4 Uni's
+   own Stripe. Connect comes later.
