@@ -6,7 +6,12 @@
  */
 
 import type { CountedPayment } from "./accrual";
-import { daysOverdue, expectedDueToDate, replayBalance } from "./accrual";
+import {
+	comparePayments,
+	daysOverdue,
+	expectedDueToDate,
+	replayBalance,
+} from "./accrual";
 import { compareDates, daysBetween } from "./date";
 import { validateStream } from "./events";
 import { formatMinor, maxBigint, minBigint, parseMinor } from "./money";
@@ -251,14 +256,6 @@ const differenceItem = (
 	return event.source === undefined ? item : { ...item, source: event.source };
 };
 
-const compareRecorded = (
-	left: PaymentRecordedEvent,
-	right: PaymentRecordedEvent,
-): number => {
-	const byDate = compareDates(left.value_date, right.value_date);
-	return byDate === 0 ? left.seq - right.seq : byDate;
-};
-
 const isRecorded = (event: NoteEvent): event is PaymentRecordedEvent =>
 	event.type === "payment.recorded";
 
@@ -303,7 +300,7 @@ export const statement = (events: unknown[], asOf: CivilDate): Statement => {
 	);
 
 	const difference: DifferenceItem[] = [];
-	for (const event of [...recorded].sort(compareRecorded)) {
+	for (const event of [...recorded].sort(comparePayments)) {
 		if (compareDates(event.value_date, asOf) > 0) {
 			continue;
 		}

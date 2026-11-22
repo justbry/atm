@@ -16,7 +16,7 @@ export {
 	isValidCivilDate,
 	parseCivilDate,
 } from "./date.js";
-export { parseNoteEvent, validateStream } from "./events.js";
+export { parseNoteEvent, parseNoteTerms, validateStream } from "./events.js";
 export type { Rational } from "./money.js";
 export {
 	ceilDiv,

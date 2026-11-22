@@ -9,10 +9,9 @@ import type { Command } from "commander";
 import {
 	generateSchedule,
 	isValidCivilDate,
-	NOTE_EVENT_SCHEMA,
 	type NoteTerms,
 	parseMinor,
-	parseNoteEvent,
+	parseNoteTerms,
 	type ScheduleRow,
 	type Statement,
 	statement,
@@ -26,18 +25,9 @@ const STATEMENT_FOOTER =
 const SCHEDULE_FOOTER =
 	"Computed by tfd-notes from the terms. A record, not legal or tax advice.";
 
-/** The placeholder fields that make a terms object a `note.created` event, so the library's own checks run on it. */
-const TERMS_WRAPPER = {
-	schema: NOTE_EVENT_SCHEMA,
-	id: "terms-check",
-	note_id: "terms-check",
-	seq: 1,
-	entered_at: "2000-01-01T00:00:00Z",
-	entered_by: "lender",
-	type: "note.created",
-} as const;
-
 const NEWLINE = /\r?\n/;
+/** A UTF-8 byte order mark, which some editors put at the start of a file and `JSON.parse` refuses. */
+const BYTE_ORDER_MARK = /^\uFEFF/;
 const MINUS = "-";
 const COLUMN_GAP = "  ";
 
@@ -78,7 +68,8 @@ const alignedTable = (rows: string[][]): string => {
 
 const readText = async (kit: CliKit, path: string): Promise<string> => {
 	try {
-		return await readFile(path, "utf8");
+		const text = await readFile(path, "utf8");
+		return text.replace(BYTE_ORDER_MARK, "");
 	} catch (error) {
 		throw new kit.InputError(`${path} cannot be read: ${messageOf(error)}`);
 	}
@@ -96,9 +87,7 @@ const parseTermsFile = async (
 		throw new kit.InputError(`${path} is not JSON: ${messageOf(error)}`);
 	}
 	try {
-		const event = parseNoteEvent({ ...TERMS_WRAPPER, terms });
-		if (event.type !== "note.created") throw new Error("not a note.created");
-		return event.terms;
+		return parseNoteTerms(terms);
 	} catch (error) {
 		throw new kit.InputError(
 			`${path} is not valid note terms: ${messageOf(error)}`,

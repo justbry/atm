@@ -16,6 +16,7 @@ enforceable. Whether a note holds up depends on the note, the law where the part
 | `replayBalance` | Terms, the payments a view counts and a date to that view's balance. |
 | `statement` | Events and an `as_of` date to the schedule, both views, the itemised difference, expected vs paid and days overdue. `statusLabel` gives the plain wording for each status. |
 | `parseNoteEvent` | Checks one untrusted event against `schema/note-event.v1.json`. |
+| `parseNoteTerms` | Checks a note's terms alone (what `note.created` carries), with the same rules and messages. |
 | `validateStream` | Checks a whole stream: `seq` without gaps or repeats, references that resolve, disputes with a counter-amount and a reason. |
 
 ## Money, rates and dates

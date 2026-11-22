@@ -96,9 +96,10 @@ export interface CountedPayment {
 	seq: number;
 }
 
-const comparePayments = (
-	left: CountedPayment,
-	right: CountedPayment,
+/** Orders payments by value date, then by `seq`: the replay order of both the balance and the statement. */
+export const comparePayments = (
+	left: Pick<CountedPayment, "value_date" | "seq">,
+	right: Pick<CountedPayment, "value_date" | "seq">,
 ): number => {
 	const byDate = compareDates(left.value_date, right.value_date);
 	return byDate === 0 ? left.seq - right.seq : byDate;

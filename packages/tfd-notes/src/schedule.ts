@@ -28,9 +28,10 @@ import type { CivilDate, Frequency, NoteTerms, ScheduleRow } from "./types";
 const WEEK_DAYS = 7;
 const BIWEEK_DAYS = 14;
 /** A weekly century. More installments than this are refused so a hostile terms object cannot stall a statement. */
-const MAX_INSTALLMENTS = 5200;
+export const MAX_INSTALLMENTS = 5200;
 
-const dueDateFor = (
+/** The due date of installment `index` (from 0) counted from `firstDue`; the validator checks the last one with it. */
+export const dueDateFor = (
 	firstDue: CivilDate,
 	frequency: Frequency,
 	index: number,
@@ -50,19 +51,18 @@ interface Step {
 }
 
 /**
- * One installment: accrue `days` days, then take `payment` as `replayBalance` would on the due date. For a custom row
- * the payment is the caller's amount, unchanged, so `payment - interest - principal` is positive when it exceeds
+ * One installment: take `payment` from the state already accrued to the due date, as `replayBalance` would. For a custom
+ * row the payment is the caller's amount, unchanged, so `payment - interest - principal` is positive when it exceeds
  * principal plus interest due (the excess is simply unapplied; the overdue logic later caps it).
  */
 const installmentStep = (
-	state: InterestState,
+	accrued: InterestState,
 	rate: Rational,
-	days: number,
 	payment: bigint,
 	number: number,
 	due: CivilDate,
 ): Step => {
-	const applied = applyPayment(accrueDays(state, rate, days), rate, payment);
+	const applied = applyPayment(accrued, rate, payment);
 	return {
 		state: applied.state,
 		row: {
@@ -100,9 +100,8 @@ const customSchedule = (
 			);
 		}
 		const step = installmentStep(
-			state,
+			accrueDays(state, rate, daysBetween(previousDate, installment.due)),
 			rate,
-			daysBetween(previousDate, installment.due),
 			payment,
 			rows.length + 1,
 			installment.due,
@@ -128,10 +127,8 @@ const simulateToFinalPeriod = (
 	payment: bigint,
 ): InterestState => {
 	let state: InterestState = { principal, accruedNumerator: 0n };
-	const lastIndex = plan.periodDays.length - 1;
-	for (let index = 0; index < lastIndex; index += 1) {
-		const accrued = accrueDays(state, rate, plan.periodDays[index] ?? 0);
-		state = applyPayment(accrued, rate, payment).state;
+	for (const days of plan.periodDays.slice(0, -1)) {
+		state = applyPayment(accrueDays(state, rate, days), rate, payment).state;
 	}
 	return state;
 };
@@ -228,17 +225,15 @@ const amortizedSchedule = (
 	}
 	const rows: ScheduleRow[] = [];
 	let state: InterestState = { principal, accruedNumerator: 0n };
-	for (let index = 0; index < count; index += 1) {
-		const days = plan.periodDays[index] ?? 0;
+	for (const [index, days] of plan.periodDays.entries()) {
 		const accrued = accrueDays(state, rate, days);
 		// Rows 1 to count-1 pay the level payment, capped at what is owed so a tiny principal is cleared early and later
 		// rows are 0. The final row pays principal left plus interest due, so it always clears the note.
 		const owed = accrued.principal + roundedInterest(accrued, rate);
 		const payment = index === lastIndex ? owed : minBigint(levelPayment, owed);
 		const step = installmentStep(
-			state,
+			accrued,
 			rate,
-			days,
 			payment,
 			index + 1,
 			plan.dueDates[index] ?? "",
