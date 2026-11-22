@@ -177,6 +177,12 @@ What exists (#41 to #49, on `dev`, not released) is in `CHANGELOG.md` (Unrelease
 - [ ] The ledger has `referral.qualified` and `referral.rewarded` events and postings, but no referral-code table or rules (single use, no self-referral). The B4 Uni purpose-built estimate counts gift and referral codes (220 to 380 lines).
 - [ ] A reconciliation query: the Trifold engine's balances and grants against Stripe's paid invoices, run nightly by the caller. Nothing in `src/` does this yet.
 
+## Pay later (2026-11-22)
+
+- [x] tfd side of Pay later on tfd-notes: the note, the instalment checkout, the handler's booking and the note events from paid and refunded instalments (unreleased; `README.md`, "Pay later").
+- [ ] Before it is live: counsel on Regulation Z (the cap of 4 instalments stays until then), a test-mode Checkout with `invoice_creation` and `price_data` end to end, and the family's view (tfd-notes step 2).
+- [ ] A receivable in the books for the amount still owed, if the owner wants accrual books; today an instalment is income when paid.
+
 ## Decisions taken
 - 2026-11-05: PII stripping and a raw input store for usage events are punted; atm stores no raw usage payload and no redacted copy. (docs/usage-metering.md#usage-events-as-a-ledger-source-spike-2026-11-05-decision-pending-on-whether-to-build)
 - 2026-11-05: a usage ledger event is an allowlist of the mapping's declared fields (no prompt or message text); `personal` stays a denylist backstop plus the drift check. (same section)
