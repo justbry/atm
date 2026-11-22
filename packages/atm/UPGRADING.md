@@ -2,6 +2,11 @@
 
 The sections for past releases keep the name the engine had then, `atm`.
 
+## Unreleased
+
+- **Pay later (may).** Additive: a caller that changes nothing decides exactly as on 0.11.1, because an invoice without `b4u_note` metadata is handled as before. To sell a plan in instalments, call `payLaterNote` and store the event on the note (the first `seq`). Then, for each instalment, call `instalmentCheckoutParams` and create the session from its `params`; they hold a `price_data` line, so `withPriceIds` isn't needed (send them through `toStripeForm`). When the handler books the paid invoice, pass its `payment.succeeded` (the one with `labels.note`) to `notePaymentEvent` and append the result to the note. Pass a later `payment.refunded` of that invoice with the note's payment to `noteReversalEvent`. Keep the cap of 4 instalments until counsel says otherwise; tfd refuses more.
+  - **Books.** An instalment is income when paid, at `income:billing:pay-later`. The amount still owed is on the note, not in the books: no receivable is booked. A full refund books `payment.refunded` as for any invoice.
+
 ## Moving to 0.11.1 from 0.11.0
 
 Three additive changes (#98, #99, #100), all on the credits engine for buzz-school's move onto tfd's grants. Nothing is required: a caller that changes nothing decides and replays byte for byte as on 0.11.0. The pin moves to `tfd-v0.11.1` (asset `tfd-0.11.1.tgz`), keeping the dependency key `atm`. What buzz-school should change, and what it may:

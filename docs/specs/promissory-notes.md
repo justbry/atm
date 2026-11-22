@@ -145,7 +145,7 @@ parties", "recorded", "claimed". No named school, family or co-op uses it until 
 
 ## Use: Pay later on B4 Uni
 
-Decided 2026-11-22 by the owner; planned, not live. "Pay later" on B4 Uni's pricing pages is a promissory note built on
+Decided 2026-11-22 by the owner; the tfd side is built (`packages/atm/src/billing/pay-later.ts`, README "Pay later"), and not live. "Pay later" on B4 Uni's pricing pages is a promissory note built on
 tfd-notes: B4 Uni or a school is the lender, a parent is the borrower, and the rate is zero (`annual_rate` `"0"`,
 `amortized` schedule). Each installment is paid through a tfd one-time checkout tied to the note, and the payment is then
 recorded as an event on the note.

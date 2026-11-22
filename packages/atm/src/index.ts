@@ -8,6 +8,15 @@ import * as grants from "./billing/grants.js";
 import * as handle from "./billing/handle.js";
 import * as menu from "./billing/menu.js";
 import * as normalizer from "./billing/normalize.js";
+import type {
+	InstalmentCheckoutInput,
+	InstalmentCheckoutResult,
+	NoteEventSlot,
+	NoteReversalResult,
+	PayLaterNoteInput,
+	PayLaterNoteResult,
+} from "./billing/pay-later.js";
+import * as payLater from "./billing/pay-later.js";
 import * as policy from "./billing/policy.js";
 import * as raise from "./billing/raise.js";
 import * as rows from "./billing/rows.js";
@@ -652,6 +661,47 @@ export const checkoutParams = (input: CheckoutInput): CheckoutResult =>
 export const oneTimeCheckoutParams = (
 	input: OneTimeCheckoutInput,
 ): OneTimeCheckoutResult => stripeMenu.oneTimeCheckoutParams(input);
+
+export type {
+	InstalmentCheckoutInput,
+	InstalmentCheckoutParams,
+	InstalmentCheckoutResult,
+	NoteEventSlot,
+	NoteReversalResult,
+	PayLaterNoteInput,
+	PayLaterNoteResult,
+} from "./billing/pay-later.js";
+
+/** Most instalments a Pay later note may have until counsel reviews Regulation Z. */
+export const MAX_PAY_LATER_INSTALMENTS: number =
+	payLater.MAX_PAY_LATER_INSTALMENTS;
+
+/** The `note.created` of a zero-interest Pay later note (USD, amortized, at most 4 instalments), or why not. */
+export const payLaterNote = (input: PayLaterNoteInput): PayLaterNoteResult =>
+	payLater.payLaterNote(input);
+
+/**
+ * The payment-mode Checkout Session for one instalment of a Pay later note (an inline price, `invoice_creation` on, the
+ * invoice naming `b4u_note` and `b4u_instalment`), or why not. The handler books the paid invoice to
+ * `income:billing:pay-later` and grants nothing.
+ */
+export const instalmentCheckoutParams = (
+	input: InstalmentCheckoutInput,
+): InstalmentCheckoutResult => payLater.instalmentCheckoutParams(input);
+
+/** The note's `payment.recorded` for a paid instalment's `payment.succeeded`; null for any other event. */
+export const notePaymentEvent = (
+	event: AtmEvent,
+	slot: NoteEventSlot,
+): ReturnType<typeof payLater.notePaymentEvent> =>
+	payLater.notePaymentEvent(event, slot);
+
+/** The whole `reversal` of an instalment's note payment once its charge is refunded in full, or why not. */
+export const noteReversalEvent = (
+	refund: AtmEvent,
+	payment: NonNullable<ReturnType<typeof payLater.notePaymentEvent>>,
+	slot: NoteEventSlot,
+): NoteReversalResult => payLater.noteReversalEvent(refund, payment, slot);
 
 /**
  * `params` (a membership's or a one-time checkout's) with each line's lookup key swapped for its Stripe price id; null when a
