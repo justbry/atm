@@ -50,7 +50,7 @@ const copies = <T extends { id: string; name: string }>(
 	}));
 
 describe("validateMenu: audiences", () => {
-	test("B4 Uni's own menu is valid: 7 tiers and 9 add-ons, none over the per-audience limits", () => {
+	test("B4 Uni's own menu is valid: 9 tiers and 9 add-ons, none over the per-audience limits", () => {
 		const result = validateMenu(menu());
 		expect(result.ok).toBe(true);
 		if (result.ok) expect(result.menu).toEqual(menu());
@@ -70,8 +70,8 @@ describe("validateMenu: audiences", () => {
 
 	test("each audience may have 4 tiers and 6 add-ons", () => {
 		const m = menu();
-		const tier = tierOf(m, "go-build");
-		const pack = addonOf(m, "credits-5");
+		const tier = tierOf(m, "go_build");
+		const pack = addonOf(m, "credits_50");
 		m.tiers = [
 			...copies(tier, MAX_TIERS, { audience: "families" }),
 			...copies(tier, MAX_TIERS, { audience: "guides", id: "g" }).map(
@@ -119,22 +119,22 @@ describe("validateMenu: audiences", () => {
 	test("an audience is an id", () => {
 		const m = menu();
 		tierOf(m, "academy").audience = "Schools!";
-		expect(problems(m)).toEqual(["tiers.5.audience"]);
+		expect(problems(m)).toEqual(["tiers.6.audience"]);
 	});
 });
 
 describe("publicMenu: one audience's page", () => {
 	test("an audience sees its own tiers and add-ons, and those with no audience", () => {
 		const m = menu();
-		const shared = structuredClone(addonOf(m, "trip-leader-check"));
+		const shared = structuredClone(addonOf(m, "trip_leader_check"));
 		delete shared.audience;
 		m.addons.push({ ...shared, id: "shared" });
-		tierOf(m, "guide-studio").public = false;
+		tierOf(m, "guide_studio").public = false;
 		const guides = publicMenu(m, "guides");
-		expect(guides.tiers.map((t) => t.id)).toEqual(["guide-pro"]);
+		expect(guides.tiers.map((t) => t.id)).toEqual(["guide_pro"]);
 		expect(guides.addons.map((a) => a.id)).toEqual([
 			"vetting",
-			"vetting-pro",
+			"vetting_pro",
 			"shared",
 		]);
 		expect(publicMenu(m, "nobody").tiers).toEqual([]);
@@ -167,30 +167,30 @@ describe("checkoutParams: audiences", () => {
 		});
 
 	test("an add-on of another audience is refused", () => {
-		expect(checkout("go-build", ["extra-school"])).toEqual({
+		expect(checkout("go_build", ["extra_school"])).toEqual({
 			ok: false,
 			reason: "addon_audience_mismatch",
-			addonId: "extra-school",
+			addonId: "extra_school",
 		});
-		expect(checkout("academy", ["extra-school"], menu(), "school-9").ok).toBe(
+		expect(checkout("academy", ["extra_school"], menu(), "school-9").ok).toBe(
 			true,
 		);
-		expect(checkout("go-build", ["credits-10"]).ok).toBe(true);
+		expect(checkout("go_build", ["credits_100"]).ok).toBe(true);
 	});
 
 	test("an add-on with no audience goes with any tier", () => {
 		const m = menu();
-		delete addonOf(m, "extra-school").audience;
-		expect(checkout("go-build", ["extra-school"], m).ok).toBe(true);
+		delete addonOf(m, "extra_school").audience;
+		expect(checkout("go_build", ["extra_school"], m).ok).toBe(true);
 	});
 
 	test("a tier with no audience takes any audience's add-on, as publicMenu shows them together", () => {
 		const m = menu();
-		delete tierOf(m, "go-build").audience;
+		delete tierOf(m, "go_build").audience;
 		expect(publicMenu(m, "schools").tiers.map((t) => t.id)).toContain(
-			"go-build",
+			"go_build",
 		);
-		expect(checkout("go-build", ["extra-school"], m).ok).toBe(true);
+		expect(checkout("go_build", ["extra_school"], m).ok).toBe(true);
 	});
 
 	test("a one-time checkout keeps to one audience", () => {
@@ -203,26 +203,26 @@ describe("checkoutParams: audiences", () => {
 				menuVersion: 1,
 				returnUrls: { success: "https://x/ok", cancel: "https://x/no" },
 			});
-		expect(oneTime(["credits-5", "vetting"])).toEqual({
+		expect(oneTime(["credits_50", "vetting"])).toEqual({
 			ok: false,
 			reason: "addon_audience_mismatch",
 			addonId: "vetting",
 		});
-		expect(oneTime(["credits-5", "credits-10"]).ok).toBe(true);
+		expect(oneTime(["credits_50", "credits_100"]).ok).toBe(true);
 		const m = menu();
 		delete addonOf(m, "vetting").audience;
-		expect(oneTime(["credits-5", "vetting"], m).ok).toBe(true);
+		expect(oneTime(["credits_50", "vetting"], m).ok).toBe(true);
 	});
 
 	test("the holder id must have the prefix of the tier's audience", () => {
-		expect(checkout("guide-pro", [], menu(), "fam_1")).toEqual({
+		expect(checkout("guide_pro", [], menu(), "fam_1")).toEqual({
 			ok: false,
 			reason: "holder_not_in_audience",
 			familyId: "fam_1",
 		});
-		expect(checkout("guide-pro", [], menu(), "guide-u42").ok).toBe(true);
+		expect(checkout("guide_pro", [], menu(), "guide-u42").ok).toBe(true);
 		// the prefix alone names nobody
-		expect(checkout("guide-pro", [], menu(), "guide-").ok).toBe(false);
+		expect(checkout("guide_pro", [], menu(), "guide-").ok).toBe(false);
 		expect(checkout("basecamp", [], menu(), "org-3").ok).toBe(true);
 		expect(checkout("academy", [], menu(), "school_9").ok).toBe(false);
 	});
@@ -230,7 +230,7 @@ describe("checkoutParams: audiences", () => {
 	test("an audience with no prefix, or a menu with none, takes any holder id", () => {
 		const m = menu();
 		delete m.holderPrefixes?.guides;
-		expect(checkout("guide-pro", [], m, "u42").ok).toBe(true);
+		expect(checkout("guide_pro", [], m, "u42").ok).toBe(true);
 		delete m.holderPrefixes;
 		expect(checkout("academy", [], m, "fam_1").ok).toBe(true);
 	});
@@ -305,7 +305,7 @@ describe("one merchant's books: a holder per group", () => {
 			school: MERCHANT,
 			family: "guide-u42",
 		});
-		const pack = addonOf(m, "credits-25");
+		const pack = addonOf(m, "credits_250");
 		const packResult = family.handle(
 			invoicePaid({
 				eventId: "evt_pack",
@@ -325,7 +325,7 @@ describe("one merchant's books: a holder per group", () => {
 		expect(packResult.refused ?? null).toBeNull();
 		expect(family.avail(at, "credits")).toBe(250);
 
-		const pro = tierOf(m, "guide-pro");
+		const pro = tierOf(m, "guide_pro");
 		const proResult = guide.handle(
 			invoicePaid({
 				eventId: "evt_pro",
@@ -357,8 +357,8 @@ describe("one merchant's books: a holder per group", () => {
 				.map((p) => p.account),
 		);
 		expect(income).toEqual([
-			"income:billing:addon:credits-25",
-			"income:billing:membership:guide-pro",
+			"income:billing:addon:credits_250",
+			"income:billing:membership:guide_pro",
 		]);
 	});
 });

@@ -24,7 +24,7 @@ const POLICY = { ...DEFAULT_POLICY, memberCode: null };
 const RETURN = { success: "https://x/ok", cancel: "https://x/no" };
 const menu = (): Menu => structuredClone(b4uni) as Menu;
 const goLearn = (m: Menu) =>
-	m.addons.find((a) => a.id === "go-learn") as MenuAddon;
+	m.addons.find((a) => a.id === "go_learn") as MenuAddon;
 const problems = (m: unknown): string[] => {
 	const result = validateMenu(m);
 	if (result.ok) throw new Error("expected problems");
@@ -114,13 +114,13 @@ describe("menuToStripe: pay what you can", () => {
 		}).find((op) => op.op === "price.create" && op.lookupKey === goLearnKey(m));
 		expect(create).toMatchObject({
 			op: "price.create",
-			productKey: "a:go-learn",
+			productKey: "a:go_learn",
 			unitAmount: null,
 			customUnitAmount: { minimum: 50, maximum: 50000, preset: 4800 },
 			recurring: null,
 		});
 		expect(goLearnKey(m)).toBe(
-			"b4u_b4uni_a_go-learn_once_pwyc-50000-4800_50_usd",
+			"b4u_b4uni_a_go_learn_once_pwyc-50000-4800_50_usd",
 		);
 	});
 
@@ -131,7 +131,7 @@ describe("menuToStripe: pay what you can", () => {
 			previous: null,
 			policy: POLICY,
 		}).find(
-			(op) => op.op === "price.create" && op.productKey === "a:credits-5",
+			(op) => op.op === "price.create" && op.productKey === "a:credits_50",
 		);
 		expect(create).toMatchObject({ unitAmount: 500 });
 		expect(create).not.toHaveProperty("customUnitAmount");
@@ -165,14 +165,14 @@ describe("menuToStripe: pay what you can", () => {
 	});
 
 	test("a dollar gift cannot pay for it (Stripe takes no coupon on it)", () => {
-		expect(giftProductKeys(MERCHANT, menu())).not.toContain("a:go-learn");
-		expect(giftProductKeys(MERCHANT, menu())).toContain("a:credits-5");
+		expect(giftProductKeys(MERCHANT, menu())).not.toContain("a:go_learn");
+		expect(giftProductKeys(MERCHANT, menu())).toContain("a:credits_50");
 	});
 });
 
 describe("checkout: pay what you can is sold alone", () => {
 	test("alone, in a payment-mode checkout with an invoice", () => {
-		const result = oneTime(["go-learn"]);
+		const result = oneTime(["go_learn"]);
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
 		expect(result.params.mode).toBe("payment");
@@ -182,33 +182,33 @@ describe("checkout: pay what you can is sold alone", () => {
 		expect(result.params.invoice_creation.invoice_data.metadata).toMatchObject({
 			b4u_school: MERCHANT,
 			family_id: "fam_7",
-			addon_ids: "go-learn",
+			addon_ids: "go_learn",
 		});
 	});
 
 	test("with another add-on, or on a membership's checkout, it is refused", () => {
-		expect(oneTime(["go-learn", "credits-5"])).toEqual({
+		expect(oneTime(["go_learn", "credits_50"])).toEqual({
 			ok: false,
 			reason: "addon_sold_alone",
-			addonId: "go-learn",
+			addonId: "go_learn",
 		});
 		expect(
 			checkoutParams({
 				schoolId: MERCHANT,
 				menu: menu(),
-				tierId: "go-build",
+				tierId: "go_build",
 				interval: "year",
-				addonIds: ["go-learn"],
+				addonIds: ["go_learn"],
 				familyId: "fam_7",
 				menuVersion: 1,
 				returnUrls: RETURN,
 				policy: POLICY,
 			}),
-		).toEqual({ ok: false, reason: "addon_sold_alone", addonId: "go-learn" });
+		).toEqual({ ok: false, reason: "addon_sold_alone", addonId: "go_learn" });
 	});
 
 	test("a one-time add-on checks the holder's prefix too", () => {
-		expect(oneTime(["go-learn"], "guide-u42")).toEqual({
+		expect(oneTime(["go_learn"], "guide-u42")).toEqual({
 			ok: false,
 			reason: "holder_not_in_audience",
 			familyId: "guide-u42",
@@ -243,7 +243,7 @@ describe("the handler books what the buyer chose", () => {
 		expect(payment?.postings).toEqual([
 			{ account: "assets:stripe", amount: "13.00", commodity: "USD" },
 			{
-				account: "income:billing:addon:go-learn",
+				account: "income:billing:addon:go_learn",
 				amount: "-13.00",
 				commodity: "USD",
 			},
@@ -266,7 +266,7 @@ describe("the handler books what the buyer chose", () => {
 			.filter((event) => event.event_type === "payment.succeeded");
 		expect(payments).toHaveLength(1);
 		expect(payments[0]?.postings[1]).toEqual({
-			account: "income:billing:addon:go-learn",
+			account: "income:billing:addon:go_learn",
 			amount: "-48.00",
 			commodity: "USD",
 		});

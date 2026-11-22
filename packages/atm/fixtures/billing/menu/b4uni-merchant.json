@@ -10,7 +10,7 @@
 	"features": [
 		{
 			"id": "credits",
-			"name": "Agent credits",
+			"name": "AI answer credits",
 			"unit": {
 				"one": "credit",
 				"other": "credits"
@@ -19,11 +19,10 @@
 	],
 	"tiers": [
 		{
-			"id": "go-build",
+			"id": "go_build",
 			"name": "Go Build",
-			"blurb": "100 Agent answers a day",
+			"blurb": "Learn by building real projects.",
 			"public": true,
-			"audience": "families",
 			"prices": [
 				{
 					"interval": "month",
@@ -34,14 +33,14 @@
 					"amount": 18200
 				}
 			],
-			"grants": []
+			"grants": [],
+			"audience": "families"
 		},
 		{
 			"id": "go_hive",
 			"name": "Go Unlimited",
-			"blurb": "Unlimited Agent answers",
+			"blurb": "Unlimited help for serious learners.",
 			"public": true,
-			"audience": "families",
 			"prices": [
 				{
 					"interval": "month",
@@ -52,14 +51,50 @@
 					"amount": 182400
 				}
 			],
-			"grants": []
+			"grants": [],
+			"audience": "families"
 		},
 		{
-			"id": "guide-pro",
-			"name": "Guide Pro",
-			"blurb": "Grow a tutoring practice",
+			"id": "passport",
+			"name": "Passport",
+			"blurb": "Get on the best trips first.",
 			"public": true,
-			"audience": "guides",
+			"prices": [
+				{
+					"interval": "month",
+					"amount": 4900
+				},
+				{
+					"interval": "year",
+					"amount": 47000
+				}
+			],
+			"grants": [],
+			"audience": "families"
+		},
+		{
+			"id": "odyssey",
+			"name": "Odyssey",
+			"blurb": "A Field Study Year: a mentor for your year of trips.",
+			"public": true,
+			"prices": [
+				{
+					"interval": "month",
+					"amount": 12000
+				},
+				{
+					"interval": "year",
+					"amount": 120000
+				}
+			],
+			"grants": [],
+			"audience": "families"
+		},
+		{
+			"id": "guide_pro",
+			"name": "Guide Pro",
+			"blurb": "Grow a tutoring practice.",
+			"public": true,
 			"prices": [
 				{
 					"interval": "month",
@@ -67,17 +102,17 @@
 				},
 				{
 					"interval": "year",
-					"amount": 18240
+					"amount": 18200
 				}
 			],
-			"grants": []
+			"grants": [],
+			"audience": "guides"
 		},
 		{
-			"id": "guide-studio",
+			"id": "guide_studio",
 			"name": "Guide Studio",
-			"blurb": "Teach big classes and stream",
+			"blurb": "Teach big classes and stream.",
 			"public": true,
-			"audience": "guides",
 			"prices": [
 				{
 					"interval": "month",
@@ -85,31 +120,17 @@
 				},
 				{
 					"interval": "year",
-					"amount": 75840
+					"amount": 75800
 				}
 			],
-			"grants": []
-		},
-		{
-			"id": "listed-treasurer",
-			"name": "Listed with Treasurer",
-			"blurb": "A listed school with books and reports",
-			"public": true,
-			"audience": "schools",
-			"prices": [
-				{
-					"interval": "month",
-					"amount": 800
-				}
-			],
-			"grants": []
+			"grants": [],
+			"audience": "guides"
 		},
 		{
 			"id": "academy",
 			"name": "Academy",
-			"blurb": "A website and the tools to run a school",
+			"blurb": "A website and the tools to run a school.",
 			"public": true,
-			"audience": "schools",
 			"prices": [
 				{
 					"interval": "month",
@@ -117,17 +138,17 @@
 				},
 				{
 					"interval": "year",
-					"amount": 56640
+					"amount": 56600
 				}
 			],
-			"grants": []
+			"grants": [],
+			"audience": "schools"
 		},
 		{
 			"id": "basecamp",
 			"name": "Basecamp",
-			"blurb": "Overnight trips, all year",
+			"blurb": "Overnight trips, all year.",
 			"public": true,
-			"audience": "organizers",
 			"prices": [
 				{
 					"interval": "month",
@@ -135,17 +156,31 @@
 				},
 				{
 					"interval": "year",
-					"amount": 75840
+					"amount": 75800
 				}
 			],
-			"grants": []
+			"grants": [],
+			"audience": "organizers"
+		},
+		{
+			"id": "listed_treasurer",
+			"name": "Listed with Treasurer",
+			"blurb": "Listed, plus Treasurer for the school's books",
+			"public": true,
+			"prices": [
+				{
+					"interval": "month",
+					"amount": 800
+				}
+			],
+			"grants": [],
+			"audience": "schools"
 		}
 	],
 	"addons": [
 		{
-			"id": "credits-5",
+			"id": "credits_50",
 			"name": "50 credits",
-			"audience": "families",
 			"price": {
 				"amount": 500,
 				"every": "once"
@@ -156,12 +191,12 @@
 					"amount": 50,
 					"every": "month"
 				}
-			]
+			],
+			"audience": "families"
 		},
 		{
-			"id": "credits-10",
+			"id": "credits_100",
 			"name": "100 credits",
-			"audience": "families",
 			"price": {
 				"amount": 1000,
 				"every": "once"
@@ -172,12 +207,12 @@
 					"amount": 100,
 					"every": "month"
 				}
-			]
+			],
+			"audience": "families"
 		},
 		{
-			"id": "credits-25",
+			"id": "credits_250",
 			"name": "250 credits",
-			"audience": "families",
 			"price": {
 				"amount": 2500,
 				"every": "once"
@@ -188,12 +223,12 @@
 					"amount": 250,
 					"every": "month"
 				}
-			]
+			],
+			"audience": "families"
 		},
 		{
-			"id": "credits-50",
+			"id": "credits_500",
 			"name": "500 credits",
-			"audience": "families",
 			"price": {
 				"amount": 5000,
 				"every": "once"
@@ -204,12 +239,12 @@
 					"amount": 500,
 					"every": "month"
 				}
-			]
+			],
+			"audience": "families"
 		},
 		{
-			"id": "go-learn",
-			"name": "Go Learn",
-			"audience": "families",
+			"id": "go_learn",
+			"name": "Go Learn (pay what you can)",
 			"price": {
 				"amount": 50,
 				"every": "once",
@@ -218,47 +253,48 @@
 					"preset": 4800
 				}
 			},
-			"grants": []
+			"grants": [],
+			"audience": "families"
 		},
 		{
 			"id": "vetting",
-			"name": "Vetting",
-			"audience": "guides",
+			"name": "Vetting to teach minors",
 			"price": {
 				"amount": 4000,
 				"every": "once"
 			},
-			"grants": []
+			"grants": [],
+			"audience": "guides"
 		},
 		{
-			"id": "vetting-pro",
-			"name": "Vetting on Pro",
-			"audience": "guides",
+			"id": "vetting_pro",
+			"name": "Vetting to teach minors (Guide Pro)",
 			"price": {
 				"amount": 3000,
 				"every": "once"
 			},
-			"grants": []
+			"grants": [],
+			"audience": "guides"
 		},
 		{
-			"id": "extra-school",
-			"name": "Extra school",
-			"audience": "schools",
+			"id": "extra_school",
+			"name": "Each extra school",
 			"price": {
 				"amount": 2500,
 				"every": "month"
 			},
-			"grants": []
+			"grants": [],
+			"audience": "schools"
 		},
 		{
-			"id": "trip-leader-check",
+			"id": "trip_leader_check",
 			"name": "Trip leader check",
-			"audience": "organizers",
 			"price": {
 				"amount": 7500,
 				"every": "once"
 			},
-			"grants": []
+			"grants": [],
+			"audience": "organizers"
 		}
 	],
 	"codes": [
@@ -267,8 +303,8 @@
 			"kind": "member",
 			"code": "EARLY2027",
 			"percentOff": 30,
-			"tierIds": ["go-build", "go_hive"],
-			"expiresAt": 1796108400000
+			"tierIds": ["go_build", "go_hive"],
+			"expiresAt": 1797404400000
 		}
 	]
 }
